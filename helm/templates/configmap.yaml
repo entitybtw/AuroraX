@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aurora.fullname" . }}
+  labels:
+    {{- include "aurora.labels" . | nindent 4 }}
+data:
+  PORT: {{ .Values.server.port | quote }}
+  BASE_PATH: {{ .Values.server.basePath | default "/" | quote }}
+  BODY_SIZE_LIMIT: {{ .Values.server.bodySizeLimit | quote }}
+  {{- if or .Values.redis.enabled .Values.cache.redis.url }}
+  REDIS_KEY_MODELS: {{ .Values.cache.redis.keyModels | default "aurora:models" | quote }}
+  REDIS_KEY_RESPONSES: {{ .Values.cache.redis.keyResponses | default "aurora:response:" | quote }}
+  REDIS_TTL_MODELS: {{ .Values.cache.redis.ttlModels | default 86400 | quote }}
+  REDIS_TTL_RESPONSES: {{ .Values.cache.redis.ttlResponses | default 3600 | quote }}
+  RESPONSE_CACHE_SIMPLE_ENABLED: "true"
+  {{- end }}
+  METRICS_ENABLED: {{ .Values.metrics.enabled | quote }}
+  METRICS_ENDPOINT: {{ .Values.metrics.endpoint | quote }}
+  LOG_FORMAT: {{ .Values.logging.format | quote }}

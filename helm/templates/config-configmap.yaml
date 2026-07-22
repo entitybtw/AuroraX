@@ -1,0 +1,11 @@
+{{- if .Values.config.content }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aurora.fullname" . }}-config
+  labels:
+    {{- include "aurora.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+{{ .Values.config.content | indent 4 }}
+{{- end }}

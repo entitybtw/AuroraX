@@ -1,0 +1,105 @@
+# Aurora Gateway — Prometheus Scrape Configuration
+#
+# Enable metrics in the gateway by setting METRICS_ENABLED=true
+# or by uncommenting/adding the metrics block in your config YAML:
+#
+#   metrics:
+#     enabled: true
+#     endpoint: "/metrics"   (default)
+#
+# Usage:
+#   prometheus --config.file=prometheus.yml
+#
+# Or with Docker:
+#   docker run -d --net=host -p 9090:9090 \
+#     -v ./prometheus.yml:/etc/prometheus/prometheus.yml \
+#     prom/prometheus
+
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+  # scrape_timeout defaults to 10s
+
+# Alertmanager configuration (optional)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#           - alertmanager:9093
+
+# Rule files to load (optional)
+# rule_files:
+#   - "alerts.yml"
+
+scrape_configs:
+  # ---------------------------------------------------------------
+  # Aurora Gateway — the primary target
+  # ---------------------------------------------------------------
+  - job_name: 'aurora'
+    metrics_path: /metrics
+    # When running in Docker Compose, use the service name matching
+    # the compose file (default: "aurora:8080"). For host-only runs,
+    # use localhost:8080.
+    static_configs:
+      - targets: ['aurora:8080']
+        labels:
+          app: 'aurora-gateway'
+          component: 'gateway'
+    # Optional relabeling to add instance info from environment
+    # relabel_configs:
+    #   - source_labels: [__address__]
+    #     regex: '([^:]+)(?::\d+)?'
+    #     target_label: 'instance'
+    #     replacement: '${1}'
+
+  # ---------------------------------------------------------------
+  # Prometheus self-monitoring (optional)
+  # ---------------------------------------------------------------
+  - job_name: 'prometheus'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['localhost:9090']
+
+# ------------------------------------------------------------------
+# Available Aurora Gateway Metrics
+#
+# Requests (counter)
+#   aurora_requests_total{provider, model, endpoint, status_code, status_type, stream}
+#     Rate:  rate(aurora_requests_total[5m])
+#     Errors: rate(aurora_requests_total{status_type="error"}[5m])
+#
+# Duration (histogram)
+#   aurora_request_duration_seconds{provider, model, endpoint, stream}
+#     P50:   histogram_quantile(0.50, rate(aurora_request_duration_seconds_bucket[5m]))
+#     P95:   histogram_quantile(0.95, rate(aurora_request_duration_seconds_bucket[5m]))
+#     P99:   histogram_quantile(0.99, rate(aurora_request_duration_seconds_bucket[5m]))
+#
+# In-flight requests (gauge)
+#   aurora_requests_in_flight{provider, endpoint, stream}
+#
+# Gateway phase duration (histogram)
+#   aurora_gateway_phase_duration_seconds{endpoint, phase, status, stream}
+#
+# Response snapshot store failures (counter)
+#   aurora_response_snapshot_store_failures_total{provider, provider_name, operation}
+#
+# ------------------------------------------------------------------
+# Grafana Dashboard Queries
+# ------------------------------------------------------------------
+# Panel: Request Rate by Provider
+#   sum(rate(aurora_requests_total[5m])) by (provider)
+#
+# Panel: Error Rate %
+#   sum(rate(aurora_requests_total{status_type="error"}[5m]))
+#   / sum(rate(aurora_requests_total[5m])) * 100
+#
+# Panel: Latency P95 by Provider
+#   histogram_quantile(0.95,
+#     sum(rate(aurora_request_duration_seconds_bucket[5m])) by (le, provider))
+#
+# Panel: In-Flight Requests
+#   sum(aurora_requests_in_flight) by (provider)
+#
+# Panel: Request Rate by Model
+#   sum(rate(aurora_requests_total[5m])) by (model)
+# ------------------------------------------------------------------

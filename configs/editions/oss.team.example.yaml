@@ -1,0 +1,219 @@
+# Aurora OSS self-hosted team profile
+# Usage: $env:AURORA_CONFIG_PATH = "configs/editions/oss.team.example.yaml"; go run ./apps/aurora
+# Goal: small-team self-hosted gateway with Postgres, Redis, exact cache, semantic cache, metrics, audit, and usage.
+# Config pipeline: defaults -> this YAML -> env vars. Env vars always win.
+# Do not put real provider keys, database passwords, Redis URLs, or vector DB keys in this file.
+
+edition:
+  name: oss
+
+server:
+  port: "8080"
+  base_path: "/"
+  master_key: "${AURORA_MASTER_KEY}"
+  enable_passthrough_routes: true
+  allow_passthrough_v1_alias: true
+  enabled_passthrough_providers: ["openai", "anthropic", "openrouter", "zai", "vllm"]
+  enable_anthropic_ingress: true
+
+admin:
+  endpoints_enabled: true
+  ui_enabled: true
+
+
+models:
+  enabled_by_default: true
+  overrides_enabled: true
+  keep_only_aliases_at_models_endpoint: false
+  configured_provider_models_mode: "fallback"
+
+storage:
+  type: "postgresql"
+  sqlite:
+    path: "data/aurora-oss.db"
+  postgresql:
+    url: "${POSTGRES_URL}"
+    max_conns: 20
+
+logging:
+  enabled: true
+  log_bodies: false
+  log_headers: false
+  only_model_interactions: true
+
+usage:
+  enabled: true
+  pricing_recalculation_enabled: true
+  enforce_returning_usage_data: true
+
+metrics:
+  enabled: true
+  endpoint: "/metrics"
+
+guardrails:
+  enabled: false
+  enable_for_batch_processing: false
+
+cache:
+  model:
+    refresh_interval: 3600
+    model_list:
+      url: ""
+      local_path: "data/models.local.json"
+      user_overrides_path: "data/user_pricing.yaml"
+    redis:
+      url: "${REDIS_URL}"
+      key: "aurora:models"
+      ttl: 86400
+  response:
+    simple:
+      enabled: true
+      redis:
+        url: "${REDIS_URL}"
+        key: "aurora:response:"
+        ttl: 3600
+    semantic:
+      enabled: true
+      similarity_threshold: 0.92
+      prompt_similarity_threshold: 0.72
+      ttl: 3600
+      max_conversation_messages: 3
+      exclude_system_prompt: true
+      embedder:
+        provider: "${SEMANTIC_CACHE_EMBEDDER_PROVIDER}"
+        model: "${SEMANTIC_CACHE_EMBEDDER_MODEL}"
+      vector_store:
+        type: qdrant
+        qdrant:
+          url: "${SEMANTIC_CACHE_QDRANT_URL}"
+          collection: "${SEMANTIC_CACHE_QDRANT_COLLECTION}"
+          api_key: "${SEMANTIC_CACHE_QDRANT_API_KEY}"
+        # Alternative: use Postgres + pgvector instead of Qdrant.
+        # Set vector_store.type to pgvector and provide dimension matching the embedder.
+        # pgvector:
+        #   url: "${SEMANTIC_CACHE_PGVECTOR_URL}"
+        #   table: "aurora_semantic_cache"
+        #   dimension: 1536
+        # Alternative: Pinecone.
+        # pinecone:
+        #   host: "${SEMANTIC_CACHE_PINECONE_HOST}"
+        #   api_key: "${SEMANTIC_CACHE_PINECONE_API_KEY}"
+        #   namespace: "${SEMANTIC_CACHE_PINECONE_NAMESPACE}"
+        #   dimension: 1536
+        # Alternative: Weaviate.
+        # weaviate:
+        #   url: "${SEMANTIC_CACHE_WEAVIATE_URL}"
+        #   class: "AuroraSemanticCache"
+        #   api_key: "${SEMANTIC_CACHE_WEAVIATE_API_KEY}"
+
+fallback:
+  default_mode: "manual"
+  manual_rules_path: "configs/fallback.example.json"
+  overrides: {}
+
+resilience:
+  retry:
+    max_retries: 3
+    initial_backoff: 1s
+    max_backoff: 30s
+    backoff_factor: 2.0
+    jitter_factor: 0.1
+  circuit_breaker:
+    failure_threshold: 5
+    success_threshold: 2
+    timeout: 30s
+
+combos:
+  enabled: true
+  definitions:
+    - name: "team-review-duo"
+      description: "Disabled example combo; enable after matching aliases/providers exist."
+      enabled: false
+      models:
+        - "gpt-4o-mini"
+        - "claude-sonnet-4"
+
+cli_tools:
+  enabled: true
+  apply_enabled: false
+
+token_saver:
+  enabled: false
+  endpoints: ["chat_completions"]
+  apply_streaming: true
+  output:
+    enabled: false
+    profile: "concise"
+    level: "full"
+  models:
+    include: []
+    exclude: []
+  providers:
+    include: []
+    exclude: []
+  on_error: "allow"
+  emit_headers: true
+  audit:
+    enabled: true
+
+providers:
+  # Providers can also be discovered entirely from env vars such as OPENAI_API_KEY,
+  # OPENAI_EAST_API_KEY, OPENAI_EAST_BASE_URL, OPENAI_EAST_MODELS.
+  openai:
+    type: "openai"
+    api_key: "${OPENAI_API_KEY}"
+    models:
+      - gpt-4o-mini
+
+  anthropic:
+    type: "anthropic"
+    api_key: "${ANTHROPIC_API_KEY}"
+
+  gemini:
+    type: "gemini"
+    api_key: "${GEMINI_API_KEY}"
+
+  groq:
+    type: "groq"
+    api_key: "${GROQ_API_KEY}"
+
+  openrouter:
+    type: "openrouter"
+    base_url: "${OPENROUTER_BASE_URL}"
+    api_key: "${OPENROUTER_API_KEY}"
+
+  zai:
+    type: "zai"
+    base_url: "${ZAI_BASE_URL}"
+    api_key: "${ZAI_API_KEY}"
+
+  xai:
+    type: "xai"
+    api_key: "${XAI_API_KEY}"
+
+  # Semantic cache embedder example. Set SEMANTIC_CACHE_EMBEDDER_PROVIDER=jina.
+  jina:
+    type: "openai"
+    base_url: "${JINA_BASE_URL}"
+    api_key: "${JINA_API_KEY}"
+    models:
+      - jina-embeddings-v3
+
+  ollama:
+    type: "ollama"
+    base_url: "${OLLAMA_BASE_URL}"
+
+  vllm:
+    type: "vllm"
+    base_url: "${VLLM_BASE_URL}"
+    api_key: "${VLLM_API_KEY}"
+
+pools:
+  # Disabled-by-default example: only works if OPENAI_EAST_* and OPENAI_WEST_* env vars create these providers.
+  # openai-pool:
+  #   members: ["openai-east", "openai-west"]
+  #   strategy: "adaptive"
+  #   health_aware: true
+
+workflows:
+  refresh_interval: 1m

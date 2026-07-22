@@ -1,0 +1,19 @@
+{
+  "name": "aurora-heartbeat",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.0.0",
+    "@types/pg": "^8.20.0",
+    "typescript": "^5.0.0",
+    "wrangler": "^4.0.0"
+  },
+  "dependencies": {
+    "pg": "^8.13.0"
+  }
+}

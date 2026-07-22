@@ -1,0 +1,46 @@
+apiVersion: v2
+name: aurora
+description: Aurora OSS AI gateway for OpenAI-compatible routing across multiple LLM providers
+type: application
+version: 1.0.36
+appVersion: 1.0.36
+icon: https://raw.githubusercontent.com/aurorallm/aurora/main/docs/logo.svg
+annotations:
+  artifacthub.io/license: Apache-2.0
+  artifacthub.io/containsSecurityUpdates: "false"
+  artifacthub.io/prerelease: "false"
+  artifacthub.io/recommendations: |
+    - url: https://artifacthub.io/packages/helm/bitnami/redis
+  artifacthub.io/links: |
+    - name: source
+      url: https://github.com/aurorallm/aurora
+    - name: support
+      url: https://discord.gg/AfaFBSU2km
+    - name: docs
+      url: https://github.com/aurorallm/aurora
+
+keywords:
+  - llm
+  - ai
+  - gateway
+  - openai
+  - anthropic
+  - gemini
+  - groq
+  - xai
+  - proxy
+  - oss
+
+home: https://github.com/aurorallm/aurora
+sources:
+  - https://github.com/aurorallm/aurora
+
+maintainers:
+  - name: Aurora Team
+    email: team.auroragate@gmail.com
+
+dependencies:
+  - name: redis
+    version: "^24.0.0"
+    repository: oci://registry-1.docker.io/bitnamicharts
+    condition: redis.enabled

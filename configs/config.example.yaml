@@ -1,0 +1,461 @@
+# Aurora OSS Complete Configuration Reference
+#
+# This file documents every configurable option available in the OSS build.
+# Config loading order: code defaults -> configs/config.yaml -> env vars -> dashboard-overrides.yaml
+#
+# Replace placeholder values with your actual settings. Keep secrets out of YAML.
+#
+# For run-anywhere profiles (pre-configured):
+#   - configs/editions/oss.example.yaml (minimal local with SQLite)
+#   - configs/editions/oss.local-power.example.yaml (local with Redis cache)
+#   - configs/editions/oss.team.example.yaml (Postgres/Redis/Qdrant team deployments)
+#
+# Env var convention: {SECTION}_{KEY} (e.g. CACHE_REFRESH_INTERVAL=3600, LOGGING_ENABLED=false)
+# Config keys are path-safe in YAML (e.g. model_list.local_path, token_saver.output level)
+#
+# ========= EDITION =========
+# Clear name for the deployment profile. Hardcoded in OSS to "oss".
+# Cannot be changed in OSS build.
+edition:
+  name: "oss"
+
+# ========= SERVER =========
+# HTTP/HTTPS server configuration
+server:
+  # Server port (default: 8080)
+  port: "8080" # env: PORT
+  # URL path prefix (default: "/")
+  base_path: "/" # env: BASE_PATH
+  # Master key for access control (unset for local-only testing; set before exposing)
+  master_key: "${AURORA_MASTER_KEY}" # env: AURORA_MASTER_KEY
+  # Maximum request body size: "10M", "1G", "500K" (default: 10M)
+  body_size_limit: "10M" # env: BODY_SIZE_LIMIT
+  # Expose Swagger UI at /swagger/index.html
+  swagger_enabled: false # env: SWAGGER_ENABLED
+  # Expose /debug/pprof/* for profiling
+  pprof_enabled: false # env: PPROF_ENABLED
+  # Disable Echo request logging middleware
+  disable_request_logging: false # env: DISABLE_REQUEST_LOGGING
+  # Skip eager prompt capture (benchmark modes)
+  disable_request_body_snapshot: false # env: DISABLE_REQUEST_BODY_SNAPSHOT
+  # Skip passthrough metadata enrichment
+  disable_passthrough_semantic_enrichment: false # env: DISABLE_PASSTHROUGH_SEMANTIC_ENRICHMENT
+  # Enable benchmark hot-path optimizations
+  minimal_bench_mode: false # env: AURORA_MINIMAL_BENCH_MODE
+  # Enable provider passthrough routes at /p/{provider}/{endpoint}
+  enable_passthrough_routes: true # env: ENABLE_PASSTHROUGH_ROUTES
+  # Allow /p/{provider}/v1/... style aliases
+  allow_passthrough_v1_alias: true # env: ALLOW_PASSTHROUGH_V1_ALIAS
+  # Providers enabled for /p/{provider}/... routes
+  enabled_passthrough_providers: ["openai", "anthropic", "openrouter", "zai", "vllm"] # env: ENABLED_PASSTHROUGH_PROVIDERS
+  # Expose /v1/messages endpoint for Anthropic-format clients
+  enable_anthropic_ingress: false # env: ENABLE_ANTHROPIC_INGRESS
+
+# ========= ADMIN =========
+# Admin API and Dashboard UI
+admin:
+  # Enable /admin/api/v1/* REST endpoints
+  endpoints_enabled: true # env: ADMIN_ENDPOINTS_ENABLED
+  # Enable /admin/dashboard UI
+  ui_enabled: true # env: ADMIN_UI_ENABLED
+  # Dashboard variant: react or legacy
+
+
+# ========= MODELS =========
+# Model access and aliases
+models:
+  # Allow provider models by default (true) vs only explicitly allowed/C configured (allowlist)
+  enabled_by_default: true # env: MODELS_ENABLED_BY_DEFAULT
+  # Allow persisted overrides via dashboard/API
+  overrides_enabled: true # env: MODEL_OVERRIDES_ENABLED
+  # Expose provider models or only enabled aliases from /v1/models
+  keep_only_aliases_at_models_endpoint: false # env: KEEP_ONLY_ALIASES_AT_MODELS_ENDPOINT
+  # How configured model lists are applied: fallback or allowlist
+  configured_provider_models_mode: "fallback" # env: CONFIGURED_PROVIDER_MODELS_MODE
+
+# ========= CACHE =========
+# Model registry and response caching
+
+# Model registry cache
+cache:
+  model:
+    # Refresh interval in seconds (default: 3600)
+    refresh_interval: 3600 # env: CACHE_REFRESH_INTERVAL
+    # External model metadata registry URL (all environments fetch here unless local_path provided)
+    # Leave empty to suppress upstream fetch
+    model_list:
+      url: "" # env: MODEL_LIST_URL
+      # Local model registry snapshot (loaded at startup, used as primary source of truth)
+      local_path: "data/models.local.json" # env: MODEL_LIST_LOCAL_PATH
+      # User-provided pricing and capability overrides applied on top
+      user_overrides_path: "data/user_pricing.yaml" # env: MODEL_LIST_USER_OVERRIDES_PATH
+    # Local filesystem cache directory (default: .cache when enabled)
+    local:
+      cache_dir: ".cache" # env: AURORA_CACHE_DIR
+    # Redis-backed model registry cache
+    # redis:
+    #   url: "redis://localhost:6379" # env: REDIS_URL (shared with response cache)
+    #   key: "aurora:models" # env: REDIS_KEY_MODELS
+    #   ttl: 86400 # env: REDIS_TTL_MODELS
+
+# Response cache - exact match
+cache.response:
+  # Simple exact-match response cache
+  # simple:
+  #   enabled: true # env: RESPONSE_CACHE_SIMPLE_ENABLED
+  #   redis:
+  #     # REDIS_URL is shared; comment out and use global REDIS_URL above
+  #     url: "redis://localhost:6379" # env: REDIS_URL
+  #     key: "aurora:response:" # env: REDIS_KEY_RESPONSES
+  #     ttl: 3600 # env: REDIS_TTL_RESPONSES
+  # Semantic vector similarity cache
+  # semantic:
+  #   enabled: true # env: SEMANTIC_CACHE_ENABLED
+  #   similarity_threshold: 0.92 # env: SEMANTIC_CACHE_THRESHOLD
+  #   prompt_similarity_threshold: 0.72 # env: SEMANTIC_CACHE_PROMPT_SIMILARITY
+  #   ttl: 3600 # env: SEMANTIC_CACHE_TTL
+  #   max_conversation_messages: 3 # env: SEMANTIC_CACHE_MAX_CONV_MESSAGES
+  #   exclude_system_prompt: false # env: SEMANTIC_CACHE_EXCLUDE_SYSTEM_PROMPT
+  #   embedder:
+  #     provider: "openai" # env: SEMANTIC_CACHE_EMBEDDER_PROVIDER
+  #     model: "text-embedding-3-small" # env: SEMANTIC_CACHE_EMBEDDER_MODEL
+  #   vector_store:
+  #     type: "qdrant" # env: SEMANTIC_CACHE_VECTOR_STORE_TYPE
+  #     # ---- Qdrant backend ----
+  #     qdrant:
+  #       url: "http://localhost:6333"
+  #       collection: "aurora_semantic"
+  #       # For cloud Qdrant: api_key: "your-qdrant-key"
+  #     # ---- pgvector backend ----
+  #     # pgvector:
+  #     #   url: "postgres://user:pass@localhost:5432/aurora"
+  #     #   table: "aurora_semantic_cache"
+  #     #   dimension: 1536
+  #     # ---- Pinecone backend ----
+  #     # pinecone:
+  #     #   host: "https://your-index.svc.region.pinecone.io" # data-plane host
+  #     #   api_key: "your-pinecone-key"
+  #     #   namespace: "" # optional
+  #     #   dimension: 1536
+  #     # ---- Weaviate backend ----
+  #     # weaviate:
+  #     #   url: "http://localhost:8272"
+  #     #   class: "AuroraSemanticCache"
+  #     #   api_key: "" # optional
+
+# ========= STORAGE =========
+# Database storage for audit logging, usage tracking, and future IAM
+storage:
+  # "sqlite", "postgresql", or "mongodb"
+  type: "sqlite" # env: STORAGE_TYPE
+  # SQLite database file path (default: data/aurora.db)
+  sqlite:
+    path: "data/aurora.db" # env: SQLITE_PATH
+  # PostgreSQL connection string
+  postgresql:
+    url: "postgres://user:pass@localhost/aurora" # env: POSTGRES_URL
+    max_conns: 10 # env: POSTGRES_MAX_CONNS
+  # MongoDB connection string
+  mongodb:
+    url: "mongodb://localhost:27017" # env: MONGODB_URL
+    database: "aurora" # env: MONGODB_DATABASE
+
+# ========= LOGGING =========
+# Audit logging configuration
+logging:
+  # Enable audit logging
+  enabled: false # env: LOGGING_ENABLED
+  # Log full request/response bodies (WARNING: may contain PII, API keys in prompts)
+  log_bodies: true # env: LOGGING_LOG_BODIES
+  # Log request/response headers (sensitive headers are auto-redacted)
+  log_headers: true # env: LOGGING_LOG_HEADERS
+  # Buffer size before flushing (default: 1000)
+  buffer_size: 1000 # env: LOGGING_BUFFER_SIZE
+  # Flush interval in seconds (default: 5)
+  flush_interval: 5 # env: LOGGING_FLUSH_INTERVAL
+  # Retention in days (0 = forever, default: 30)
+  retention_days: 30 # env: LOGGING_RETENTION_DAYS
+  # Limit to AI endpoints only (chat, responses, embeddings, files, batches)
+  only_model_interactions: true # env: LOGGING_ONLY_MODEL_INTERACTIONS
+
+# ========= USAGE =========
+# Token usage tracking (billing, cost analysis, spend limits)
+usage:
+  # Enable usage tracking
+  enabled: true # env: USAGE_ENABLED
+  # Request streaming providers to return usage data (e.g. stream_options: {include_usage: true})
+  enforce_returning_usage_true # env: ENFORCE_RETURNING_USAGE_DATA
+  # Pricing recalculation UI/action in admin dashboard
+  pricing_recalculation_enabled: true # env: USAGE_PRICING_RECALCULATION_ENABLED
+  buffer_size: 1000 # env: USAGE_BUFFER_SIZE
+  flush_interval: 5 # env: USAGE_FLUSH_INTERVAL
+  retention_days: 90 # env: USAGE_RETENTION_DAYS
+
+# ========= METRICS =========
+# Prometheus metrics exposure
+metrics:
+  # Enable Prometheus metrics endpoint
+  enabled: false # env: METRICS_ENABLED
+  # Endpoint path
+  endpoint: "/metrics" # env: METRICS_ENDPOINT
+
+# ========= HTTP =========
+# HTTP client configuration for upstream requests
+http:
+  # Overall request timeout in seconds (default: 600)
+  timeout: 600 # env: HTTP_TIMEOUT
+  # Response header timeout in seconds (default: 600)
+  response_header_timeout: 600 # env: HTTP_RESPONSE_HEADER_TIMEOUT
+  # Outbound proxy configuration (uses env proxy settings when empty)
+  # proxy:
+  #   http_proxy: "http://proxy.example.com:8080" # env: HTTP_PROXY
+  #   https_proxy: "http://proxy.example.com:8080" # env: HTTPS_PROXY
+  #   no_proxy: "localhost,.local,.company.local" # env: NO_PROXY
+  #   # Proxy authentication
+  #   proxy_auth_enabled: false # env: HTTP_PROXY_AUTH_ENABLED
+  #   # CA certificate for HTTPS proxy
+  #   ca_cert_pem: "/path/to/proxy-ca.pem" # env: HTTP_PROXY_CA_CERT_PEM
+
+# ========= FALLBACK =========
+# Translated-route model fallback policy
+fallback:
+  # Global fallback mode: "off", "manual", or "auto" (default: "manual")
+  default_mode: "manual" # env: FEATURE_FALLBACK_MODE
+  # JSON file mapping model selectors to ordered fallback lists
+  manual_rules_path: "" # env: FALLBACK_MANUAL_RULES_PATH
+  # Per-model mode overrides in YAML
+  overrides:
+    # "gpt-4o": # use only manual fallbacks for this model
+    #   mode: "manual"
+    # "claude-sonnet-4": # disable fallback just for this model
+    #   mode: "off"
+
+# ========= GUARDRAILS =========
+# Request guardrails (safety, length limits, PII detection)
+guardrails:
+  # Enable guardrails
+  enabled: false # env: GUARDRAILS_ENABLED
+  # Apply guardrails to /v1/batches requests
+  enable_for_batch_processing: false # env: ENABLE_GUARDRAILS_FOR_BATCH_PROCESSING
+  # Guardrail rules (YAML-only, see provider documentation for full schema)
+  rules:
+    # blocked/site violations:
+    #   - name: "safety-prompt"
+    #     type: "system_prompt"
+    #     order: 0
+    #     direction: "input"
+    #     system_prompt:
+    #       mode: "decorator" # "inject", "override", "decorator"
+    #       content: "Always be safe and respectful"
+    #       on_error: "block"
+
+# ========= RESILIENCE =========
+# Retry and circuit breaker settings for all providers
+resilience:
+ .retry:
+    # Maximum retry attempts (default: 3)
+    max_retries: 3 # env: RETRY_MAX_RETRIES
+    # Initial backoff duration (default: 1s)
+    initial_backoff: 1s # env: RETRY_INITIAL_BACKOFF
+    # Maximum backoff duration (default: 30s)
+    max_backoff: 30s # env: RETRY_MAX_BACKOFF
+    # Backoff multiplier (default: 2.0)
+    backoff_factor: 2.0 # env: RETRY_BACKOFF_FACTOR
+    # Jitter to prevent thundering herds (default: 0.1)
+    jitter_factor: 0.1 # env: RETRY_JITTER_FACTOR
+  .circuit_breaker:
+    # Failures before tripping circuit breaker (default: 5)
+    failure_threshold: 5 # env: CIRCUIT_BREAKER_FAILURE_THRESHOLD
+    # Successful calls before closing circuit breaker (default: 2)
+    success_threshold: 2 # env: CIRCUIT_BREAKER_SUCCESS_THRESHOLD
+    # Circuit breaker timeout (default: 30s)
+    timeout: 30s # env: CIRCUIT_BREAKER_TIMEOUT
+
+# ========= COMBOS =========
+# Model combination workflows (YAML-only, see models combos documentation)
+combos:
+  # Enable combo definitions
+  enabled: true # env: COMBOS_ENABLED
+  definitions:
+    # - name: "review-duo"
+    #   description: "Example two-model review combo"
+    #   enabled: false
+    #   models:
+    #     - "gpt-4o-mini"
+    #     - "claude-sonnet-4"
+
+# ========= CLI_TOOLS =========
+# CLI tool integration metadata
+cli_tools:
+  # Expose CLI tool information in /v1/models and admin dashboard
+  enabled: true # env: CLI_TOOLS_ENABLED
+  # Allow dashboard/API operators to apply combo definitions (SECURITY: do NOT enable)
+  apply_enabled: false # env: CLI_TOOLS_APPLY_ENABLED
+
+# ========= TOKEN_SAVER =========
+# Output token reduction (sends compact prompts, ask models to reply tersely)
+token_saver:
+  # Enable token saver
+  enabled: false # env: TOKEN_SAVER_ENABLED
+  # Which endpoints to apply (default: chat_completions)
+  endpoints: ["chat_completions"] # env: TOKEN_SAVER_ENDPOINTS
+  # Apply to streaming responses
+  apply_streaming: true # env: TOKEN_SAVER_APPLY_STREAMING
+  # Output style to ask model for
+  output:
+    # Ask model for compact output
+    enabled: false # env: TOKEN_SAVER_OUTPUT_ENABLED
+    # Profile: concise (default) — disables articles/filler words, preserves technical accuracy
+    profile: "concise" # env: TOKEN_SAVER_OUTPUT_PROFILE
+    # Detail level: lite, full, ultra, wenyan
+    level: "full" # env: TOKEN_SAVER_OUTPUT_LEVEL
+  # Which models to apply token saver to
+  models:
+    include: [] # env: TOKEN_SAVER_MODELS_INCLUDE
+    exclude: [] # env: TOKEN_SAVER_MODELS_EXCLUDE
+  # Which providers to apply token saver to
+  providers:
+    include: [] # env: TOKEN_SAVER_PROVIDERS_INCLUDE
+    exclude: [] # env: TOKEN_SAVER_PROVIDERS_EXCLUDE
+  # Behavior on errors: allow or block the request
+  on_error: "allow" # env: TOKEN_SAVER_ON_ERROR
+  # Emit request ID and usage headers for tracking
+  emit_headers: true # env: TOKEN_SAVER_EMIT_HEADERS
+  # Enable audit logging
+  audit:
+    enabled: true # env: TOKEN_SAVER_AUDIT_ENABLED
+
+# ========= WORKFLOWS =========
+# Workflow execution and refresh
+workflows:
+  # Refresh interval for persisted workflows from storage
+  refresh_interval: 1m # env: WORKFLOW_REFRESH_INTERVAL
+
+# ========= PROVIDERS =========
+# Provider instances (YAML-only for structure)
+providers:
+  # OpenAI
+  openai:
+    type: openai
+    api_key: "${OPENAI_API_KEY}" # env: OPENAI_API_KEY
+    base_url: "https://api.openai.com/v1" # env: OPENAI_BASE_URL
+    # models: ["gpt-4o-mini", "gpt-4o"] # env: OPENAI_MODELS (optional)
+    # Prefer structured retries instead of provider native retries:
+    # resilience:
+    #   retry:
+    #     max_retries: 5
+    #   circuit_breaker:
+    #     timeout: 60s
+
+  # Anthropic
+  anthropic:
+    type: anthropic
+    api_key: "${ANTHROPIC_API_KEY}" # env: ANTHROPIC_API_KEY
+    # base_url: "https://api.anthropic.com/v1" # env: ANTHROPIC_BASE_URL
+    # models: ["claude-sonnet", "claude-haiku"] # env: ANTHROPIC_MODELS
+    # base_url and models can be specified via env vars only if not in YAML
+
+  # Google Gemini
+  gemini:
+    type: gemini
+    api_key: "${GEMINI_API_KEY}" # env: GEMINI_API_KEY
+
+  # xAI (Grok)
+  xai:
+    type: xai
+    api_key: "${XAI_API_KEY}" # env: XAI_API_KEY
+
+  # Groq
+  groq:
+    type: groq
+    api_key: "${GROQ_API_KEY}" # env: GROQ_API_KEY
+
+  # Z.ai (GLM systems)
+  zai:
+    type: zai
+    api_key: "${ZAI_API_KEY}" # env: ZAI_API_KEY
+    base_url: "https://api.z.ai/api/paas/v4" # env: ZAI_BASE_URL
+
+  # Ollama (local model server)
+  ollama:
+    type: ollama
+    base_url: "http://localhost:11434/v1" # env: OLLAMA_BASE_URL
+    # API key accepted but ignored by Ollama
+    # api_key: "ollama-key" # env: OLLAMA_API_KEY
+
+  # vLLM (local model serving)
+  vllm:
+    type: vllm
+    base_url: "http://localhost:8000/v1" # env: VLLM_BASE_URL
+    # Optionally use your vLLM --api-key
+    # api_key: "your-vllm-token" # env: VLLM_API_KEY
+
+  # OpenRouter (alternative model marketplace)
+  openrouter:
+    type: openrouter
+    api_key: "${OPENROUTER_API_KEY}" # env: OPENROUTER_API_KEY
+    base_url: "https://openrouter.ai/api/v1" # env: OPENROUTER_BASE_URL
+    # app name for upstream attribution
+    # site_url: "https://github.com/aurorallm/aurora" # env: OPENROUTER_SITE_URL
+    # app name for upstream attribution
+    # app_name: "aurora" # env: OPENROUTER_APP_NAME
+
+  # Azure (OpenAI-compatible with auth orchestration)
+  # azure:
+  #   type: azure
+  #   api_key: "${AZURE_API_KEY}" # env: AZURE_API_KEY
+  #   base_url: "${AZURE_BASE_URL}" # env: AZURE_BASE_URL (required)
+  #   api_version: "2024-10-21" # env: AZURE_API_VERSION
+  # required, no viable default in DiscoveryConfig
+
+  # Oracle (OpenAI-compatible)
+  # oracle:
+  #   type: oracle
+  #   api_key: "${ORACLE_API_KEY}" # env: ORACLE_API_KEY
+  #   base_url: "${ORACLE_BASE_URL}" # env: ORACLE_BASE_URL (required)
+
+  # MiniMax
+  minimax:
+    type: minimax
+    api_key: "${MINIMAX_API_KEY}" # env: MINIMAX_API_KEY
+    base_url: "https://api.minimax.io/v1" # env: MINIMAX_BASE_URL
+
+  # Reranker (for rerank/semantic search)
+  # reranker:
+  #   type: reranker
+  #   api_key: "${RERANKER_API_KEY}" # env: RERANKER_API_KEY
+  #   base_url: "https://reranker-latam-123.reg.rerank.ai/v1" # env: RERANKER_BASE_URL (required)
+
+  # Custom OpenAI-compatible provider
+  # my-provider:
+  #   type: openai
+  #   api_key: "${MYPROVIDER_API_KEY}"
+  #   base_url: "https://api.myprovider.com/v1"
+
+  # DeepSeek
+  # deepseek:
+  #   type: deepseek
+  #   api_key: "${DEEPSEEK_API_KEY}" # env: DEEPSEEK_API_KEY
+  #   base_url: "https://api.deepseek.com" # env: DEEPSEEK_BASE_URL
+
+# ========= POOLS =========
+# Provider pools for load balancing (YAML-only)
+pools:
+  # Example OpenAI pool with multiple base URLs
+  # openai-east:
+  #   members: ["openai-east-1", "openai-east-2"]
+  #   strategy: "adaptive"
+  #   health_aware: true
+  #
+  # Example weighted pool
+  # weighted-gpu:
+  #   members: ["nvidia-gpu-one", "nvidia-gpu-two"]
+  #   strategy: "weighted"
+  #   weights:
+  #     nvidia-gpu-one: 2
+  #     nvidia-gpu-two: 1
+#
+# ========= ENTERPRISE FEATURES =========
+# The following features require a paid edition: budgets, identity (SSO/RBAC),
+# cluster (HA), compliance controls, observability exports (OTLP/Datadog/S3).
+# See FEATURES.md for details.

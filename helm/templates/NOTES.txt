@@ -1,0 +1,125 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your release is named: {{ .Release.Name }}
+
+═══════════════════════════════════════════════════════════════
+  DEPLOYMENT GUIDE
+═══════════════════════════════════════════════════════════════
+
+1. ACCESS THE API
+
+{{- if .Values.ingress.enabled }}
+{{- range $host := .Values.ingress.hosts }}
+   http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ (first $host.paths).path }}
+{{- end }}
+{{- else if contains "NodePort" .Values.service.type }}
+   export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "aurora.fullname" . }})
+   export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+   echo http://$NODE_IP:$NODE_PORT
+{{- else if contains "LoadBalancer" .Values.service.type }}
+   export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "aurora.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+   echo http://$SERVICE_IP:{{ .Values.service.port }}
+{{- else }}
+   kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "aurora.fullname" . }} 8080:{{ .Values.service.port }}
+   Visit http://127.0.0.1:8080 to use the API
+{{- end }}
+
+2. VERIFY IT WORKS
+
+   curl http://127.0.0.1:8080/health
+   # → {"status":"ok"}
+
+   curl http://127.0.0.1:8080/v1/models
+   # → {"object":"list","data":[...]}
+
+3. CONFIGURATION
+
+   Aurora uses a 3-layer config chain:
+     code defaults → config.yaml → env vars (env vars win)
+
+   The image ships with configs/config.yaml using ${VAR:-default} syntax
+   throughout. Override any setting via environment variables:
+
+   ┌──────────────────────┬──────────────────────────────────────────┐
+   │ Setting              │ Env var                                  │
+   ├──────────────────────┼──────────────────────────────────────────┤
+   │ Storage path         │ SQLITE_PATH=/cache/aurora-oss.db        │
+   │ Model list path      │ MODEL_LIST_LOCAL_PATH=/cache/models.json│
+   │ Log format           │ LOG_FORMAT=json                         │
+   │ Metrics              │ METRICS_ENABLED=true                    │
+   │ Guardrails           │ GUARDRAILS_ENABLED=true                 │
+   │ Token saver          │ TOKEN_SAVER_ENABLED=true                │
+   │ Admin API            │ ADMIN_ENDPOINTS=true                    │
+   │ Edition              │ EDITION=oss                             │
+   │ Logging              │ LOGGING_ENABLED=true                    │
+   │ Usage tracking       │ USAGE_ENABLED=true                      │
+   │ Combos               │ COMBOS_ENABLED=true                     │
+   └──────────────────────┴──────────────────────────────────────────┘
+
+   For full config control, provide custom config.yaml content via
+   --set config.content:
+     helm upgrade {{ .Release.Name }} ./helm \
+       --set-file config.content=my-config.yaml
+
+   Or use an existing ConfigMap:
+     --set config.existingConfigMap=my-aurora-config
+
+4. PROVIDERS
+
+{{- $enabledProviders := list }}
+{{- if or .Values.providers.openai.enabled .Values.providers.openai.apiKey }}{{ $enabledProviders = append $enabledProviders "openai" }}{{ end }}
+{{- if or .Values.providers.anthropic.enabled .Values.providers.anthropic.apiKey }}{{ $enabledProviders = append $enabledProviders "anthropic" }}{{ end }}
+{{- if or .Values.providers.gemini.enabled .Values.providers.gemini.apiKey }}{{ $enabledProviders = append $enabledProviders "gemini" }}{{ end }}
+{{- if or .Values.providers.groq.enabled .Values.providers.groq.apiKey }}{{ $enabledProviders = append $enabledProviders "groq" }}{{ end }}
+{{- if or .Values.providers.xai.enabled .Values.providers.xai.apiKey }}{{ $enabledProviders = append $enabledProviders "xai" }}{{ end }}
+{{- if or .Values.providers.zai.enabled .Values.providers.zai.apiKey }}{{ $enabledProviders = append $enabledProviders "zai" }}{{ end }}
+{{- if and .Values.providers.oracle.baseUrl (or .Values.providers.oracle.enabled .Values.providers.oracle.apiKey) }}{{ $enabledProviders = append $enabledProviders "oracle" }}{{ end }}
+
+{{- if eq (len $enabledProviders) 0 }}
+   ⚠️  No providers enabled — set at least one provider API key:
+      helm upgrade {{ .Release.Name }} ./helm \
+        --set providers.openai.apiKey=sk-... \
+        --set providers.openai.enabled=true
+{{- else }}
+   Enabled providers: {{ join ", " $enabledProviders }}
+{{- end }}
+
+5. STORAGE
+
+   By default, Aurora uses local SQLite storage at /cache/aurora-oss.db
+   (writable emptyDir). Data does NOT persist across pod restarts.
+
+   For production, enable Redis (default: on):
+     --set redis.enabled=true
+
+   Or mount a PVC at /cache:
+     --set extraVolumes[0].name=cache --set extraVolumeMounts[0].mountPath=/cache
+
+{{- if not .Values.auth.masterKey }}
+{{- if not .Values.auth.existingSecret }}
+6. ⚠️  SECURITY WARNING
+
+   Authentication is DISABLED. The gateway is running in UNSAFE MODE.
+   Set auth.masterKey or auth.existingSecret for production use.
+{{- end }}
+{{- end }}
+
+7. USEFUL COMMANDS
+
+   # Watch logs
+   kubectl logs --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "aurora.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -f
+
+   # Make a chat completion
+   curl -X POST http://127.0.0.1:8080/v1/chat/completions \
+     -H "Content-Type: application/json" \
+     -d '{"model":"groq/llama-3.3-70b-versatile","messages":[{"role":"user","content":"hello"}]}'
+
+   # Check config currently loaded (requires auth if enabled)
+   curl -H "x-api-key: your-master-key" http://127.0.0.1:8080/admin/api/v1/config
+
+   # Upgrade with custom settings
+   helm upgrade {{ .Release.Name }} ./helm \
+     --namespace {{ .Release.Namespace }} \
+     --set providers.openai.apiKey=sk-... \
+     --set providers.openai.enabled=true \
+     --set redis.enabled=true

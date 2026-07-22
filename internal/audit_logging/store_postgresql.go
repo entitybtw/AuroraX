@@ -1,0 +1,323 @@
+package auditlog
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+const (
+	insertColCount     = 21
+	postgresMaxBindParameters     = 65535
+	maxRowsPerInsert = postgresMaxBindParameters / insertColCount
+)
+
+const insertPrefix = `
+		INSERT INTO audit_logs (id, timestamp, duration_ns, requested_model, resolved_model, provider, provider_name, alias_used, workflow_version_id, cache_type, status_code,
+			request_id, auth_key_id, auth_method, client_ip, method, path, user_path, stream, error_type, data)
+		VALUES `
+
+const insertSuffix = `
+		ON CONFLICT (id) DO NOTHING
+	`
+
+type batchExec interface {
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+}
+
+// PostgreSQLStore implements LogStore for PostgreSQL databases.
+type PostgreSQLStore struct {
+	pool          *pgxpool.Pool
+	retentionDays int
+	stopCleanup   chan struct{}
+	closeOnce     sync.Once
+}
+
+// NewPostgreSQLStore creates a new PostgreSQL audit log store.
+// It creates the audit_logs table if it doesn't exist and starts
+// a background cleanup goroutine if retention is configured.
+func NewPostgreSQLStore(pool *pgxpool.Pool, retentionDays int) (*PostgreSQLStore, error) {
+	if pool == nil {
+		return nil, fmt.Errorf("connection pool is required")
+	}
+
+	ctx := context.Background()
+
+	// Create table with commonly-filtered fields as columns
+	_, err := pool.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS audit_logs (
+			id UUID PRIMARY KEY,
+			timestamp TIMESTAMPTZ NOT NULL,
+			duration_ns BIGINT DEFAULT 0,
+			requested_model TEXT,
+			resolved_model TEXT,
+			provider TEXT,
+			provider_name TEXT,
+			alias_used BOOLEAN DEFAULT FALSE,
+			workflow_version_id TEXT,
+			cache_type TEXT,
+			status_code INTEGER DEFAULT 0,
+			request_id TEXT,
+			auth_key_id TEXT,
+			auth_method TEXT,
+			client_ip TEXT,
+			method TEXT,
+			path TEXT,
+			user_path TEXT,
+			stream BOOLEAN DEFAULT FALSE,
+			error_type TEXT,
+			data JSONB
+		)
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create audit_logs table: %w", err)
+	}
+
+	if err := renamePGColumn(ctx, pool, "audit_logs", "model", "requested_model"); err != nil {
+		return nil, fmt.Errorf("failed to rename audit_logs.model to requested_model: %w", err)
+	}
+
+	migrations := []string{
+		"ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS requested_model TEXT",
+		"ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS resolved_model TEXT",
+		"ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS provider_name TEXT",
+		"ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS alias_used BOOLEAN DEFAULT FALSE",
+		"ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS workflow_version_id TEXT",
+		"ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS cache_type TEXT",
+		"ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS auth_key_id TEXT",
+		"ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS auth_method TEXT",
+		"ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS user_path TEXT",
+	}
+	for _, migration := range migrations {
+		if _, err := pool.Exec(ctx, migration); err != nil {
+			return nil, fmt.Errorf("failed to run migration %q: %w", migration, err)
+		}
+	}
+
+	// Create indexes for common queries
+	indexes := []string{
+		"CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp)",
+		"DROP INDEX IF EXISTS idx_audit_model",
+		"CREATE INDEX IF NOT EXISTS idx_audit_requested_model ON audit_logs(requested_model)",
+		"CREATE INDEX IF NOT EXISTS idx_audit_status ON audit_logs(status_code)",
+		"CREATE INDEX IF NOT EXISTS idx_audit_provider ON audit_logs(provider)",
+		"CREATE INDEX IF NOT EXISTS idx_audit_provider_name ON audit_logs(provider_name)",
+		"CREATE INDEX IF NOT EXISTS idx_audit_workflow_version_id ON audit_logs(workflow_version_id)",
+		"CREATE INDEX IF NOT EXISTS idx_audit_request_id ON audit_logs(request_id)",
+		"CREATE INDEX IF NOT EXISTS idx_audit_auth_key_id ON audit_logs(auth_key_id)",
+		"CREATE INDEX IF NOT EXISTS idx_audit_client_ip ON audit_logs(client_ip)",
+		"CREATE INDEX IF NOT EXISTS idx_audit_path ON audit_logs(path)",
+		"CREATE INDEX IF NOT EXISTS idx_audit_user_path ON audit_logs(user_path)",
+		"CREATE INDEX IF NOT EXISTS idx_audit_error_type ON audit_logs(error_type)",
+		"CREATE INDEX IF NOT EXISTS idx_audit_response_id ON audit_logs ((data->'response_body'->>'id'))",
+		"CREATE INDEX IF NOT EXISTS idx_audit_previous_response_id ON audit_logs ((data->'request_body'->>'previous_response_id'))",
+		"CREATE INDEX IF NOT EXISTS idx_audit_data_gin ON audit_logs USING GIN (data)",
+	}
+	for _, idx := range indexes {
+		if _, err := pool.Exec(ctx, idx); err != nil {
+			slog.Warn("failed to create index", "error", err)
+		}
+	}
+
+	store := &PostgreSQLStore{
+		pool:          pool,
+		retentionDays: retentionDays,
+		stopCleanup:   make(chan struct{}),
+	}
+
+	// Start background cleanup if retention is configured
+	if retentionDays > 0 {
+		go RunCleanupLoop(store.stopCleanup, store.cleanup)
+	}
+
+	return store, nil
+}
+
+// WriteBatch writes multiple log entries to PostgreSQL using batch insert.
+func (s *PostgreSQLStore) WriteBatch(ctx context.Context, entries []*LogEntry) error {
+	if len(entries) == 0 {
+		return nil
+	}
+
+	// For larger batches, use a transaction to ensure atomicity
+	// For smaller batches, use individual inserts without transaction overhead
+	if len(entries) < 10 {
+		return s.writeSmallBatch(ctx, entries)
+	}
+
+	return s.writeLargeBatch(ctx, entries)
+}
+
+// writeSmallBatch uses INSERT for small batches
+func (s *PostgreSQLStore) writeSmallBatch(ctx context.Context, entries []*LogEntry) error {
+	if err := writeInsertChunks(ctx, s.pool, entries); err != nil {
+		slog.Warn("failed to insert audit log batch", "error", err, "count", len(entries))
+		return fmt.Errorf("failed to insert %d audit logs: %w", len(entries), err)
+	}
+	return nil
+}
+
+// writeLargeBatch uses batch insert for larger batches
+func (s *PostgreSQLStore) writeLargeBatch(ctx context.Context, entries []*LogEntry) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	if err := writeInsertChunks(ctx, tx, entries); err != nil {
+		slog.Warn("failed to insert audit log batch in transaction", "error", err, "count", len(entries))
+		return fmt.Errorf("failed to insert %d audit logs: %w", len(entries), err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+func writeInsertChunks(ctx context.Context, exec batchExec, entries []*LogEntry) error {
+	for start := 0; start < len(entries); start += maxRowsPerInsert {
+		end := min(start+maxRowsPerInsert, len(entries))
+		query, args := buildInsert(entries[start:end])
+		if _, err := exec.Exec(ctx, query, args...); err != nil {
+			return fmt.Errorf("batch chunk [%d:%d): %w", start, end, err)
+		}
+	}
+	return nil
+}
+
+func buildInsert(entries []*LogEntry) (string, []any) {
+	var builder strings.Builder
+	builder.Grow(len(insertPrefix) + len(insertSuffix) + len(entries)*insertColCount*4)
+	builder.WriteString(insertPrefix)
+
+	args := make([]any, 0, len(entries)*insertColCount)
+	placeholder := 1
+
+	for i, entry := range entries {
+		if i > 0 {
+			builder.WriteString(", ")
+		}
+		builder.WriteByte('(')
+		for col := range insertColCount {
+			if col > 0 {
+				builder.WriteString(", ")
+			}
+			builder.WriteByte('$')
+			builder.WriteString(strconv.Itoa(placeholder))
+			placeholder++
+		}
+		builder.WriteByte(')')
+
+		dataJSON := encodeLogData(entry.Data, entry.ID)
+		var cacheTypeValue any
+		if cacheType := cleanCacheType(entry.CacheType); cacheType != "" {
+			cacheTypeValue = cacheType
+		}
+		userPathValue := entry.UserPath
+		if strings.TrimSpace(userPathValue) == "" {
+			userPathValue = "/"
+		}
+		args = append(args,
+			entry.ID,
+			entry.Timestamp,
+			entry.DurationNs,
+			entry.RequestedModel,
+			entry.ResolvedModel,
+			entry.Provider,
+			entry.ProviderName,
+			entry.AliasUsed,
+			entry.WorkflowVersionID,
+			cacheTypeValue,
+			entry.StatusCode,
+			entry.RequestID,
+			entry.AuthKeyID,
+			entry.AuthMethod,
+			entry.ClientIP,
+			entry.Method,
+			entry.Path,
+			userPathValue,
+			entry.Stream,
+			entry.ErrorType,
+			dataJSON,
+		)
+	}
+
+	builder.WriteString(insertSuffix)
+	return builder.String(), args
+}
+
+func renamePGColumn(ctx context.Context, pool *pgxpool.Pool, tableName, from, to string) error {
+	fromExists, err := pgColumnExists(ctx, pool, tableName, from)
+	if err != nil || !fromExists {
+		return err
+	}
+	toExists, err := pgColumnExists(ctx, pool, tableName, to)
+	if err != nil || toExists {
+		return err
+	}
+	_, err = pool.Exec(ctx, fmt.Sprintf("ALTER TABLE %s RENAME COLUMN %s TO %s", tableName, from, to))
+	return err
+}
+
+func pgColumnExists(ctx context.Context, pool *pgxpool.Pool, tableName, columnName string) (bool, error) {
+	var exists bool
+	err := pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM information_schema.columns
+			WHERE table_schema = current_schema()
+			  AND table_name = $1
+			  AND column_name = $2
+		)
+	`, tableName, columnName).Scan(&exists)
+	return exists, err
+}
+
+// Flush is a no-op for PostgreSQL as writes are synchronous.
+func (s *PostgreSQLStore) Flush(_ context.Context) error {
+	return nil
+}
+
+// Close stops the cleanup goroutine.
+// Note: We don't close the pool here as it's managed by the storage layer.
+// Safe to call multiple times.
+func (s *PostgreSQLStore) Close() error {
+	if s.retentionDays > 0 && s.stopCleanup != nil {
+		s.closeOnce.Do(func() {
+			close(s.stopCleanup)
+		})
+	}
+	return nil
+}
+
+// cleanup deletes log entries older than the retention period.
+func (s *PostgreSQLStore) cleanup() {
+	if s.retentionDays <= 0 {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	cutoff := time.Now().AddDate(0, 0, -s.retentionDays)
+
+	result, err := s.pool.Exec(ctx, "DELETE FROM audit_logs WHERE timestamp < $1", cutoff)
+	if err != nil {
+		slog.Error("failed to cleanup old audit logs", "error", err)
+		return
+	}
+
+	if result.RowsAffected() > 0 {
+		slog.Info("cleaned up old audit logs", "deleted", result.RowsAffected())
+	}
+}
