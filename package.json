@@ -1,0 +1,58 @@
+{
+  "name": "aurora-gateway-oss",
+  "private": true,
+  "version": "1.0.36",
+  "description": "Aurora AI Gateway — one API for every LLM provider. Self-hosted, open-source.",
+  "bin": {
+    "aurora": "./bin/aurora-cli.js"
+  },
+  "scripts": {
+    "help": "node ./bin/aurora-cli.js help",
+    "start": "node ./bin/aurora-cli.js start",
+    "build": "powershell -ExecutionPolicy Bypass -File scripts/build.ps1",
+    "build:ui": "pnpm --prefix dashboard-ui build",
+    "build:all": "echo Building dashboard UI... && pnpm --prefix dashboard-ui build && echo Building Go binary... && go build -ldflags \"-X aurora/internal/version.Version=%npm_package_version%\" -o bin/aurora.exe ./apps/aurora && echo Build complete: bin/aurora.exe",
+    "build:bin": "node ./bin/aurora-cli.js build",
+    "build:npm": "powershell -ExecutionPolicy Bypass -File scripts/release/build-npm.ps1 -Pack",
+    "publish:npm": "powershell -ExecutionPolicy Bypass -File scripts/release/publish-npm.ps1",
+    "version:check": "node scripts/bump-version.mjs check",
+    "version:bump": "node scripts/bump-version.mjs patch",
+    "version:patch": "node scripts/bump-version.mjs patch",
+    "version:minor": "node scripts/bump-version.mjs minor",
+    "version:major": "node scripts/bump-version.mjs major",
+    "version:set": "node scripts/bump-version.mjs set",
+    "version": "node ./bin/aurora-cli.js version",
+    "dev": "go run -ldflags \"-X aurora/internal/version.Version=%npm_package_version%\" ./apps/aurora",
+    "dev:ui": "pnpm --prefix dashboard-ui dev",
+    "test": "go test ./apps/... ./internal/... -v",
+    "test:race": "go test -v -race -coverprofile=coverage.out ./apps/... ./internal/...",
+    "test:ui": "pnpm --prefix dashboard-ui test",
+    "lint": "golangci-lint run --build-tags=swagger,e2e,integration,contract ./apps/... ./internal/...",
+    "lint:ui": "pnpm --prefix dashboard-ui lint",
+    "clean": "if (Test-Path bin/) { Remove-Item -Recurse -Force bin/ }",
+    "tidy": "go mod tidy",
+    "infra": "docker compose up -d"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "ai",
+    "llm",
+    "gateway",
+    "openai",
+    "anthropic",
+    "gemini",
+    "proxy",
+    "api-gateway"
+  ],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aurorallm/aurora.git"
+  },
+  "homepage": "https://github.com/aurorallm/aurora#readme",
+  "bugs": {
+    "url": "https://github.com/aurorallm/aurora/issues"
+  }
+}

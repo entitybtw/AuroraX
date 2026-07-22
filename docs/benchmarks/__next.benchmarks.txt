@@ -1,0 +1,4 @@
+1:"$Sreact.fragment"
+2:I[39756,["/_next/static/chunks/0-jg36gx084h_.js","/_next/static/chunks/1-8s9_t85wwr4.js"],"default"]
+3:I[37457,["/_next/static/chunks/0-jg36gx084h_.js","/_next/static/chunks/1-8s9_t85wwr4.js"],"default"]
+0:{"rsc":["$","$1","c",{"children":[null,[["$","script",null,{"type":"application/ld+json","dangerouslySetInnerHTML":{"__html":"{\"@context\":\"https://schema.org\",\"@type\":\"Dataset\",\"name\":\"Aurora Gateway Benchmarks\",\"description\":\"Throughput, latency, and reliability benchmarks comparing Aurora against Kong, APISIX, Bifrost, Helicone, Portkey, and LiteLLM.\",\"url\":\"https://aurorallm.online/benchmarks/\"}"}}],["$","$L2",null,{"parallelRouterKey":"children","template":["$","$L3",null,{}]}]]]}],"isPartial":false,"staleTime":300,"varyParams":null,"buildId":"gAPLY82LYQTYeiuCyYA0q"}

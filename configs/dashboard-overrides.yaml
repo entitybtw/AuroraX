@@ -1,0 +1,102 @@
+server:
+    port: "8080"
+    base_path: /
+    body_size_limit: 10M
+    swagger_enabled: true
+    pprof_enabled: true
+    allow_passthrough_v1_alias: true
+    enabled_passthrough_providers:
+        - openai
+        - anthropic
+        - openrouter
+        - zai
+        - vllm
+        - groq
+        - inception
+    admin_endpoints_enabled: true
+    admin_ui_enabled: true
+    enable_anthropic_ingress: true
+models:
+    configured_provider_models_mode: fallback
+    keep_only_aliases_at_models_endpoint: false
+cache:
+    model:
+        refresh_interval: 3600
+        model_list:
+            url: https://raw.githubusercontent.com/aurorallm/aurora/refs/heads/main/docs-assets/assets/models.json
+    response:
+        simple:
+            enabled: false
+            redis:
+                key: 'aurora:response:'
+                ttl: 3600
+        semantic:
+            enabled: true
+            similarity_threshold: 0.92
+            prompt_similarity_threshold: 0.9
+            ttl: 3600
+            max_conversation_messages: 3
+            exclude_system_prompt: true
+            embedder_provider: jina_1
+            embedder_model: jina-embeddings-v3
+            vector_store_type: qdrant
+    prompt:
+        mode: ""
+        system_prompt: false
+        first_message: false
+        tools: false
+        min_tokens: 0
+logging:
+    enabled: true
+    log_bodies: true
+    log_headers: true
+    buffer_size: 1000
+    flush_interval: 5
+    retention_days: 30
+    only_model_interactions: true
+usage:
+    enforce_returning_usage_data: true
+    pricing_recalculation_enabled: true
+    retention_days: 90
+metrics:
+    enabled: true
+    endpoint: /metrics
+http:
+    timeout: 600
+    response_header_timeout: 600
+proxy:
+    http_proxy: ""
+    https_proxy: ""
+    no_proxy: 127.0.0.1,localhost
+    proxy_auth_enabled: false
+    ca_cert_pem: ""
+resilience:
+    retry:
+        max_retries: 3
+        initial_backoff: 1s
+        max_backoff: 30s
+        backoff_factor: 2
+        jitter_factor: 0.1
+    circuit_breaker:
+        failure_threshold: 5
+        success_threshold: 2
+        timeout: 30s
+guardrails:
+    enabled: true
+    enable_for_batch_processing: true
+workflows:
+    refresh_interval: 1m0s
+token_saver:
+    enabled: false
+    endpoints:
+        - chat_completions
+    apply_streaming: false
+    output:
+        enabled: false
+        profile: concise
+        level: lite
+    models: {}
+    providers: {}
+    on_error: allow
+    emit_headers: false
+    audit_enabled: false

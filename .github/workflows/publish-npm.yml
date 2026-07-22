@@ -1,0 +1,136 @@
+name: Publish npm Package
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 1.0.0)'
+        required: true
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: 'https://registry.npmjs.org'
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.2'
+
+      - name: Install dashboard dependencies
+        run: pnpm --prefix dashboard-ui install
+
+      - name: Build dashboard UI
+        run: pnpm --prefix dashboard-ui run build
+
+      - name: Build Go binary
+        run: |
+          VERSION="${{ github.event.inputs.version || github.ref_name }}"
+          VERSION="${VERSION#v}"
+          go build -ldflags="-X aurora/internal/version.Version=$VERSION" -o bin/aurora ./apps/aurora
+
+      - name: Build npm package
+        run: |
+          VERSION="${{ github.event.inputs.version || github.ref_name }}"
+          VERSION="${VERSION#v}"
+          powershell -ExecutionPolicy Bypass -File scripts/release/build-npm.ps1 -Version "$VERSION" -SkipBuild
+
+      - name: Publish to npm
+        working-directory: npm
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  build-platform-binaries:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            asset: aurora-linux-amd64
+          - os: ubuntu-latest
+            goos: linux
+            goarch: arm64
+            asset: aurora-linux-arm64
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+            asset: aurora-darwin-amd64
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+            asset: aurora-darwin-arm64
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+            asset: aurora-windows-amd64.exe
+          - os: windows-latest
+            goos: windows
+            goarch: arm64
+            asset: aurora-windows-arm64.exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.2'
+
+      - name: Build binary
+        run: |
+          VERSION="${{ github.event.inputs.version || github.ref_name }}"
+          VERSION="${VERSION#v}"
+          CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build `
+            -ldflags="-s -w -X aurora/internal/version.Version=$VERSION" `
+            -o bin/${{ matrix.asset }} ./apps/aurora
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: bin/${{ matrix.asset }}
+
+  upload-to-release:
+    needs: build-platform-binaries
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    if: github.event_name == 'release'
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Upload assets to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for dir in artifacts/*/; do
+            asset=$(basename "$dir")
+            if [ "$asset" != "*" ]; then
+              find "$dir" -type f -exec gh release upload "${{ github.ref_name }}" {} \;
+            fi
+          done

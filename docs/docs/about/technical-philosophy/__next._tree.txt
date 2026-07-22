@@ -1,0 +1,3 @@
+:HL["/_next/static/chunks/38-3p3acndyd3.css","style"]
+:HL["https://api.fontshare.com/v2/css?f[]=clash-grotesk@700&f[]=general-sans@400,500,600&f[]=jet-brains-mono@400&display=swap","style"]
+0:{"tree":{"name":"","param":null,"prefetchHints":28,"slots":{"children":{"name":"docs","param":null,"prefetchHints":4,"slots":{"children":{"name":"slug","param":{"type":"c","key":"about/technical-philosophy","siblings":null},"prefetchHints":0,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}}}}}},"staleTime":300,"buildId":"gAPLY82LYQTYeiuCyYA0q"}
