@@ -1,0 +1,119 @@
+# ===================
+# Git
+# ===================
+.git
+.gitignore
+
+# ===================
+# Build artifacts
+# ===================
+bin/
+aurora
+coverage.out
+coverage/
+npm/
+release/
+out/
+dist/
+bench-results/
+
+# ===================
+# Dependencies
+# ===================
+node_modules/
+dashboard-ui/node_modules/
+**/node_modules/
+
+# ===================
+# Media & archives
+# ===================
+*.mp4
+*.tgz
+*.zip
+
+# ===================
+# Tests
+# ===================
+test/
+**/*_test.go
+
+# ===================
+# Documentation (not needed at runtime)
+# ===================
+*.md
+LICENSE
+docs/
+CODE_OF_CONDUCT.md
+SECURITY.md
+FEATURES.md
+
+# ===================
+# CI/CD & Release
+# ===================
+.github/
+.goreleaser.yaml
+artifacthub-repo.yml
+
+# ===================
+# Development tooling
+# ===================
+.golangci.yml
+.pre-commit-config.yaml
+Makefile
+scripts/
+
+# ===================
+# Docker & Kubernetes
+# ===================
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.yaml
+helm/
+prometheus.yml
+monitoring/
+
+# ===================
+# IDE & Editor configs
+# ===================
+.claude/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ===================
+# Environment & Secrets
+# ===================
+.env
+.env.*
+.env.template
+
+# ===================
+# Temp & cache
+# ===================
+.cache/
+.aurora.local/
+tmp/
+temp/
+*.log
+
+# ===================
+# Runtime data (except vendored model files)
+# ===================
+# Exclude runtime-generated data (SQLite DB, logs) but keep the vendored
+# model registry snapshot and user pricing overrides so the image can load
+# them synchronously at startup without a network fetch.
+data/
+!data/models.local.json
+!data/user_pricing.yaml
+
+# ===================
+# Miscellaneous
+# ===================
+*.bck.yml
+repomix-output.*
+session-*.md
+DOCKER_HUB_README.md

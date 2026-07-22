@@ -1,0 +1,71 @@
+version: 2
+
+project_name: aurora
+
+before:
+  hooks:
+    - go mod tidy
+    - sh -c "cd dashboard-ui && corepack enable && pnpm install --no-frozen-lockfile && pnpm build"
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    main: ./apps/aurora
+    ldflags:
+      - -s -w
+      - -X aurora/internal/version.Version={{.Version}}
+      - -X aurora/internal/version.Commit={{.Commit}}
+      - -X aurora/internal/version.Date={{.Date}}
+
+archives:
+  - formats: ['tar.gz']
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      oss_
+      {{- .Os }}_
+      {{- .Arch }}
+    format_overrides:
+      - goos: windows
+        formats: ['zip']
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  version_template: "{{ .Tag }}-next"
+
+changelog:
+  sort: asc
+  groups:
+    - title: "Breaking Changes"
+      regexp: '^[a-z]+(\([^)]+\))?!:'
+      order: 0
+    - title: "Features"
+      regexp: '^feat(\([^)]+\))?:'
+      order: 1
+    - title: "Bug Fixes"
+      regexp: '^fix(\([^)]+\))?:'
+      order: 2
+    - title: "Performance"
+      regexp: '^perf(\([^)]+\))?:'
+      order: 3
+    - title: "Other Changes"
+      order: 999
+  filters:
+    exclude:
+      - '^docs(\([^)]+\))?!?:'
+      - '^test(\([^)]+\))?!?:'
+      - '^ci(\([^)]+\))?!?:'
+      - '^build(\([^)]+\))?!?:'
+      - '^chore(\([^)]+\))?!?:'
+      - '^refactor(\([^)]+\))?!?:'
+      - 'Merge pull request'
+      - 'Merge branch'

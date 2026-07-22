@@ -1,0 +1,68 @@
+{
+  "title": "Aurora Gateway",
+  "uid": "aurora-gateway",
+  "version": 1,
+  "schemaVersion": 39,
+  "panels": [
+    {
+      "title": "Request Rate by Provider",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(aurora_requests_total[5m])) by (provider)",
+          "legendFormat": "{{ provider }}"
+        }
+      ]
+    },
+    {
+      "title": "Error Rate %",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(aurora_requests_total{status_type=\"error\"}[5m])) / sum(rate(aurora_requests_total[5m])) * 100",
+          "legendFormat": "error %"
+        }
+      ]
+    },
+    {
+      "title": "P95 Latency by Provider",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(aurora_request_duration_seconds_bucket[5m])) by (le, provider))",
+          "legendFormat": "{{ provider }}"
+        }
+      ]
+    },
+    {
+      "title": "In-Flight Requests",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(aurora_requests_in_flight) by (provider)",
+          "legendFormat": "{{ provider }}"
+        }
+      ]
+    },
+    {
+      "title": "Request Rate by Model",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "sum(rate(aurora_requests_total[5m])) by (model)",
+          "legendFormat": "{{ model }}"
+        }
+      ]
+    }
+  ]
+}

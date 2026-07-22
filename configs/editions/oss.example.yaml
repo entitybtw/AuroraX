@@ -1,0 +1,86 @@
+# Aurora OSS minimal local profile
+# Usage: set AURORA_CONFIG_PATH to this file, create a .env with your keys, then run `aurora`.
+#   $env:AURORA_CONFIG_PATH="configs/editions/oss.example.yaml"
+#   (or copy this file somewhere convenient and point AURORA_CONFIG_PATH there)
+# Goal: start with no external dependencies. Use provider env vars such as GROQ_API_KEY or OPENAI_API_KEY.
+# Config pipeline: defaults -> this YAML -> env vars. Env vars always win.
+# Do not put real provider keys in this file.
+
+edition:
+  name: oss
+
+server:
+  port: "8080"
+  base_path: "/"
+  master_key: "${AURORA_MASTER_KEY}"
+  enable_passthrough_routes: true
+  allow_passthrough_v1_alias: true
+  enabled_passthrough_providers: ["openai", "anthropic", "openrouter", "zai", "vllm"]
+
+admin:
+  endpoints_enabled: true
+  ui_enabled: true
+
+
+models:
+  enabled_by_default: true
+  overrides_enabled: true
+  keep_only_aliases_at_models_endpoint: false
+  configured_provider_models_mode: "fallback"
+
+storage:
+  type: "sqlite"
+  sqlite:
+    path: "data/aurora-oss.db"
+
+logging:
+  enabled: false
+  log_bodies: false
+  log_headers: false
+  only_model_interactions: true
+
+usage:
+  enabled: true
+  pricing_recalculation_enabled: true
+  enforce_returning_usage_data: true
+
+metrics:
+  enabled: false
+  endpoint: "/metrics"
+
+guardrails:
+  enabled: false
+  enable_for_batch_processing: false
+
+cache:
+  model:
+    refresh_interval: 3600
+    model_list:
+      url: ""
+      local_path: "data/models.local.json"
+      user_overrides_path: "data/user_pricing.yaml"
+    local:
+      cache_dir: ".cache"
+
+combos:
+  enabled: true
+
+cli_tools:
+  enabled: true
+  apply_enabled: false
+
+token_saver:
+  enabled: false
+  endpoints: ["chat_completions"]
+  apply_streaming: true
+  output:
+    enabled: false
+    profile: "concise"
+    level: "full"
+  on_error: "allow"
+  emit_headers: true
+  audit:
+    enabled: true
+
+workflows:
+  refresh_interval: 1m

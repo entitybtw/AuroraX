@@ -1,0 +1,164 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aurora.fullname" . }}
+  labels:
+    {{- include "aurora.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "aurora.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "aurora.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "aurora.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.server.port }}
+              protocol: TCP
+          env:
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "aurora.fullname" . }}
+                  key: PORT
+            - name: BASE_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "aurora.fullname" . }}
+                  key: BASE_PATH
+            - name: BODY_SIZE_LIMIT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "aurora.fullname" . }}
+                  key: BODY_SIZE_LIMIT
+            {{- if or .Values.redis.enabled .Values.cache.redis.url }}
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "aurora.providerSecretName" . }}
+                  key: REDIS_URL
+                  optional: true
+            - name: REDIS_KEY_MODELS
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "aurora.fullname" . }}
+                  key: REDIS_KEY_MODELS
+            - name: REDIS_KEY_RESPONSES
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "aurora.fullname" . }}
+                  key: REDIS_KEY_RESPONSES
+            - name: REDIS_TTL_MODELS
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "aurora.fullname" . }}
+                  key: REDIS_TTL_MODELS
+            - name: REDIS_TTL_RESPONSES
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "aurora.fullname" . }}
+                  key: REDIS_TTL_RESPONSES
+            {{- end }}
+            - name: SQLITE_PATH
+              value: "/cache/aurora-oss.db"
+            - name: MODEL_LIST_LOCAL_PATH
+              value: "/cache/models.local.json"
+            - name: MODEL_LIST_USER_OVERRIDES_PATH
+              value: "/cache/user_pricing.yaml"
+            - name: AURORA_CACHE_DIR
+              value: "/cache"
+            - name: LOG_FORMAT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "aurora.fullname" . }}
+                  key: LOG_FORMAT
+            - name: METRICS_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "aurora.fullname" . }}
+                  key: METRICS_ENABLED
+            - name: METRICS_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "aurora.fullname" . }}
+                  key: METRICS_ENDPOINT
+            {{- if or .Values.auth.masterKey .Values.auth.existingSecret }}
+            - name: AURORA_MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "aurora.authSecretName" . }}
+                  key: {{ .Values.auth.existingSecretKey | default "master-key" }}
+            {{- end }}
+{{- include "aurora.providerEnvVars" . | nindent 12 }}
+          volumeMounts:
+            - name: cache
+              mountPath: /cache
+            {{- if (or .Values.config.content .Values.config.existingConfigMap) }}
+            - name: config
+              mountPath: /app/configs/config.yaml
+              subPath: config.yaml
+            {{- end }}
+          {{- $livenessProbe := deepCopy .Values.livenessProbe }}
+          {{- if and $livenessProbe.httpGet $livenessProbe.httpGet.path }}
+          {{- $_ := set $livenessProbe.httpGet "path" (include "aurora.pathWithBasePath" (dict "root" . "path" $livenessProbe.httpGet.path)) }}
+          {{- end }}
+          livenessProbe:
+            {{- toYaml $livenessProbe | nindent 12 }}
+          {{- $readinessProbe := deepCopy .Values.readinessProbe }}
+          {{- if and $readinessProbe.httpGet $readinessProbe.httpGet.path }}
+          {{- $_ := set $readinessProbe.httpGet "path" (include "aurora.pathWithBasePath" (dict "root" . "path" $readinessProbe.httpGet.path)) }}
+          {{- end }}
+          readinessProbe:
+            {{- toYaml $readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: cache
+          emptyDir: {}
+        {{- if .Values.config.content }}
+        - name: config
+          configMap:
+            name: {{ include "aurora.fullname" . }}-config
+        {{- else if .Values.config.existingConfigMap }}
+        - name: config
+          configMap:
+            name: {{ .Values.config.existingConfigMap }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
