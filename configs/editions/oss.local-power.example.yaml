@@ -1,0 +1,113 @@
+# Aurora OSS local power-user profile
+# Usage: $env:AURORA_CONFIG_PATH = "configs/editions/oss.local-power.example.yaml"; go run ./apps/aurora
+# Goal: local dashboard, usage/audit, Prometheus metrics, exact Redis cache, and optional guardrails/token saver.
+# Requires Redis when RESPONSE_CACHE_SIMPLE_ENABLED=true or REDIS_URL is set.
+# Config pipeline: defaults -> this YAML -> env vars. Env vars always win.
+# Do not put real provider keys in this file.
+
+edition:
+  name: oss
+
+server:
+  port: "8080"
+  base_path: "/"
+  master_key: "${AURORA_MASTER_KEY}"
+  enable_passthrough_routes: true
+  allow_passthrough_v1_alias: true
+  enabled_passthrough_providers: ["openai", "anthropic", "openrouter", "zai", "vllm"]
+  enable_anthropic_ingress: true
+
+admin:
+  endpoints_enabled: true
+  ui_enabled: true
+
+
+models:
+  enabled_by_default: true
+  overrides_enabled: true
+  keep_only_aliases_at_models_endpoint: false
+  configured_provider_models_mode: "fallback"
+
+storage:
+  type: "sqlite"
+  sqlite:
+    path: "data/aurora-oss-power.db"
+
+logging:
+  enabled: true
+  log_bodies: false
+  log_headers: false
+  only_model_interactions: true
+
+usage:
+  enabled: true
+  pricing_recalculation_enabled: true
+  enforce_returning_usage_data: true
+
+metrics:
+  enabled: true
+  endpoint: "/metrics"
+
+guardrails:
+  enabled: false
+  enable_for_batch_processing: false
+  rules:
+    - name: "safety-prompt"
+      type: "system_prompt"
+      order: 0
+      system_prompt:
+        mode: "decorator"
+        content: "Always be safe, accurate, and respectful."
+
+cache:
+  model:
+    refresh_interval: 3600
+    model_list:
+      url: ""
+      local_path: "data/models.local.json"
+      user_overrides_path: "data/user_pricing.yaml"
+    local:
+      cache_dir: ".cache"
+  response:
+    simple:
+      enabled: true
+      redis:
+        url: "${REDIS_URL}"
+        key: "aurora:response:"
+        ttl: 3600
+
+combos:
+  enabled: true
+  definitions:
+    - name: "local-review-duo"
+      description: "Disabled example combo; enable after matching model aliases exist."
+      enabled: false
+      models:
+        - "gpt-4o-mini"
+        - "claude-sonnet-4"
+
+cli_tools:
+  enabled: true
+  apply_enabled: false
+
+token_saver:
+  enabled: false
+  endpoints: ["chat_completions"]
+  apply_streaming: true
+  output:
+    enabled: false
+    profile: "concise"
+    level: "full"
+  models:
+    include: []
+    exclude: []
+  providers:
+    include: []
+    exclude: []
+  on_error: "allow"
+  emit_headers: true
+  audit:
+    enabled: true
+
+workflows:
+  refresh_interval: 1m

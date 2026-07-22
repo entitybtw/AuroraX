@@ -1,0 +1,543 @@
+package core
+
+import (
+	json "github.com/goccy/go-json"
+)
+
+// CacheControlType represents the type of cache control for provider prompt caching.
+type CacheControlType string
+
+const (
+	// CacheControlEphemeral marks content for ephemeral prompt caching (Anthropic).
+	CacheControlEphemeral CacheControlType = "ephemeral"
+)
+
+// CacheControl configures provider-level prompt caching for a content block.
+type CacheControl struct {
+	Type CacheControlType `json:"type"`
+
+	ExtraFields UnknownJSONFields `json:"-" swaggerignore:"true"`
+}
+
+// IsEmpty reports whether the CacheControl is unset.
+func (c CacheControl) IsEmpty() bool {
+	return c.Type == ""
+}
+
+func (c CacheControl) MarshalJSON() ([]byte, error) {
+	type_ := mustMarshal(c.Type)
+
+	if !c.ExtraFields.IsEmpty() {
+		var rawMap map[string]json.RawMessage
+		if err := json.Unmarshal(c.ExtraFields.raw, &rawMap); err == nil && rawMap != nil {
+			rawMap["type"] = type_
+			return json.Marshal(rawMap)
+		}
+	}
+
+	return json.Marshal(struct {
+		Type json.RawMessage `json:"type"`
+	}{Type: type_})
+}
+
+func (c CacheControl) RawJSON() json.RawMessage {
+	data, err := json.Marshal(c)
+	if err != nil {
+		return nil
+	}
+	return json.RawMessage(data)
+}
+
+func mustMarshal(v any) json.RawMessage {
+	data, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return data
+}
+
+// PromptCacheMode controls how the gateway inserts cache breakpoints.
+type PromptCacheMode string
+
+const (
+	PromptCacheOff    PromptCacheMode = "off"
+	PromptCacheManual PromptCacheMode = "manual"
+	PromptCacheAuto   PromptCacheMode = "auto"
+)
+
+// PromptCacheConfig holds the policy for applying prompt cache breakpoints.
+type PromptCacheConfig struct {
+	Mode                 PromptCacheMode
+	SystemPromptCache    bool
+	FirstMessageCache    bool
+	ToolsCache           bool
+	MinTokensBeforeCache int
+}
+
+// ApplyDefaults sets sensible defaults for zero-valued PromptCacheConfig.
+func (c *PromptCacheConfig) ApplyDefaults() {
+	if c.Mode == "" {
+		c.Mode = PromptCacheAuto
+	}
+	if !c.SystemPromptCache && c.Mode != PromptCacheOff {
+		c.SystemPromptCache = true
+	}
+	if !c.FirstMessageCache && c.Mode != PromptCacheOff {
+		c.FirstMessageCache = true
+	}
+	if c.MinTokensBeforeCache <= 0 {
+		c.MinTokensBeforeCache = 1024
+	}
+}
+
+// DefaultPromptCacheConfig returns a default configuration (auto mode, system
+// and first-message breakpoints enabled, 1024 min tokens before caching).
+func DefaultPromptCacheConfig() PromptCacheConfig {
+	return PromptCacheConfig{
+		Mode:                 PromptCacheAuto,
+		SystemPromptCache:    true,
+		FirstMessageCache:    true,
+		MinTokensBeforeCache: 1024,
+	}
+}
+
+// PromptCache holds the resolved caching strategy for a single request.
+type PromptCache struct {
+	Mode                   PromptCacheMode
+	SystemCacheBreakpoint  bool
+	FirstMessageBreakpoint bool
+	ToolsCacheBreakpoint   bool
+	Config                 PromptCacheConfig
+}
+
+// IsEnabled reports whether prompt caching is active for this request.
+func (p *PromptCache) IsEnabled() bool {
+	return p != nil && p.Mode != PromptCacheOff
+}
+
+// CacheUsageInfo holds the extracted cache token counts from provider usage data.
+type CacheUsageInfo struct {
+	CacheReadTokens     int `json:"cache_read_tokens,omitempty"`
+	CacheWriteTokens    int `json:"cache_write_tokens,omitempty"`
+	CacheCreationTokens int `json:"cache_creation_tokens,omitempty"`
+	CachedTokens        int `json:"cached_tokens,omitempty"`
+}
+
+// StreamOptions controls streaming behavior options.
+// This is used to request usage data in streaming responses.
+type StreamOptions struct {
+	// IncludeUsage requests token usage information in streaming responses.
+	// When true, the final streaming chunk will include usage statistics.
+	IncludeUsage bool `json:"include_usage,omitempty"`
+}
+
+// Reasoning configures reasoning behavior for models that support extended thinking.
+// This is used with OpenAI's o-series models and other reasoning-capable models.
+type Reasoning struct {
+	// Effort controls how much reasoning effort the model should use.
+	// Valid values are "low", "medium", and "high".
+	Effort string `json:"effort,omitempty"`
+}
+
+// ChatRequest represents the incoming chat completion request
+type ChatRequest struct {
+	Temperature       *float64          `json:"temperature,omitempty"`
+	MaxTokens         *int              `json:"max_tokens,omitempty"`
+	Model             string            `json:"model"`
+	Provider          string            `json:"provider,omitempty"` // Gateway routing hint; stripped before upstream execution.
+	Messages          []Message         `json:"messages"`
+	Tools             []map[string]any  `json:"tools,omitempty"`
+	ToolChoice        any               `json:"tool_choice,omitempty"` // string or object
+	ParallelToolCalls *bool             `json:"parallel_tool_calls,omitempty"`
+	Stream            bool              `json:"stream,omitempty"`
+	StreamOptions     *StreamOptions    `json:"stream_options,omitempty"`
+	Reasoning         *Reasoning        `json:"reasoning,omitempty"`
+	PromptCache       *PromptCache      `json:"-" swaggerignore:"true"`
+	ExtraFields       UnknownJSONFields `json:"-" swaggerignore:"true"`
+}
+
+func (r *ChatRequest) semanticSelector() (string, string) {
+	if r == nil {
+		return "", ""
+	}
+	return r.Model, r.Provider
+}
+
+// WithStreaming returns a shallow copy of the request with Stream set to true.
+// This avoids mutating the caller's request object.
+func (r *ChatRequest) WithStreaming() *ChatRequest {
+	cp := *r
+	cp.Stream = true
+	return &cp
+}
+
+// MessageContent stores message content as either text or structured parts.
+type MessageContent any
+
+// Message represents a single message in the chat.
+type Message struct {
+	Role        string `json:"role"`
+	ToolCallID  string `json:"tool_call_id,omitempty"`
+	ContentNull bool   `json:"-"`
+	// Content accepts either a plain string or an array of ContentPart values.
+	// This preserves OpenAI-compatible multimodal chat payloads.
+	Content       MessageContent    `json:"content"`
+	ContentSchema []ContentPart     `json:"-" extensions:"x-oneOf=[{\"type\":\"null\"},{\"type\":\"string\"},{\"type\":\"array\",\"items\":{\"$ref\":\"#/definitions/core.ContentPart\"}}]"`
+	ToolCalls     []ToolCall        `json:"tool_calls,omitempty"`
+	ExtraFields   UnknownJSONFields `json:"-" swaggerignore:"true"`
+}
+
+// ToolCall represents a single tool invocation emitted by a model.
+type ToolCall struct {
+	ID          string            `json:"id"`
+	Type        string            `json:"type"`
+	Function    FunctionCall      `json:"function"`
+	ExtraFields UnknownJSONFields `json:"-" swaggerignore:"true"`
+}
+
+// FunctionCall contains the function name and serialized arguments payload.
+type FunctionCall struct {
+	Name        string            `json:"name"`
+	Arguments   string            `json:"arguments"`
+	ExtraFields UnknownJSONFields `json:"-" swaggerignore:"true"`
+}
+
+// ChatResponse represents the chat completion response
+type ChatResponse struct {
+	ID                string   `json:"id"`
+	Object            string   `json:"object"`
+	Model             string   `json:"model"`
+	Provider          string   `json:"provider"`
+	SystemFingerprint string   `json:"system_fingerprint,omitempty"`
+	Choices           []Choice `json:"choices"`
+	Usage             Usage    `json:"usage"`
+	Created           int64    `json:"created"`
+}
+
+// Choice represents a single completion choice
+type Choice struct {
+	Message      ResponseMessage `json:"message"`
+	FinishReason string          `json:"finish_reason"`
+	Index        int             `json:"index"`
+	Logprobs     json.RawMessage `json:"logprobs,omitempty" swaggertype:"object"`
+}
+
+// ResponseMessage represents a single assistant message in a chat response.
+type ResponseMessage struct {
+	Role          string            `json:"role"`
+	Content       MessageContent    `json:"content"`
+	ContentSchema []ContentPart     `json:"-" extensions:"x-oneOf=[{\"type\":\"null\"},{\"type\":\"string\"},{\"type\":\"array\",\"items\":{\"$ref\":\"#/definitions/core.ContentPart\"}}]"`
+	ToolCalls     []ToolCall        `json:"tool_calls,omitempty"`
+	ExtraFields   UnknownJSONFields `json:"-" swaggerignore:"true"`
+}
+
+// PromptTokensDetails holds extended input token breakdown (OpenAI/xAI).
+type PromptTokensDetails struct {
+	CachedTokens int `json:"cached_tokens"`
+	AudioTokens  int `json:"audio_tokens"`
+	TextTokens   int `json:"text_tokens"`
+	ImageTokens  int `json:"image_tokens"`
+}
+
+// CompletionTokensDetails holds extended output token breakdown (OpenAI/xAI).
+type CompletionTokensDetails struct {
+	ReasoningTokens          int `json:"reasoning_tokens"`
+	AudioTokens              int `json:"audio_tokens"`
+	AcceptedPredictionTokens int `json:"accepted_prediction_tokens"`
+	RejectedPredictionTokens int `json:"rejected_prediction_tokens"`
+}
+
+// Usage represents token usage information
+type Usage struct {
+	PromptTokens            int                      `json:"prompt_tokens"`
+	CompletionTokens        int                      `json:"completion_tokens"`
+	TotalTokens             int                      `json:"total_tokens"`
+	PromptTokensDetails     *PromptTokensDetails     `json:"prompt_tokens_details,omitempty"`
+	CompletionTokensDetails *CompletionTokensDetails `json:"completion_tokens_details,omitempty"`
+	RawUsage                map[string]any           `json:"raw_usage,omitempty"`
+}
+
+// Model represents a single model in the models list
+type Model struct {
+	ID      string `json:"id"`
+	Object  string `json:"object"`
+	OwnedBy string `json:"owned_by"`
+	Created int64  `json:"created"`
+	// Metadata holds optional enrichment data (display name, pricing, capabilities, etc.).
+	// May be nil if the model was not found in the external registry.
+	Metadata *ModelMetadata `json:"metadata,omitempty"`
+}
+
+// ModelMetadata holds enriched metadata from the external model registry.
+// YAML tags mirror the JSON field names so operators can declare metadata
+// overrides in config.yaml in the same shape that appears in /v1/models output.
+type ModelMetadata struct {
+	DisplayName     string                  `json:"display_name,omitempty" yaml:"display_name,omitempty"`
+	Description     string                  `json:"description,omitempty" yaml:"description,omitempty"`
+	Family          string                  `json:"family,omitempty" yaml:"family,omitempty"`
+	Modes           []string                `json:"modes,omitempty" yaml:"modes,omitempty"`
+	Categories      []ModelCategory         `json:"categories,omitempty" yaml:"categories,omitempty"`
+	Tags            []string                `json:"tags,omitempty" yaml:"tags,omitempty"`
+	ContextWindow   *int                    `json:"context_window,omitempty" yaml:"context_window,omitempty"`
+	MaxOutputTokens *int                    `json:"max_output_tokens,omitempty" yaml:"max_output_tokens,omitempty"`
+	Capabilities    map[string]bool         `json:"capabilities,omitempty" yaml:"capabilities,omitempty"`
+	Rankings        map[string]ModelRanking `json:"rankings,omitempty" yaml:"rankings,omitempty"`
+	Pricing         *ModelPricing           `json:"pricing,omitempty" yaml:"pricing,omitempty"`
+}
+
+// ModelRanking holds one benchmark or leaderboard entry for a model.
+type ModelRanking struct {
+	Elo  *float64 `json:"elo,omitempty" yaml:"elo,omitempty"`
+	Rank *int     `json:"rank,omitempty" yaml:"rank,omitempty"`
+	AsOf string   `json:"as_of,omitempty" yaml:"as_of,omitempty"`
+}
+
+// ModelCategory represents a model's functional category for UI grouping.
+type ModelCategory string
+
+const (
+	CategoryAll            ModelCategory = "all"
+	CategoryTextGeneration ModelCategory = "text_generation"
+	CategoryEmbedding      ModelCategory = "embedding"
+	CategoryRerank         ModelCategory = "rerank"
+	CategoryImage          ModelCategory = "image"
+	CategoryAudio          ModelCategory = "audio"
+	CategoryVideo          ModelCategory = "video"
+	CategoryUtility        ModelCategory = "utility"
+)
+
+// modeToCategory maps mode strings from the external registry to categories.
+var modeToCategory = map[string]ModelCategory{
+	"chat":                CategoryTextGeneration,
+	"completion":          CategoryTextGeneration,
+	"responses":           CategoryTextGeneration,
+	"embedding":           CategoryEmbedding,
+	"rerank":              CategoryRerank,
+	"image_generation":    CategoryImage,
+	"image_edit":          CategoryImage,
+	"audio_transcription": CategoryAudio,
+	"audio_speech":        CategoryAudio,
+	"video_generation":    CategoryVideo,
+	"moderation":          CategoryUtility,
+	"ocr":                 CategoryUtility,
+	"search":              CategoryUtility,
+}
+
+// CategoriesForModes returns deduplicated ModelCategory values for the given mode strings.
+// Unrecognized modes are silently skipped.
+func CategoriesForModes(modes []string) []ModelCategory {
+	seen := make(map[ModelCategory]struct{}, len(modes))
+	result := make([]ModelCategory, 0, len(modes))
+	for _, mode := range modes {
+		cat, ok := modeToCategory[mode]
+		if !ok {
+			continue
+		}
+		if _, dup := seen[cat]; dup {
+			continue
+		}
+		seen[cat] = struct{}{}
+		result = append(result, cat)
+	}
+	return result
+}
+
+// AllCategories returns the ordered list of categories for UI rendering.
+func AllCategories() []ModelCategory {
+	return []ModelCategory{
+		CategoryAll,
+		CategoryTextGeneration,
+		CategoryEmbedding,
+		CategoryRerank,
+		CategoryImage,
+		CategoryAudio,
+		CategoryVideo,
+		CategoryUtility,
+	}
+}
+
+// ModelPricing holds pricing information for cost calculation.
+type ModelPricing struct {
+	Currency               string             `json:"currency" yaml:"currency"`
+	InputPerMtok           *float64           `json:"input_per_mtok,omitempty" yaml:"input_per_mtok,omitempty"`
+	OutputPerMtok          *float64           `json:"output_per_mtok,omitempty" yaml:"output_per_mtok,omitempty"`
+	CachedInputPerMtok     *float64           `json:"cached_input_per_mtok,omitempty" yaml:"cached_input_per_mtok,omitempty"`
+	CacheWritePerMtok      *float64           `json:"cache_write_per_mtok,omitempty" yaml:"cache_write_per_mtok,omitempty"`
+	ReasoningOutputPerMtok *float64           `json:"reasoning_output_per_mtok,omitempty" yaml:"reasoning_output_per_mtok,omitempty"`
+	BatchInputPerMtok      *float64           `json:"batch_input_per_mtok,omitempty" yaml:"batch_input_per_mtok,omitempty"`
+	BatchOutputPerMtok     *float64           `json:"batch_output_per_mtok,omitempty" yaml:"batch_output_per_mtok,omitempty"`
+	AudioInputPerMtok      *float64           `json:"audio_input_per_mtok,omitempty" yaml:"audio_input_per_mtok,omitempty"`
+	AudioOutputPerMtok     *float64           `json:"audio_output_per_mtok,omitempty" yaml:"audio_output_per_mtok,omitempty"`
+	PerImage               *float64           `json:"per_image,omitempty" yaml:"per_image,omitempty"`
+	InputPerImage          *float64           `json:"input_per_image,omitempty" yaml:"input_per_image,omitempty"`
+	PerSecondInput         *float64           `json:"per_second_input,omitempty" yaml:"per_second_input,omitempty"`
+	PerSecondOutput        *float64           `json:"per_second_output,omitempty" yaml:"per_second_output,omitempty"`
+	PerCharacterInput      *float64           `json:"per_character_input,omitempty" yaml:"per_character_input,omitempty"`
+	PerRequest             *float64           `json:"per_request,omitempty" yaml:"per_request,omitempty"`
+	PerPage                *float64           `json:"per_page,omitempty" yaml:"per_page,omitempty"`
+	Tiers                  []ModelPricingTier `json:"tiers,omitempty" yaml:"tiers,omitempty"`
+}
+
+// ModelPricingTier represents a volume-based pricing tier.
+type ModelPricingTier struct {
+	UpToMtok      *float64 `json:"up_to_mtok,omitempty" yaml:"up_to_mtok,omitempty"`
+	InputPerMtok  *float64 `json:"input_per_mtok,omitempty" yaml:"input_per_mtok,omitempty"`
+	OutputPerMtok *float64 `json:"output_per_mtok,omitempty" yaml:"output_per_mtok,omitempty"`
+}
+
+func cloneFloatPtr(v *float64) *float64 {
+	if v == nil {
+		return nil
+	}
+	out := *v
+	return &out
+}
+
+func cloneIntPtr(v *int) *int {
+	if v == nil {
+		return nil
+	}
+	out := *v
+	return &out
+}
+
+// CloneModelRanking returns a deep copy so the caller can mutate pointer
+// fields (Elo, Rank) without affecting the original.
+func CloneModelRanking(r ModelRanking) ModelRanking {
+	return ModelRanking{
+		Elo:  cloneFloatPtr(r.Elo),
+		Rank: cloneIntPtr(r.Rank),
+		AsOf: r.AsOf,
+	}
+}
+
+// Clone returns a deep copy so callers can safely mutate the result without
+// affecting the original. Pointer fields and Tiers are re-allocated.
+func (p *ModelPricing) Clone() *ModelPricing {
+	if p == nil {
+		return nil
+	}
+	out := *p
+	out.InputPerMtok = cloneFloatPtr(p.InputPerMtok)
+	out.OutputPerMtok = cloneFloatPtr(p.OutputPerMtok)
+	out.CachedInputPerMtok = cloneFloatPtr(p.CachedInputPerMtok)
+	out.CacheWritePerMtok = cloneFloatPtr(p.CacheWritePerMtok)
+	out.ReasoningOutputPerMtok = cloneFloatPtr(p.ReasoningOutputPerMtok)
+	out.BatchInputPerMtok = cloneFloatPtr(p.BatchInputPerMtok)
+	out.BatchOutputPerMtok = cloneFloatPtr(p.BatchOutputPerMtok)
+	out.AudioInputPerMtok = cloneFloatPtr(p.AudioInputPerMtok)
+	out.AudioOutputPerMtok = cloneFloatPtr(p.AudioOutputPerMtok)
+	out.PerImage = cloneFloatPtr(p.PerImage)
+	out.InputPerImage = cloneFloatPtr(p.InputPerImage)
+	out.PerSecondInput = cloneFloatPtr(p.PerSecondInput)
+	out.PerSecondOutput = cloneFloatPtr(p.PerSecondOutput)
+	out.PerCharacterInput = cloneFloatPtr(p.PerCharacterInput)
+	out.PerRequest = cloneFloatPtr(p.PerRequest)
+	out.PerPage = cloneFloatPtr(p.PerPage)
+	if len(p.Tiers) > 0 {
+		tiers := make([]ModelPricingTier, len(p.Tiers))
+		for i, t := range p.Tiers {
+			tiers[i] = ModelPricingTier{
+				UpToMtok:      cloneFloatPtr(t.UpToMtok),
+				InputPerMtok:  cloneFloatPtr(t.InputPerMtok),
+				OutputPerMtok: cloneFloatPtr(t.OutputPerMtok),
+			}
+		}
+		out.Tiers = tiers
+	} else {
+		out.Tiers = nil
+	}
+	return &out
+}
+
+// Clone returns a deep copy so callers can safely mutate the result without
+// affecting the original. Slices, maps, and pointer fields are re-allocated.
+func (m *ModelMetadata) Clone() *ModelMetadata {
+	if m == nil {
+		return nil
+	}
+	out := *m
+	if len(m.Modes) > 0 {
+		out.Modes = append([]string(nil), m.Modes...)
+	} else {
+		out.Modes = nil
+	}
+	if len(m.Categories) > 0 {
+		out.Categories = append([]ModelCategory(nil), m.Categories...)
+	} else {
+		out.Categories = nil
+	}
+	if len(m.Tags) > 0 {
+		out.Tags = append([]string(nil), m.Tags...)
+	} else {
+		out.Tags = nil
+	}
+	if len(m.Capabilities) > 0 {
+		caps := make(map[string]bool, len(m.Capabilities))
+		for k, v := range m.Capabilities {
+			caps[k] = v
+		}
+		out.Capabilities = caps
+	} else {
+		out.Capabilities = nil
+	}
+	if len(m.Rankings) > 0 {
+		ranks := make(map[string]ModelRanking, len(m.Rankings))
+		for k, v := range m.Rankings {
+			ranks[k] = CloneModelRanking(v)
+		}
+		out.Rankings = ranks
+	} else {
+		out.Rankings = nil
+	}
+	out.ContextWindow = cloneIntPtr(m.ContextWindow)
+	out.MaxOutputTokens = cloneIntPtr(m.MaxOutputTokens)
+	out.Pricing = m.Pricing.Clone()
+	return &out
+}
+
+// ModelsResponse represents the response from the /v1/models endpoint
+type ModelsResponse struct {
+	Object string  `json:"object"`
+	Data   []Model `json:"data"`
+}
+
+// EmbeddingRequest represents the incoming embeddings request (OpenAI-compatible).
+type EmbeddingRequest struct {
+	Model          string            `json:"model"`
+	Provider       string            `json:"provider,omitempty"` // Gateway routing hint; stripped before upstream execution.
+	Input          any               `json:"input"`
+	EncodingFormat string            `json:"encoding_format,omitempty"`
+	Dimensions     *int              `json:"dimensions,omitempty"`
+	ExtraFields    UnknownJSONFields `json:"-" swaggerignore:"true"`
+}
+
+func (r *EmbeddingRequest) semanticSelector() (string, string) {
+	if r == nil {
+		return "", ""
+	}
+	return r.Model, r.Provider
+}
+
+// EmbeddingResponse represents the embeddings response (OpenAI-compatible).
+type EmbeddingResponse struct {
+	Object   string          `json:"object"`
+	Data     []EmbeddingData `json:"data"`
+	Model    string          `json:"model"`
+	Provider string          `json:"provider"`
+	Usage    EmbeddingUsage  `json:"usage"`
+}
+
+// EmbeddingData represents a single embedding data point.
+// Embedding is json.RawMessage to support both float arrays and base64-encoded strings.
+type EmbeddingData struct {
+	Object    string          `json:"object"`
+	Embedding json.RawMessage `json:"embedding" swaggertype:"object"`
+	Index     int             `json:"index"`
+}
+
+// EmbeddingUsage represents token usage information for embeddings.
+type EmbeddingUsage struct {
+	PromptTokens int `json:"prompt_tokens"`
+	TotalTokens  int `json:"total_tokens"`
+}

@@ -1,0 +1,310 @@
+/*
+ * Aurora dashboard global styles.
+ * Imports centralized design tokens (legacy-vars.css), maps them onto
+ * Tailwind 4's @theme inline system, and provides base layer resets
+ * plus reusable component utilities.
+ *
+ * ── Design direction ──────────────────────────────────────────────
+ * "Forest Canopy" — deep pine greens anchor the palette while a
+ * sharp spring-green accent (#6AD87A) brings energy. Pure green
+ * family throughout, no clashing warm tones. DM Sans + DM Serif
+ * Display for refined typography.
+ */
+
+@import "./legacy-vars.css";
+@import "tailwindcss";
+@import "@fontsource/dm-sans/400.css";
+@import "@fontsource/dm-sans/500.css";
+@import "@fontsource/dm-sans/600.css";
+@import "@fontsource/dm-sans/700.css";
+@import "@fontsource/dm-serif-display/400.css";
+@import "@fontsource/dm-serif-display/400-italic.css";
+
+@theme inline {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: "DM Serif Display", ui-serif, Georgia, "Times New Roman", serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
+
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+
+  --color-surface: var(--bg-surface);
+  --color-surface-hover: var(--bg-surface-hover);
+
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--accent);
+
+  --color-muted: var(--bg-surface);
+  --color-muted-foreground: var(--text-muted);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--accent-foreground);
+
+  --color-secondary: var(--bg-surface);
+  --color-secondary-foreground: var(--text);
+
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: #ffffff;
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+
+  --color-chart-grid: var(--chart-grid);
+  --color-chart-text: var(--chart-text);
+  --color-chart-tooltip-bg: var(--chart-tooltip-bg);
+  --color-chart-tooltip-border: var(--chart-tooltip-border);
+  --color-chart-tooltip-text: var(--chart-tooltip-text);
+
+  --color-chart-input: var(--chart-input);
+  --color-chart-output: var(--chart-output);
+  --color-chart-cache-input: var(--chart-cache-input);
+  --color-chart-cache-output: var(--chart-cache-output);
+  --color-chart-requests: var(--chart-requests);
+  --color-chart-cache-hits: var(--chart-cache-hits);
+  --color-chart-palette-5: var(--chart-palette-5);
+  --color-chart-palette-6: var(--chart-palette-6);
+  --color-chart-palette-7: var(--chart-palette-7);
+  --color-chart-palette-8: var(--chart-palette-8);
+
+  --color-cal-0: var(--cal-level-0);
+  --color-cal-1: var(--cal-level-1);
+  --color-cal-2: var(--cal-level-2);
+  --color-cal-3: var(--cal-level-3);
+  --color-cal-4: var(--cal-level-4);
+
+  --color-prompt-cache: var(--prompt-cache-color);
+  --color-prompt-cache-bg: var(--prompt-cache-color-bg);
+
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+
+  --spacing-sidebar: var(--sidebar-width);
+}
+
+@layer base {
+  :root {
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --space-page: 16px;
+    --tap-target: 44px;
+    --radius-control: 10px;
+    --radius-card: 14px;
+    --radius-sheet: 20px;
+    --motion-fast: 160ms;
+    --motion-normal: 260ms;
+    --motion-slow: 400ms;
+    --ease-ios: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border-color: var(--border);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+
+  @media (prefers-contrast: more) {
+    :root {
+      --border: color-mix(in srgb, var(--text) 40%, transparent);
+      --border-subtle: color-mix(in srgb, var(--text) 25%, transparent);
+      --text-muted: color-mix(in srgb, var(--text) 75%, transparent);
+    }
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  /* Refined scrollbar for Chrome/Safari/Opera */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 99px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+  }
+
+  /* Firefox scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--accent) 30%, transparent);
+    color: var(--text);
+  }
+
+  [data-cloak] {
+    display: none !important;
+  }
+}
+
+@layer components {
+  .field-input {
+    @apply w-full border border-border/50 bg-background/50 px-3 py-2 text-sm text-foreground outline-none transition-all duration-200
+    placeholder:text-muted-foreground
+    focus:border-accent/70 focus:ring-2 focus:ring-accent/15
+    disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  /* ── Liquid Glass system ──────────────────────────────────────── */
+
+  /*
+   * glass — primary glass material for chrome/nav/sheets.
+   * Uses CSS variables so light/dark/system modes are handled
+   * automatically via legacy-vars.css tokens.
+   */
+  .glass {
+    position: relative;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow), var(--glass-highlight);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+  }
+
+  .glass-thin {
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    backdrop-filter: blur(10px) saturate(140%);
+  }
+
+  .glass-thick {
+    -webkit-backdrop-filter: blur(30px) saturate(200%);
+    backdrop-filter: blur(30px) saturate(200%);
+  }
+
+  /* Glass variant for sidebar / persistent shell chrome */
+  .glass-chrome {
+    background: color-mix(in srgb, var(--bg-surface) 85%, transparent);
+    border-right: 1px solid var(--glass-border);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15), var(--glass-highlight);
+    -webkit-backdrop-filter: blur(28px) saturate(200%);
+    backdrop-filter: blur(28px) saturate(200%);
+  }
+
+  [data-theme="light"] .glass-chrome {
+    background: var(--bg-surface);
+    border-color: var(--border-subtle);
+    box-shadow: 1px 0 0 var(--border-subtle);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) .glass-chrome {
+      background: var(--bg-surface);
+      border-color: var(--border-subtle);
+      box-shadow: 1px 0 0 var(--border-subtle);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .glass,
+    .glass-chrome {
+      background: var(--bg-surface) !important;
+      border-color: var(--border) !important;
+      box-shadow: none !important;
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+    }
+  }
+
+  /* ── Flush Grid utilities ─────────────────────────────────────── */
+  .flush-grid {
+    display: grid;
+    border: 1px solid var(--border);
+  }
+
+  .flush-cell {
+    padding: 1.5rem;
+    transition: background-color 200ms ease;
+  }
+
+  .flush-cell:hover {
+    background-color: color-mix(in srgb, var(--bg-surface-hover) 30%, transparent);
+  }
+
+  /* ── Text utilities ───────────────────────────────────────────── */
+  .text-kicker {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--accent);
+  }
+
+  .heading-serif {
+    font-family: var(--font-serif);
+    font-weight: 400;
+  }
+
+  /* ── Numbered index utility ───────────────────────────────────── */
+  .index-label {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--border);
+    transition: color 200ms ease;
+  }
+
+  .flush-cell:hover .index-label,
+  .group:hover .index-label {
+    color: var(--accent);
+  }
+}

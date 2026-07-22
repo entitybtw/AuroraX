@@ -1,0 +1,241 @@
+/*
+ * ── Aurora Design Tokens ──────────────────────────────────────────────
+ * Centralized theme variables. Change values here to rebrand the entire
+ * dashboard. All components reference these via Tailwind @theme mapping
+ * in globals.css or directly via var(--token).
+ *
+ * Palette:
+ *   #131E19  Deep Forest   (near-black green, rich depth)
+ *   #1B2A22  Pine          (dark green surface)
+ *   #24382E  Moss          (border / hover)
+ *   #6AD87A  Spring        (sharp light green accent)
+ *   #EDE8DA  Cream         (bright warm off-white)
+ *   #5CB884  Sage          (success)
+ *   #E0893E  Ember         (warning — vivid orange)
+ *   #C44A4A  Brick         (danger)
+ */
+
+/* ── Dark mode (default) ─────────────────────────────────────────── */
+:root {
+  /* Backgrounds */
+  --bg: #131E19;
+  --bg-surface: #1B2A22;
+  --bg-surface-hover: #24382E;
+  --bg-elevated: #2D4236;
+
+  /* Text */
+  --text: #EDE8DA;
+  --text-muted: #A3B0A4;
+  --text-inverse: #131E19;
+
+  /* Borders */
+  --border: #24382E;
+  --border-subtle: rgba(237, 232, 218, 0.06);
+
+  /* Accent */
+  --accent: #6AD87A;
+  --accent-hover: #82E891;
+  --accent-foreground: #131E19;
+
+  /* Semantic */
+  --success: #5CB884;
+  --success-bg: rgba(92, 184, 132, 0.12);
+  --warning: #E0893E;
+  --warning-bg: rgba(224, 137, 62, 0.15);
+  --danger: #C44A4A;
+  --danger-bg: rgba(196, 74, 74, 0.12);
+  --info: #7BA7C9;
+  --info-bg: rgba(123, 167, 201, 0.12);
+
+  /* Chart */
+  --chart-grid: rgba(237, 232, 218, 0.06);
+  --chart-text: #A3B0A4;
+  --chart-tooltip-bg: #24382E;
+  --chart-tooltip-border: #3B5045;
+  --chart-tooltip-text: #EDE8DA;
+  --chart-colors: #6AD87A, #5CB884, #E0893E, #7BA7C9, #8FA89B, #A3B0A4;
+
+  /* Chart series colors (used by Recharts components) */
+  --chart-input: #6AD87A;
+  --chart-output: #5CB884;
+  --chart-cache-input: #7BA7C9;
+  --chart-cache-output: #8FA89B;
+  --chart-requests: #6AD87A;
+  --chart-cache-hits: #5CB884;
+  --chart-palette-5: #E0893E;
+  --chart-palette-6: #8FA89B;
+  --chart-palette-7: #A3B0A4;
+  --chart-palette-8: #7BA7C9;
+
+  /* Qualitative palette for categorical charts */
+  --chart-cat-1: #6AD87A;
+  --chart-cat-2: #4FC2E0;
+  --chart-cat-3: #A78BFA;
+  --chart-cat-4: #F59E0B;
+  --chart-cat-5: #FB7185;
+  --chart-cat-6: #34D399;
+  --chart-cat-7: #60A5FA;
+  --chart-cat-8: #C084FC;
+  --chart-cat-9: #F97316;
+  --chart-cat-10: #22D3EE;
+
+  color-scheme: dark;
+}
+
+/* ── Light mode (pinned) ──────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg: #ECF1EA;
+  --bg-surface: #F4F7F3;
+  --bg-surface-hover: #E7ECE4;
+  --bg-elevated: #FFFFFF;
+
+  --text: #1A2820;
+  --text-muted: #657467;
+  --text-inverse: #ECF1EA;
+
+  --border: #D4DCD0;
+  --border-subtle: rgba(26, 40, 32, 0.05);
+
+  --accent: #3DAF4E;
+  --accent-hover: #4FC25E;
+  --accent-foreground: #FFFFFF;
+
+  --success: #4CAF7A;
+  --success-bg: rgba(76, 175, 122, 0.1);
+  --warning: #D07A30;
+  --warning-bg: rgba(208, 122, 48, 0.12);
+  --danger: #C94545;
+  --danger-bg: rgba(201, 69, 69, 0.1);
+  --info: #5A8DB0;
+  --info-bg: rgba(90, 141, 176, 0.1);
+
+  --chart-grid: rgba(26, 40, 32, 0.08);
+  --chart-text: #657467;
+  --chart-tooltip-bg: #FFFFFF;
+  --chart-tooltip-border: #D4DCD0;
+  --chart-tooltip-text: #1A2820;
+  --chart-colors: #3DAF4E, #4CAF7A, #D07A30, #5A8DB0, #7A9688, #657467;
+
+  --chart-input: #3DAF4E;
+  --chart-output: #4CAF7A;
+  --chart-cache-input: #5A8DB0;
+  --chart-cache-output: #7A9688;
+  --chart-requests: #3DAF4E;
+  --chart-cache-hits: #4CAF7A;
+  --chart-palette-5: #D07A30;
+  --chart-palette-6: #7A9688;
+  --chart-palette-7: #657467;
+  --chart-palette-8: #5A8DB0;
+
+  --chart-cat-1: #3DAF4E;
+  --chart-cat-2: #3B9DBF;
+  --chart-cat-3: #8B74D4;
+  --chart-cat-4: #D68A1A;
+  --chart-cat-5: #E0657A;
+  --chart-cat-6: #2EBF7A;
+  --chart-cat-7: #4A8FD4;
+  --chart-cat-8: #A66ED4;
+  --chart-cat-9: #C96A20;
+  --chart-cat-10: #1FB8CC;
+
+  --cal-level-0: #E5EBE4;
+  --cal-level-1: #C4D4C8;
+  --cal-level-2: #8BAA92;
+  --cal-level-3: #3DAF4E;
+  --cal-level-4: #4FC25E;
+
+  --prompt-cache-color: #4CAF7A;
+  --prompt-cache-color-bg: rgba(76, 175, 122, 0.09);
+  --alias-row-valid-bg: rgba(244, 247, 243, 0.9);
+  --alias-row-valid-bg-hover: rgba(231, 236, 228, 0.95);
+
+  --glass-bg: rgba(244, 247, 243, 0.82);
+  --glass-border: rgba(26, 40, 32, 0.05);
+  --glass-shadow: 0 8px 32px rgba(26, 40, 32, 0.08);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+
+  --ring-highlight: rgba(0, 0, 0, 0.06);
+  --shadow-tint: rgba(0, 0, 0, 0.08);
+
+  color-scheme: light;
+}
+
+/* ── System light (no pinned theme) ───────────────────────────────── */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #ECF1EA;
+    --bg-surface: #F4F7F3;
+    --bg-surface-hover: #E7ECE4;
+    --bg-elevated: #FFFFFF;
+
+    --text: #1A2820;
+    --text-muted: #657467;
+    --text-inverse: #ECF1EA;
+
+    --border: #D4DCD0;
+    --border-subtle: rgba(26, 40, 32, 0.05);
+
+    --accent: #3DAF4E;
+    --accent-hover: #4FC25E;
+    --accent-foreground: #FFFFFF;
+
+    --success: #4CAF7A;
+    --success-bg: rgba(76, 175, 122, 0.1);
+    --warning: #D07A30;
+    --warning-bg: rgba(208, 122, 48, 0.12);
+    --danger: #C94545;
+    --danger-bg: rgba(201, 69, 69, 0.1);
+    --info: #5A8DB0;
+    --info-bg: rgba(90, 141, 176, 0.1);
+
+    --chart-grid: rgba(26, 40, 32, 0.08);
+    --chart-text: #657467;
+    --chart-tooltip-bg: #FFFFFF;
+    --chart-tooltip-border: #D4DCD0;
+    --chart-tooltip-text: #1A2820;
+    --chart-colors: #3DAF4E, #4CAF7A, #D07A30, #5A8DB0, #7A9688, #657467;
+
+    --chart-input: #3DAF4E;
+    --chart-output: #4CAF7A;
+    --chart-cache-input: #5A8DB0;
+    --chart-cache-output: #7A9688;
+    --chart-requests: #3DAF4E;
+    --chart-cache-hits: #4CAF7A;
+    --chart-palette-5: #D07A30;
+    --chart-palette-6: #7A9688;
+    --chart-palette-7: #657467;
+    --chart-palette-8: #5A8DB0;
+
+    --chart-cat-1: #3DAF4E;
+    --chart-cat-2: #3B9DBF;
+    --chart-cat-3: #8B74D4;
+    --chart-cat-4: #D68A1A;
+    --chart-cat-5: #E0657A;
+    --chart-cat-6: #2EBF7A;
+    --chart-cat-7: #4A8FD4;
+    --chart-cat-8: #A66ED4;
+    --chart-cat-9: #C96A20;
+    --chart-cat-10: #1FB8CC;
+
+    --cal-level-0: #E5EBE4;
+    --cal-level-1: #C4D4C8;
+    --cal-level-2: #8BAA92;
+    --cal-level-3: #3DAF4E;
+    --cal-level-4: #4FC25E;
+
+    --prompt-cache-color: #4CAF7A;
+    --prompt-cache-color-bg: rgba(76, 175, 122, 0.09);
+    --alias-row-valid-bg: rgba(244, 247, 243, 0.9);
+    --alias-row-valid-bg-hover: rgba(231, 236, 228, 0.95);
+
+    --glass-bg: rgba(244, 247, 243, 0.82);
+    --glass-border: rgba(26, 40, 32, 0.05);
+    --glass-shadow: 0 8px 32px rgba(26, 40, 32, 0.08);
+    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+
+    --ring-highlight: rgba(0, 0, 0, 0.06);
+    --shadow-tint: rgba(0, 0, 0, 0.08);
+
+    color-scheme: light;
+  }
+}

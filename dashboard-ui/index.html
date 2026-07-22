@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark light" />
+  <meta name="theme-color" content="#131E19" />
+  <!--
+      Replaced per-request by the Go dashboard handler so the SPA can
+      honor the configured BASE_PATH (e.g. "/g") when the gateway is mounted
+      under a sub-path. Mirrors the legacy template's window.AURORA_BASE_PATH
+      bootstrap so a deep-mounted operator does not need to special-case URLs.
+    -->
+  <meta name="aurora-base-path" content="__AURORA_BASE_PATH__" />
+  <link rel="icon" type="image/svg+xml" href="/navbar-logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <title>Aurora Gateway · Admin</title>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
+</html>

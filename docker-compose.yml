@@ -1,0 +1,169 @@
+# Aurora Gateway — Docker Compose
+#
+# Infrastructure services for local development and team deployments.
+# The Aurora app image is available via --profile app.
+#
+# Usage:
+#   docker compose up -d                        # Infra only (Redis, Postgres, Qdrant, Prometheus, Grafana)
+#   docker compose --profile app up -d          # Full stack (+ Aurora gateway)
+#
+# Set provider keys and other secrets in .env (copy from .env.template).
+
+services:
+  # ===========================================================================
+  # Aurora Gateway (requires --profile app)
+  # ===========================================================================
+  aurora:
+    profile: [app]
+    image: aurorallm/aurora:latest
+    restart: unless-stopped
+    ports:
+      - "${AURORA_HOST_PORT:-8080}:8080"
+    environment:
+      AURORA_CONFIG_PATH: /app/configs/config.yaml
+      AURORA_MASTER_KEY: ${AURORA_MASTER_KEY:-}
+      PORT: "8080"
+      # Storage
+      STORAGE_TYPE: ${STORAGE_TYPE:-sqlite}
+      POSTGRES_URL: ${POSTGRES_URL:-postgres://aurora:aurora@postgres:5432/aurora?sslmode=disable}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      # Cache
+      RESPONSE_CACHE_SIMPLE_ENABLED: "true"
+      SEMANTIC_CACHE_ENABLED: ${SEMANTIC_CACHE_ENABLED:-false}
+      # Metrics
+      METRICS_ENABLED: "true"
+      # Provider keys (pass via .env)
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      XAI_API_KEY: ${XAI_API_KEY:-}
+      ZAI_API_KEY: ${ZAI_API_KEY:-}
+      AZURE_API_KEY: ${AZURE_API_KEY:-}
+      AZURE_BASE_URL: ${AZURE_BASE_URL:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}
+      VLLM_BASE_URL: ${VLLM_BASE_URL:-http://host.docker.internal:8000/v1}
+    volumes:
+      - ./configs/editions/oss.team.example.yaml:/app/configs/config.yaml:ro
+      - ./.aurora.local/fallback.local.json:/app/configs/fallback.local.json:ro
+      - aurora_data:/app/data
+    depends_on:
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ===========================================================================
+  # PostgreSQL — primary storage backend
+  # ===========================================================================
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: aurora
+      POSTGRES_PASSWORD: aurora
+      POSTGRES_DB: aurora
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/docker/init-postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aurora"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles: [app, infra]
+
+  # ===========================================================================
+  # Redis — model cache, exact response cache, rate limiting
+  # ===========================================================================
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "${REDIS_HOST_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles: [app, infra]
+
+  # ===========================================================================
+  # Qdrant — vector store for semantic response cache
+  # ===========================================================================
+  qdrant:
+    image: qdrant/qdrant:latest
+    restart: unless-stopped
+    ports:
+      - "${QDRANT_HOST_PORT:-6333}:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    profiles: [app, infra]
+
+  # ===========================================================================
+  # Prometheus — metrics collection
+  # ===========================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    ports:
+      - "${PROMETHEUS_HOST_PORT:-9090}:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+    profiles: [app, infra]
+
+  # ===========================================================================
+  # Grafana — dashboards for Prometheus metrics
+  # ===========================================================================
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    ports:
+      - "${GRAFANA_HOST_PORT:-3000}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_INSTALL_PLUGINS: ""
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - prometheus
+    profiles: [app, infra]
+
+  # ===========================================================================
+  # Adminer — database management UI (optional)
+  # ===========================================================================
+  adminer:
+    image: adminer:latest
+    restart: unless-stopped
+    ports:
+      - "${ADMINER_HOST_PORT:-8081}:8080"
+    profiles: [infra]
+
+volumes:
+  aurora_data:
+  postgres_data:
+  redis_data:
+  qdrant_data:
+  prometheus_data:
+  grafana_data:
