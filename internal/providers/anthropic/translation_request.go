@@ -121,10 +121,21 @@ func convertOpenAIToolsToAnthropic(tools []map[string]any) ([]anthropicTool, err
 			inputSchema = schema
 		}
 
+		toolCC, _ := tool["cache_control"].(map[string]any)
+		var cacheControl json.RawMessage
+		if toolCC != nil {
+			raw, err := json.Marshal(toolCC)
+			if err != nil {
+				return nil, core.NewInvalidRequestError("invalid tool cache_control", nil)
+			}
+			cacheControl = raw
+		}
+
 		out = append(out, anthropicTool{
-			Name:        name,
-			Description: description,
-			InputSchema: inputSchema.(map[string]any),
+			Name:         name,
+			Description:  description,
+			InputSchema:  inputSchema.(map[string]any),
+			CacheControl: cacheControl,
 		})
 	}
 	if len(out) == 0 {
@@ -299,6 +310,14 @@ func convertToAnthropicRequest(req *core.ChatRequest) (*anthropicRequest, error)
 
 	if req.Reasoning != nil && req.Reasoning.Effort != "" {
 		applyReasoning(anthropicReq, req.Model, req.Reasoning.Effort)
+	}
+
+	if cc := req.CacheControl(); cc != nil {
+		raw, err := json.Marshal(cc)
+		if err != nil {
+			return nil, core.NewInvalidRequestError("invalid cache_control", nil)
+		}
+		anthropicReq.CacheControl = raw
 	}
 
 	responseFormatInstruction, err := anthropicResponseFormatInstruction(req.ExtraFields)

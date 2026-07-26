@@ -41,11 +41,11 @@ cache:
             embedder_model: jina-embeddings-v3
             vector_store_type: qdrant
     prompt:
-        mode: ""
-        system_prompt: false
-        first_message: false
+        mode: auto
+        system_prompt: true
+        first_message: true
         tools: false
-        min_tokens: 0
+        min_tokens: 1024
 logging:
     enabled: true
     log_bodies: true

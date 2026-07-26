@@ -2,8 +2,8 @@ apiVersion: v2
 name: aurora
 description: Aurora OSS AI gateway for OpenAI-compatible routing across multiple LLM providers
 type: application
-version: 1.0.36
-appVersion: 1.0.36
+version: 1.0.37
+appVersion: 1.0.37
 icon: https://raw.githubusercontent.com/aurorallm/aurora/main/docs/logo.svg
 annotations:
   artifacthub.io/license: Apache-2.0

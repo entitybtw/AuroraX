@@ -4841,3 +4841,179 @@ func TestConvertToAnthropicRequest_HonoursDefaultMaxTokensEnv(t *testing.T) {
 		t.Errorf("MaxTokens = %d, want 32768", got.MaxTokens)
 	}
 }
+
+func TestConvertToAnthropicRequest_ForwardsRequestLevelCacheControl(t *testing.T) {
+	req := &core.ChatRequest{
+		Model: "claude-sonnet-4-6",
+		Messages: []core.Message{
+			{Role: "user", Content: "Hello"},
+		},
+	}
+	req.SetCacheControl(&core.CacheControl{Type: core.CacheControlEphemeral})
+
+	result, err := convertToAnthropicRequest(req)
+	if err != nil {
+		t.Fatalf("convertToAnthropicRequest() error = %v", err)
+	}
+	if result.CacheControl == nil {
+		t.Fatal("expected request-level cache_control on anthropicRequest")
+	}
+	var cc struct{ Type string }
+	if err := json.Unmarshal(result.CacheControl, &cc); err != nil {
+		t.Fatalf("json.Unmarshal cache_control error = %v", err)
+	}
+	if cc.Type != "ephemeral" {
+		t.Errorf("cache_control type = %q, want ephemeral", cc.Type)
+	}
+
+	body, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+	if !strings.Contains(string(body), `"cache_control":{"type":"ephemeral"}`) {
+		t.Fatalf("marshaled request body missing request-level cache_control: %s", body)
+	}
+}
+
+func TestConvertToAnthropicRequest_ForwardToolCacheControl(t *testing.T) {
+	req := &core.ChatRequest{
+		Model: "claude-sonnet-4-6",
+		Messages: []core.Message{
+			{Role: "user", Content: "What's the weather?"},
+		},
+		Tools: []map[string]any{
+			{
+				"type":          "function",
+				"function":      map[string]any{"name": "get_weather", "description": "Get weather", "parameters": map[string]any{"type": "object", "properties": map[string]any{}}},
+				"cache_control": map[string]any{"type": "ephemeral"},
+			},
+		},
+	}
+
+	result, err := convertToAnthropicRequest(req)
+	if err != nil {
+		t.Fatalf("convertToAnthropicRequest() error = %v", err)
+	}
+	if len(result.Tools) != 1 {
+		t.Fatalf("len(Tools) = %d, want 1", len(result.Tools))
+	}
+	if result.Tools[0].CacheControl == nil {
+		t.Fatal("expected Tool[0].CacheControl to be set")
+	}
+	var cc struct{ Type string }
+	if err := json.Unmarshal(result.Tools[0].CacheControl, &cc); err != nil {
+		t.Fatalf("json.Unmarshal cache_control error = %v", err)
+	}
+	if cc.Type != "ephemeral" {
+		t.Errorf("Tool[0].CacheControl type = %q, want ephemeral", cc.Type)
+	}
+
+	body, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+	if !strings.Contains(string(body), `"cache_control":{"type":"ephemeral"}`) {
+		t.Fatalf("marshaled request body missing tool cache_control: %s", body)
+	}
+}
+
+func TestConvertToAnthropicRequest_ResponsesPathForwardsCacheControl(t *testing.T) {
+	responsesReq := &core.ResponsesRequest{
+		Model: "claude-sonnet-4-6",
+		Input: "Hello",
+		MaxOutputTokens: intPtr(1024),
+		ExtraFields: core.UnknownJSONFieldsFromMap(map[string]json.RawMessage{
+			"cache_control": json.RawMessage(`{"type":"ephemeral"}`),
+		}),
+	}
+
+	result, err := convertResponsesRequestToAnthropic(responsesReq)
+	if err != nil {
+		t.Fatalf("convertResponsesRequestToAnthropic() error = %v", err)
+	}
+	if result.CacheControl == nil {
+		t.Fatal("expected request-level cache_control on anthropicRequest (responses path)")
+	}
+	var cc struct{ Type string }
+	if err := json.Unmarshal(result.CacheControl, &cc); err != nil {
+		t.Fatalf("json.Unmarshal cache_control error = %v", err)
+	}
+	if cc.Type != "ephemeral" {
+		t.Errorf("cache_control type = %q, want ephemeral", cc.Type)
+	}
+}
+
+func TestConvertToAnthropicRequest_ToolCacheControlInjectionRoundTrip(t *testing.T) {
+	req := &core.ChatRequest{
+		Model: "claude-sonnet-4-6",
+		Messages: []core.Message{
+			{Role: "user", Content: "What's the weather?"},
+		},
+		Tools: []map[string]any{
+			{
+				"type":     "function",
+				"function": map[string]any{"name": "get_weather", "description": "Get weather", "parameters": map[string]any{"type": "object", "properties": map[string]any{}}},
+			},
+		},
+	}
+	req.Tools[0]["cache_control"] = map[string]any{"type": "ephemeral"}
+
+	result, err := convertToAnthropicRequest(req)
+	if err != nil {
+		t.Fatalf("convertToAnthropicRequest() error = %v", err)
+	}
+	if len(result.Tools) != 1 {
+		t.Fatalf("len(Tools) = %d, want 1", len(result.Tools))
+	}
+	if result.Tools[0].CacheControl == nil {
+		t.Fatal("expected Tool[0].CacheControl to be set after round-trip")
+	}
+	var cc struct{ Type string }
+	if err := json.Unmarshal(result.Tools[0].CacheControl, &cc); err != nil {
+		t.Fatalf("json.Unmarshal cache_control error = %v", err)
+	}
+	if cc.Type != "ephemeral" {
+		t.Errorf("Tool[0].CacheControl type = %q, want ephemeral", cc.Type)
+	}
+}
+
+func TestConvertToAnthropicRequest_SystemContentWithCacheControlInjection(t *testing.T) {
+	req := &core.ChatRequest{
+		Model: "claude-sonnet-4-6",
+		Messages: []core.Message{
+			{Role: "system", Content: "You are a helpful assistant."},
+			{Role: "user", Content: "Hello"},
+		},
+	}
+	req.Messages[0].Content = []core.ContentPart{
+		{Type: "text", Text: "You are a helpful assistant.", ExtraFields: core.UnknownJSONFieldsFromMap(map[string]json.RawMessage{"cache_control": json.RawMessage(`{"type":"ephemeral","ttl":"1h"}`)})},
+	}
+
+	result, err := convertToAnthropicRequest(req)
+	if err != nil {
+		t.Fatalf("convertToAnthropicRequest() error = %v", err)
+	}
+
+	blocks, ok := result.System.([]anthropicContentBlock)
+	if !ok {
+		t.Fatalf("System type = %T, want []anthropicContentBlock", result.System)
+	}
+	if len(blocks) != 1 {
+		t.Fatalf("len(System blocks) = %d, want 1", len(blocks))
+	}
+	var cc struct {
+		Type string `json:"type"`
+		TTL  string `json:"ttl"`
+	}
+	if err := json.Unmarshal(blocks[0].CacheControl, &cc); err != nil {
+		t.Fatalf("json.Unmarshal system cache_control error = %v", err)
+	}
+	if cc.Type != "ephemeral" {
+		t.Errorf("system cache_control type = %q, want ephemeral", cc.Type)
+	}
+	if cc.TTL != "1h" {
+		t.Errorf("system cache_control ttl = %q, want 1h", cc.TTL)
+	}
+}
+
+func intPtr(v int) *int { return &v }

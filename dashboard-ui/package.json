@@ -1,6 +1,6 @@
 {
   "name": "aurora-ui",
-  "version": "1.0.36",
+  "version": "1.0.37",
   "private": true,
   "type": "module",
   "description": "Aurora admin dashboard — Vite + React 19 + TypeScript SPA. Built output is embedded into the Go binary via internal/admin/dashboard/dist.",
