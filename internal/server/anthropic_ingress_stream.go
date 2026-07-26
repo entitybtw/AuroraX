@@ -604,7 +604,7 @@ func (s *openaiToAnthropicStream) emitMessageDelta(stopReason string) {
 }
 
 func (s *openaiToAnthropicStream) emitMessageStop() {
-	data, _ := json.Marshal(struct{}{})
+	data, _ := json.Marshal(map[string]string{"type": "message_stop"})
 	s.buffer.AppendString(fmt.Sprintf("event: message_stop\ndata: %s\n\n", data))
 }
 
