@@ -186,10 +186,73 @@ export function GuardrailsPage(): JSX.Element {
                 <h4 className="font-semibold text-foreground">5. Quick recipes</h4>
                 <ul className="list-disc pl-5 space-y-1.5 text-muted-foreground">
                   <li><strong className="text-foreground font-medium">Enforce safety prompt globally</strong>: create a <code className="text-xs bg-muted px-1.5 py-0.5 rounded">system_prompt</code> guardrail with mode <code className="text-xs bg-muted px-1.5 py-0.5 rounded">decorator</code>, attach to the global workflow.</li>
-                  <li><strong className="text-foreground font-medium">Block secrets</strong>: create a <code className="text-xs bg-muted px-1.5 py-0.5 rounded">regex_block</code> with <code className="text-xs bg-muted px-1.5 py-0.5 rounded">action: block</code> and patterns like <code className="text-xs bg-muted px-1.5 py-0.5 rounded">(?i)api[_-]?key|password|bearer\s+[A-Za-z0-9]+</code>.</li>
+                  <li><strong className="text-foreground font-medium">Block secrets</strong>: create a <code className="text-xs bg-muted px-1.5 py-0.5 rounded">regex_block</code> with <code className="text-xs bg-muted px-1.5 py-0.5 rounded">action: block</code> and patterns like <code className="text-xs bg-muted px-1.5 py-0.5 rounded">(?i)api[_-]?key\s*[:=]</code>.</li>
                   <li><strong className="text-foreground font-medium">Anonymize PII before sending to OpenAI</strong>: attach <code className="text-xs bg-muted px-1.5 py-0.5 rounded">pii_redact</code> at step 0; let user paths that opt-in route through this workflow.</li>
                   <li><strong className="text-foreground font-medium">Cap input size</strong>: <code className="text-xs bg-muted px-1.5 py-0.5 rounded">length_limit</code> with <code className="text-xs bg-muted px-1.5 py-0.5 rounded">max_chars: 50000</code> stops 1MB blob uploads from reaching the upstream.</li>
                 </ul>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <h4 className="font-semibold text-foreground">6. Regex reference for <code className="text-xs bg-muted px-1.5 py-0.5 rounded">regex_block</code></h4>
+                <p className="text-muted-foreground leading-relaxed">Go regex syntax (RE2). Each line is a separate pattern — at least one match triggers the action.</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left py-1.5 pr-3 font-medium text-foreground">Goal</th>
+                        <th className="text-left py-1.5 pr-3 font-medium text-foreground">Pattern</th>
+                        <th className="text-left py-1.5 font-medium text-foreground">Blocks "My api_key=secret"</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-muted-foreground">
+                      <tr className="border-b border-border/50">
+                        <td className="py-1.5 pr-3">API key / password (case-insensitive)</td>
+                        <td className="py-1.5 pr-3 font-mono">(?i)api[_-]?key\s*[:=]</td>
+                        <td className="py-1.5 font-mono">Yes</td>
+                      </tr>
+                      <tr className="border-b border-border/50">
+                        <td className="py-1.5 pr-3">Password assignment (case-insensitive)</td>
+                        <td className="py-1.5 pr-3 font-mono">(?i)password\s*[:=]</td>
+                        <td className="py-1.5 font-mono">Yes</td>
+                      </tr>
+                      <tr className="border-b border-border/50">
+                        <td className="py-1.5 pr-3">Bearer / token patterns</td>
+                        <td className="py-1.5 pr-3 font-mono">{String.raw`(?i)bearer\s+[A-Za-z0-9\-_]{20,}`}</td>
+                        <td className="py-1.5 font-mono">Yes</td>
+                      </tr>
+                      <tr className="border-b border-border/50">
+                        <td className="py-1.5 pr-3">Slack / Discord webhooks</td>
+                        <td className="py-1.5 pr-3 font-mono">https?://hooks\.slack\.com/.*</td>
+                        <td className="py-1.5 font-mono">No</td>
+                      </tr>
+                      <tr className="border-b border-border/50">
+                        <td className="py-1.5 pr-3">SSN (###-##-####)</td>
+                        <td className="py-1.5 pr-3 font-mono">{String.raw`\b\d{3}-\d{2}-\d{4}\b`}</td>
+                        <td className="py-1.5 font-mono">No</td>
+                      </tr>
+                      <tr className="border-b border-border/50">
+                        <td className="py-1.5 pr-3">Email addresses</td>
+                        <td className="py-1.5 pr-3 font-mono">{String.raw`\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b`}</td>
+                        <td className="py-1.5 font-mono">No</td>
+                      </tr>
+                      <tr>
+                        <td className="py-1.5 pr-3">IP address (v4)</td>
+                        <td className="py-1.5 pr-3 font-mono">{String.raw`\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b`}</td>
+                        <td className="py-1.5 font-mono">No</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex flex-col gap-2 mt-2">
+                  <p className="text-muted-foreground leading-relaxed"><strong className="text-foreground font-medium">Tips:</strong></p>
+                  <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                    <li>Use <code className="text-xs bg-muted px-1.5 py-0.5 rounded">(?i)</code> at the start of a pattern for case-insensitive matching.</li>
+                    <li>Escape special chars: <code className="text-xs bg-muted px-1.5 py-0.5 rounded">\.</code> for literal dot, <code className="text-xs bg-muted px-1.5 py-0.5 rounded">\\</code> for literal backslash.</li>
+                    <li>Use <code className="text-xs bg-muted px-1.5 py-0.5 rounded">\s*</code> for flexible whitespace between key <code className="text-xs bg-muted px-1.5 py-0.5 rounded">:</code> or <code className="text-xs bg-muted px-1.5 py-0.5 rounded">=</code>.</li>
+                    <li>Patterns use Go RE2 syntax — no backreferences or lookahead/lookbehind.</li>
+                    <li>Use <strong>Block</strong> action to reject the request, or <strong>Sanitize</strong> to replace matches with placeholder text.</li>
+                  </ul>
+                </div>
               </div>
             </div>
           </div>
@@ -410,14 +473,25 @@ export function GuardrailsPage(): JSX.Element {
                 }
 
                 if (field.input === "textarea" || field.input === "textarea_lines") {
+                  const isLines = field.input === "textarea_lines";
+                  const textareaVal = isLines && Array.isArray(val)
+                    ? (val as string[]).join("\n")
+                    : (val as string);
                   return (
                     <div key={field.key} className="flex flex-col gap-2 mt-2 md:col-span-2">
                       <label className="text-sm font-medium">{field.label}</label>
                       <textarea
                         className="field-input min-h-[100px] resize-y"
                         placeholder={field.placeholder}
-                        value={val as string}
-                        onChange={(e) => setConfigValue(field.key, e.target.value)}
+                        value={textareaVal}
+                        onChange={(e) => {
+                          if (isLines) {
+                            const lines = e.target.value.split("\n");
+                            setConfigValue(field.key, lines);
+                          } else {
+                            setConfigValue(field.key, e.target.value);
+                          }
+                        }}
                       />
                       {field.help && <p className="text-xs text-muted-foreground">{field.help}</p>}
                     </div>
