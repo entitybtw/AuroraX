@@ -500,7 +500,11 @@ func (s *openaiToAnthropicStream) emitMessageStart() {
 			"output_tokens": 0,
 		},
 	}
-	data, _ := json.Marshal(msg)
+	eventData := map[string]any{
+		"type":    "message_start",
+		"message": msg,
+	}
+	data, _ := json.Marshal(eventData)
 	s.writeSSEEvent("message_start", data)
 	s.nextContentIndex = 0
 }
