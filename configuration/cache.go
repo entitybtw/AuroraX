@@ -20,7 +20,7 @@ type PromptCacheConfig struct {
 // defaultPromptCacheConfig returns the default prompt cache configuration.
 func defaultPromptCacheConfig() PromptCacheConfig {
 	return PromptCacheConfig{
-		Mode:                 "off",
+		Mode:                 "auto",
 		SystemPromptCache:    true,
 		FirstMessageCache:    true,
 		ToolsCache:           false,

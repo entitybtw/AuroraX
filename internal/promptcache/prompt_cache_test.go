@@ -560,3 +560,283 @@ func TestCacheControlRawJSON(t *testing.T) {
 		t.Errorf("Type = %q, want %q", decoded.Type, core.CacheControlEphemeral)
 	}
 }
+
+func TestApplyAnthropicPromptCache_PreservesExistingContentPartCacheControl(t *testing.T) {
+	req := &core.ChatRequest{
+		Messages: []core.Message{
+			{
+				Role: "system",
+				Content: []core.ContentPart{
+					{Type: "text", Text: "You are helpful.", ExtraFields: core.UnknownJSONFieldsFromMap(map[string]json.RawMessage{"cache_control": json.RawMessage(`{"type":"ephemeral"}`)})},
+				},
+			},
+			{Role: "user", Content: "Hello"},
+		},
+	}
+	pc := &core.PromptCache{
+		Mode:                   core.PromptCacheAuto,
+		SystemCacheBreakpoint:  true,
+		FirstMessageBreakpoint: true,
+	}
+	ApplyPromptCache(req, pc, "anthropic")
+
+	parts, ok := req.Messages[0].Content.([]core.ContentPart)
+	if !ok {
+		t.Fatalf("system content type = %T, want []ContentPart", req.Messages[0].Content)
+	}
+	if parts[0].CacheControl().Type != core.CacheControlEphemeral {
+		t.Error("expected user's cache_control to be preserved on system content part")
+	}
+
+	userParts, ok := req.Messages[1].Content.([]core.ContentPart)
+	if !ok {
+		t.Fatalf("user content type = %T, want []ContentPart", req.Messages[1].Content)
+	}
+	if userParts[0].CacheControl().Type != core.CacheControlEphemeral {
+		t.Error("expected auto-injected cache_control on first user message")
+	}
+}
+
+func TestApplyAnthropicPromptCache_RespectsExistingUserCacheControl(t *testing.T) {
+	req := &core.ChatRequest{
+		Messages: []core.Message{
+			{Role: "system", Content: "You are helpful."},
+			{
+				Role: "user",
+				Content: []core.ContentPart{
+					{Type: "text", Text: "Hello", ExtraFields: core.UnknownJSONFieldsFromMap(map[string]json.RawMessage{"cache_control": json.RawMessage(`{"type":"ephemeral"}`)})},
+				},
+			},
+		},
+	}
+	pc := &core.PromptCache{
+		Mode:                   core.PromptCacheAuto,
+		SystemCacheBreakpoint:  true,
+		FirstMessageBreakpoint: true,
+	}
+	ApplyPromptCache(req, pc, "anthropic")
+
+	userParts, ok := req.Messages[1].Content.([]core.ContentPart)
+	if !ok {
+		t.Fatalf("user content type = %T, want []ContentPart", req.Messages[1].Content)
+	}
+	if userParts[0].CacheControl().Type != core.CacheControlEphemeral {
+		t.Error("expected user's explicit cache_control on first message to survive")
+	}
+}
+
+func TestApplyOpenAIPromptCache_PreservesExistingMessageCacheControl(t *testing.T) {
+	req := &core.ChatRequest{
+		Messages: []core.Message{
+			{Role: "system", Content: "You are helpful.", ExtraFields: core.UnknownJSONFieldsFromMap(map[string]json.RawMessage{"cache_control": json.RawMessage(`{"type":"ephemeral"}`)})},
+			{Role: "user", Content: "Hello"},
+		},
+	}
+	pc := &core.PromptCache{
+		Mode:                   core.PromptCacheAuto,
+		SystemCacheBreakpoint:  true,
+		FirstMessageBreakpoint: true,
+	}
+	ApplyPromptCache(req, pc, "openai")
+
+	if cc := req.Messages[0].CacheControl(); cc == nil || cc.Type != core.CacheControlEphemeral {
+		t.Error("expected user's cache_control to be preserved on system message")
+	}
+	if cc := req.Messages[1].CacheControl(); cc == nil || cc.Type != core.CacheControlEphemeral {
+		t.Error("expected auto-injected cache_control on first user message")
+	}
+}
+
+func TestApplyPromptCache_AutoRespectsUserSystemCacheControl_OpenAI(t *testing.T) {
+	req := &core.ChatRequest{
+		Messages: []core.Message{
+			{Role: "system", Content: "You are helpful."},
+			{Role: "user", Content: "Hello", ExtraFields: core.UnknownJSONFieldsFromMap(map[string]json.RawMessage{"cache_control": json.RawMessage(`{"type":"ephemeral"}`)})},
+		},
+	}
+	pc := &core.PromptCache{
+		Mode:                   core.PromptCacheAuto,
+		SystemCacheBreakpoint:  true,
+		FirstMessageBreakpoint: true,
+	}
+	ApplyPromptCache(req, pc, "openai")
+
+	if cc := req.Messages[0].CacheControl(); cc == nil || cc.Type != core.CacheControlEphemeral {
+		t.Error("expected auto-injected cache_control on system message")
+	}
+	if cc := req.Messages[1].CacheControl(); cc == nil || cc.Type != core.CacheControlEphemeral {
+		t.Error("expected user's cache_control to be preserved on first user message")
+	}
+}
+
+func TestApplyPromptCache_ToolsBreakpointInjectsIntoMaps(t *testing.T) {
+	req := &core.ChatRequest{
+		Messages: []core.Message{
+			{Role: "system", Content: "You are helpful."},
+			{Role: "user", Content: "Use a tool."},
+		},
+		Tools: []map[string]any{
+			{
+				"type":     "function",
+				"function": map[string]any{"name": "get_weather", "description": "Get weather", "parameters": map[string]any{"type": "object", "properties": map[string]any{}}},
+			},
+		},
+	}
+	pc := &core.PromptCache{
+		Mode:                   core.PromptCacheAuto,
+		SystemCacheBreakpoint:  true,
+		FirstMessageBreakpoint: true,
+		ToolsCacheBreakpoint:   true,
+	}
+	ApplyPromptCache(req, pc, "openai")
+
+	if len(req.Tools) != 1 {
+		t.Fatalf("len(tools) = %d, want 1", len(req.Tools))
+	}
+	cc, ok := req.Tools[0]["cache_control"].(map[string]any)
+	if !ok {
+		t.Fatal("expected cache_control in tool map")
+	}
+	if cc["type"] != "ephemeral" {
+		t.Errorf("cache_control type = %v, want ephemeral", cc["type"])
+	}
+}
+
+func TestApplyPromptCache_ToolsBreakpointSkipsExistingCacheControl(t *testing.T) {
+	req := &core.ChatRequest{
+		Messages: []core.Message{
+			{Role: "system", Content: "You are helpful."},
+			{Role: "user", Content: "Use a tool."},
+		},
+		Tools: []map[string]any{
+			{
+				"type":          "function",
+				"function":      map[string]any{"name": "get_weather", "description": "Get weather", "parameters": map[string]any{"type": "object", "properties": map[string]any{}}},
+				"cache_control": map[string]any{"type": "ephemeral"},
+			},
+		},
+	}
+	pc := &core.PromptCache{
+		Mode:                   core.PromptCacheAuto,
+		SystemCacheBreakpoint:  true,
+		FirstMessageBreakpoint: true,
+		ToolsCacheBreakpoint:   true,
+	}
+	ApplyPromptCache(req, pc, "openai")
+
+	cc, ok := req.Tools[0]["cache_control"].(map[string]any)
+	if !ok {
+		t.Fatal("expected cache_control in tool map")
+	}
+	if cc["type"] != "ephemeral" {
+		t.Errorf("cache_control type = %v, want ephemeral", cc["type"])
+	}
+	if len(req.Tools[0]) != 3 {
+		t.Errorf("expected exactly 3 keys (type, function, cache_control) in tool map, got %d: %v", len(req.Tools[0]), req.Tools[0])
+	}
+}
+
+func TestResolvePromptCache_RequestLevelCacheControlForwarded(t *testing.T) {
+	req := &core.ChatRequest{
+		Messages: []core.Message{
+			{Role: "system", Content: "You are helpful."},
+			{Role: "user", Content: "Hello"},
+		},
+	}
+	req.SetCacheControl(&core.CacheControl{Type: core.CacheControlEphemeral})
+
+	pc := ResolvePromptCache(&core.PromptCacheConfig{
+		Mode:               core.PromptCacheAuto,
+		SystemPromptCache:  true,
+		FirstMessageCache:  true,
+		MinTokensBeforeCache: 1024,
+	}, req)
+
+	if pc == nil || !pc.IsEnabled() {
+		t.Fatal("expected enabled prompt cache")
+	}
+
+	cc := req.CacheControl()
+	if cc == nil {
+		t.Fatal("expected request-level cache_control to survive")
+	}
+	if cc.Type != core.CacheControlEphemeral {
+		t.Errorf("cache_control type = %q, want ephemeral", cc.Type)
+	}
+}
+
+func TestApplyPromptCache_OpenAIWithToolsAndSystemBreakpoint(t *testing.T) {
+	req := &core.ChatRequest{
+		Messages: []core.Message{
+			{Role: "system", Content: "You are a helpful assistant with access to tools."},
+			{Role: "user", Content: "What's the weather?"},
+		},
+		Tools: []map[string]any{
+			{
+				"type":     "function",
+				"function": map[string]any{"name": "get_weather", "description": "Get the current weather", "parameters": map[string]any{"type": "object", "properties": map[string]any{}}},
+			},
+		},
+	}
+	pc := &core.PromptCache{
+		Mode:                   core.PromptCacheAuto,
+		SystemCacheBreakpoint:  true,
+		FirstMessageBreakpoint: true,
+		ToolsCacheBreakpoint:   true,
+	}
+	ApplyPromptCache(req, pc, "openai")
+
+	if cc := req.Messages[0].CacheControl(); cc == nil || cc.Type != core.CacheControlEphemeral {
+		t.Error("expected system message to have cache_control")
+	}
+	if cc := req.Messages[1].CacheControl(); cc == nil || cc.Type != core.CacheControlEphemeral {
+		t.Error("expected first user message to have cache_control")
+	}
+	_, hasToolCC := req.Tools[0]["cache_control"]
+	if !hasToolCC {
+		t.Error("expected tools to have cache_control injected")
+	}
+}
+
+func TestApplyPromptCache_AnthropicWithToolsAndContentParts(t *testing.T) {
+	req := &core.ChatRequest{
+		Messages: []core.Message{
+			{Role: "system", Content: "You are a helpful assistant with access to tools."},
+			{Role: "user", Content: "What's the weather in Paris?"},
+		},
+		Tools: []map[string]any{
+			{
+				"type":     "function",
+				"function": map[string]any{"name": "get_weather", "description": "Get the current weather", "parameters": map[string]any{"type": "object", "properties": map[string]any{}}},
+			},
+		},
+	}
+	pc := &core.PromptCache{
+		Mode:                   core.PromptCacheAuto,
+		SystemCacheBreakpoint:  true,
+		FirstMessageBreakpoint: true,
+		ToolsCacheBreakpoint:   true,
+	}
+	ApplyPromptCache(req, pc, "anthropic")
+
+	sysParts, ok := req.Messages[0].Content.([]core.ContentPart)
+	if !ok {
+		t.Fatalf("system content = %T, want []ContentPart", req.Messages[0].Content)
+	}
+	if sysParts[0].CacheControl().Type != core.CacheControlEphemeral {
+		t.Error("expected system content part to have cache_control")
+	}
+
+	userParts, ok := req.Messages[1].Content.([]core.ContentPart)
+	if !ok {
+		t.Fatalf("user content = %T, want []ContentPart", req.Messages[1].Content)
+	}
+	if userParts[0].CacheControl().Type != core.CacheControlEphemeral {
+		t.Error("expected first user content part to have cache_control")
+	}
+
+	_, hasToolCC := req.Tools[0]["cache_control"]
+	if !hasToolCC {
+		t.Error("expected tools to have cache_control injected for Anthropic")
+	}
+}

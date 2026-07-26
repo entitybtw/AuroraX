@@ -573,13 +573,17 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 		UsageLogger:            usageResult.Logger,
 		PricingResolver:        providerResult.Registry,
 		ResponseCache:          rcm,
-		PromptCacheConfig: &core.PromptCacheConfig{
-			Mode:                 core.PromptCacheMode(appCfg.Cache.Prompt.Mode),
-			SystemPromptCache:    appCfg.Cache.Prompt.SystemPromptCache,
-			FirstMessageCache:    appCfg.Cache.Prompt.FirstMessageCache,
-			ToolsCache:           appCfg.Cache.Prompt.ToolsCache,
-			MinTokensBeforeCache: appCfg.Cache.Prompt.MinTokensBeforeCache,
-		},
+		PromptCacheConfig: func() *core.PromptCacheConfig {
+			c := &core.PromptCacheConfig{
+				Mode:                 core.PromptCacheMode(appCfg.Cache.Prompt.Mode),
+				SystemPromptCache:    appCfg.Cache.Prompt.SystemPromptCache,
+				FirstMessageCache:    appCfg.Cache.Prompt.FirstMessageCache,
+				ToolsCache:           appCfg.Cache.Prompt.ToolsCache,
+				MinTokensBeforeCache: appCfg.Cache.Prompt.MinTokensBeforeCache,
+			}
+			c.ApplyDefaults()
+			return c
+		}(),
 	})
 	if err := guardrailResult.Service.SetExecutor(ctx, internalGuardrailExecutor); err != nil {
 		closeErr := errors.Join(rcm.Close(), app.workflows.Close(), app.guardrails.Close(), app.authKeys.Close(), app.modelOverrides.Close(), app.combos.Close(), app.aliases.Close(), app.batch.Close(), app.usage.Close(), app.audit.Close(), app.providers.Close())

@@ -31,13 +31,15 @@ func (s *Server) SetAllowPassthroughV1Alias(enabled bool) {
 }
 
 func promptCacheConfigFromConfig(cfg config.PromptCacheConfig) *core.PromptCacheConfig {
-	return &core.PromptCacheConfig{
+	c := &core.PromptCacheConfig{
 		Mode:                 core.PromptCacheMode(cfg.Mode),
 		SystemPromptCache:    cfg.SystemPromptCache,
 		FirstMessageCache:    cfg.FirstMessageCache,
 		ToolsCache:           cfg.ToolsCache,
 		MinTokensBeforeCache: cfg.MinTokensBeforeCache,
 	}
+	c.ApplyDefaults()
+	return c
 }
 
 // SetPromptCacheConfig updates the runtime prompt cache config.
