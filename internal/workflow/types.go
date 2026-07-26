@@ -168,6 +168,9 @@ func cleanPayload(payload Payload) (Payload, string, error) {
 		return Payload{}, "", newWFError("unsupported schema_version", nil)
 	}
 	payload.Features = payload.Features.normalize()
+	if len(payload.Guardrails) > 0 {
+		payload.Features.Guardrails = true
+	}
 
 	type indexedGuardrail struct {
 		step  GuardrailStep
