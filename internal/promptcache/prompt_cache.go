@@ -58,7 +58,11 @@ func applyAnthropicPromptCache(req *core.ChatRequest, pc *core.PromptCache) {
 	}
 
 	if pc.ToolsCacheBreakpoint && len(req.Tools) > 0 {
-		req.SetCacheControl(&core.CacheControl{Type: core.CacheControlEphemeral})
+		for i := range req.Tools {
+			if _, exists := req.Tools[i]["cache_control"]; !exists {
+				req.Tools[i]["cache_control"] = map[string]any{"type": "ephemeral"}
+			}
+		}
 	}
 }
 
@@ -82,6 +86,9 @@ func applyCacheControlToLastPart(msg *core.Message) {
 		return
 	}
 	last := len(parts) - 1
+	if parts[last].CacheControl().Type != "" {
+		return
+	}
 	cc := core.CacheControl{Type: core.CacheControlEphemeral}
 	parts[last].SetCacheControl(cc)
 	msg.Content = parts
@@ -126,20 +133,28 @@ func applyOpenAICompatiblePromptCache(req *core.ChatRequest, pc *core.PromptCach
 	if pc.SystemCacheBreakpoint || pc.FirstMessageBreakpoint {
 		for i := range req.Messages {
 			if pc.SystemCacheBreakpoint && req.Messages[i].Role == "system" {
-				req.Messages[i].SetCacheControl(&core.CacheControl{Type: core.CacheControlEphemeral})
+				if req.Messages[i].CacheControl() == nil {
+					req.Messages[i].SetCacheControl(&core.CacheControl{Type: core.CacheControlEphemeral})
+				}
 				break
 			}
 		}
 		for i := range req.Messages {
 			if pc.FirstMessageBreakpoint && req.Messages[i].Role == "user" {
-				req.Messages[i].SetCacheControl(&core.CacheControl{Type: core.CacheControlEphemeral})
+				if req.Messages[i].CacheControl() == nil {
+					req.Messages[i].SetCacheControl(&core.CacheControl{Type: core.CacheControlEphemeral})
+				}
 				break
 			}
 		}
 	}
 
 	if pc.ToolsCacheBreakpoint && len(req.Tools) > 0 {
-		req.SetCacheControl(&core.CacheControl{Type: core.CacheControlEphemeral})
+		for i := range req.Tools {
+			if _, exists := req.Tools[i]["cache_control"]; !exists {
+				req.Tools[i]["cache_control"] = map[string]any{"type": "ephemeral"}
+			}
+		}
 	}
 }
 
