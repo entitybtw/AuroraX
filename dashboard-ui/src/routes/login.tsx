@@ -172,7 +172,7 @@ export function LoginPage(): JSX.Element {
           <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-accent text-accent-foreground shadow-lg shadow-accent/25">
             <ShieldCheck className="h-6 w-6" />
           </div>
-          <h1 className="font-serif text-[34px] font-normal leading-tight tracking-tight text-foreground">Aurora Gateway</h1>
+          <h1 className="font-display text-[34px] font-normal leading-tight tracking-tight text-foreground">Aurora Gateway</h1>
           <p className="text-sm text-muted-foreground">
             Sign in to access the admin dashboard
           </p>

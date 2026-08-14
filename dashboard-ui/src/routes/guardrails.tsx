@@ -108,7 +108,7 @@ export function GuardrailsPage(): JSX.Element {
     <div className="flex flex-col gap-6">
       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 pt-4 border-b border-border/60">
         <div className="min-w-0 flex-1">
-          <h1 className="font-serif text-[34px] font-normal leading-tight tracking-tight text-foreground">Guardrails</h1>
+          <h1 className="font-display text-[34px] font-normal leading-tight tracking-tight text-foreground">Guardrails</h1>
           <p className="mt-1.5 text-[15px] text-muted-foreground">Reusable policy objects stored in the database and kept hot in memory for workflow execution.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -123,7 +123,7 @@ export function GuardrailsPage(): JSX.Element {
         <div className="flex flex-col md:flex-row gap-6 justify-between items-start relative z-10">
           <div className="flex flex-col gap-2 max-w-2xl">
             <p className="text-[12px] font-bold uppercase tracking-wider text-muted-foreground">Reusable Policy Objects</p>
-            <h3 className="font-serif text-xl font-normal tracking-tight text-foreground">Guardrail Library</h3>
+            <h3 className="font-display text-xl font-normal tracking-tight text-foreground">Guardrail Library</h3>
             <p className="text-[15px] text-muted-foreground leading-relaxed">
               Store input, output, or bidirectional guardrails in the database, keep them hot in memory, and attach them to workflows by reference.
             </p>

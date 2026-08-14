@@ -82,7 +82,7 @@ export function LogVolumeChart({ entries, isConnected }: LogVolumeChartProps) {
     <div className="border border-border/60 bg-surface/70 p-4">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h4 className="font-serif text-xl font-normal tracking-tight text-foreground">
+          <h4 className="font-display text-xl font-normal tracking-tight text-foreground">
             Request Volume
           </h4>
           <span className="text-xs font-mono text-muted-foreground">

@@ -205,7 +205,7 @@ export function ProviderStatusGrid({
       <header className="p-6 flex flex-wrap items-start justify-between gap-3 border-b border-border/40">
         <div>
           <div className="text-[10px] font-bold tracking-widest uppercase text-accent mb-2">[ Providers ]</div>
-          <h2 className="font-serif text-xl font-normal text-foreground">Runtime Status</h2>
+          <h2 className="font-display text-xl font-normal text-foreground">Runtime Status</h2>
           <p className="mt-1 text-xs text-muted-foreground">Health and model discovery status.</p>
         </div>
         {data?.summary ? (

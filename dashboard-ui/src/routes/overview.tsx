@@ -35,7 +35,7 @@ function EditionHero({ config }: { config: DashboardConfigResponse | undefined }
           <div className="text-[10px] font-black uppercase tracking-[0.24em] text-accent">
             Open-source edition
           </div>
-          <h2 className="mt-1 font-serif text-xl font-normal tracking-tight">
+          <h2 className="mt-1 font-display text-xl font-normal tracking-tight">
             Community gateway
           </h2>
           <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
