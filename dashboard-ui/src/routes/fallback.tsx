@@ -396,7 +396,7 @@ function RuleDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-sm:mx-4">
         <DialogHeader>
           <DialogTitle>
             {isEdit ? "Edit Fallback Rule" : "Add Fallback Rule"}

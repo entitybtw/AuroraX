@@ -197,9 +197,9 @@ export function Sidebar({
                   <Link
                     to={entry.to}
                     className={cn(
-                      "group flex items-center gap-3 py-2 text-[13px] font-medium transition-all duration-200 ease-[var(--ease-ios)]",
+                      "group flex items-center gap-3 py-3 md:py-2 text-[14px] md:text-[13px] font-medium transition-all duration-200 ease-[var(--ease-ios)]",
                       "text-muted-foreground hover:bg-surface-hover/60 hover:text-foreground",
-                      active && "bg-accent/12 text-accent",
+                      active && "bg-accent/12 text-accent border-l-2 border-accent pl-[10px] md:border-l-0 md:pl-3",
                       isCollapsed ? "px-0 justify-center" : "px-3"
                     )}
                     aria-current={active ? "page" : undefined}

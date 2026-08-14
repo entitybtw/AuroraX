@@ -11,6 +11,7 @@ import { getApiKey } from "@/lib/auth/storage";
 import { apiFetch, ApiError } from "@/lib/api/client";
 import { withBasePath } from "@/lib/basepath";
 import { Loader2, Menu } from "lucide-react";
+import { BottomNav } from "./BottomNav";
 import { TenantScopeProvider } from "@/lib/tenant/tenant-scope";
 import { cn } from "@/lib/utils";
 
@@ -178,13 +179,13 @@ export function AppShell(): JSX.Element {
             onClick={() => setMobileOpen(false)}
           />
         )}
-        <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden p-4 pt-16 md:p-6 md:pt-6 sm:p-8 lg:p-10 mx-auto w-full transition-all duration-300 ease-[var(--ease-ios)]">
+        <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden p-4 pt-16 pb-24 md:p-6 md:pt-6 md:pb-10 sm:p-8 lg:p-10 mx-auto w-full transition-all duration-300 ease-[var(--ease-ios)]">
           <button
             type="button"
             onClick={() => setMobileOpen((prev) => !prev)}
             className={cn(
-              "fixed top-4 left-4 z-40 grid h-10 w-10 place-items-center rounded-lg border border-border bg-surface text-foreground shadow-md md:hidden",
-              "hover:bg-surface-hover transition-colors"
+              "fixed top-3 left-3 z-40 grid h-12 w-12 place-items-center rounded-xl border border-border bg-surface text-foreground shadow-lg md:hidden",
+              "hover:bg-surface-hover active:scale-95 transition-all"
             )}
             aria-label="Toggle sidebar"
           >
@@ -203,6 +204,7 @@ export function AppShell(): JSX.Element {
             if (!next) setNeedsAuth(false);
           }}
         />
+        <BottomNav />
       </div>
     </TenantScopeProvider>
   );

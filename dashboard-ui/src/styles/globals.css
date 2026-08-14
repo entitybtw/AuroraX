@@ -298,3 +298,21 @@
     font-size: 16px !important;
   }
 }
+
+/* ── Mobile optimizations ────────────────────────────────────────── */
+@media (max-width: 767px) {
+  /* Prevent iOS zoom on input focus */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+
+  /* Larger touch targets */
+  button, a, [role="button"] {
+    min-height: 44px;
+  }
+
+  /* Smooth scrolling on mobile */
+  html {
+    -webkit-overflow-scrolling: touch;
+  }
+}

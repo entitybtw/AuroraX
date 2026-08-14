@@ -169,10 +169,10 @@ export function LoginPage(): JSX.Element {
     <div className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-2">
-          <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-accent text-accent-foreground shadow-lg shadow-accent/25">
+          <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-accent text-accent-foreground shadow-lg shadow-accent/25">
             <ShieldCheck className="h-6 w-6" />
           </div>
-          <h1 className="font-display text-[28px] sm:text-[34px] font-normal leading-tight tracking-tight text-foreground">Aurora Gateway</h1>
+          <h1 className="font-display text-[30px] sm:text-[34px] font-normal leading-tight tracking-tight text-foreground">Aurora Gateway</h1>
           <p className="text-sm text-muted-foreground">
             Sign in to access the admin dashboard
           </p>
@@ -183,7 +183,7 @@ export function LoginPage(): JSX.Element {
             <button
               type="button"
               onClick={() => { setTab("sso"); setError(""); }}
-              className={`flex-1 min-w-0 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${tab === "sso"
+              className={`flex-1 min-w-0 min-h-[44px] rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${tab === "sso"
                   ? "bg-background text-foreground"
                   : "text-muted-foreground hover:text-foreground"
                 }`}
@@ -193,7 +193,7 @@ export function LoginPage(): JSX.Element {
             <button
               type="button"
               onClick={() => { setTab("master"); setError(""); }}
-              className={`flex-1 min-w-0 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${tab === "master"
+              className={`flex-1 min-w-0 min-h-[44px] rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${tab === "master"
                   ? "bg-background text-foreground"
                   : "text-muted-foreground hover:text-foreground"
                 }`}
@@ -234,7 +234,7 @@ export function LoginPage(): JSX.Element {
             </div>
 
             {error ? (
-              <p className="text-xs text-destructive" role="alert">{error}</p>
+              <p className="text-sm text-destructive font-medium" role="alert">{error}</p>
             ) : null}
 
             <Button type="submit" disabled={submitting} className="w-full">
@@ -288,7 +288,7 @@ export function LoginPage(): JSX.Element {
             </div>
 
             {error ? (
-              <p className="text-xs text-destructive" role="alert">{error}</p>
+              <p className="text-sm text-destructive font-medium" role="alert">{error}</p>
             ) : null}
 
             <Button type="submit" disabled={submitting} className="w-full">
