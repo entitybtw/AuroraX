@@ -167,19 +167,20 @@ export function Sidebar({
       aria-label="Primary navigation"
     >
       <header className={cn("flex items-center pb-5 pt-6 transition-all duration-300", isCollapsed ? "flex-col gap-2 px-2 justify-center" : "gap-3 px-5")}>
-        <span className="shrink-0">
+        <span className="shrink-0 md:block hidden">
           <SidebarLogo />
         </span>
         {!isCollapsed && (
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h1 className="font-display text-lg font-bold tracking-tight text-foreground whitespace-nowrap overflow-hidden">Aurora</h1>
+              <h1 className="font-display text-xl md:text-lg font-bold tracking-tight text-foreground whitespace-nowrap overflow-hidden">Aurora Gateway</h1>
             </div>
+            <p className="text-xs text-muted-foreground md:hidden mt-1">Admin Dashboard</p>
           </div>
         )}
         {mobileOpen && (
-          <button onClick={onCloseMobile} className="md:hidden ml-auto p-1 text-muted-foreground hover:text-foreground">
-            <X className="h-5 w-5" />
+          <button onClick={onCloseMobile} className="md:hidden ml-auto p-2 text-muted-foreground hover:text-foreground active:scale-95 transition-all rounded-lg hover:bg-surface-hover">
+            <X className="h-6 w-6" />
           </button>
         )}
       </header>
@@ -197,9 +198,9 @@ export function Sidebar({
                   <Link
                     to={entry.to}
                     className={cn(
-                      "group flex items-center gap-3 py-3 md:py-2 text-[14px] md:text-[13px] font-medium transition-all duration-200 ease-[var(--ease-ios)]",
-                      "text-muted-foreground hover:bg-surface-hover/60 hover:text-foreground",
-                      active && "bg-accent/12 text-accent border-l-2 border-accent pl-[10px] md:border-l-0 md:pl-3",
+                      "group flex items-center gap-3 py-3.5 md:py-2 text-[15px] md:text-[13px] font-medium transition-all duration-200 ease-[var(--ease-ios)] rounded-lg",
+                      "text-muted-foreground hover:bg-surface-hover/80 hover:text-foreground active:scale-[0.98]",
+                      active && "bg-accent/15 text-accent border-l-4 md:border-l-0 border-accent pl-[8px] md:pl-3",
                       isCollapsed ? "px-0 justify-center" : "px-3"
                     )}
                     aria-current={active ? "page" : undefined}
@@ -207,7 +208,7 @@ export function Sidebar({
                   >
                     <entry.Icon
                       className={cn(
-                        "h-4 w-4 shrink-0 transition-all duration-200 ease-[var(--ease-spring)] group-hover:scale-110",
+                        "h-5 w-5 md:h-4 md:w-4 shrink-0 transition-all duration-200 ease-[var(--ease-spring)] group-hover:scale-110",
                         active && "text-accent"
                       )}
                     />

@@ -168,23 +168,23 @@ export function LoginPage(): JSX.Element {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6">
       <div className="w-full max-w-md space-y-6">
-        <div className="text-center space-y-2">
-          <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-accent text-accent-foreground shadow-lg shadow-accent/25">
-            <ShieldCheck className="h-6 w-6" />
+        <div className="text-center space-y-3">
+          <div className="mx-auto grid h-16 w-16 sm:h-14 sm:w-14 place-items-center rounded-2xl bg-accent text-accent-foreground shadow-xl shadow-accent/30">
+            <ShieldCheck className="h-8 w-8 sm:h-6 sm:w-6" />
           </div>
-          <h1 className="font-display text-[30px] sm:text-[34px] font-normal leading-tight tracking-tight text-foreground">Aurora Gateway</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="font-display text-3xl sm:text-[34px] font-normal leading-tight tracking-tight text-foreground">Aurora Gateway</h1>
+          <p className="text-base sm:text-sm text-muted-foreground">
             Sign in to access the admin dashboard
           </p>
         </div>
 
         {identityEnabled && (
-          <div className="flex overflow-x-auto bg-surface p-0.5">
+          <div className="flex overflow-x-auto bg-surface/80 backdrop-blur-sm p-1 rounded-xl border border-border/50">
             <button
               type="button"
               onClick={() => { setTab("sso"); setError(""); }}
-              className={`flex-1 min-w-0 min-h-[44px] rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${tab === "sso"
-                  ? "bg-background text-foreground"
+              className={`flex-1 min-w-0 min-h-[48px] rounded-lg px-4 py-3 text-sm font-medium transition-all active:scale-[0.98] ${tab === "sso"
+                  ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
                 }`}
             >
@@ -193,8 +193,8 @@ export function LoginPage(): JSX.Element {
             <button
               type="button"
               onClick={() => { setTab("master"); setError(""); }}
-              className={`flex-1 min-w-0 min-h-[44px] rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${tab === "master"
-                  ? "bg-background text-foreground"
+              className={`flex-1 min-w-0 min-h-[48px] rounded-lg px-4 py-3 text-sm font-medium transition-all active:scale-[0.98] ${tab === "master"
+                  ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
                 }`}
             >
@@ -207,7 +207,7 @@ export function LoginPage(): JSX.Element {
           <form onSubmit={handleSSOLogin} className="space-y-4">
             <div className="space-y-3">
               <div className="relative">
-                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="email"
                   autoComplete="email"
@@ -216,11 +216,11 @@ export function LoginPage(): JSX.Element {
                   aria-label="Email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-9 min-h-[44px]"
+                  className="pl-10 min-h-[52px] text-base rounded-xl"
                 />
               </div>
               <div className="relative">
-                <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="password"
                   autoComplete="current-password"
@@ -228,17 +228,17 @@ export function LoginPage(): JSX.Element {
                   aria-label="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-9 min-h-[44px]"
+                  className="pl-10 min-h-[52px] text-base rounded-xl"
                 />
               </div>
             </div>
 
             {error ? (
-              <p className="text-sm text-destructive font-medium" role="alert">{error}</p>
+              <p className="text-sm text-destructive font-medium bg-destructive/10 border border-destructive/30 rounded-lg p-3" role="alert">{error}</p>
             ) : null}
 
-            <Button type="submit" disabled={submitting} className="w-full">
-              <LogIn className="h-4 w-4" />
+            <Button type="submit" disabled={submitting} className="w-full min-h-[52px] text-base rounded-xl active:scale-[0.98]">
+              <LogIn className="h-5 w-5" />
               <span>{submitting ? "Signing in…" : "Sign in"}</span>
             </Button>
 
@@ -262,9 +262,9 @@ export function LoginPage(): JSX.Element {
                       type="button"
                       variant="outline"
                       onClick={() => handleOIDCLogin(p.name)}
-                      className="w-full"
+                      className="w-full min-h-[52px] text-base rounded-xl active:scale-[0.98]"
                     >
-                      <ShieldCheck className="h-4 w-4" />
+                      <ShieldCheck className="h-5 w-5" />
                       <span>{p.display_name || p.name}</span>
                     </Button>
                   ))}
@@ -274,7 +274,7 @@ export function LoginPage(): JSX.Element {
         ) : (
           <form onSubmit={handleMasterKeyLogin} className="space-y-4">
             <div className="relative">
-              <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type="password"
                 autoComplete="current-password"
@@ -283,16 +283,16 @@ export function LoginPage(): JSX.Element {
                 aria-label="API key"
                 value={masterKey}
                 onChange={(e) => setMasterKey(e.target.value)}
-                className="pl-9 min-h-[44px]"
+                className="pl-10 min-h-[52px] text-base rounded-xl"
               />
             </div>
 
             {error ? (
-              <p className="text-sm text-destructive font-medium" role="alert">{error}</p>
+              <p className="text-sm text-destructive font-medium bg-destructive/10 border border-destructive/30 rounded-lg p-3" role="alert">{error}</p>
             ) : null}
 
-            <Button type="submit" disabled={submitting} className="w-full">
-              <LogIn className="h-4 w-4" />
+            <Button type="submit" disabled={submitting} className="w-full min-h-[52px] text-base rounded-xl active:scale-[0.98]">
+              <LogIn className="h-5 w-5" />
               <span>{submitting ? "Checking…" : "Unlock dashboard"}</span>
             </Button>
           </form>

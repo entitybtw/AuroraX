@@ -19,24 +19,24 @@ export function PageHeader({
   return (
     <header
       className={cn(
-        "flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-border/40 pb-6 pt-4",
+        "flex flex-col gap-4 border-b border-border/40 pb-4 md:pb-6 pt-2 md:pt-4",
         className,
       )}
     >
       <div className="min-w-0 flex-1">
         {kicker && (
-          <div className="text-[10px] font-bold tracking-widest uppercase text-accent mb-3">
+          <div className="text-[10px] font-bold tracking-widest uppercase text-accent mb-2 md:mb-3">
             [ {kicker} ]
           </div>
         )}
-        <h2 className="font-display text-[28px] font-bold leading-tight tracking-tight text-foreground">
+        <h2 className="font-display text-2xl md:text-[28px] font-bold leading-tight tracking-tight text-foreground">
           {title}
         </h2>
         {subtitle ? (
-          <p className="mt-1.5 text-[15px] text-muted-foreground">{subtitle}</p>
+          <p className="mt-1.5 text-sm md:text-[15px] text-muted-foreground leading-relaxed">{subtitle}</p>
         ) : null}
       </div>
-      {actions ? <div className="flex flex-wrap items-center gap-3">{actions}</div> : null}
+      {actions ? <div className="flex flex-wrap items-center gap-2 md:gap-3">{actions}</div> : null}
     </header>
   );
 }

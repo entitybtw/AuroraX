@@ -15,8 +15,8 @@ export function BottomNav(): JSX.Element {
   const path = location.pathname;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-surface md:hidden">
-      <div className="flex items-center justify-around h-14">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-surface/95 backdrop-blur-xl md:hidden safe-area-inset-bottom">
+      <div className="flex items-center justify-around h-16">
         {TABS.map(({ to, label, Icon }) => {
           const active = path === to || path.startsWith(to + "/");
           return (
@@ -24,12 +24,12 @@ export function BottomNav(): JSX.Element {
               key={to}
               to={to}
               className={cn(
-                "flex flex-col items-center justify-center gap-0.5 w-full h-full text-[10px] font-medium transition-colors",
-                active ? "text-accent" : "text-muted-foreground"
+                "flex flex-col items-center justify-center gap-1 w-full h-full text-[11px] font-medium transition-all active:scale-95",
+                active ? "text-accent" : "text-muted-foreground active:text-foreground"
               )}
             >
-              <Icon className={cn("h-5 w-5", active && "text-accent")} />
-              <span>{label}</span>
+              <Icon className={cn("h-6 w-6 transition-transform", active && "text-accent scale-110")} />
+              <span className={cn("transition-all", active && "font-semibold")}>{label}</span>
             </Link>
           );
         })}
