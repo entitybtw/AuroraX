@@ -84,7 +84,7 @@ export function AuthDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-md p-5 sm:p-6">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
@@ -96,13 +96,13 @@ export function AuthDialog({
           <Button
             type="button"
             variant="default"
-            className="w-full"
+            className="w-full min-h-[48px] text-base"
             onClick={() => {
               onOpenChange(false);
               navigate({ to: "/admin/dashboard/login" });
             }}
           >
-            <LogIn className="h-4 w-4" />
+            <LogIn className="h-5 w-5" />
             <span>Sign in with SSO</span>
           </Button>
         )}
@@ -121,7 +121,7 @@ export function AuthDialog({
         <form onSubmit={submit} className="space-y-3">
           <div className="relative">
             <LockKeyhole
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground"
               aria-hidden
             />
             <Input
@@ -132,17 +132,17 @@ export function AuthDialog({
               aria-label="API key"
               value={value}
               onChange={(event) => setValue(event.target.value)}
-              className="pl-9"
+              className="pl-10 min-h-[48px] text-base"
             />
           </div>
           {error ? (
-            <p className="text-xs text-destructive" role="alert">
+            <p className="text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded-lg p-3" role="alert">
               {error}
             </p>
           ) : null}
           <DialogFooter>
-            <Button type="submit" disabled={submitting}>
-              <Check className="h-4 w-4" aria-hidden />
+            <Button type="submit" disabled={submitting} className="w-full min-h-[48px] text-base active:scale-[0.98]">
+              <Check className="h-5 w-5" aria-hidden />
               <span>{submitting ? "Checking…" : cta}</span>
             </Button>
           </DialogFooter>
