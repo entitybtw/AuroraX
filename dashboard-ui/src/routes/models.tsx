@@ -810,18 +810,18 @@ export function ModelsPage(): JSX.Element {
       </div>
 
       <Surface className="p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col md:flex-row md:flex-wrap items-stretch md:items-center justify-between gap-3">
           <label className="relative min-w-0 flex-1 md:max-w-xl">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               value={filter}
               onChange={(event) => setFilter(event.target.value)}
-              placeholder="Filter by provider, provider/model, alias, or owner..."
-              className="h-10 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
+              placeholder="Filter by provider, model, alias..."
+              className="h-11 md:h-10 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm md:text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
             />
           </label>
           {aliasesAvailable ? (
-            <Button onClick={openAliasCreate}>
+            <Button onClick={openAliasCreate} className="w-full md:w-auto">
               <Plus className="h-4 w-4" />
               Create Alias
             </Button>
@@ -846,11 +846,11 @@ export function ModelsPage(): JSX.Element {
             <thead>
               <tr>
                 <Th>Model</Th>
-                <Th>Modes</Th>
-                <Th>Input $/MTok</Th>
-                <Th>Output $/MTok</Th>
-                <Th>Cached $/MTok</Th>
-                <Th>Availability</Th>
+                <Th className="hidden md:table-cell">Modes</Th>
+                <Th className="hidden lg:table-cell">Input $/MTok</Th>
+                <Th className="hidden lg:table-cell">Output $/MTok</Th>
+                <Th className="hidden xl:table-cell">Cached $/MTok</Th>
+                <Th className="hidden md:table-cell">Availability</Th>
                 <Th className="text-right">Actions</Th>
               </tr>
             </thead>
@@ -894,12 +894,29 @@ export function ModelsPage(): JSX.Element {
                       <Td>
                         <div className="space-y-2">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-mono text-sm font-medium">{row.displayName}</span>
+                            <span className="font-mono text-xs md:text-sm font-medium break-all">{row.displayName}</span>
                             {row.isAlias ? <Pill tone="accent">Alias</Pill> : null}
                             {row.alias && row.alias.enabled === false ? <Pill tone="danger">Disabled</Pill> : null}
                             {row.alias && !row.alias.valid ? <Pill tone="warning">Invalid target</Pill> : null}
                             {row.maskingAlias ? <Pill tone="warning">Masked by {row.maskingAlias.name}</Pill> : null}
                             {!row.isAlias && pricingView ? <Pill tone={pricingSourceTone(pricingView.source)}>{pricingSourceLabel(pricingView.source)}</Pill> : null}
+                          </div>
+                          {/* Mobile: show modes inline */}
+                          <div className="md:hidden">
+                            {row.isAlias || modes.length === 0 ? null : (
+                              <div className="flex flex-wrap gap-1">
+                                {modes.map((mode) => <Pill key={mode} tone="muted">{mode}</Pill>)}
+                              </div>
+                            )}
+                          </div>
+                          {/* Mobile: show pricing inline */}
+                          <div className="lg:hidden text-xs text-muted-foreground space-y-0.5">
+                            {!row.isAlias && (
+                              <>
+                                <div>Input: {anyInputPrice(p)}</div>
+                                <div>Output: {anyOutputPrice(p)}</div>
+                              </>
+                            )}
                           </div>
                           {!row.isAlias && (caps.length > 0 || scalars.length > 0 || modalities) ? (
                             <div className="flex flex-wrap items-center gap-1.5">
@@ -967,19 +984,19 @@ export function ModelsPage(): JSX.Element {
                           ) : null}
                         </div>
                       </Td>
-                      <Td>
+                      <Td className="hidden md:table-cell">
                         {row.isAlias || modes.length === 0 ? "-" : (
                           <div className="flex flex-wrap gap-1">
                             {modes.map((mode) => <Pill key={mode} tone="muted">{mode}</Pill>)}
                           </div>
                         )}
                       </Td>
-                      <Td className="font-mono text-xs">{anyInputPrice(p)}</Td>
-                      <Td className="font-mono text-xs">{anyOutputPrice(p)}</Td>
-                      <Td className="font-mono text-xs">{price(p.cached_input_per_mtok)}</Td>
-                      <Td><Pill tone={accessTone(row.access)}>{accessText(row.access)}</Pill></Td>
+                      <Td className="hidden lg:table-cell font-mono text-xs">{anyInputPrice(p)}</Td>
+                      <Td className="hidden lg:table-cell font-mono text-xs">{anyOutputPrice(p)}</Td>
+                      <Td className="hidden xl:table-cell font-mono text-xs">{price(p.cached_input_per_mtok)}</Td>
+                      <Td className="hidden md:table-cell"><Pill tone={accessTone(row.access)}>{accessText(row.access)}</Pill></Td>
                       <Td>
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-end gap-1 md:gap-2 flex-wrap">
                           {row.alias ? (
                             <>
                               <Button variant="secondary" size="sm" disabled={saveAlias.isPending} onClick={() => void toggleAlias(row.alias!)}>
@@ -996,18 +1013,18 @@ export function ModelsPage(): JSX.Element {
                             <>
                               <Button variant="ghost" size="sm" onClick={() => openAliasCreateForModel(row.displayName)}>
                                 <Plus className="h-4 w-4" />
-                                Alias
+                                <span className="hidden md:inline">Alias</span>
                               </Button>
                               {pricingAvailable ? (
                                 <Button variant="ghost" size="sm" onClick={() => openPricing(row)}>
                                   <LineChartIcon className="h-4 w-4" />
-                                  Pricing
+                                  <span className="hidden md:inline">Pricing</span>
                                 </Button>
                               ) : null}
                               {overridesAvailable ? (
                                 <Button variant="ghost" size="sm" onClick={() => openOverride(row)}>
                                   <Edit3 className="h-4 w-4" />
-                                  Access
+                                  <span className="hidden md:inline">Access</span>
                                 </Button>
                               ) : null}
                             </>

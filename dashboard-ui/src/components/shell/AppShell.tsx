@@ -179,19 +179,21 @@ export function AppShell(): JSX.Element {
             onClick={() => setMobileOpen(false)}
           />
         )}
-        <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden p-4 pt-16 pb-24 md:p-6 md:pt-6 md:pb-10 sm:p-8 lg:p-10 mx-auto w-full transition-all duration-300 ease-[var(--ease-ios)]">
-          <button
-            type="button"
-            onClick={() => setMobileOpen((prev) => !prev)}
-            className={cn(
-              "fixed top-3 left-3 z-40 grid h-12 w-12 place-items-center rounded-xl border border-border bg-surface text-foreground shadow-lg md:hidden",
-              "hover:bg-surface-hover active:scale-95 transition-all"
-            )}
-            aria-label="Toggle sidebar"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-          <div className="mx-auto w-full max-w-9xl flex-1 pt-12 md:pt-0">
+        <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden p-4 pt-20 pb-20 md:p-6 md:pt-6 md:pb-6 lg:p-10 mx-auto w-full transition-all duration-300 ease-[var(--ease-ios)]">
+          <div className="fixed top-0 left-0 right-0 z-40 h-16 bg-surface/95 backdrop-blur-xl border-b border-border md:hidden flex items-center px-4 gap-3">
+            <button
+              type="button"
+              onClick={() => setMobileOpen((prev) => !prev)}
+              className={cn(
+                "grid h-10 w-10 place-items-center rounded-lg bg-background border border-border text-foreground active:scale-95 transition-all"
+              )}
+              aria-label="Toggle sidebar"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <h1 className="font-display text-lg font-bold text-foreground">Aurora</h1>
+          </div>
+          <div className="mx-auto w-full max-w-9xl flex-1">
             <Outlet />
           </div>
         </main>

@@ -13,10 +13,10 @@ export function Surface({
   return (
     <div
       className={cn(
-        "text-foreground transition-all duration-200 ease-[var(--ease-ios)]",
-        variant === "default" && " border border-border/50 bg-surface",
-        variant === "elevated" && " border border-border/60 bg-surface ",
-        variant === "subtle" && " bg-surface/40 border border-border/30",
+        "text-foreground transition-all duration-200 ease-[var(--ease-ios)] rounded-lg",
+        variant === "default" && "border border-border/50 bg-surface",
+        variant === "elevated" && "border border-border/60 bg-surface shadow-sm",
+        variant === "subtle" && "bg-surface/40 border border-border/30",
         variant === "glass" && "glass",
         variant === "flush" && "border border-border/40 bg-surface hover:bg-surface-hover/50 transition-colors duration-200",
         className,
@@ -70,13 +70,13 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center  border border-dashed border-border/40 bg-surface/20 px-6 py-12 text-center",
+        "flex flex-col items-center justify-center rounded-lg border border-dashed border-border/40 bg-surface/20 px-4 md:px-6 py-8 md:py-12 text-center",
         className,
       )}
     >
-      <div className="text-[16px] font-semibold text-foreground">{title}</div>
+      <div className="text-base md:text-[16px] font-semibold text-foreground">{title}</div>
       {description ? (
-        <div className="mx-auto mt-2 max-w-lg text-[14px] leading-relaxed text-muted-foreground">
+        <div className="mx-auto mt-2 max-w-lg text-sm md:text-[14px] leading-relaxed text-muted-foreground">
           {description}
         </div>
       ) : null}
@@ -102,7 +102,7 @@ export function Pill({
   return (
     <span
       className={cn(
-        "inline-flex items-center  border px-2.5 py-0.5 text-[11px] font-semibold tracking-wide uppercase",
+        "inline-flex items-center rounded-md border px-2 md:px-2.5 py-1 md:py-0.5 text-[10px] md:text-[11px] font-semibold tracking-wide uppercase whitespace-nowrap",
         tone === "muted" && "border-border/60 bg-surface/60 text-muted-foreground",
         tone === "success" && "border-success/30 bg-success/15 text-success",
         tone === "warning" && "border-warning/30 bg-warning/15 text-warning",
@@ -152,21 +152,21 @@ export function FlushSection({
   return (
     <div
       className={cn(
-        "border border-border/40 bg-surface divide-y divide-border/40",
+        "border border-border/40 bg-surface divide-y divide-border/40 rounded-lg overflow-hidden",
         className,
       )}
       {...props}
     >
       {(title || subtitle || action) && (
-        <div className="flex items-start justify-between gap-3 p-6">
+        <div className="flex items-start justify-between gap-3 p-4 md:p-6">
           <div className="min-w-0">
             {title && (
-              <h3 className="font-display text-lg font-bold tracking-tight text-foreground">
+              <h3 className="font-display text-base md:text-lg font-bold tracking-tight text-foreground">
                 {title}
               </h3>
             )}
             {subtitle && (
-              <p className="mt-1 text-[13px] text-muted-foreground">{subtitle}</p>
+              <p className="mt-1 text-xs md:text-[13px] text-muted-foreground">{subtitle}</p>
             )}
           </div>
           {action && <div className="shrink-0">{action}</div>}
@@ -185,7 +185,7 @@ export function FlushCell({
   return (
     <div
       className={cn(
-        "p-6 transition-colors duration-200 hover:bg-surface-hover/30",
+        "p-4 md:p-6 transition-colors duration-200 hover:bg-surface-hover/30",
         className,
       )}
       {...props}
