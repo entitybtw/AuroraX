@@ -10,8 +10,9 @@ import { isLoggedIn, setSessionFromUserInfo } from "@/lib/auth/session";
 import { getApiKey } from "@/lib/auth/storage";
 import { apiFetch, ApiError } from "@/lib/api/client";
 import { withBasePath } from "@/lib/basepath";
-import { Loader2 } from "lucide-react";
+import { Loader2, Menu } from "lucide-react";
 import { TenantScopeProvider } from "@/lib/tenant/tenant-scope";
+import { cn } from "@/lib/utils";
 
 /**
  * Application shell.
@@ -103,6 +104,7 @@ export function AppShell(): JSX.Element {
   const identityEnabled = flagOn(config.data?.IDENTITY_ENABLED) && hasCapability(config.data, "identity");
   const [authOpen, setAuthOpen] = React.useState(false);
   const [needsAuth, setNeedsAuth] = React.useState(false);
+  const [mobileOpen, setMobileOpen] = React.useState(false);
 
   // If identity is enabled and already logged in on login page, redirect to overview.
   React.useEffect(() => {
@@ -167,9 +169,28 @@ export function AppShell(): JSX.Element {
             setNeedsAuth(false);
             setAuthOpen(true);
           }}
+          mobileOpen={mobileOpen}
+          onCloseMobile={() => setMobileOpen(false)}
         />
-        <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden p-6 sm:p-8 lg:p-10 mx-auto w-full transition-all duration-300 ease-[var(--ease-ios)]">
-          <div className="mx-auto w-full max-w-9xl flex-1">
+        {mobileOpen && (
+          <div
+            className="fixed inset-0 z-30 bg-black/50 md:hidden"
+            onClick={() => setMobileOpen(false)}
+          />
+        )}
+        <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden p-4 pt-16 md:p-6 md:pt-6 sm:p-8 lg:p-10 mx-auto w-full transition-all duration-300 ease-[var(--ease-ios)]">
+          <button
+            type="button"
+            onClick={() => setMobileOpen((prev) => !prev)}
+            className={cn(
+              "fixed top-4 left-4 z-40 grid h-10 w-10 place-items-center rounded-lg border border-border bg-surface text-foreground shadow-md md:hidden",
+              "hover:bg-surface-hover transition-colors"
+            )}
+            aria-label="Toggle sidebar"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <div className="mx-auto w-full max-w-9xl flex-1 pt-12 md:pt-0">
             <Outlet />
           </div>
         </main>
