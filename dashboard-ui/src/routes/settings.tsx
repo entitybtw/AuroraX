@@ -36,7 +36,7 @@ function SettingsPageInner(): JSX.Element {
         <EditionStatusChip />
       </div>
 
-      <div className="flex flex-wrap gap-1 border-b border-border/60 pb-0">
+      <div className="flex overflow-x-auto gap-1 border-b border-border/60 pb-0 -mx-4 px-4 sm:mx-0 sm:px-0">
         {visibleTabs.map((tab) => {
           const Icon = tab.icon;
           return (
@@ -44,13 +44,13 @@ function SettingsPageInner(): JSX.Element {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium rounded-t-lg border border-b-0 transition-colors",
+                "flex items-center gap-2 whitespace-nowrap px-4 py-2.5 text-[13px] font-medium rounded-t-lg border border-b-0 transition-colors",
                 activeTab === tab.id
                   ? "border-border/60 bg-surface text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground hover:bg-surface-hover/30"
               )}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="h-4 w-4 shrink-0" />
               {tab.label}
             </button>
           );
