@@ -1,104 +1,99 @@
 /*
  * ── Aurora Design Tokens ──────────────────────────────────────────────
- * Quackey-inspired warm palette. Changed from green "Forest Canopy" to
- * warm amber/brown tones matching quackey's #d4a574 accent.
+ * Catppuccin-inspired palette. Mocha for dark, Latte for light.
  *
- * Palette:
- *   #0f0f0f  Deep Dark   (near-black, quackey bg-0)
- *   #1a1a1a  Surface     (quackey bg-1)
- *   #222222  Elevated    (quackey bg-2)
- *   #2a2a2a  Muted       (quackey bg-3)
- *   #d4a574  Amber       (quackey accent)
- *   #e0b685  Amber Bright
- *   #7a9db8  Steel Blue  (info)
- *   #dd7777  Brick Red   (danger)
- *   #7a9940  Sage        (success)
+ * Mocha (dark):  Base #1e1e2e  Surface0 #313244  Text #cdd6f4
+ *                Mauve #cba6f7  Blue #89b4fa  Green #a6e3a1
+ *                Red #f38ba8  Yellow #f9e2af  Peach #fab387
+ *
+ * Latte (light): Base #eff1f5  Surface0 #ccd0da  Text #4c4f69
+ *                Mauve #8839ef  Blue #1e66f5  Green #40a02b
+ *                Red #d20f39  Yellow #df8e1d  Peach #fe640b
  */
 
 /* ── Dark mode (default) ─────────────────────────────────────────── */
 :root {
   /* Backgrounds */
-  --bg: #0f0f0f;
-  --bg-surface: #1a1a1a;
-  --bg-surface-hover: #252525;
-  --bg-elevated: #222222;
+  --bg: #1e1e2e;
+  --bg-surface: #313244;
+  --bg-surface-hover: #45475a;
+  --bg-elevated: #585b70;
 
   /* Text */
-  --text: #dddddd;
-  --text-muted: #999999;
-  --text-inverse: #0f0f0f;
+  --text: #cdd6f4;
+  --text-muted: #a6adc8;
+  --text-inverse: #1e1e2e;
 
   /* Borders */
-  --border: #2a2a2a;
-  --border-subtle: rgba(221, 119, 119, 0.04);
+  --border: #45475a;
+  --border-subtle: rgba(205, 214, 244, 0.06);
 
   /* Accent */
-  --accent: #d4a574;
-  --accent-hover: #e0b685;
-  --accent-foreground: #0f0f0f;
+  --accent: #cba6f7;
+  --accent-hover: #b4befe;
+  --accent-foreground: #1e1e2e;
 
   /* Semantic */
-  --success: #7a9;
-  --success-bg: rgba(119, 170, 153, 0.12);
-  --warning: #e6a23c;
-  --warning-bg: rgba(230, 162, 60, 0.15);
-  --danger: #d77;
-  --danger-bg: rgba(221, 119, 119, 0.12);
-  --info: #7a9db8;
-  --info-bg: rgba(122, 157, 184, 0.12);
+  --success: #a6e3a1;
+  --success-bg: rgba(166, 227, 161, 0.12);
+  --warning: #f9e2af;
+  --warning-bg: rgba(249, 226, 175, 0.15);
+  --danger: #f38ba8;
+  --danger-bg: rgba(243, 139, 168, 0.12);
+  --info: #89b4fa;
+  --info-bg: rgba(137, 180, 250, 0.12);
 
   /* Chart */
-  --chart-grid: rgba(221, 221, 221, 0.06);
-  --chart-text: #999999;
-  --chart-tooltip-bg: #222222;
-  --chart-tooltip-border: #333333;
-  --chart-tooltip-text: #dddddd;
-  --chart-colors: #d4a574, #7a9db8, #e6a23c, #7a9, #dd7777, #999;
+  --chart-grid: rgba(205, 214, 244, 0.06);
+  --chart-text: #a6adc8;
+  --chart-tooltip-bg: #313244;
+  --chart-tooltip-border: #585b70;
+  --chart-tooltip-text: #cdd6f4;
+  --chart-colors: #cba6f7, #89b4fa, #f9e2af, #a6e3a1, #f38ba8, #fab387;
 
   /* Chart series colors */
-  --chart-input: #d4a574;
-  --chart-output: #7a9db8;
-  --chart-cache-input: #e6a23c;
-  --chart-cache-output: #7a9;
-  --chart-requests: #d4a574;
-  --chart-cache-hits: #7a9db8;
-  --chart-palette-5: #e6a23c;
-  --chart-palette-6: #7a9;
-  --chart-palette-7: #999;
-  --chart-palette-8: #7a9db8;
+  --chart-input: #cba6f7;
+  --chart-output: #89b4fa;
+  --chart-cache-input: #f9e2af;
+  --chart-cache-output: #a6e3a1;
+  --chart-requests: #cba6f7;
+  --chart-cache-hits: #89b4fa;
+  --chart-palette-5: #f9e2af;
+  --chart-palette-6: #a6e3a1;
+  --chart-palette-7: #fab387;
+  --chart-palette-8: #89dceb;
 
-  /* Qualitative palette for categorical charts */
-  --chart-cat-1: #d4a574;
-  --chart-cat-2: #7a9db8;
-  --chart-cat-3: #e6a23c;
-  --chart-cat-4: #7a9;
-  --chart-cat-5: #dd7777;
-  --chart-cat-6: #8a7ad4;
-  --chart-cat-6: #5aa7a7;
-  --chart-cat-7: #c475d4;
-  --chart-cat-8: #6ba76b;
-  --chart-cat-9: #b56576;
-  --chart-cat-10: #8fa89b;
+  /* Qualitative palette */
+  --chart-cat-1: #cba6f7;
+  --chart-cat-2: #89b4fa;
+  --chart-cat-3: #74c7ec;
+  --chart-cat-4: #94e2d5;
+  --chart-cat-5: #a6e3a1;
+  --chart-cat-6: #f9e2af;
+  --chart-cat-7: #fab387;
+  --chart-cat-8: #f38ba8;
+  --chart-cat-9: #eba0ac;
+  --chart-cat-10: #f5c2e7;
 
   /* Calendar heatmap */
-  --cal-level-0: #1a1a1a;
-  --cal-level-1: #2a2a2a;
-  --cal-level-2: #5a4a3a;
-  --cal-level-3: #d4a574;
-  --cal-level-4: #e0b685;
+  --cal-level-0: #313244;
+  --cal-level-1: #45475a;
+  --cal-level-2: #585b70;
+  --cal-level-3: #cba6f7;
+  --cal-level-4: #b4befe;
 
-  --prompt-cache-color: #7a9db8;
-  --prompt-cache-color-bg: rgba(122, 157, 184, 0.09);
-  --alias-row-valid-bg: rgba(26, 26, 26, 0.9);
-  --alias-row-valid-bg-hover: rgba(37, 37, 37, 0.95);
+  --prompt-cache-color: #89b4fa;
+  --prompt-cache-color-bg: rgba(137, 180, 250, 0.09);
+  --alias-row-valid-bg: rgba(49, 50, 68, 0.9);
+  --alias-row-valid-bg-hover: rgba(69, 71, 90, 0.95);
 
-  /* Glass — flattened to solid surfaces for quackey look */
-  --glass-bg: #1a1a1a;
-  --glass-border: #2a2a2a;
+  /* Glass — flat surfaces for Catppuccin look */
+  --glass-bg: #313244;
+  --glass-border: #45475a;
   --glass-shadow: none;
   --glass-highlight: none;
 
-  --ring-highlight: rgba(212, 165, 116, 0.06);
+  --ring-highlight: rgba(203, 166, 247, 0.06);
   --shadow-tint: rgba(0, 0, 0, 0.2);
 
   color-scheme: dark;
@@ -106,77 +101,77 @@
 
 /* ── Light mode (pinned) ──────────────────────────────────────────── */
 [data-theme="light"] {
-  --bg: #fafafa;
-  --bg-surface: #ffffff;
-  --bg-surface-hover: #f8f8f8;
-  --bg-elevated: #f5f5f5;
+  --bg: #eff1f5;
+  --bg-surface: #ccd0da;
+  --bg-surface-hover: #bcc0cc;
+  --bg-elevated: #acb0be;
 
-  --text: #222222;
-  --text-muted: #666666;
-  --text-inverse: #fafafa;
+  --text: #4c4f69;
+  --text-muted: #6c6f85;
+  --text-inverse: #eff1f5;
 
-  --border: #dddddd;
-  --border-subtle: rgba(34, 34, 34, 0.05);
+  --border: #bcc0cc;
+  --border-subtle: rgba(76, 79, 105, 0.05);
 
-  --accent: #c4956a;
-  --accent-hover: #d4a574;
-  --accent-foreground: #ffffff;
+  --accent: #8839ef;
+  --accent-hover: #7287fd;
+  --accent-foreground: #eff1f5;
 
-  --success: #7a9;
-  --success-bg: rgba(119, 170, 153, 0.1);
-  --warning: #e6a23c;
-  --warning-bg: rgba(230, 162, 60, 0.12);
-  --danger: #d77;
-  --danger-bg: rgba(221, 119, 119, 0.1);
-  --info: #7a9db8;
-  --info-bg: rgba(122, 157, 184, 0.1);
+  --success: #40a02b;
+  --success-bg: rgba(64, 160, 43, 0.1);
+  --warning: #df8e1d;
+  --warning-bg: rgba(223, 142, 29, 0.12);
+  --danger: #d20f39;
+  --danger-bg: rgba(210, 15, 57, 0.1);
+  --info: #1e66f5;
+  --info-bg: rgba(30, 102, 245, 0.1);
 
-  --chart-grid: rgba(34, 34, 34, 0.08);
-  --chart-text: #666666;
-  --chart-tooltip-bg: #ffffff;
-  --chart-tooltip-border: #dddddd;
-  --chart-tooltip-text: #222222;
-  --chart-colors: #c4956a, #6a8fa8, #d6942e, #6a9, #c76, #888;
+  --chart-grid: rgba(76, 79, 105, 0.08);
+  --chart-text: #6c6f85;
+  --chart-tooltip-bg: #eff1f5;
+  --chart-tooltip-border: #ccd0da;
+  --chart-tooltip-text: #4c4f69;
+  --chart-colors: #8839ef, #1e66f5, #df8e1d, #40a02b, #d20f39, #fe640b;
 
-  --chart-input: #c4956a;
-  --chart-output: #6a8fa8;
-  --chart-cache-input: #d6942e;
-  --chart-cache-output: #6a9;
-  --chart-requests: #c4956a;
-  --chart-cache-hits: #6a8fa8;
-  --chart-palette-5: #d6942e;
-  --chart-palette-6: #6a9;
-  --chart-palette-7: #888;
-  --chart-palette-8: #6a8fa8;
+  --chart-input: #8839ef;
+  --chart-output: #1e66f5;
+  --chart-cache-input: #df8e1d;
+  --chart-cache-output: #40a02b;
+  --chart-requests: #8839ef;
+  --chart-cache-hits: #1e66f5;
+  --chart-palette-5: #df8e1d;
+  --chart-palette-6: #40a02b;
+  --chart-palette-7: #fe640b;
+  --chart-palette-8: #04a5e5;
 
-  --chart-cat-1: #c4956a;
-  --chart-cat-2: #6a8fa8;
-  --chart-cat-3: #d6942e;
-  --chart-cat-4: #6a9;
-  --chart-cat-5: #c76;
-  --chart-cat-6: #7a6ac4;
-  --chart-cat-7: #b465c4;
-  --chart-cat-8: #5a975a;
-  --chart-cat-9: #a55566;
-  --chart-cat-10: #7f988b;
+  --chart-cat-1: #8839ef;
+  --chart-cat-2: #1e66f5;
+  --chart-cat-3: #209fb5;
+  --chart-cat-4: #179299;
+  --chart-cat-5: #40a02b;
+  --chart-cat-6: #df8e1d;
+  --chart-cat-7: #fe640b;
+  --chart-cat-8: #d20f39;
+  --chart-cat-9: #e64553;
+  --chart-cat-10: #ea76cb;
 
-  --cal-level-0: #eeeeee;
-  --cal-level-1: #dddddd;
-  --cal-level-2: #bba888;
-  --cal-level-3: #c4956a;
-  --cal-level-4: #d4a574;
+  --cal-level-0: #ccd0da;
+  --cal-level-1: #bcc0cc;
+  --cal-level-2: #acb0be;
+  --cal-level-3: #8839ef;
+  --cal-level-4: #7287fd;
 
-  --prompt-cache-color: #6a8fa8;
-  --prompt-cache-color-bg: rgba(106, 143, 168, 0.09);
-  --alias-row-valid-bg: rgba(255, 255, 255, 0.9);
-  --alias-row-valid-bg-hover: rgba(248, 248, 248, 0.95);
+  --prompt-cache-color: #1e66f5;
+  --prompt-cache-color-bg: rgba(30, 102, 245, 0.09);
+  --alias-row-valid-bg: rgba(204, 208, 218, 0.9);
+  --alias-row-valid-bg-hover: rgba(188, 192, 204, 0.95);
 
-  --glass-bg: rgba(255, 255, 255, 0.82);
-  --glass-border: rgba(34, 34, 34, 0.05);
+  --glass-bg: #eff1f5;
+  --glass-border: #ccd0da;
   --glass-shadow: none;
   --glass-highlight: none;
 
-  --ring-highlight: rgba(0, 0, 0, 0.06);
+  --ring-highlight: rgba(136, 57, 239, 0.06);
   --shadow-tint: rgba(0, 0, 0, 0.08);
 
   color-scheme: light;
@@ -185,77 +180,77 @@
 /* ── System light (no pinned theme) ───────────────────────────────── */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
-    --bg: #fafafa;
-    --bg-surface: #ffffff;
-    --bg-surface-hover: #f8f8f8;
-    --bg-elevated: #f5f5f5;
+    --bg: #eff1f5;
+    --bg-surface: #ccd0da;
+    --bg-surface-hover: #bcc0cc;
+    --bg-elevated: #acb0be;
 
-    --text: #222222;
-    --text-muted: #666666;
-    --text-inverse: #fafafa;
+    --text: #4c4f69;
+    --text-muted: #6c6f85;
+    --text-inverse: #eff1f5;
 
-    --border: #dddddd;
-    --border-subtle: rgba(34, 34, 34, 0.05);
+    --border: #bcc0cc;
+    --border-subtle: rgba(76, 79, 105, 0.05);
 
-    --accent: #c4956a;
-    --accent-hover: #d4a574;
-    --accent-foreground: #ffffff;
+    --accent: #8839ef;
+    --accent-hover: #7287fd;
+    --accent-foreground: #eff1f5;
 
-    --success: #7a9;
-    --success-bg: rgba(119, 170, 153, 0.1);
-    --warning: #e6a23c;
-    --warning-bg: rgba(230, 162, 60, 0.12);
-    --danger: #d77;
-    --danger-bg: rgba(221, 119, 119, 0.1);
-    --info: #7a9db8;
-    --info-bg: rgba(122, 157, 184, 0.1);
+    --success: #40a02b;
+    --success-bg: rgba(64, 160, 43, 0.1);
+    --warning: #df8e1d;
+    --warning-bg: rgba(223, 142, 29, 0.12);
+    --danger: #d20f39;
+    --danger-bg: rgba(210, 15, 57, 0.1);
+    --info: #1e66f5;
+    --info-bg: rgba(30, 102, 245, 0.1);
 
-    --chart-grid: rgba(34, 34, 34, 0.08);
-    --chart-text: #666666;
-    --chart-tooltip-bg: #ffffff;
-    --chart-tooltip-border: #dddddd;
-    --chart-tooltip-text: #222222;
-    --chart-colors: #c4956a, #6a8fa8, #d6942e, #6a9, #c76, #888;
+    --chart-grid: rgba(76, 79, 105, 0.08);
+    --chart-text: #6c6f85;
+    --chart-tooltip-bg: #eff1f5;
+    --chart-tooltip-border: #ccd0da;
+    --chart-tooltip-text: #4c4f69;
+    --chart-colors: #8839ef, #1e66f5, #df8e1d, #40a02b, #d20f39, #fe640b;
 
-    --chart-input: #c4956a;
-    --chart-output: #6a8fa8;
-    --chart-cache-input: #d6942e;
-    --chart-cache-output: #6a9;
-    --chart-requests: #c4956a;
-    --chart-cache-hits: #6a8fa8;
-    --chart-palette-5: #d6942e;
-    --chart-palette-6: #6a9;
-    --chart-palette-7: #888;
-    --chart-palette-8: #6a8fa8;
+    --chart-input: #8839ef;
+    --chart-output: #1e66f5;
+    --chart-cache-input: #df8e1d;
+    --chart-cache-output: #40a02b;
+    --chart-requests: #8839ef;
+    --chart-cache-hits: #1e66f5;
+    --chart-palette-5: #df8e1d;
+    --chart-palette-6: #40a02b;
+    --chart-palette-7: #fe640b;
+    --chart-palette-8: #04a5e5;
 
-    --chart-cat-1: #c4956a;
-    --chart-cat-2: #6a8fa8;
-    --chart-cat-3: #d6942e;
-    --chart-cat-4: #6a9;
-    --chart-cat-5: #c76;
-    --chart-cat-6: #7a6ac4;
-    --chart-cat-7: #b465c4;
-    --chart-cat-8: #5a975a;
-    --chart-cat-9: #a55566;
-    --chart-cat-10: #7f988b;
+    --chart-cat-1: #8839ef;
+    --chart-cat-2: #1e66f5;
+    --chart-cat-3: #209fb5;
+    --chart-cat-4: #179299;
+    --chart-cat-5: #40a02b;
+    --chart-cat-6: #df8e1d;
+    --chart-cat-7: #fe640b;
+    --chart-cat-8: #d20f39;
+    --chart-cat-9: #e64553;
+    --chart-cat-10: #ea76cb;
 
-    --cal-level-0: #eeeeee;
-    --cal-level-1: #dddddd;
-    --cal-level-2: #bba888;
-    --cal-level-3: #c4956a;
-    --cal-level-4: #d4a574;
+    --cal-level-0: #ccd0da;
+    --cal-level-1: #bcc0cc;
+    --cal-level-2: #acb0be;
+    --cal-level-3: #8839ef;
+    --cal-level-4: #7287fd;
 
-    --prompt-cache-color: #6a8fa8;
-    --prompt-cache-color-bg: rgba(106, 143, 168, 0.09);
-    --alias-row-valid-bg: rgba(255, 255, 255, 0.9);
-    --alias-row-valid-bg-hover: rgba(248, 248, 248, 0.95);
+    --prompt-cache-color: #1e66f5;
+    --prompt-cache-color-bg: rgba(30, 102, 245, 0.09);
+    --alias-row-valid-bg: rgba(204, 208, 218, 0.9);
+    --alias-row-valid-bg-hover: rgba(188, 192, 204, 0.95);
 
-    --glass-bg: rgba(255, 255, 255, 0.82);
-    --glass-border: rgba(34, 34, 34, 0.05);
+    --glass-bg: #eff1f5;
+    --glass-border: #ccd0da;
     --glass-shadow: none;
     --glass-highlight: none;
 
-    --ring-highlight: rgba(0, 0, 0, 0.06);
+    --ring-highlight: rgba(136, 57, 239, 0.06);
     --shadow-tint: rgba(0, 0, 0, 0.08);
 
     color-scheme: light;
