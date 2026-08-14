@@ -84,6 +84,9 @@ func (h *Handler) RegisterRoutes(g RouteRegistrar) {
 	g.DELETE("/combos/:id", h.DeleteCombo)
 	g.POST("/combos/:id/validate", h.ValidateCombo)
 
+	g.GET("/fallback", h.FallbackConfig)
+	g.PUT("/fallback", h.UpdateFallbackConfig)
+
 	g.GET("/guardrails/types", h.ListGuardrailTypes)
 	g.GET("/guardrails", h.ListGuardrails)
 	g.PUT("/guardrails/:name", h.UpsertGuardrail)
