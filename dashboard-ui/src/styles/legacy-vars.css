@@ -98,34 +98,34 @@
 /* ── Light mode (pinned) ──────────────────────────────────────────── */
 [data-theme="light"] {
   --bg: #eff1f5;
-  --bg-surface: #e6e9ef;
-  --bg-surface-hover: #dce0e8;
-  --bg-elevated: #ffffff;
+  --bg-surface: #ccd0da;
+  --bg-surface-hover: #bcc0cc;
+  --bg-elevated: #acb0be;
 
   --text: #4c4f69;
-  --text-muted: #7c7f93;
+  --text-muted: #6c6f85;
   --text-inverse: #eff1f5;
 
-  --border: #dce0e8;
-  --border-subtle: rgba(76, 79, 105, 0.04);
+  --border: #bcc0cc;
+  --border-subtle: rgba(76, 79, 105, 0.05);
 
   --accent: #8839ef;
   --accent-hover: #7287fd;
-  --accent-foreground: #ffffff;
+  --accent-foreground: #eff1f5;
 
   --success: #40a02b;
-  --success-bg: rgba(64, 160, 43, 0.08);
+  --success-bg: rgba(64, 160, 43, 0.1);
   --warning: #df8e1d;
-  --warning-bg: rgba(223, 142, 29, 0.1);
+  --warning-bg: rgba(223, 142, 29, 0.12);
   --danger: #d20f39;
-  --danger-bg: rgba(210, 15, 57, 0.08);
+  --danger-bg: rgba(210, 15, 57, 0.1);
   --info: #1e66f5;
-  --info-bg: rgba(30, 102, 245, 0.08);
+  --info-bg: rgba(30, 102, 245, 0.1);
 
-  --chart-grid: rgba(76, 79, 105, 0.06);
-  --chart-text: #7c7f93;
-  --chart-tooltip-bg: #ffffff;
-  --chart-tooltip-border: #dce0e8;
+  --chart-grid: rgba(76, 79, 105, 0.08);
+  --chart-text: #6c6f85;
+  --chart-tooltip-bg: #eff1f5;
+  --chart-tooltip-border: #ccd0da;
   --chart-tooltip-text: #4c4f69;
   --chart-colors: #8839ef, #1e66f5, #df8e1d, #40a02b, #d20f39, #fe640b;
 
@@ -151,24 +151,24 @@
   --chart-cat-9: #e64553;
   --chart-cat-10: #ea76cb;
 
-  --cal-level-0: #dce0e8;
-  --cal-level-1: #ccd0da;
+  --cal-level-0: #ccd0da;
+  --cal-level-1: #bcc0cc;
   --cal-level-2: #acb0be;
   --cal-level-3: #8839ef;
   --cal-level-4: #7287fd;
 
   --prompt-cache-color: #1e66f5;
-  --prompt-cache-color-bg: rgba(30, 102, 245, 0.07);
-  --alias-row-valid-bg: #ffffff;
-  --alias-row-valid-bg-hover: #f5f6f8;
+  --prompt-cache-color-bg: rgba(30, 102, 245, 0.09);
+  --alias-row-valid-bg: rgba(204, 208, 218, 0.9);
+  --alias-row-valid-bg-hover: rgba(188, 192, 204, 0.95);
 
-  --glass-bg: #ffffff;
-  --glass-border: #dce0e8;
-  --glass-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --glass-bg: #eff1f5;
+  --glass-border: #ccd0da;
+  --glass-shadow: none;
+  --glass-highlight: none;
 
-  --ring-highlight: rgba(136, 57, 239, 0.08);
-  --shadow-tint: rgba(0, 0, 0, 0.06);
+  --ring-highlight: rgba(136, 57, 239, 0.06);
+  --shadow-tint: rgba(0, 0, 0, 0.08);
 
   color-scheme: light;
 }
@@ -177,34 +177,34 @@
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
     --bg: #eff1f5;
-    --bg-surface: #e6e9ef;
-    --bg-surface-hover: #dce0e8;
-    --bg-elevated: #ffffff;
+    --bg-surface: #ccd0da;
+    --bg-surface-hover: #bcc0cc;
+    --bg-elevated: #acb0be;
 
     --text: #4c4f69;
-    --text-muted: #7c7f93;
+    --text-muted: #6c6f85;
     --text-inverse: #eff1f5;
 
-    --border: #dce0e8;
-    --border-subtle: rgba(76, 79, 105, 0.04);
+    --border: #bcc0cc;
+    --border-subtle: rgba(76, 79, 105, 0.05);
 
     --accent: #8839ef;
     --accent-hover: #7287fd;
-    --accent-foreground: #ffffff;
+    --accent-foreground: #eff1f5;
 
     --success: #40a02b;
-    --success-bg: rgba(64, 160, 43, 0.08);
+    --success-bg: rgba(64, 160, 43, 0.1);
     --warning: #df8e1d;
-    --warning-bg: rgba(223, 142, 29, 0.1);
+    --warning-bg: rgba(223, 142, 29, 0.12);
     --danger: #d20f39;
-    --danger-bg: rgba(210, 15, 57, 0.08);
+    --danger-bg: rgba(210, 15, 57, 0.1);
     --info: #1e66f5;
-    --info-bg: rgba(30, 102, 245, 0.08);
+    --info-bg: rgba(30, 102, 245, 0.1);
 
-    --chart-grid: rgba(76, 79, 105, 0.06);
-    --chart-text: #7c7f93;
-    --chart-tooltip-bg: #ffffff;
-    --chart-tooltip-border: #dce0e8;
+    --chart-grid: rgba(76, 79, 105, 0.08);
+    --chart-text: #6c6f85;
+    --chart-tooltip-bg: #eff1f5;
+    --chart-tooltip-border: #ccd0da;
     --chart-tooltip-text: #4c4f69;
     --chart-colors: #8839ef, #1e66f5, #df8e1d, #40a02b, #d20f39, #fe640b;
 
@@ -230,24 +230,24 @@
     --chart-cat-9: #e64553;
     --chart-cat-10: #ea76cb;
 
-    --cal-level-0: #dce0e8;
-    --cal-level-1: #ccd0da;
+    --cal-level-0: #ccd0da;
+    --cal-level-1: #bcc0cc;
     --cal-level-2: #acb0be;
     --cal-level-3: #8839ef;
     --cal-level-4: #7287fd;
 
     --prompt-cache-color: #1e66f5;
-    --prompt-cache-color-bg: rgba(30, 102, 245, 0.07);
-    --alias-row-valid-bg: #ffffff;
-    --alias-row-valid-bg-hover: #f5f6f8;
+    --prompt-cache-color-bg: rgba(30, 102, 245, 0.09);
+    --alias-row-valid-bg: rgba(204, 208, 218, 0.9);
+    --alias-row-valid-bg-hover: rgba(188, 192, 204, 0.95);
 
-    --glass-bg: #ffffff;
-    --glass-border: #dce0e8;
-    --glass-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    --glass-bg: #eff1f5;
+    --glass-border: #ccd0da;
+    --glass-shadow: none;
+    --glass-highlight: none;
 
-    --ring-highlight: rgba(136, 57, 239, 0.08);
-    --shadow-tint: rgba(0, 0, 0, 0.06);
+    --ring-highlight: rgba(136, 57, 239, 0.06);
+    --shadow-tint: rgba(0, 0, 0, 0.08);
 
     color-scheme: light;
   }
