@@ -157,7 +157,7 @@ export function Sidebar({
       aria-label="Primary navigation"
     >
       <header className={cn("flex items-center pb-5 pt-6 transition-all duration-300", isCollapsed ? "flex-col gap-2 px-2 justify-center" : "gap-3 px-5")}>
-        <span className="grid h-9 w-9 shrink-0 place-items-center  bg-accent text-accent-foreground shadow-lg shadow-accent/25">
+        <span className="shrink-0">
           <SidebarLogo />
         </span>
         {!isCollapsed && (
@@ -279,7 +279,7 @@ function SidebarLogo(): JSX.Element {
     <img
       src="/navbar-logo.svg"
       alt="Aurora"
-      className="h-6 w-6 object-contain"
+      className="h-8 w-8"
       draggable={false}
     />
   );
