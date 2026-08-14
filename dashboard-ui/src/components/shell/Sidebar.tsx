@@ -22,6 +22,7 @@ import {
   Terminal,
   Layers,
   Workflow,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -81,11 +82,15 @@ const NAV: readonly NavEntry[] = [
 export interface SidebarProps {
   config: DashboardConfigResponse | undefined;
   onOpenAuthDialog: () => void;
+  mobileOpen: boolean;
+  onCloseMobile: () => void;
 }
 
 export function Sidebar({
   config,
   onOpenAuthDialog,
+  mobileOpen,
+  onCloseMobile,
 }: SidebarProps): JSX.Element {
   const theme = useTheme();
   const apiKey = useApiKeyState();
@@ -151,8 +156,13 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "flex h-full shrink-0 flex-col transition-[width] duration-300 ease-[var(--ease-ios)] glass-chrome z-20",
-        isCollapsed ? "w-[72px]" : "w-[var(--spacing-sidebar)]"
+        "flex h-full shrink-0 flex-col glass-chrome z-50",
+        // Desktop: static, collapsible width
+        "md:relative md:transition-[width] md:duration-300 md:ease-[var(--ease-ios)]",
+        isCollapsed ? "md:w-[72px]" : "md:w-[var(--spacing-sidebar)]",
+        // Mobile: fixed drawer
+        "fixed inset-y-0 left-0 w-[var(--spacing-sidebar)] transition-transform duration-300 ease-[var(--ease-ios)]",
+        mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
       )}
       aria-label="Primary navigation"
     >
@@ -166,6 +176,11 @@ export function Sidebar({
               <h1 className="font-display text-lg font-bold tracking-tight text-foreground whitespace-nowrap overflow-hidden">Aurora</h1>
             </div>
           </div>
+        )}
+        {mobileOpen && (
+          <button onClick={onCloseMobile} className="md:hidden ml-auto p-1 text-muted-foreground hover:text-foreground">
+            <X className="h-5 w-5" />
+          </button>
         )}
       </header>
 
@@ -188,6 +203,7 @@ export function Sidebar({
                       isCollapsed ? "px-0 justify-center" : "px-3"
                     )}
                     aria-current={active ? "page" : undefined}
+                    onClick={onCloseMobile}
                   >
                     <entry.Icon
                       className={cn(

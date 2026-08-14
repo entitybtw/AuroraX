@@ -265,3 +265,36 @@
     color: var(--accent);
   }
 }
+
+/* ── Mobile responsive utilities ─────────────────────────────────── */
+@media (max-width: 767px) {
+  /* Sidebar mobile overlay */
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 19;
+  }
+
+  /* Main content needs padding for hamburger */
+  .main-mobile-pad {
+    padding-top: 56px;
+  }
+
+  /* Stack grid layouts on mobile */
+  .grid-responsive {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Table responsiveness */
+  .table-responsive {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Form inputs larger on mobile */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}

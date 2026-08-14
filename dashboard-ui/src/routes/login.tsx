@@ -166,24 +166,24 @@ export function LoginPage(): JSX.Element {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <div className="w-full max-w-sm space-y-6">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6">
+      <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-2">
           <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-accent text-accent-foreground shadow-lg shadow-accent/25">
             <ShieldCheck className="h-6 w-6" />
           </div>
-          <h1 className="font-display text-[34px] font-normal leading-tight tracking-tight text-foreground">Aurora Gateway</h1>
+          <h1 className="font-display text-[28px] sm:text-[34px] font-normal leading-tight tracking-tight text-foreground">Aurora Gateway</h1>
           <p className="text-sm text-muted-foreground">
             Sign in to access the admin dashboard
           </p>
         </div>
 
         {identityEnabled && (
-          <div className="flex  bg-surface p-0.5">
+          <div className="flex overflow-x-auto bg-surface p-0.5">
             <button
               type="button"
               onClick={() => { setTab("sso"); setError(""); }}
-              className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all ${tab === "sso"
+              className={`flex-1 min-w-0 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${tab === "sso"
                   ? "bg-background text-foreground"
                   : "text-muted-foreground hover:text-foreground"
                 }`}
@@ -193,7 +193,7 @@ export function LoginPage(): JSX.Element {
             <button
               type="button"
               onClick={() => { setTab("master"); setError(""); }}
-              className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all ${tab === "master"
+              className={`flex-1 min-w-0 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${tab === "master"
                   ? "bg-background text-foreground"
                   : "text-muted-foreground hover:text-foreground"
                 }`}
@@ -216,7 +216,7 @@ export function LoginPage(): JSX.Element {
                   aria-label="Email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-9"
+                  className="pl-9 min-h-[44px]"
                 />
               </div>
               <div className="relative">
@@ -228,7 +228,7 @@ export function LoginPage(): JSX.Element {
                   aria-label="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-9"
+                  className="pl-9 min-h-[44px]"
                 />
               </div>
             </div>
@@ -283,7 +283,7 @@ export function LoginPage(): JSX.Element {
                 aria-label="API key"
                 value={masterKey}
                 onChange={(e) => setMasterKey(e.target.value)}
-                className="pl-9"
+                className="pl-9 min-h-[44px]"
               />
             </div>
 
