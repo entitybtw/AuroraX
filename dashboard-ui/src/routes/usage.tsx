@@ -81,7 +81,7 @@ export function UsagePage(): JSX.Element {
     <div className="flex flex-col gap-6">
       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 pt-4 border-b border-border/60">
         <div className="min-w-0 flex-1">
-          <h1 className="font-serif text-[34px] font-normal leading-tight tracking-tight text-foreground">Usage Analytics</h1>
+          <h1 className="font-display text-[34px] font-normal leading-tight tracking-tight text-foreground">Usage Analytics</h1>
           <p className="mt-1.5 text-[15px] text-muted-foreground">Track requests, tokens, and costs across your gateway.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">

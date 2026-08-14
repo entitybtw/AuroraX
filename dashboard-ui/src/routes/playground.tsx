@@ -657,7 +657,7 @@ export function PlaygroundPage(): JSX.Element {
     <div className="flex flex-col gap-6 h-[calc(100vh-2rem)]">
       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 pt-4 border-b border-border/60 shrink-0">
         <div className="min-w-0 flex-1">
-          <h1 className="font-serif text-[34px] font-normal leading-tight tracking-tight text-foreground">Playground</h1>
+          <h1 className="font-display text-[34px] font-normal leading-tight tracking-tight text-foreground">Playground</h1>
           <p className="mt-1.5 text-[15px] text-muted-foreground">Test chat, embeddings, and rerank models through the gateway. Select a model and the playground adapts to its capability.</p>
         </div>
       </header>

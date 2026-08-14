@@ -160,7 +160,7 @@ export function WorkflowsPage(): JSX.Element {
     <div className="flex flex-col gap-6">
       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 pt-4 border-b border-border/60">
         <div className="min-w-0 flex-1">
-          <h1 className="font-serif text-[34px] font-normal leading-tight tracking-tight text-foreground">Workflows</h1>
+          <h1 className="font-display text-[34px] font-normal leading-tight tracking-tight text-foreground">Workflows</h1>
           <p className="mt-1.5 text-[15px] text-muted-foreground">Active workflows are matched path-first, then provider and model.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -293,7 +293,7 @@ export function WorkflowsPage(): JSX.Element {
                         <span className={`w-1.5 h-1.5  ${isGlobal ? 'bg-accent' : w.scope_user_path ? 'bg-info' : 'bg-success'}`}></span>
                         {isGlobal ? "Global scope" : w.scope_user_path ? "User path scope" : "Provider/model scope"}
                       </span>
-                      <h3 className="font-serif text-xl font-normal tracking-tight text-foreground">{w.name || getScopeLabel(w)}</h3>
+                      <h3 className="font-display text-xl font-normal tracking-tight text-foreground">{w.name || getScopeLabel(w)}</h3>
                     </div>
                   </div>
 

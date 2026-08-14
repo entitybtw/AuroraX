@@ -29,7 +29,7 @@ export function PageHeader({
             [ {kicker} ]
           </div>
         )}
-        <h2 className="font-serif text-[34px] font-normal leading-tight tracking-tight text-foreground">
+        <h2 className="font-display text-[28px] font-bold leading-tight tracking-tight text-foreground">
           {title}
         </h2>
         {subtitle ? (

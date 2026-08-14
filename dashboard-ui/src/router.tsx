@@ -24,6 +24,7 @@ import { PoolsPage } from "@/routes/pools";
 
 import { ConsolePage } from "@/routes/console";
 import { CombosPage } from "@/routes/combos";
+import { FallbackPage } from "@/routes/fallback";
 
 import { getBasePath } from "@/lib/basepath";
 
@@ -115,6 +116,12 @@ const combosRoute = createRoute({
   component: protectedComponent(CombosPage, "admin/models"),
 });
 
+const fallbackRoute = createRoute({
+  getParentRoute: () => dashboardLayout,
+  path: "fallback",
+  component: protectedComponent(FallbackPage, "admin/models"),
+});
+
 const cliToolsRoute = createRoute({
   getParentRoute: () => dashboardLayout,
   path: "cli-tools",
@@ -181,6 +188,7 @@ const routeTree = rootRoute.addChildren([
     playgroundRoute,
     modelsRoute,
     combosRoute,
+    fallbackRoute,
     auditLogsRoute,
     consoleRoute,
     cliToolsRoute,

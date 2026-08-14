@@ -75,7 +75,7 @@ export function ThroughputChart({
     <div className="border border-border bg-surface p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <h2 className="font-serif text-xl font-normal tracking-tight text-foreground">Throughput</h2>
+          <h2 className="font-display text-xl font-normal tracking-tight text-foreground">Throughput</h2>
           <p className="mt-1 text-xs text-muted-foreground">Requests per day across the selected range.</p>
         </div>
         {isLoading ? (

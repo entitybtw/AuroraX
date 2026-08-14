@@ -42,7 +42,7 @@ export function SectionHeader({
   return (
     <div className={cn("flex items-start justify-between gap-3 mb-2", className)}>
       <div className="min-w-0">
-        <h3 className="font-serif text-xl font-normal tracking-tight text-foreground">
+        <h3 className="font-display text-lg font-bold tracking-tight text-foreground">
           {title}
         </h3>
         {subtitle ? (
@@ -161,7 +161,7 @@ export function FlushSection({
         <div className="flex items-start justify-between gap-3 p-6">
           <div className="min-w-0">
             {title && (
-              <h3 className="font-serif text-xl font-normal tracking-tight text-foreground">
+              <h3 className="font-display text-lg font-bold tracking-tight text-foreground">
                 {title}
               </h3>
             )}

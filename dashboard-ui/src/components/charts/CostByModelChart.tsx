@@ -33,7 +33,7 @@ export function CostByModelChart({ models, isLoading }: CostByModelChartProps): 
   return (
     <div className="border border-border bg-surface p-4">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-serif text-xl font-normal tracking-tight text-foreground">Cost by model</h2>
+        <h2 className="font-display text-xl font-normal tracking-tight text-foreground">Cost by model</h2>
         {isLoading ? (
           <span className="text-xs text-muted-foreground">Loading…</span>
         ) : null}

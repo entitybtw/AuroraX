@@ -147,7 +147,7 @@ export function ContributionCalendar({
       <header className="p-6 flex flex-wrap items-start justify-between gap-3 border-b border-border/40">
         <div>
           <div className="text-[10px] font-bold tracking-widest uppercase text-accent mb-2">[ Activity ]</div>
-          <h2 className="font-serif text-lg font-normal text-foreground">Contribution Calendar</h2>
+          <h2 className="font-display text-lg font-normal text-foreground">Contribution Calendar</h2>
           <p className="mt-1 text-xs text-muted-foreground">Daily {MODE_LABEL[mode]} over the last {weeks} weeks.</p>
         </div>
         {isLoading ? (

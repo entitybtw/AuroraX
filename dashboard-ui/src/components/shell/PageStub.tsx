@@ -18,7 +18,7 @@ export function PageStub({ title, phase, source }: PageStubProps): JSX.Element {
           <Construction className="h-4 w-4" aria-hidden />
         </span>
         <div>
-          <h2 className="font-serif text-[34px] font-normal leading-tight tracking-tight text-foreground">{title}</h2>
+          <h2 className="font-display text-[34px] font-normal leading-tight tracking-tight text-foreground">{title}</h2>
           <p className="text-xs text-muted-foreground">React port pending</p>
         </div>
       </div>

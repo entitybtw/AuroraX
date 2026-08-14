@@ -1,31 +1,18 @@
 /*
  * Aurora dashboard global styles.
- * Imports centralized design tokens (legacy-vars.css), maps them onto
- * Tailwind 4's @theme inline system, and provides base layer resets
- * plus reusable component utilities.
- *
- * ── Design direction ──────────────────────────────────────────────
- * "Forest Canopy" — deep pine greens anchor the palette while a
- * sharp spring-green accent (#6AD87A) brings energy. Pure green
- * family throughout, no clashing warm tones. DM Sans + DM Serif
- * Display for refined typography.
+ * Custom warm theme with Unbounded display font.
+ * Flat surfaces, border-based design, no glass/blur effects.
  */
 
 @import "./legacy-vars.css";
 @import "tailwindcss";
-@import "@fontsource/dm-sans/400.css";
-@import "@fontsource/dm-sans/500.css";
-@import "@fontsource/dm-sans/600.css";
-@import "@fontsource/dm-sans/700.css";
-@import "@fontsource/dm-serif-display/400.css";
-@import "@fontsource/dm-serif-display/400-italic.css";
 
 @theme inline {
-  --font-sans: "DM Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+  --font-sans: system-ui, -apple-system, "Segoe UI",
     Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-serif: "DM Serif Display", ui-serif, Georgia, "Times New Roman", serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono",
-    monospace;
+  --font-display: "Unbounded", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
 
   --color-background: var(--bg);
   --color-foreground: var(--text);
@@ -82,9 +69,9 @@
   --color-prompt-cache: var(--prompt-cache-color);
   --color-prompt-cache-bg: var(--prompt-cache-color-bg);
 
-  --radius-sm: calc(var(--radius) - 2px);
-  --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) + 2px);
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
 
   --spacing-sidebar: var(--sidebar-width);
 }
@@ -97,9 +84,9 @@
     --safe-right: env(safe-area-inset-right, 0px);
     --space-page: 16px;
     --tap-target: 44px;
-    --radius-control: 10px;
-    --radius-card: 14px;
-    --radius-sheet: 20px;
+    --radius-control: 2px;
+    --radius-card: 2px;
+    --radius-sheet: 2px;
     --motion-fast: 160ms;
     --motion-normal: 260ms;
     --motion-slow: 400ms;
@@ -114,6 +101,7 @@
     margin: 0;
     padding: 0;
     border-color: var(--border);
+    border-radius: 0;
   }
 
   html {
@@ -162,7 +150,7 @@
     overflow-x: hidden;
   }
 
-  /* Refined scrollbar for Chrome/Safari/Opera */
+  /* Scrollbar — custom thin */
   ::-webkit-scrollbar {
     width: 4px;
     height: 4px;
@@ -172,13 +160,11 @@
   }
   ::-webkit-scrollbar-thumb {
     background: var(--border);
-    border-radius: 99px;
   }
   ::-webkit-scrollbar-thumb:hover {
     background: var(--text-muted);
   }
 
-  /* Firefox scrollbar */
   * {
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
@@ -202,67 +188,38 @@
     disabled:cursor-not-allowed disabled:opacity-60;
   }
 
-  /* ── Liquid Glass system ──────────────────────────────────────── */
-
-  /*
-   * glass — primary glass material for chrome/nav/sheets.
-   * Uses CSS variables so light/dark/system modes are handled
-   * automatically via legacy-vars.css tokens.
-   */
+  /* ── Flat surfaces (custom-style, no glass/blur) ─────────────── */
   .glass {
-    position: relative;
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-shadow), var(--glass-highlight);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    backdrop-filter: blur(20px) saturate(180%);
+    box-shadow: none;
   }
 
   .glass-thin {
-    -webkit-backdrop-filter: blur(10px) saturate(140%);
-    backdrop-filter: blur(10px) saturate(140%);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
   }
 
   .glass-thick {
-    -webkit-backdrop-filter: blur(30px) saturate(200%);
-    backdrop-filter: blur(30px) saturate(200%);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
   }
 
-  /* Glass variant for sidebar / persistent shell chrome */
   .glass-chrome {
-    background: color-mix(in srgb, var(--bg-surface) 85%, transparent);
-    border-right: 1px solid var(--glass-border);
-    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15), var(--glass-highlight);
-    -webkit-backdrop-filter: blur(28px) saturate(200%);
-    backdrop-filter: blur(28px) saturate(200%);
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border);
+    box-shadow: none;
   }
 
   [data-theme="light"] .glass-chrome {
     background: var(--bg-surface);
-    border-color: var(--border-subtle);
-    box-shadow: 1px 0 0 var(--border-subtle);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
+    border-color: var(--border);
   }
 
   @media (prefers-color-scheme: light) {
     :root:not([data-theme="dark"]) .glass-chrome {
       background: var(--bg-surface);
-      border-color: var(--border-subtle);
-      box-shadow: 1px 0 0 var(--border-subtle);
-      backdrop-filter: none;
-      -webkit-backdrop-filter: none;
-    }
-  }
-
-  @media (prefers-reduced-transparency: reduce) {
-    .glass,
-    .glass-chrome {
-      background: var(--bg-surface) !important;
-      border-color: var(--border) !important;
-      box-shadow: none !important;
-      -webkit-backdrop-filter: none !important;
-      backdrop-filter: none !important;
+      border-color: var(--border);
     }
   }
 
@@ -290,9 +247,9 @@
     color: var(--accent);
   }
 
-  .heading-serif {
-    font-family: var(--font-serif);
-    font-weight: 400;
+  .heading-display {
+    font-family: var(--font-display);
+    font-weight: 700;
   }
 
   /* ── Numbered index utility ───────────────────────────────────── */
