@@ -2,6 +2,7 @@ import * as React from "react";
 import {
   ArrowDown,
   ArrowUp,
+  Edit3,
   Loader2,
   Plus,
   Save,
@@ -284,7 +285,7 @@ function RuleCard({
             onClick={onEdit}
             title="Edit rule"
           >
-            <Save className="h-4 w-4" />
+            <Edit3 className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
