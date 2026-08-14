@@ -167,7 +167,7 @@ export function Sidebar({
       aria-label="Primary navigation"
     >
       <header className={cn("flex items-center pb-5 pt-6 transition-all duration-300", isCollapsed ? "flex-col gap-2 px-2 justify-center" : "gap-3 px-5")}>
-        <span className="shrink-0 md:block hidden">
+        <span className="shrink-0 hidden md:block">
           <SidebarLogo />
         </span>
         {!isCollapsed && (
@@ -179,7 +179,7 @@ export function Sidebar({
           </div>
         )}
         {mobileOpen && (
-          <button onClick={onCloseMobile} className="md:hidden ml-auto p-2 text-muted-foreground hover:text-foreground active:scale-95 transition-all rounded-lg hover:bg-surface-hover">
+          <button onClick={onCloseMobile} className="md:hidden ml-auto p-2 text-muted-foreground hover:text-foreground active:scale-95 transition-all rounded-lg hover:bg-surface-hover" aria-label="Close menu">
             <X className="h-6 w-6" />
           </button>
         )}

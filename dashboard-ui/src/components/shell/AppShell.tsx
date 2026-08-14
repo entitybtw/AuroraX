@@ -10,8 +10,7 @@ import { isLoggedIn, setSessionFromUserInfo } from "@/lib/auth/session";
 import { getApiKey } from "@/lib/auth/storage";
 import { apiFetch, ApiError } from "@/lib/api/client";
 import { withBasePath } from "@/lib/basepath";
-import { Loader2, Menu } from "lucide-react";
-import { BottomNav } from "./BottomNav";
+import { Loader2 } from "lucide-react";
 import { TenantScopeProvider } from "@/lib/tenant/tenant-scope";
 import { cn } from "@/lib/utils";
 
@@ -179,17 +178,28 @@ export function AppShell(): JSX.Element {
             onClick={() => setMobileOpen(false)}
           />
         )}
-        <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden p-4 pt-20 pb-20 md:p-6 md:pt-6 md:pb-6 lg:p-10 mx-auto w-full transition-all duration-300 ease-[var(--ease-ios)]">
-          <div className="fixed top-0 left-0 right-0 z-40 h-16 bg-surface/95 backdrop-blur-xl border-b border-border md:hidden flex items-center px-4 gap-3">
+        <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden p-4 pt-16 md:p-6 md:pt-6 lg:p-10 mx-auto w-full transition-all duration-300 ease-[var(--ease-ios)]">
+          <div className="fixed top-0 left-0 right-0 z-40 h-14 bg-surface/95 backdrop-blur-xl border-b border-border md:hidden flex items-center px-4 gap-3">
             <button
               type="button"
               onClick={() => setMobileOpen((prev) => !prev)}
               className={cn(
-                "grid h-10 w-10 place-items-center rounded-lg bg-background border border-border text-foreground active:scale-95 transition-all"
+                "relative w-10 h-10 flex items-center justify-center rounded-lg bg-background border border-border text-foreground active:scale-95 transition-all overflow-hidden"
               )}
               aria-label="Toggle sidebar"
             >
-              <Menu className="h-5 w-5" />
+              <span className={cn(
+                "absolute h-[2px] w-5 bg-current transition-all duration-300 ease-[var(--ease-ios)]",
+                mobileOpen ? "rotate-45 translate-y-0" : "-translate-y-[7px]"
+              )} />
+              <span className={cn(
+                "absolute h-[2px] w-5 bg-current transition-all duration-300 ease-[var(--ease-ios)]",
+                mobileOpen ? "opacity-0 scale-x-0" : "opacity-100 scale-x-100"
+              )} />
+              <span className={cn(
+                "absolute h-[2px] w-5 bg-current transition-all duration-300 ease-[var(--ease-ios)]",
+                mobileOpen ? "-rotate-45 translate-y-0" : "translate-y-[7px]"
+              )} />
             </button>
             <h1 className="font-display text-lg font-bold text-foreground">Aurora</h1>
           </div>
@@ -206,7 +216,6 @@ export function AppShell(): JSX.Element {
             if (!next) setNeedsAuth(false);
           }}
         />
-        <BottomNav />
       </div>
     </TenantScopeProvider>
   );
