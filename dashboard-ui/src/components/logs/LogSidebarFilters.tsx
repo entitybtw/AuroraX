@@ -36,12 +36,12 @@ export function LogSidebarFilters({ filters, onChange, onClear, entryCount }: Lo
       </div>
 
       <div className="relative">
-        <SearchIcon className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <SearchIcon className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-foreground/40 pointer-events-none" />
         <Input
           placeholder="Search logs..."
           value={filters.search}
           onChange={(e) => { set("search", e.target.value); }}
-          className="h-8 pl-8 text-xs bg-background"
+          className="h-9 pl-8 text-xs bg-background"
         />
       </div>
 
@@ -77,7 +77,7 @@ function FilterSelect({ label, value, onChange, options, displayLabels }: {
     <label className="block space-y-1">
       <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
       <select
-        className="field-input h-8 w-full bg-background text-xs"
+        className="field-input h-9 w-full bg-background text-xs"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >
@@ -99,7 +99,7 @@ function FilterInput({ label, value, onChange, placeholder }: {
     <label className="block space-y-1">
       <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
       <Input
-        className="h-8 text-xs bg-background"
+        className="h-9 text-xs bg-background"
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
