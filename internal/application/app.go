@@ -119,6 +119,12 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 	}
 	app.providers = providerResult
 
+	// Apply persisted UI provider/pool overrides onto the freshly built runtime so
+	// providers created via the dashboard survive restarts.
+	if err := app.rebuildWithOverrides(ctx); err != nil {
+		slog.Warn("could not apply persisted provider overrides", "error", err)
+	}
+
 	app.poolCountersPath = poolCountersFilePath(appCfg.Storage)
 	if providerResult.Pools != nil {
 		if loadErr := providerResult.Pools.LoadCounters(app.poolCountersPath); loadErr != nil {

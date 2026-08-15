@@ -315,6 +315,23 @@ func (a *App) modelRegistry() *providers.ModelRegistry {
 	return a.providers.Registry
 }
 
+// rebuildWithOverrides rebuilds the provider runtime from the base config merged
+// with any persisted UI overrides (providers and pools). Used at startup so
+// dashboard-created providers survive restarts.
+func (a *App) rebuildWithOverrides(ctx context.Context) error {
+	if a == nil || a.providers == nil {
+		return nil
+	}
+	rawProviders := a.runtimeRawProviders()
+	if len(rawProviders) == 0 {
+		return nil
+	}
+	if _, err := a.providers.Rebuild(ctx, rawProviders, a.runtimeRawPools(), a.config, a.providers.Factory); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (a *App) modelListURL() string {
 	if a == nil || a.config == nil {
 		return ""

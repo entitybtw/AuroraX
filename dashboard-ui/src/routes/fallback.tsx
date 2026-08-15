@@ -261,7 +261,7 @@ function EditDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-lg max-h-[85vh] overflow-y-auto overflow-x-hidden p-5 sm:p-6">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-5 sm:p-6">
         <DialogHeader>
           <DialogTitle className="text-lg">{isEdit ? "Edit Fallback Rule" : "Add Fallback Rule"}</DialogTitle>
           <DialogDescription>Define a source model and ordered fallback targets.</DialogDescription>
