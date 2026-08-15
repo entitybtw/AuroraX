@@ -351,7 +351,7 @@ export function UsagePage(): JSX.Element {
                 placeholder="Search requests..."
                 value={logSearch}
                 onChange={(e) => setLogSearch(e.target.value)}
-                className="pl-9 h-9"
+                className="pl-12 h-9"
               />
             </div>
             <Input

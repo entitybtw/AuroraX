@@ -247,7 +247,7 @@ export function WorkflowsPage(): JSX.Element {
               placeholder="Filter by scope, name, hash..."
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="pl-9"
+              className="pl-12"
             />
           </div>
           <div className="text-sm text-muted-foreground">
