@@ -40,7 +40,10 @@ type ProviderOverrideStore struct {
 func NewProviderOverrideStore() *ProviderOverrideStore {
 	s := &ProviderOverrideStore{
 		overrides:   make(map[string]ProviderOverride),
-		persistPath: "configs/provider-overrides.json",
+		persistPath: os.Getenv("AURORA_PROVIDER_OVERRIDES_PATH"),
+	}
+	if s.persistPath == "" {
+		s.persistPath = "configs/provider-overrides.json"
 	}
 	s.load()
 	return s
