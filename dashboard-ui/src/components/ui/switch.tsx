@@ -11,7 +11,8 @@ interface SwitchProps {
 
 /**
  * iOS-style toggle switch — pill track, white knob with shadow.
- * Green accent when on, muted gray when off.
+ * Uses Catppuccin semantic colors: --success for on, --border/--bg-surface-hover for off.
+ * Responsive: larger touch targets on mobile.
  *
  * Geometry (borderless, symmetric 2px margins):
  *  sm:  track 52×26 (mobile) / 46×22 (desktop), knob 22 / 18
@@ -49,16 +50,18 @@ export function Switch({
       onClick={() => onCheckedChange(!checked)}
       className={cn(
         "relative inline-flex shrink-0 items-center rounded-full transition-colors duration-200 ease-[var(--ease-ios)]",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         "disabled:cursor-not-allowed disabled:opacity-40",
         "active:scale-[0.97]",
         track,
-        checked ? "bg-green-500" : "bg-gray-300 dark:bg-gray-600"
+        checked
+          ? "bg-success"
+          : "bg-border/60 dark:bg-surface-hover/60"
       )}
     >
       <span
         className={cn(
-          "pointer-events-none inline-block rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.2)] transition-transform duration-200 ease-[var(--ease-spring)]",
+          "pointer-events-none inline-block rounded-full bg-background shadow-[0_2px_4px_rgba(0,0,0,0.2)] dark:shadow-[0_2px_4px_rgba(0,0,0,0.4)] transition-transform duration-200 ease-[var(--ease-spring)]",
           knob,
           checked ? translate : "translate-x-[2px]"
         )}

@@ -39,9 +39,10 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 		appName: envOrDefault("OPENROUTER_APP_NAME", defaultAppName),
 	}
 	p.CompatibleProvider = openai.NewCompatibleProvider(cfg.APIKey, opts, openai.CompatibleProviderConfig{
-		ProviderName: "openrouter",
-		BaseURL:      baseURL,
-		SetHeaders:   setHeaders,
+		ProviderName:       "openrouter",
+		BaseURL:            baseURL,
+		SetHeaders:         setHeaders,
+		ModelNameTransform: func(model string) string { return model }, // Pass-through: preserve full model name (e.g., "openai/gpt-4o")
 	})
 	p.SetRequestMutator(p.mutateRequest)
 	return p
@@ -53,9 +54,10 @@ func NewWithHTTPClient(apiKey string, httpClient *http.Client, hooks llmclient.H
 		appName: envOrDefault("OPENROUTER_APP_NAME", defaultAppName),
 	}
 	p.CompatibleProvider = openai.NewCompatibleProviderWithHTTPClient(apiKey, httpClient, hooks, openai.CompatibleProviderConfig{
-		ProviderName: "openrouter",
-		BaseURL:      defaultBaseURL,
-		SetHeaders:   setHeaders,
+		ProviderName:       "openrouter",
+		BaseURL:            defaultBaseURL,
+		SetHeaders:         setHeaders,
+		ModelNameTransform: func(model string) string { return model }, // Pass-through: preserve full model name (e.g., "openai/gpt-4o")
 	})
 	p.SetRequestMutator(p.mutateRequest)
 	return p
