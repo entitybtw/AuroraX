@@ -1,8 +1,10 @@
 package admin
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -25,16 +27,52 @@ type ProviderOverride struct {
 	Models     string `json:"models"`
 }
 
-// ProviderOverrideStore holds in-memory provider overrides created via the admin API.
+// ProviderOverrideStore holds provider overrides created via the admin API.
+// Persists to a JSON file so overrides survive restarts.
 type ProviderOverrideStore struct {
 	mu        sync.Mutex
 	overrides map[string]ProviderOverride // name -> override
+	persistPath string
 }
 
 // NewProviderOverrideStore creates shared provider override storage for admin CRUD
-// and runtime refresh.
+// and runtime refresh. Loads existing overrides from the persist file if available.
 func NewProviderOverrideStore() *ProviderOverrideStore {
-	return &ProviderOverrideStore{overrides: make(map[string]ProviderOverride)}
+	s := &ProviderOverrideStore{
+		overrides:   make(map[string]ProviderOverride),
+		persistPath: "configs/provider-overrides.json",
+	}
+	s.load()
+	return s
+}
+
+func (s *ProviderOverrideStore) load() {
+	data, err := os.ReadFile(s.persistPath)
+	if err != nil {
+		return
+	}
+	var overrides []ProviderOverride
+	if err := json.Unmarshal(data, &overrides); err != nil {
+		return
+	}
+	for _, o := range overrides {
+		if o.Name != "" {
+			s.overrides[o.Name] = o
+		}
+	}
+}
+
+func (s *ProviderOverrideStore) save() {
+	overrides := make([]ProviderOverride, 0, len(s.overrides))
+	for _, v := range s.overrides {
+		overrides = append(overrides, v)
+	}
+	sort.Slice(overrides, func(i, j int) bool { return overrides[i].Name < overrides[j].Name })
+	data, err := json.MarshalIndent(overrides, "", "  ")
+	if err != nil {
+		return
+	}
+	os.WriteFile(s.persistPath, data, 0644)
 }
 
 func (s *ProviderOverrideStore) get(name string) (ProviderOverride, bool) {
@@ -59,12 +97,14 @@ func (s *ProviderOverrideStore) upsert(v ProviderOverride) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.overrides[v.Name] = v
+	s.save()
 }
 
 func (s *ProviderOverrideStore) remove(name string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.overrides, name)
+	s.save()
 }
 
 // RawConfigs returns a config-shaped snapshot suitable for provider runtime rebuilds.
