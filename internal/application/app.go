@@ -65,6 +65,10 @@ type App struct {
 	workflows         *workflow.Result
 	server            *server.Server
 
+	// fallbackResolver is a swappable wrapper around the failover resolver so
+	// manual fallback rule changes apply at runtime without a restart.
+	fallbackResolver *gateway.SwappableFallbackResolver
+
 	poolCountersPath string
 
 	shutdownMu  sync.Mutex
@@ -425,6 +429,11 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 	disableRequestBodySnapshot := appCfg.Server.DisableRequestBodySnapshot
 	disablePassthroughSemanticEnrichment := appCfg.Server.DisablePassthroughSemanticEnrichment
 
+	// Wrap the failover resolver so manual fallback rule edits apply at runtime.
+	app.fallbackResolver = gateway.NewSwappableFallbackResolver(
+		failover.NewResolver(appCfg.Fallback, providerResult.Registry),
+	)
+
 	serverCfg := &server.Config{
 		BasePath:        appCfg.Server.BasePath,
 		MasterKey:       appCfg.Server.MasterKey,
@@ -440,7 +449,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 		PricingResolver:                      providerResult.Registry,
 		ModelResolver:                        requestModelResolver(app.aliases.Service, app.combos.Service),
 		ModelAuthorizer:                      modelAuthorizer,
-		FallbackResolver:                     newComboFallbackResolver(app.combos, failover.NewResolver(appCfg.Fallback, providerResult.Registry)),
+		FallbackResolver:                     newComboFallbackResolver(app.combos, app.fallbackResolver),
 		WorkflowPolicyResolver:               workflowResult.Service,
 		TranslatedRequestPatcher:             translatedRequestPatcher,
 		BatchRequestPreparer:                 batchRequestPreparer,
@@ -491,6 +500,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 			app.guardrails.Service,
 			app.providerOverrides,
 			app.poolOverrides,
+			app,
 			app,
 			app,
 			dashboardRuntimeConfig(appCfg, usageEnabledForDashboard),
@@ -942,6 +952,7 @@ func initAdmin(
 	providerOverrides *admin.ProviderOverrideStore,
 	poolOverrides *admin.PoolOverrideStore,
 	runtimeRefresher admin.RuntimeRefresher,
+	fallbackReloader admin.FallbackReloader,
 	settingsManager admin.DashboardSettingsManager,
 	runtimeConfig admin.DashboardConfigResponse,
 	usagePricingRecalculationEnabled bool,
@@ -1005,6 +1016,7 @@ func initAdmin(
 		admin.WithWorkflows(workflowService),
 		admin.WithGuardrailService(guardrailService),
 		admin.WithRuntimeRefresher(runtimeRefresher),
+		admin.WithFallbackReloader(fallbackReloader),
 		admin.WithDashboardSettingsManager(settingsManager),
 		admin.WithProviderOverrides(providerOverrides),
 		admin.WithPoolWeights(poolOverrides),

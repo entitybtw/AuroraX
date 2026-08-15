@@ -11,6 +11,7 @@ import (
 	"aurora/configuration"
 	"aurora/internal/admin"
 	"aurora/internal/core"
+	"aurora/internal/failover"
 	"aurora/internal/providers"
 )
 
@@ -162,6 +163,21 @@ func (a *App) RefreshRuntime(ctx context.Context) (admin.RuntimeRefreshReport, e
 		return report, err
 	}
 	if err := a.runRefreshableServiceStep(&report, "workflows", a.workflowService(), ctx); err != nil {
+		return report, err
+	}
+
+	if err := a.runRuntimeRefreshStep(&report, "fallback", func() runtimeRefreshStepResult {
+		if err := a.ReloadFallback(); err != nil {
+			return runtimeRefreshStepResult{
+				status:  admin.RuntimeRefreshStatusFailed,
+				message: "fallback rules did not reload",
+				err:     err,
+			}
+		}
+		return runtimeRefreshStepResult{
+			message: fmt.Sprintf("reloaded %d fallback rule%s", len(a.config.Fallback.Manual), pluralSuffix(len(a.config.Fallback.Manual))),
+		}
+	}); err != nil {
 		return report, err
 	}
 
@@ -328,6 +344,21 @@ func (a *App) rebuildWithOverrides(ctx context.Context) error {
 	}
 	if _, err := a.providers.Rebuild(ctx, rawProviders, a.runtimeRawPools(), a.config, a.providers.Factory); err != nil {
 		return err
+	}
+	return nil
+}
+
+// ReloadFallback re-reads the manual fallback rules from disk and swaps the
+// live failover resolver so rule edits apply immediately.
+func (a *App) ReloadFallback() error {
+	if a == nil || a.config == nil {
+		return nil
+	}
+	if err := config.ReloadFallbackManualRules(&a.config.Fallback); err != nil {
+		return err
+	}
+	if a.fallbackResolver != nil {
+		a.fallbackResolver.Swap(failover.NewResolver(a.config.Fallback, a.modelRegistry()))
 	}
 	return nil
 }

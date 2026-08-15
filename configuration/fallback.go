@@ -193,6 +193,16 @@ func loadFallbackConfig(cfg *FallbackConfig) error {
 	return nil
 }
 
+// ReloadFallbackManualRules re-reads the manual rules file into cfg.Manual at
+// runtime. Used for live reload when the dashboard rewrites fallback.json, so
+// rule edits apply without a process restart.
+func ReloadFallbackManualRules(cfg *FallbackConfig) error {
+	if cfg == nil {
+		return nil
+	}
+	return loadFallbackConfig(cfg)
+}
+
 // DecodeManualRuleValue parses a single manual rule value from the rules file.
 // Both the legacy array form (["t1", "t2"], always enabled) and the object form
 // ({"targets": [...], "enabled": true}) are supported. It returns the target
