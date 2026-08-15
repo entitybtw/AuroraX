@@ -4,6 +4,7 @@ import { apiFetch } from "./client";
 const FallbackRuleSchema = z.object({
   source: z.string(),
   targets: z.array(z.string()),
+  enabled: z.boolean().optional(),
 });
 
 const FallbackConfigSchema = z.object({

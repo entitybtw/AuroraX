@@ -25,12 +25,18 @@ const STATUS_TONE: Record<ProviderStatusKind, { badge: string; card: string; dot
     card: "border-destructive/30 bg-destructive/5",
     dot: "bg-destructive",
   },
+  disabled: {
+    badge: "border-border/50 bg-border/10 text-muted-foreground",
+    card: "border-border/40 bg-background/40",
+    dot: "bg-border",
+  },
 };
 
 const STATUS_ORDER: Record<ProviderStatusKind, number> = {
   unhealthy: 0,
   degraded: 1,
   healthy: 2,
+  disabled: 3,
 };
 
 function StatusBadge({ status, label }: { status: ProviderStatusKind; label: string }): JSX.Element {
@@ -213,6 +219,7 @@ export function ProviderStatusGrid({
             <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 bg-success" />{data.summary.healthy} healthy</span>
             <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 bg-warning" />{data.summary.degraded} degraded</span>
             <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 bg-destructive" />{data.summary.unhealthy} unhealthy</span>
+            {data.summary.disabled ? <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 bg-border" />{data.summary.disabled} disabled</span> : null}
           </div>
         ) : null}
       </header>

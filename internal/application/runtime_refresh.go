@@ -350,6 +350,11 @@ func (a *App) runtimeRawProviders() map[string]config.RawProviderConfig {
 	for name, override := range a.providerOverrides.RawConfigs() {
 		out[name] = override
 	}
+	// Drop providers that were explicitly disabled via the dashboard, including
+	// static providers that have a disabled override.
+	for _, name := range a.providerOverrides.DisabledNames() {
+		delete(out, name)
+	}
 	return out
 }
 

@@ -39,6 +39,7 @@ export const SanitizedProviderConfigSchema = z.object({
   base_url: z.string().optional(),
   api_version: z.string().optional(),
   models: z.array(z.string()).optional(),
+  enabled: z.boolean().optional(),
   resilience: SanitizedResilienceConfigSchema.optional(),
 });
 export type SanitizedProviderConfig = z.infer<typeof SanitizedProviderConfigSchema>;
@@ -59,12 +60,12 @@ export const ProviderRuntimeSnapshotSchema = z.object({
 });
 export type ProviderRuntimeSnapshot = z.infer<typeof ProviderRuntimeSnapshotSchema>;
 
-export type ProviderStatusKind = "healthy" | "degraded" | "unhealthy";
+export type ProviderStatusKind = "healthy" | "degraded" | "unhealthy" | "disabled";
 
 export const ProviderStatusItemSchema = z.object({
   name: z.string(),
   type: z.string(),
-  status: z.enum(["healthy", "degraded", "unhealthy"]),
+  status: z.enum(["healthy", "degraded", "unhealthy", "disabled"]),
   status_label: z.string(),
   status_reason: z.string(),
   last_error: z.string().optional(),
@@ -79,6 +80,7 @@ export const ProviderStatusSummarySchema = z.object({
   healthy: z.number().int(),
   degraded: z.number().int(),
   unhealthy: z.number().int(),
+  disabled: z.number().int().optional(),
   overall_status: z.enum(["healthy", "degraded", "unhealthy"]),
 });
 export type ProviderStatusSummary = z.infer<typeof ProviderStatusSummarySchema>;

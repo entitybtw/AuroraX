@@ -1,10 +1,11 @@
 import { Surface, SectionHeader } from "@/components/ui/surface";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { RuntimeStatusBadge, useSettings, StatusChip } from "./SettingsContext";
 import { ServerIcon, RefreshCwIcon, PlusIcon, Edit3Icon, Trash2Icon, SaveIcon, XIcon } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchProviderStatus, createProvider, updateProvider, deleteProvider, type ProviderFormData } from "@/lib/api/providers";
+import { fetchProviderStatus, createProvider, updateProvider, deleteProvider, setProviderEnabled, type ProviderFormData } from "@/lib/api/providers";
 import { withBasePath } from "@/lib/basepath";
 import { useState } from "react";
 
@@ -203,6 +204,13 @@ export function ProvidersTab(): JSX.Element {
     },
   });
 
+  const toggleMutation = useMutation({
+    mutationFn: ({ name, enabled }: { name: string; enabled: boolean }) => setProviderEnabled(name, enabled),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["provider-status"] });
+    },
+  });
+
   const providers = providerStatus?.providers ?? [];
   const summary = providerStatus?.summary;
 
@@ -228,7 +236,7 @@ export function ProvidersTab(): JSX.Element {
           </div>
 
           {summary && (
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               <div className="border border-border/60 bg-surface-hover/20 p-3 text-center">
                 <div className="text-[20px] font-bold text-foreground">{summary.total}</div>
                 <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mt-1">Total</div>
@@ -244,6 +252,10 @@ export function ProvidersTab(): JSX.Element {
               <div className="border border-destructive/20 bg-destructive/5 p-3 text-center">
                 <div className="text-[20px] font-bold text-destructive">{summary.unhealthy}</div>
                 <div className="text-[10px] font-bold uppercase tracking-wider text-destructive/70 mt-1">Unhealthy</div>
+              </div>
+              <div className="border border-border/40 bg-background/40 p-3 text-center">
+                <div className="text-[20px] font-bold text-muted-foreground">{summary.disabled ?? 0}</div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 mt-1">Disabled</div>
               </div>
             </div>
           )}
@@ -281,6 +293,16 @@ export function ProvidersTab(): JSX.Element {
                   <div className="flex items-center gap-3 text-[12px] text-muted-foreground">
                     <StatusChip enabled={provider.status === "healthy"} />
                     <span className="font-mono">{provider.runtime?.discovered_model_count ?? 0} models</span>
+                    <span className="ml-auto flex items-center gap-2">
+                      <span className={provider.config?.enabled === false ? "text-destructive/80" : "text-success/80"}>{provider.config?.enabled === false ? "Disabled" : "Enabled"}</span>
+                      <Switch
+                        checked={provider.config?.enabled !== false}
+                        disabled={toggleMutation.isPending}
+                        onCheckedChange={(enabled) => toggleMutation.mutate({ name: provider.name, enabled })}
+                        aria-label={`Toggle provider ${provider.name}`}
+                        title={`${provider.config?.enabled === false ? "Enable" : "Disable"} ${provider.name}`}
+                      />
+                    </span>
                   </div>
                   {provider.config?.base_url && (
                     <div className="text-[11px] text-muted-foreground font-mono truncate" title={provider.config.base_url}>

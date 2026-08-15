@@ -142,9 +142,13 @@ func loadFallbackConfig(cfg *FallbackConfig) error {
 		if bytes.Equal(bytes.TrimSpace(rawModels), []byte("null")) {
 			return fmt.Errorf("fallback.manual_rules_path: null not allowed for %q in %q", key, path)
 		}
-		var models []string
-		if err := json.Unmarshal(rawModels, &models); err != nil {
-			return fmt.Errorf("fallback.manual_rules_path: failed to parse %q: %w", path, err)
+
+		models, enabled, err := DecodeManualRuleValue(rawModels)
+		if err != nil {
+			return fmt.Errorf("fallback.manual_rules_path: failed to parse %q in %q: %w", key, path, err)
+		}
+		if !enabled {
+			continue
 		}
 		decoded[key] = models
 	}
@@ -187,4 +191,32 @@ func loadFallbackConfig(cfg *FallbackConfig) error {
 	}
 	cfg.Manual = manual
 	return nil
+}
+
+// DecodeManualRuleValue parses a single manual rule value from the rules file.
+// Both the legacy array form (["t1", "t2"], always enabled) and the object form
+// ({"targets": [...], "enabled": true}) are supported. It returns the target
+// list and whether the rule is enabled.
+func DecodeManualRuleValue(raw json.RawMessage) ([]string, bool, error) {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) > 0 && trimmed[0] == '[' {
+		var models []string
+		if err := json.Unmarshal(trimmed, &models); err != nil {
+			return nil, false, err
+		}
+		return models, true, nil
+	}
+
+	var obj struct {
+		Targets []string `json:"targets"`
+		Enabled *bool    `json:"enabled"`
+	}
+	if err := json.Unmarshal(trimmed, &obj); err != nil {
+		return nil, false, err
+	}
+	enabled := true
+	if obj.Enabled != nil {
+		enabled = *obj.Enabled
+	}
+	return obj.Targets, enabled, nil
 }

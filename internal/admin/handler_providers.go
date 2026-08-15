@@ -43,6 +43,7 @@ func (h *Handler) buildProviderStatusResponse() providerStatusResponse {
 
 	// Merge UI-created provider overrides into the configured set.
 	// UI overrides take precedence over static/env providers with the same name.
+	disabledNames := make(map[string]struct{})
 	if h.providerOverrides != nil {
 		for _, override := range h.providerOverrides.list() {
 			cfg := providers.SanitizedProviderConfig{
@@ -51,11 +52,15 @@ func (h *Handler) buildProviderStatusResponse() providerStatusResponse {
 				BaseURL:    override.BaseURL,
 				APIVersion: override.APIVersion,
 				Models:     parseOverrideModels(override.Models),
+				Enabled:    override.IsEnabled(),
 			}
 			configuredByName[override.Name] = cfg
 			if _, inSet := nameSet[override.Name]; !inSet {
 				names = append(names, override.Name)
 				nameSet[override.Name] = struct{}{}
+			}
+			if !override.IsEnabled() {
+				disabledNames[override.Name] = struct{}{}
 			}
 		}
 		sort.Strings(names)
@@ -76,6 +81,14 @@ func (h *Handler) buildProviderStatusResponse() providerStatusResponse {
 				item.ConfigSource = ConfigSourceUI
 			}
 		}
+		// Administratively disabled providers are listed but excluded from the
+		// health rollups.
+		if _, isDisabled := disabledNames[name]; isDisabled {
+			item.Status = "disabled"
+			item.StatusLabel = "Disabled"
+			item.StatusReason = "provider is disabled from the dashboard"
+			item.LastError = ""
+		}
 		resp.Providers = append(resp.Providers, item)
 		resp.Summary.Total++
 		switch item.Status {
@@ -83,6 +96,8 @@ func (h *Handler) buildProviderStatusResponse() providerStatusResponse {
 			resp.Summary.Healthy++
 		case "unhealthy":
 			resp.Summary.Unhealthy++
+		case "disabled":
+			resp.Summary.Disabled++
 		default:
 			resp.Summary.Degraded++
 		}
@@ -193,9 +208,11 @@ func overallProviderStatus(summary providerStatusSummaryResponse) string {
 	switch {
 	case summary.Total == 0:
 		return "degraded"
-	case summary.Healthy == summary.Total:
+	case summary.Disabled == summary.Total:
+		return "degraded"
+	case summary.Healthy == summary.Total-summary.Disabled:
 		return "healthy"
-	case summary.Unhealthy == summary.Total:
+	case summary.Unhealthy == summary.Total-summary.Disabled:
 		return "unhealthy"
 	default:
 		return "degraded"
