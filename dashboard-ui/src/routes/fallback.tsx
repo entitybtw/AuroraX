@@ -261,14 +261,14 @@ function EditDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
+      <DialogContent className="w-screen max-w-none sm:w-[calc(100vw-2rem)] sm:max-w-2xl h-screen max-h-none sm:h-auto sm:max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6 rounded-none sm:rounded-xl">
         <DialogHeader>
           <DialogTitle className="text-lg">{isEdit ? "Edit Fallback Rule" : "Add Fallback Rule"}</DialogTitle>
           <DialogDescription>Define a source model and ordered fallback targets.</DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4">
-          <label className="block space-y-2">
+        <div className="flex w-full min-w-0 flex-col gap-4">
+          <label className="block w-full space-y-2">
             <span className="text-sm font-medium text-muted-foreground">Source model</span>
             <select className="w-full h-12 sm:h-11 border border-border/50 bg-background/40 px-3 sm:px-4 font-mono text-base sm:text-sm focus:outline-none focus:border-accent/70 focus:ring-2 focus:ring-accent/15 rounded-lg"
               value={source} onChange={(e) => onSourceChange(e.target.value)}>
@@ -277,10 +277,10 @@ function EditDialog({
             </select>
           </label>
 
-          <label className="block space-y-2">
+          <label className="block w-full space-y-2">
             <span className="text-sm font-medium text-muted-foreground">Add target</span>
-            <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
-              <select className="min-w-0 flex-1 h-12 sm:h-11 border border-border/50 bg-background/40 px-3 sm:px-4 font-mono text-base sm:text-sm focus:outline-none focus:border-accent/70 rounded-lg"
+            <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row">
+              <select className="min-w-0 flex-1 w-full h-12 sm:h-11 border border-border/50 bg-background/40 px-3 sm:px-4 font-mono text-base sm:text-sm focus:outline-none focus:border-accent/70 rounded-lg"
                 value={targetInput} onChange={(e) => setTargetInput(e.target.value)}>
                 <option value="">Select model…</option>
                 {available.map((m) => <option key={m} value={m}>{m}</option>)}
@@ -290,11 +290,11 @@ function EditDialog({
           </label>
 
           {targets.length > 0 && (
-            <div className="space-y-2">
+            <div className="w-full space-y-2">
               <span className="text-sm font-medium text-muted-foreground">Target chain ({targets.length})</span>
               <div className="border border-border/60 bg-background/40 divide-y divide-border/40 max-h-48 sm:max-h-60 overflow-y-auto rounded-lg">
                 {targets.map((t, idx) => (
-                  <div key={`${t}-${idx}`} className="flex min-w-0 items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2.5">
+                  <div key={`${t}-${idx}`} className="flex min-w-0 w-full items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2.5">
                     <div className="flex flex-col gap-0.5 shrink-0">
                       <button type="button" disabled={idx === 0} onClick={() => moveTarget(idx, -1)} className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"><ArrowUp className="h-4 w-4" /></button>
                       <button type="button" disabled={idx === targets.length - 1} onClick={() => moveTarget(idx, 1)} className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"><ArrowDown className="h-4 w-4" /></button>
