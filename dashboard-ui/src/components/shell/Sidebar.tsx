@@ -16,7 +16,6 @@ import {
   Network,
   Settings,
   ShieldCheck,
-  Smartphone,
   Sun,
   Terminal,
   Layers,
@@ -303,7 +302,7 @@ function ThemeToggle({ theme }: ThemeToggleProps): JSX.Element {
 function MobileThemeButton({ theme }: ThemeToggleProps): JSX.Element {
   const choices: ReadonlyArray<{ value: Theme; Icon: IconType; label: string }> = [
     { value: "light", Icon: Sun, label: "Light" },
-    { value: "system", Icon: Smartphone, label: "System" },
+    { value: "system", Icon: Monitor, label: "System" },
     { value: "dark", Icon: Moon, label: "Dark" },
   ];
   return (
@@ -313,8 +312,8 @@ function MobileThemeButton({ theme }: ThemeToggleProps): JSX.Element {
         return (
           <button key={value} type="button" role="radio" aria-checked={active} aria-label={label} title={label}
             onClick={() => setTheme(value)}
-            className={cn("grid h-8 place-items-center text-muted-foreground transition-all hover:text-foreground first:border-r border-border/40", active && "bg-surface text-foreground")}>
-            <Icon className={cn("h-3.5 w-3.5", active && "scale-110")} />
+            className={cn("grid h-10 md:h-11 place-items-center text-muted-foreground transition-all hover:text-foreground first:border-r border-border/40", active && "bg-surface text-foreground")}>
+            <Icon className={cn("h-4 w-4", active && "scale-110")} />
           </button>
         );
       })}
