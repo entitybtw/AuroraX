@@ -39,7 +39,7 @@ func (h *Handler) RefreshRuntime(c *echo.Context) error {
 }
 
 func (h *Handler) buildProviderStatusResponse() providerStatusResponse {
-	configuredByName, runtimeByName, names := h.collectProviderStatusInputs()
+	configuredByName, runtimeByName, names, nameSet := h.collectProviderStatusInputs()
 
 	// Merge UI-created provider overrides into the configured set
 	if h.providerOverrides != nil {
@@ -53,7 +53,10 @@ func (h *Handler) buildProviderStatusResponse() providerStatusResponse {
 					Models:     parseOverrideModels(override.Models),
 				}
 				configuredByName[override.Name] = cfg
-				names = append(names, override.Name)
+				if _, inSet := nameSet[override.Name]; !inSet {
+					names = append(names, override.Name)
+					nameSet[override.Name] = struct{}{}
+				}
 			}
 		}
 		sort.Strings(names)
@@ -111,6 +114,7 @@ func (h *Handler) collectProviderStatusInputs() (
 	map[string]providers.SanitizedProviderConfig,
 	map[string]providers.ProviderRuntimeSnapshot,
 	[]string,
+	map[string]struct{},
 ) {
 	configured := cloneConfiguredProviders(h.configuredProviders)
 	configuredByName := make(map[string]providers.SanitizedProviderConfig, len(configured))
@@ -141,7 +145,7 @@ func (h *Handler) collectProviderStatusInputs() (
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	return configuredByName, runtimeByName, names
+	return configuredByName, runtimeByName, names, nameSet
 }
 
 // buildProviderStatusItem reconciles cfg/runtime gaps for a single provider
