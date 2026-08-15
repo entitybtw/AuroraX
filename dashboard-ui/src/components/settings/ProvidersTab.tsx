@@ -269,7 +269,7 @@ export function ProvidersTab(): JSX.Element {
           {providers.length > 0 ? (
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               {providers.map((provider) => (
-                <div key={provider.name} className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30.5">
+                <div key={provider.name} className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
                       <ProviderMark provider={provider} />

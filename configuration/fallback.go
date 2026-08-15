@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 )
@@ -108,66 +107,74 @@ func loadFallbackConfig(cfg *FallbackConfig) error {
 	}
 
 	expanded := expandString(string(raw))
-	decoded := make(map[string][]string)
-	decoder := json.NewDecoder(strings.NewReader(expanded))
+	trimmed := []byte(strings.TrimSpace(expanded))
+	if len(trimmed) == 0 {
+		cfg.Manual = nil
+		return nil
+	}
 
-	token, err := decoder.Token()
-	if err != nil {
+	decoded := make(map[string][]string)
+
+	// New format: JSON array of {source, targets, enabled} objects.
+	if trimmed[0] == '[' {
+		type arrayEntry struct {
+			Source  string          `json:"source"`
+			Targets json.RawMessage `json:"targets"`
+			Enabled *bool           `json:"enabled"`
+		}
+		var entries []arrayEntry
+		if err := json.Unmarshal(trimmed, &entries); err != nil {
+			return fmt.Errorf("fallback.manual_rules_path: failed to parse %q: %w", path, err)
+		}
+		for _, entry := range entries {
+			key := strings.TrimSpace(entry.Source)
+			if key == "" {
+				return fmt.Errorf("fallback.manual_rules_path: model key cannot be empty")
+			}
+			if _, exists := decoded[key]; exists {
+				return fmt.Errorf("fallback.manual_rules_path: duplicate manual rule key after trimming: %q", key)
+			}
+			enabled := true
+			if entry.Enabled != nil {
+				enabled = *entry.Enabled
+			}
+			if !enabled {
+				continue
+			}
+			models, _, err := DecodeManualRuleValue(entry.Targets)
+			if err != nil {
+				return fmt.Errorf("fallback.manual_rules_path: failed to parse targets for %q in %q: %w", key, path, err)
+			}
+			decoded[key] = normalizeModels(models)
+		}
+		cfg.Manual = decoded
+		return nil
+	}
+
+	// Legacy format: JSON object {"source": {"targets": [...], "enabled": bool}}.
+	var data map[string]json.RawMessage
+	if err := json.Unmarshal(trimmed, &data); err != nil {
 		return fmt.Errorf("fallback.manual_rules_path: failed to parse %q: %w", path, err)
 	}
-	delim, ok := token.(json.Delim)
-	if !ok || delim != '{' {
-		return fmt.Errorf("fallback.manual_rules_path: failed to parse %q: top-level JSON value must be an object", path)
-	}
-
-	seenKeys := make(map[string]struct{})
-	for decoder.More() {
-		token, err := decoder.Token()
-		if err != nil {
-			return fmt.Errorf("fallback.manual_rules_path: failed to parse %q: %w", path, err)
+	for key, rawValue := range data {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			return fmt.Errorf("fallback.manual_rules_path: model key cannot be empty")
 		}
-		key, ok := token.(string)
-		if !ok {
-			return fmt.Errorf("fallback.manual_rules_path: failed to parse %q: object key must be a string", path)
+		if _, exists := decoded[key]; exists {
+			return fmt.Errorf("fallback.manual_rules_path: duplicate manual rule key after trimming: %q", key)
 		}
-		if _, exists := seenKeys[key]; exists {
-			return fmt.Errorf("fallback.manual_rules_path: duplicate JSON key %q in %q", key, path)
-		}
-		seenKeys[key] = struct{}{}
-
-		var rawModels json.RawMessage
-		if err := decoder.Decode(&rawModels); err != nil {
-			return fmt.Errorf("fallback.manual_rules_path: failed to parse %q: %w", path, err)
-		}
-		if bytes.Equal(bytes.TrimSpace(rawModels), []byte("null")) {
+		if bytes.Equal(bytes.TrimSpace(rawValue), []byte("null")) {
 			return fmt.Errorf("fallback.manual_rules_path: null not allowed for %q in %q", key, path)
 		}
-
-		models, enabled, err := DecodeManualRuleValue(rawModels)
+		models, enabled, err := DecodeManualRuleValue(rawValue)
 		if err != nil {
 			return fmt.Errorf("fallback.manual_rules_path: failed to parse %q in %q: %w", key, path, err)
 		}
 		if !enabled {
 			continue
 		}
-		decoded[key] = models
-	}
-
-	token, err = decoder.Token()
-	if err != nil {
-		return fmt.Errorf("fallback.manual_rules_path: failed to parse %q: %w", path, err)
-	}
-	delim, ok = token.(json.Delim)
-	if !ok || delim != '}' {
-		return fmt.Errorf("fallback.manual_rules_path: failed to parse %q: top-level JSON value must be an object", path)
-	}
-
-	var trailing json.RawMessage
-	if err := decoder.Decode(&trailing); err != io.EOF {
-		if err != nil {
-			return fmt.Errorf("fallback.manual_rules_path: failed to parse %q: %w", path, err)
-		}
-		return fmt.Errorf("fallback.manual_rules_path: failed to parse %q: unexpected trailing JSON content", path)
+		decoded[key] = normalizeModels(models)
 	}
 
 	manual := make(map[string][]string, len(decoded))
@@ -179,18 +186,21 @@ func loadFallbackConfig(cfg *FallbackConfig) error {
 		if _, exists := manual[key]; exists {
 			return fmt.Errorf("fallback.manual_rules_path: duplicate manual rule key after trimming: %q", key)
 		}
-		normalized := make([]string, 0, len(models))
-		for _, model := range models {
-			model = strings.TrimSpace(model)
-			if model == "" {
-				continue
-			}
-			normalized = append(normalized, model)
-		}
-		manual[key] = normalized
+		manual[key] = models
 	}
 	cfg.Manual = manual
 	return nil
+}
+
+func normalizeModels(models []string) []string {
+	out := make([]string, 0, len(models))
+	for _, m := range models {
+		m = strings.TrimSpace(m)
+		if m != "" {
+			out = append(out, m)
+		}
+	}
+	return out
 }
 
 // ReloadFallbackManualRules re-reads the manual rules file into cfg.Manual at
