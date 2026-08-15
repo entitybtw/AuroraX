@@ -122,7 +122,7 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
     }
   };
 
-  const providerTypes = ["openai", "anthropic", "google", "azure", "aws-bedrock", "mistral", "cohere", "jina", "togetherai", "openrouter", "deepseek", "xai", "custom"];
+  const providerTypes = ["openai", "anthropic", "gemini", "azure", "deepseek", "groq", "minimax", "ollama", "vllm", "openrouter", "oracle", "xai", "zai", "reranker", "custom"];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
