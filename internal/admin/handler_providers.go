@@ -41,22 +41,21 @@ func (h *Handler) RefreshRuntime(c *echo.Context) error {
 func (h *Handler) buildProviderStatusResponse() providerStatusResponse {
 	configuredByName, runtimeByName, names, nameSet := h.collectProviderStatusInputs()
 
-	// Merge UI-created provider overrides into the configured set
+	// Merge UI-created provider overrides into the configured set.
+	// UI overrides take precedence over static/env providers with the same name.
 	if h.providerOverrides != nil {
 		for _, override := range h.providerOverrides.list() {
-			if _, exists := configuredByName[override.Name]; !exists {
-				cfg := providers.SanitizedProviderConfig{
-					Name:       override.Name,
-					Type:       override.Type,
-					BaseURL:    override.BaseURL,
-					APIVersion: override.APIVersion,
-					Models:     parseOverrideModels(override.Models),
-				}
-				configuredByName[override.Name] = cfg
-				if _, inSet := nameSet[override.Name]; !inSet {
-					names = append(names, override.Name)
-					nameSet[override.Name] = struct{}{}
-				}
+			cfg := providers.SanitizedProviderConfig{
+				Name:       override.Name,
+				Type:       override.Type,
+				BaseURL:    override.BaseURL,
+				APIVersion: override.APIVersion,
+				Models:     parseOverrideModels(override.Models),
+			}
+			configuredByName[override.Name] = cfg
+			if _, inSet := nameSet[override.Name]; !inSet {
+				names = append(names, override.Name)
+				nameSet[override.Name] = struct{}{}
 			}
 		}
 		sort.Strings(names)
