@@ -276,7 +276,7 @@ export function GuardrailsPage(): JSX.Element {
             placeholder="Filter by name, type, summary..."
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="pl-9 max-w-md"
+            className="pl-12 max-w-md"
           />
         </div>
       )}
