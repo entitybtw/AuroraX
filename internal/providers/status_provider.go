@@ -35,6 +35,7 @@ type SanitizedProviderConfig struct {
 	BaseURL    string                    `json:"base_url,omitempty"`
 	APIVersion string                    `json:"api_version,omitempty"`
 	Models     []string                  `json:"models,omitempty"`
+	Enabled    bool                      `json:"enabled"`
 	Resilience SanitizedResilienceConfig `json:"resilience"`
 }
 
@@ -95,6 +96,7 @@ func SanitizeProviderConfigs(configs map[string]ProviderConfig) []SanitizedProvi
 			BaseURL:    strings.TrimSpace(cfg.BaseURL),
 			APIVersion: strings.TrimSpace(cfg.APIVersion),
 			Models:     models,
+			Enabled:    true,
 			Resilience: SanitizedResilienceConfig{
 				Retry: SanitizedRetryConfig{
 					MaxRetries:     cfg.Resilience.Retry.MaxRetries,

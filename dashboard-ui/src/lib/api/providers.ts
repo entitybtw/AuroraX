@@ -26,6 +26,7 @@ export interface ProviderFormData {
   api_version: string;
   api_key: string;
   models: string;
+  enabled?: boolean;
 }
 
 export function createProvider(data: ProviderFormData): Promise<{ message: string; provider: string }> {
@@ -40,6 +41,10 @@ export function updateProvider(name: string, data: Partial<ProviderFormData>): P
     method: "PUT",
     json: data,
   }) as Promise<{ message: string; provider: string }>;
+}
+
+export function setProviderEnabled(name: string, enabled: boolean): Promise<{ message: string; provider: string }> {
+  return updateProvider(name, { enabled });
 }
 
 export function deleteProvider(name: string): Promise<{ message: string; provider: string }> {

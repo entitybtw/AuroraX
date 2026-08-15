@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { EmptyState, Pill, Surface } from "@/components/ui/surface";
+import { Switch } from "@/components/ui/switch";
 import {
   fetchFallback,
   updateFallback,
@@ -99,18 +100,20 @@ export function FallbackPage(): JSX.Element {
     setSaving(true);
     try {
       setError("");
-      const rule: FallbackRule = { source: formSource.trim(), targets: formTargets };
+      const isEdit = editIdx !== null;
+      const existing = isEdit ? rules[editIdx!] : undefined;
+      const rule: FallbackRule = { source: formSource.trim(), targets: formTargets, enabled: existing?.enabled !== false };
       let next: FallbackRule[];
-      if (editIdx !== null) {
+      if (isEdit) {
         next = [...rules];
-        next[editIdx] = rule;
+        next[editIdx!] = rule;
       } else {
         next = [...rules, rule];
       }
       const updated = await updateFallback(next);
       setRules(updated);
       closeDialog();
-      setNotice(editIdx !== null ? "Rule updated." : "Rule added.");
+      setNotice(isEdit ? "Rule updated." : "Rule added.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to save.");
     } finally {
@@ -130,6 +133,23 @@ export function FallbackPage(): JSX.Element {
       setNotice("Rule deleted.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to delete.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleRule = async (idx: number) => {
+    const rule = rules[idx];
+    if (!rule) return;
+    setSaving(true);
+    try {
+      setError("");
+      const next = [...rules];
+      next[idx] = { ...rule, enabled: !rule.enabled };
+      const updated = await updateFallback(next);
+      setRules(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to toggle rule.");
     } finally {
       setSaving(false);
     }
@@ -155,15 +175,24 @@ export function FallbackPage(): JSX.Element {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {rules.map((rule, idx) => (
-            <Surface key={`${rule.source}-${idx}`} className="p-4 flex flex-col gap-3">
+            <Surface key={`${rule.source}-${idx}`} className={`p-4 flex flex-col gap-3 ${rule.enabled === false ? "opacity-60" : ""}`}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-mono text-sm font-semibold text-foreground truncate">{rule.source}</h3>
                     <Pill tone="accent">source</Pill>
+                    {rule.enabled === false && <Pill tone="muted">disabled</Pill>}
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
+                  <Switch
+                    checked={rule.enabled !== false}
+                    size="sm"
+                    disabled={saving}
+                    onCheckedChange={() => void toggleRule(idx)}
+                    aria-label={`Toggle rule for ${rule.source}`}
+                    title={rule.enabled === false ? "Enable rule" : "Disable rule"}
+                  />
                   <Button variant="ghost" size="icon" onClick={() => openEdit(idx)} title="Edit rule"><Edit3 className="h-4 w-4" /></Button>
                   <Button variant="ghost" size="icon" onClick={() => void deleteRule(idx)} title="Delete rule"><Trash2 className="h-4 w-4 text-destructive" /></Button>
                 </div>

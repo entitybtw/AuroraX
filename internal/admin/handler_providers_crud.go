@@ -25,6 +25,15 @@ type ProviderOverride struct {
 	APIVersion string `json:"api_version"`
 	APIKey     string `json:"api_key"`
 	Models     string `json:"models"`
+	// Enabled controls whether the provider participates in the runtime.
+	// A nil pointer (legacy entries written before this field) means enabled.
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+// IsEnabled reports whether the override is active. Legacy overrides that
+// predate the enabled field are treated as enabled.
+func (o ProviderOverride) IsEnabled() bool {
+	return o.Enabled == nil || *o.Enabled
 }
 
 // ProviderOverrideStore holds provider overrides created via the admin API.
@@ -111,6 +120,7 @@ func (s *ProviderOverrideStore) remove(name string) {
 }
 
 // RawConfigs returns a config-shaped snapshot suitable for provider runtime rebuilds.
+// Disabled overrides are excluded so they never get built into the runtime.
 func (s *ProviderOverrideStore) RawConfigs() map[string]config.RawProviderConfig {
 	if s == nil {
 		return nil
@@ -118,6 +128,9 @@ func (s *ProviderOverrideStore) RawConfigs() map[string]config.RawProviderConfig
 	overrides := s.list()
 	out := make(map[string]config.RawProviderConfig, len(overrides))
 	for _, override := range overrides {
+		if !override.IsEnabled() {
+			continue
+		}
 		name := strings.TrimSpace(override.Name)
 		if name == "" {
 			continue
@@ -133,6 +146,22 @@ func (s *ProviderOverrideStore) RawConfigs() map[string]config.RawProviderConfig
 	return out
 }
 
+// DisabledNames returns the names of overrides that are explicitly disabled.
+// Used by the runtime to drop static providers that have been toggled off.
+func (s *ProviderOverrideStore) DisabledNames() []string {
+	if s == nil {
+		return nil
+	}
+	overrides := s.list()
+	var out []string
+	for _, override := range overrides {
+		if !override.IsEnabled() {
+			out = append(out, strings.TrimSpace(override.Name))
+		}
+	}
+	return out
+}
+
 type providerCreateRequest struct {
 	Name       string `json:"name"`
 	Type       string `json:"type"`
@@ -140,13 +169,15 @@ type providerCreateRequest struct {
 	APIVersion string `json:"api_version"`
 	APIKey     string `json:"api_key"`
 	Models     string `json:"models"`
+	Enabled    *bool  `json:"enabled"`
 }
 
 type providerUpdateRequest struct {
-	BaseURL    string `json:"base_url"`
-	APIVersion string `json:"api_version"`
-	APIKey     string `json:"api_key"`
-	Models     string `json:"models"`
+	BaseURL    *string `json:"base_url"`
+	APIVersion *string `json:"api_version"`
+	APIKey     *string `json:"api_key"`
+	Models     *string `json:"models"`
+	Enabled    *bool   `json:"enabled"`
 }
 
 type providerModifyResponse struct {
@@ -217,6 +248,7 @@ func (h *Handler) CreateProvider(c *echo.Context) error {
 		APIVersion: strings.TrimSpace(req.APIVersion),
 		APIKey:     strings.TrimSpace(req.APIKey),
 		Models:     strings.TrimSpace(req.Models),
+		Enabled:    boolPtrOrDefault(req.Enabled, true),
 	})
 	apply := h.applyRuntimeRefresh(c)
 
@@ -259,23 +291,35 @@ func (h *Handler) UpdateProvider(c *echo.Context) error {
 		Type: existing.Type,
 	}
 	if exists {
-		updated.Type = existing.Type
-		updated.APIKey = req.APIKey
-		updated.BaseURL = req.BaseURL
-		updated.APIVersion = req.APIVersion
-		updated.Models = req.Models
+		updated = existing
 	} else if staticProvider != nil {
-		updated.Type = staticProvider.Type
-		updated.APIKey = req.APIKey
-		updated.BaseURL = req.BaseURL
-		updated.APIVersion = req.APIVersion
-		updated.Models = req.Models
+		updated = ProviderOverride{
+			Name:       name,
+			Type:       staticProvider.Type,
+			BaseURL:    staticProvider.BaseURL,
+			APIVersion: staticProvider.APIVersion,
+			Models:     strings.Join(staticProvider.Models, ", "),
+			Enabled:    boolPtr(true),
+		}
 	}
 
-	updated.BaseURL = strings.TrimSpace(req.BaseURL)
-	updated.APIVersion = strings.TrimSpace(req.APIVersion)
-	updated.APIKey = strings.TrimSpace(req.APIKey)
-	updated.Models = strings.TrimSpace(req.Models)
+	// Apply only the fields the caller provided so partial updates (e.g. a
+	// bare {"enabled": false} toggle) do not clobber the existing config.
+	if req.BaseURL != nil {
+		updated.BaseURL = strings.TrimSpace(*req.BaseURL)
+	}
+	if req.APIVersion != nil {
+		updated.APIVersion = strings.TrimSpace(*req.APIVersion)
+	}
+	if req.APIKey != nil {
+		updated.APIKey = strings.TrimSpace(*req.APIKey)
+	}
+	if req.Models != nil {
+		updated.Models = strings.TrimSpace(*req.Models)
+	}
+	if req.Enabled != nil {
+		updated.Enabled = boolPtr(*req.Enabled)
+	}
 
 	h.providerOverrides.upsert(updated)
 	apply := h.applyRuntimeRefresh(c)
@@ -358,3 +402,12 @@ const (
 	ConfigSourceUI         = "ui"
 	ConfigSourceStatic     = "static"
 )
+
+func boolPtr(v bool) *bool { return &v }
+
+func boolPtrOrDefault(v *bool, fallback bool) *bool {
+	if v == nil {
+		return boolPtr(fallback)
+	}
+	return boolPtr(*v)
+}

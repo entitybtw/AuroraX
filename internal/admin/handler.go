@@ -317,6 +317,7 @@ type providerStatusSummaryResponse struct {
 	Healthy       int    `json:"healthy"`
 	Degraded      int    `json:"degraded"`
 	Unhealthy     int    `json:"unhealthy"`
+	Disabled      int    `json:"disabled"`
 	OverallStatus string `json:"overall_status"`
 }
 

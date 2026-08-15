@@ -8,12 +8,15 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v5"
+
+	"aurora/configuration"
 )
 
 // FallbackRule represents a single fallback mapping: source model -> ordered targets.
 type FallbackRule struct {
 	Source  string   `json:"source"`
 	Targets []string `json:"targets"`
+	Enabled bool     `json:"enabled"`
 }
 
 // FallbackConfigResponse is the API response for GET/PUT /admin/api/v1/fallback.
@@ -49,7 +52,7 @@ func (h *Handler) UpdateFallbackConfig(c *echo.Context) error {
 	}
 
 	// Normalize: trim whitespace, skip empty sources.
-	normalized := make(map[string][]string, len(req.Rules))
+	normalized := make(map[string]fallbackRuleEntry, len(req.Rules))
 	for _, rule := range req.Rules {
 		source := strings.TrimSpace(rule.Source)
 		if source == "" {
@@ -63,7 +66,7 @@ func (h *Handler) UpdateFallbackConfig(c *echo.Context) error {
 			}
 		}
 		if len(targets) > 0 {
-			normalized[source] = targets
+			normalized[source] = fallbackRuleEntry{Targets: targets, Enabled: rule.Enabled}
 		}
 	}
 
@@ -103,16 +106,20 @@ func readFallbackRules(path string) ([]FallbackRule, error) {
 		return nil, err
 	}
 
-	var data map[string][]string
+	var data map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &data); err != nil {
 		return nil, err
 	}
 
 	rules := make([]FallbackRule, 0, len(data))
-	for source, targets := range data {
+	for source, rawValue := range data {
 		source = strings.TrimSpace(source)
 		if source == "" {
 			continue
+		}
+		targets, enabled, err := config.DecodeManualRuleValue(rawValue)
+		if err != nil {
+			return nil, err
 		}
 		safeTargets := make([]string, 0, len(targets))
 		for _, t := range targets {
@@ -121,8 +128,15 @@ func readFallbackRules(path string) ([]FallbackRule, error) {
 				safeTargets = append(safeTargets, t)
 			}
 		}
-		rules = append(rules, FallbackRule{Source: source, Targets: safeTargets})
+		rules = append(rules, FallbackRule{Source: source, Targets: safeTargets, Enabled: enabled})
 	}
 
 	return rules, nil
+}
+
+// fallbackRuleEntry is the on-disk object form of a fallback rule. It replaces
+// the legacy array form but the reader also accepts the array form.
+type fallbackRuleEntry struct {
+	Targets []string `json:"targets"`
+	Enabled bool     `json:"enabled"`
 }
