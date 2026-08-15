@@ -179,7 +179,7 @@ export function Sidebar({
                   <Link
                     to={entry.to}
                     className={cn(
-                      "group flex items-center gap-2.5 py-2 px-3 text-[14px] md:text-[13px] font-medium transition-all duration-200 ease-[var(--ease-ios)] rounded-lg",
+                      "group flex items-center gap-2.5 py-2.5 px-3 text-[14px] md:text-[13px] font-medium transition-all duration-200 ease-[var(--ease-ios)] rounded-lg",
                       "text-muted-foreground hover:bg-surface-hover/80 hover:text-foreground active:scale-[0.98]",
                       active && "bg-accent/15 text-accent border-l-4 md:border-l-0 border-accent pl-[8px] md:pl-3"
                     )}
