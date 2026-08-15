@@ -249,8 +249,8 @@ export function ProvidersTab(): JSX.Element {
           )}
 
           <div className="flex items-center gap-2">
-            <Button onClick={() => { setEditingProvider(null); setModalOpen("add"); }} size="sm">
-              <PlusIcon className="mr-1.5 h-3.5 w-3.5" /> Add Provider
+            <Button onClick={() => { setEditingProvider(null); setModalOpen("add"); }}>
+              <PlusIcon className="mr-1.5 h-4 w-4" /> Add Provider
             </Button>
           </div>
 
