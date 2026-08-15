@@ -1,4 +1,4 @@
-import { Surface, SectionHeader } from "@/components/ui/surface";
+import { Surface, SectionHeader, Pill } from "@/components/ui/surface";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -269,7 +269,7 @@ export function ProvidersTab(): JSX.Element {
           {providers.length > 0 ? (
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               {providers.map((provider) => (
-                <div key={provider.name} className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
+                <div key={provider.name} className={`border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30 ${provider.config?.enabled === false ? "opacity-60" : ""}`}>
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
                       <ProviderMark provider={provider} />
@@ -277,11 +277,20 @@ export function ProvidersTab(): JSX.Element {
                         <div className="flex min-w-0 flex-wrap items-center gap-2">
                           <span className="truncate text-[14px] font-semibold text-foreground">{provider.name}</span>
                           <ConfigSourceBadge source={provider.config_source} />
+                          {provider.config?.enabled === false && <Pill tone="muted">disabled</Pill>}
                         </div>
                         <span className="text-[11px] text-muted-foreground">{provider.type || provider.config?.type || "custom"}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
+                      <Switch
+                        checked={provider.config?.enabled !== false}
+                        size="sm"
+                        disabled={toggleMutation.isPending}
+                        onCheckedChange={(enabled) => toggleMutation.mutate({ name: provider.name, enabled })}
+                        aria-label={`Toggle provider ${provider.name}`}
+                        title={`${provider.config?.enabled === false ? "Enable" : "Disable"} ${provider.name}`}
+                      />
                       <button onClick={() => { setEditingProvider({ name: provider.name, originalName: provider.name, type: provider.config?.type || provider.type || "", base_url: provider.config?.base_url || "", api_version: provider.config?.api_version || "", api_key: "", models: provider.config?.models?.join(", ") || "" }); setModalOpen("edit"); }} className="p-1.5 hover:bg-border/20 transition-colors" title="Edit provider">
                         <Edit3Icon className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
@@ -293,16 +302,6 @@ export function ProvidersTab(): JSX.Element {
                   <div className="flex items-center gap-3 text-[12px] text-muted-foreground">
                     <StatusChip enabled={provider.status === "healthy"} />
                     <span className="font-mono">{provider.runtime?.discovered_model_count ?? 0} models</span>
-                    <span className="ml-auto flex items-center gap-2">
-                      <span className={provider.config?.enabled === false ? "text-destructive/80" : "text-success/80"}>{provider.config?.enabled === false ? "Disabled" : "Enabled"}</span>
-                      <Switch
-                        checked={provider.config?.enabled !== false}
-                        disabled={toggleMutation.isPending}
-                        onCheckedChange={(enabled) => toggleMutation.mutate({ name: provider.name, enabled })}
-                        aria-label={`Toggle provider ${provider.name}`}
-                        title={`${provider.config?.enabled === false ? "Enable" : "Disable"} ${provider.name}`}
-                      />
-                    </span>
                   </div>
                   {provider.config?.base_url && (
                     <div className="text-[11px] text-muted-foreground font-mono truncate" title={provider.config.base_url}>
