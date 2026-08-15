@@ -261,59 +261,62 @@ function EditDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg max-h-[85vh] overflow-y-auto p-5 sm:p-6">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit Fallback Rule" : "Add Fallback Rule"}</DialogTitle>
+          <DialogTitle className="text-lg">{isEdit ? "Edit Fallback Rule" : "Add Fallback Rule"}</DialogTitle>
           <DialogDescription>Define a source model and ordered fallback targets.</DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-3">
-          <label className="block space-y-1.5">
-            <span className="text-xs font-medium text-muted-foreground">Source model</span>
-            <select className="w-full h-10 border border-border/50 bg-background/40 px-3 font-mono text-sm focus:outline-none focus:border-accent/70 focus:ring-2 focus:ring-accent/15"
+        <div className="flex flex-col gap-4">
+          <label className="block space-y-2">
+            <span className="text-sm font-medium text-muted-foreground">Source model</span>
+            <select className="w-full h-12 sm:h-11 border border-border/50 bg-background/40 px-4 font-mono text-base sm:text-sm focus:outline-none focus:border-accent/70 focus:ring-2 focus:ring-accent/15 rounded-lg"
               value={source} onChange={(e) => onSourceChange(e.target.value)}>
               <option value="">Select source…</option>
               {modelOptions.map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
           </label>
 
-          <label className="block space-y-1.5">
-            <span className="text-xs font-medium text-muted-foreground">Add target</span>
+          <label className="block space-y-2">
+            <span className="text-sm font-medium text-muted-foreground">Add target</span>
             <div className="flex gap-2">
-              <select className="flex-1 h-10 border border-border/50 bg-background/40 px-3 font-mono text-sm focus:outline-none focus:border-accent/70"
+              <select className="flex-1 h-12 sm:h-11 border border-border/50 bg-background/40 px-4 font-mono text-base sm:text-sm focus:outline-none focus:border-accent/70 rounded-lg"
                 value={targetInput} onChange={(e) => setTargetInput(e.target.value)}>
                 <option value="">Select model…</option>
                 {available.map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
-              <Button type="button" variant="secondary" onClick={addTarget} disabled={!targetInput.trim()}>Add</Button>
+              <Button type="button" variant="secondary" onClick={addTarget} disabled={!targetInput.trim()} className="h-12 sm:h-11 px-5 shrink-0">Add</Button>
             </div>
           </label>
 
           {targets.length > 0 && (
-            <div className="border border-border/60 bg-background/40 divide-y divide-border/40 max-h-60 overflow-y-auto">
-              {targets.map((t, idx) => (
-                <div key={`${t}-${idx}`} className="flex items-center gap-2 px-3 py-2">
-                  <div className="flex flex-col gap-0.5 shrink-0">
-                    <button type="button" disabled={idx === 0} onClick={() => moveTarget(idx, -1)} className="text-muted-foreground hover:text-foreground disabled:opacity-30"><ArrowUp className="h-3 w-3" /></button>
-                    <button type="button" disabled={idx === targets.length - 1} onClick={() => moveTarget(idx, 1)} className="text-muted-foreground hover:text-foreground disabled:opacity-30"><ArrowDown className="h-3 w-3" /></button>
+            <div className="space-y-2">
+              <span className="text-sm font-medium text-muted-foreground">Target chain ({targets.length})</span>
+              <div className="border border-border/60 bg-background/40 divide-y divide-border/40 max-h-48 sm:max-h-60 overflow-y-auto rounded-lg">
+                {targets.map((t, idx) => (
+                  <div key={`${t}-${idx}`} className="flex items-center gap-2 px-3 py-2.5">
+                    <div className="flex flex-col gap-0.5 shrink-0">
+                      <button type="button" disabled={idx === 0} onClick={() => moveTarget(idx, -1)} className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"><ArrowUp className="h-4 w-4" /></button>
+                      <button type="button" disabled={idx === targets.length - 1} onClick={() => moveTarget(idx, 1)} className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"><ArrowDown className="h-4 w-4" /></button>
+                    </div>
+                    <Pill tone={idx === 0 ? "success" : "muted"} className="shrink-0 text-[10px]">{idx === 0 ? "primary" : `fb ${idx}`}</Pill>
+                    <select className="flex-1 h-9 sm:h-8 border border-border/40 bg-transparent px-2 font-mono text-sm sm:text-xs focus:outline-none focus:border-accent/70 rounded"
+                      value={t} onChange={(e) => editTarget(idx, e.target.value)}>
+                      {modelOptions.map((m) => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => removeTarget(idx)} className="h-9 w-9 sm:h-8 sm:w-8 shrink-0"><Trash2 className="h-4 w-4 text-destructive" /></Button>
                   </div>
-                  <Pill tone={idx === 0 ? "success" : "muted"} className="shrink-0 text-[10px]">{idx === 0 ? "primary" : `fb ${idx}`}</Pill>
-                  <select className="flex-1 h-8 border border-border/40 bg-transparent px-2 font-mono text-xs focus:outline-none focus:border-accent/70"
-                    value={t} onChange={(e) => editTarget(idx, e.target.value)}>
-                    {modelOptions.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                  <Button type="button" variant="ghost" size="icon" onClick={() => removeTarget(idx)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </div>
 
-        {error ? <p className="text-sm text-warning">{error}</p> : null}
+        {error ? <p className="text-sm text-warning bg-warning/10 border border-warning/30 rounded-lg p-2">{error}</p> : null}
 
-        <DialogFooter>
-          <Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button onClick={onSave} disabled={saving || !source || targets.length === 0}>
+        <DialogFooter className="flex-row gap-2 sm:justify-end pt-2">
+          <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1 sm:flex-none h-12 sm:h-10">Cancel</Button>
+          <Button onClick={onSave} disabled={saving || !source || targets.length === 0} className="flex-1 sm:flex-none h-12 sm:h-10">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save
           </Button>
         </DialogFooter>

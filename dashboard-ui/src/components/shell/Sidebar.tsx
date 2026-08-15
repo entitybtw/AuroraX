@@ -167,7 +167,7 @@ export function Sidebar({
       </header>
 
       <nav className="flex-1 overflow-y-auto px-2 py-2 overflow-x-hidden">
-        <ul className="flex flex-col gap-1">
+        <ul className="flex flex-col gap-0.5">
           {NAV.filter((entry) => (!entry.show || entry.show(config)) && hasCapability(config, entry.requiredCapability) && canAccess(entry)).map(
             (entry) => {
               const active =
@@ -179,7 +179,7 @@ export function Sidebar({
                   <Link
                     to={entry.to}
                     className={cn(
-                      "group flex items-center gap-3 py-3 md:py-2 text-[15px] md:text-[13px] font-medium transition-all duration-200 ease-[var(--ease-ios)] rounded-lg px-3",
+                      "group flex items-center gap-2.5 py-2 px-3 text-[14px] md:text-[13px] font-medium transition-all duration-200 ease-[var(--ease-ios)] rounded-lg",
                       "text-muted-foreground hover:bg-surface-hover/80 hover:text-foreground active:scale-[0.98]",
                       active && "bg-accent/15 text-accent border-l-4 md:border-l-0 border-accent pl-[8px] md:pl-3"
                     )}
@@ -188,7 +188,7 @@ export function Sidebar({
                   >
                     <entry.Icon
                       className={cn(
-                        "h-5 w-5 md:h-4 md:w-4 shrink-0 transition-all duration-200 ease-[var(--ease-spring)] group-hover:scale-110",
+                        "h-4 w-4 shrink-0 transition-all duration-200 ease-[var(--ease-spring)] group-hover:scale-110",
                         active && "text-accent"
                       )}
                     />
