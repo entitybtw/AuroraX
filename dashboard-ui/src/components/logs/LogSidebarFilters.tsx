@@ -41,7 +41,7 @@ export function LogSidebarFilters({ filters, onChange, onClear, entryCount }: Lo
           placeholder="Search logs..."
           value={filters.search}
           onChange={(e) => { set("search", e.target.value); }}
-          className="h-9 pl-8 text-xs bg-background"
+          className="h-9 pl-10 text-xs bg-background"
         />
       </div>
 

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { PlusIcon, CopyIcon, CheckIcon, ShieldAlertIcon, BarChart3Icon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Surface, EmptyState } from "@/components/ui/surface";
 import { PageHeader } from "@/components/ui/page-header";
@@ -446,10 +447,11 @@ export function AuthKeysPage(): JSX.Element {
                       <div className="max-h-60 overflow-y-auto rounded-lg border border-border/60 bg-background/45 p-2">
                         {providerOptions.length > 0 ? providerOptions.map((provider) => (
                           <label key={provider} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/40">
-                            <input
-                              type="checkbox"
+                            <Switch
                               checked={formData.allowed_providers?.includes(provider) || false}
-                              onChange={() => setFormData({ ...formData, allowed_providers: toggleSelection(formData.allowed_providers || [], provider) })}
+                              size="sm"
+                              onCheckedChange={() => setFormData({ ...formData, allowed_providers: toggleSelection(formData.allowed_providers || [], provider) })}
+                              aria-label={`Allow ${provider}`}
                             />
                             <span className="font-mono">{provider}</span>
                           </label>
@@ -460,10 +462,11 @@ export function AuthKeysPage(): JSX.Element {
                       <span className="text-xs font-medium text-muted-foreground">Allowed models</span>
                       <div className="max-h-60 overflow-y-auto rounded-lg border border-border/60 bg-background/45 p-2">
                         <label className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/40">
-                          <input
-                            type="checkbox"
+                          <Switch
                             checked={formData.allowed_models?.includes("*") || false}
-                            onChange={() => setFormData({ ...formData, allowed_models: toggleSelection(formData.allowed_models || [], "*") })}
+                            size="sm"
+                            onCheckedChange={() => setFormData({ ...formData, allowed_models: toggleSelection(formData.allowed_models || [], "*") })}
+                            aria-label="Allow all models"
                           />
                           <span className="font-mono">*</span>
                           <span className="text-muted-foreground">all models</span>
@@ -471,10 +474,11 @@ export function AuthKeysPage(): JSX.Element {
                         <div className="max-h-52 overflow-y-auto">
                           {modelOptions.map((model) => (
                             <label key={model} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/40">
-                              <input
-                                type="checkbox"
+                              <Switch
                                 checked={formData.allowed_models?.includes(model) || false}
-                                onChange={() => setFormData({ ...formData, allowed_models: toggleSelection(formData.allowed_models || [], model) })}
+                                size="sm"
+                                onCheckedChange={() => setFormData({ ...formData, allowed_models: toggleSelection(formData.allowed_models || [], model) })}
+                                aria-label={`Allow ${model}`}
                               />
                               <span className="font-mono break-all">{model}</span>
                             </label>
@@ -487,10 +491,11 @@ export function AuthKeysPage(): JSX.Element {
                       <div className="max-h-60 overflow-y-auto rounded-lg border border-border/60 bg-background/45 p-2">
                         {modelOptions.length > 0 ? modelOptions.map((model) => (
                           <label key={model} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/40">
-                            <input
-                              type="checkbox"
+                            <Switch
                               checked={formData.denied_models?.includes(model) || false}
-                              onChange={() => setFormData({ ...formData, denied_models: toggleSelection(formData.denied_models || [], model) })}
+                              size="sm"
+                              onCheckedChange={() => setFormData({ ...formData, denied_models: toggleSelection(formData.denied_models || [], model) })}
+                              aria-label={`Deny ${model}`}
                             />
                             <span className="font-mono break-all">{model}</span>
                           </label>

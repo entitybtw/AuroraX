@@ -1,0 +1,1 @@
+{"version":3,"file":"client.cjs","names":[],"sources":["../../../src/isServer/client.ts"],"sourcesContent":["export const isServer = false\nexport const loadServerRoute: never = undefined as never\n"],"mappings":";;AAAA,MAAa,WAAW;AACxB,MAAa,kBAAyB,KAAA"}

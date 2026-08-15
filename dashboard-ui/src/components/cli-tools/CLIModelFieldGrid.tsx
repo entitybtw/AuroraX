@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Search, Check } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import type { CLIModelField } from "@/lib/api/cli-tools";
 import { modelDisplayName, type ModelInventoryItem } from "@/lib/api/models-types";
 
@@ -68,11 +69,11 @@ function MultiModelSelect({
                 key={model}
                 className={`flex min-w-0 cursor-pointer items-center gap-2 border-b border-border/30 px-3 py-2 text-xs transition last:border-b-0 hover:bg-background/40 ${checked ? "bg-accent/5" : ""}`}
               >
-                <input
-                  type="checkbox"
+                <Switch
                   checked={checked}
-                  onChange={() => toggleModel(model)}
-                  className="shrink-0 accent-accent"
+                  size="sm"
+                  onCheckedChange={() => toggleModel(model)}
+                  aria-label={model}
                 />
                 <span className="min-w-0 flex-1 truncate font-mono text-foreground">{model}</span>
                 {checked ? <Check className="h-3 w-3 shrink-0 text-accent" /> : null}

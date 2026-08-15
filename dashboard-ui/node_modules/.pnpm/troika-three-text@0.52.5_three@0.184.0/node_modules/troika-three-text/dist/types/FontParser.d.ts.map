@@ -1,0 +1,1 @@
+{"version":3,"file":"FontParser.d.ts","sourceRoot":"","sources":["../../src/FontParser.js"],"names":[],"mappings":";;cAWc,MAAM;eACN,MAAM;aACN,MAAM;uBACN,CAAC,MAAM,KAAA,KAAK,OAAO;kBACnB,CAAC,IAAI,EAAC,MAAM,EAAE,QAAQ,EAAC,MAAM,EAAE,aAAa,EAAC,MAAM,EAAE,QAAQ,KAAA,KAAK,MAAM;aACxE,MAAM;eACN,MAAM;gBACN,MAAM;;yBAIP,CAAC,MAAM,EAAE,WAAW,KAAK,UAAU;AA8YhD,gCAQE"}

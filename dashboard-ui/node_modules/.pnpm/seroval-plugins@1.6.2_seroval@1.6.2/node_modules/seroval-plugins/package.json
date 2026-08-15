@@ -1,0 +1,78 @@
+{
+  "name": "seroval-plugins",
+  "type": "module",
+  "version": "1.6.2",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=10"
+  },
+  "license": "MIT",
+  "keywords": [
+    "pridepack"
+  ],
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "@vitest/ui": "^4.0.6",
+    "esbuild": "^0.28.1",
+    "seroval": "1.6.2",
+    "tsdown": "^0.22.14",
+    "tslib": "^2.8.1",
+    "typescript": "^7.0.2",
+    "vitest": "^4.0.6"
+  },
+  "peerDependencies": {
+    "seroval": "^1.0"
+  },
+  "private": false,
+  "description": "Stringify JS values",
+  "repository": {
+    "url": "https://github.com/lxsmnsyc/seroval.git",
+    "type": "git"
+  },
+  "homepage": "https://github.com/lxsmnsyc/seroval/tree/main/packages/plugins",
+  "bugs": {
+    "url": "https://github.com/lxsmnsyc/seroval/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "author": "Alexis Munsayac",
+  "exports": {
+    ".": {
+      "development": {
+        "import": "./dist/dev/index.js",
+        "require": "./dist/dev/index.cjs",
+        "default": "./dist/dev/index.js"
+      },
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
+    },
+    "./web": {
+      "development": {
+        "import": "./dist/dev/web.js",
+        "require": "./dist/dev/web.cjs",
+        "default": "./dist/dev/web.js"
+      },
+      "import": "./dist/web.js",
+      "require": "./dist/web.cjs",
+      "default": "./dist/web.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "typesVersions": {
+    "*": {
+      "web": [
+        "./dist/types/web/index.d.ts"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "watch": "tsdown --watch",
+    "test": "vitest",
+    "test:ui": "vitest --ui"
+  }
+}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { PlusIcon, SearchIcon, PencilIcon, Trash2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Surface, EmptyState } from "@/components/ui/surface";
 import { DataTable, TableWrap, Td, Th } from "@/components/ui/data-table";
@@ -439,11 +440,11 @@ export function GuardrailsPage(): JSX.Element {
                       <div className="flex flex-col gap-2 rounded-md border p-3">
                         {field.options?.map(opt => (
                           <label key={opt.value} className="flex items-center gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              className="rounded border-zinc-300"
+                            <Switch
                               checked={arrVal.includes(opt.value)}
-                              onChange={(e) => toggleArrayConfigValue(field.key, opt.value, e.target.checked)}
+                              size="sm"
+                              onCheckedChange={(checked) => toggleArrayConfigValue(field.key, opt.value, checked)}
+                              aria-label={opt.label}
                             />
                             {opt.label}
                           </label>
