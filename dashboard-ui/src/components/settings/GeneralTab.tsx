@@ -378,8 +378,18 @@ export function GeneralTab(): JSX.Element {
                   <label key={model} className="flex items-center justify-between gap-3 px-2 py-1.5 text-[12px] hover:bg-surface-hover/40">
                     <span className="font-mono text-foreground/90">{model}</span>
                     <div className="flex items-center gap-4">
-                      <span className="flex items-center gap-1"><input type="checkbox" checked={tokenSaver.model_include.includes(model)} onChange={e => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, model_include: toggleString(tokenSaver.model_include, model, e.target.checked) } })} /> include</span>
-                      <span className="flex items-center gap-1"><input type="checkbox" checked={tokenSaver.model_exclude.includes(model)} onChange={e => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, model_exclude: toggleString(tokenSaver.model_exclude, model, e.target.checked) } })} /> exclude</span>
+                      <Switch
+                        checked={tokenSaver.model_include.includes(model)}
+                        size="sm"
+                        onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, model_include: toggleString(tokenSaver.model_include, model, checked) } })}
+                        aria-label={`Include ${model}`}
+                      />
+                      <Switch
+                        checked={tokenSaver.model_exclude.includes(model)}
+                        size="sm"
+                        onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, model_exclude: toggleString(tokenSaver.model_exclude, model, checked) } })}
+                        aria-label={`Exclude ${model}`}
+                      />
                     </div>
                   </label>
                 ))}
@@ -404,8 +414,18 @@ export function GeneralTab(): JSX.Element {
                   <label key={provider} className="flex items-center justify-between gap-3 px-2 py-1.5 text-[12px] hover:bg-surface-hover/40">
                     <span className="font-mono text-foreground/90">{provider}</span>
                     <div className="flex items-center gap-4">
-                      <span className="flex items-center gap-1"><input type="checkbox" checked={tokenSaver.provider_include.includes(provider)} onChange={e => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, provider_include: toggleString(tokenSaver.provider_include, provider, e.target.checked) } })} /> include</span>
-                      <span className="flex items-center gap-1"><input type="checkbox" checked={tokenSaver.provider_exclude.includes(provider)} onChange={e => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, provider_exclude: toggleString(tokenSaver.provider_exclude, provider, e.target.checked) } })} /> exclude</span>
+                      <Switch
+                        checked={tokenSaver.provider_include.includes(provider)}
+                        size="sm"
+                        onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, provider_include: toggleString(tokenSaver.provider_include, provider, checked) } })}
+                        aria-label={`Include ${provider}`}
+                      />
+                      <Switch
+                        checked={tokenSaver.provider_exclude.includes(provider)}
+                        size="sm"
+                        onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, provider_exclude: toggleString(tokenSaver.provider_exclude, provider, checked) } })}
+                        aria-label={`Exclude ${provider}`}
+                      />
                     </div>
                   </label>
                 ))}

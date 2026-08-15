@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { PlusIcon, SearchIcon, PencilIcon, ShieldIcon, XCircleIcon, AlertCircleIcon, EyeIcon, ChevronDown, Info, ListOrdered, SlidersHorizontal, Crosshair } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Surface, EmptyState } from "@/components/ui/surface";
 import { Input } from "@/components/ui/input";
@@ -457,12 +458,12 @@ export function WorkflowsPage(): JSX.Element {
                   ].map((feat) => {
                     const isEnabled = formData.features?.[feat.key as keyof typeof formData.features];
                     return (
-                      <label key={feat.key} className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${isEnabled ? 'border-accent bg-accent/5' : 'bg-background hover:bg-muted/50'}`}>
-                        <input
-                          type="checkbox"
-                          className="mt-1 rounded border-border text-accent focus:ring-accent"
+                      <label key={feat.key} className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors ${isEnabled ? 'border-accent bg-accent/5' : 'bg-background hover:bg-muted/50'}`}>
+                        <Switch
                           checked={!!isEnabled}
-                          onChange={() => handleToggleFeature(feat.key as keyof typeof formData.features)}
+                          size="sm"
+                          onCheckedChange={() => handleToggleFeature(feat.key as keyof typeof formData.features)}
+                          aria-label={`Toggle ${feat.label}`}
                         />
                         <div className="flex flex-col">
                           <span className="text-sm font-medium text-foreground">{feat.label}</span>
