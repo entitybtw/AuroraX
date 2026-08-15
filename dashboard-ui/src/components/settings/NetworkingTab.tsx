@@ -1,6 +1,7 @@
 import { Surface, SectionHeader } from "@/components/ui/surface";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { RuntimeStatusBadge, useSettings } from "./SettingsContext";
 import { ActivityIcon, GaugeIcon, SaveIcon } from "lucide-react";
 
@@ -97,11 +98,10 @@ export function NetworkingTab(): JSX.Element {
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
+                <Switch
                   checked={dashboardSettings.proxy.proxy_auth_enabled}
-                  onChange={e => setDashboardSettings({ ...dashboardSettings, proxy: { ...dashboardSettings.proxy, proxy_auth_enabled: e.target.checked } })}
-                  className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
+                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, proxy: { ...dashboardSettings.proxy, proxy_auth_enabled: checked } })}
+                  aria-label="Enable proxy auth"
                 />
                 <span className="text-[14px] font-medium text-foreground">Proxy auth required</span>
               </div>
