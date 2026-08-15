@@ -307,28 +307,14 @@ function MobileThemeButton({ theme }: ThemeToggleProps): JSX.Element {
     { value: "dark", Icon: Moon, label: "Dark" },
   ];
   return (
-    <div
-      className="grid grid-cols-3 bg-background/30 border border-border/40 md:hidden"
-      role="radiogroup"
-      aria-label="Color theme"
-    >
+    <div className="grid grid-cols-3 overflow-hidden bg-background/30 md:hidden border border-border/40" role="radiogroup" aria-label="Color theme">
       {choices.map(({ value, Icon, label }) => {
         const active = theme === value;
         return (
-          <button
-            key={value}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            aria-label={label}
-            title={label}
+          <button key={value} type="button" role="radio" aria-checked={active} aria-label={label} title={label}
             onClick={() => setTheme(value)}
-            className={cn(
-              "flex items-center justify-center h-10 text-muted-foreground transition-all duration-200 active:scale-95 first:border-r border-border/40",
-              active && "bg-surface text-accent",
-            )}
-          >
-            <Icon className="h-4 w-4" />
+            className={cn("grid h-8 place-items-center text-muted-foreground transition-all hover:text-foreground first:border-r border-border/40", active && "bg-surface text-foreground")}>
+            <Icon className={cn("h-3.5 w-3.5", active && "scale-110")} />
           </button>
         );
       })}
