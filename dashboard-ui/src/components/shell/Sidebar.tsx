@@ -16,6 +16,7 @@ import {
   Network,
   Settings,
   ShieldCheck,
+  Smartphone,
   Sun,
   Terminal,
   Layers,
@@ -28,7 +29,7 @@ import {
   hasCapability,
   type DashboardConfigResponse,
 } from "@/lib/api/dashboard-config";
-import { setTheme, toggleTheme, useTheme, type Theme } from "@/lib/theme/theme";
+import { setTheme, useTheme, type Theme } from "@/lib/theme/theme";
 import { useApiKeyState } from "@/lib/auth/useApiKey";
 import { useSession } from "@/lib/auth/useSession";
 import { clearSession, isLoggedIn, fetchMe } from "@/lib/auth/session";
@@ -158,7 +159,7 @@ export function Sidebar({
           <SidebarLogo />
         </span>
         <div className="min-w-0 flex-1">
-          <h1 className="font-display text-lg font-bold tracking-tight text-foreground whitespace-nowrap overflow-hidden">Aurora Gateway</h1>
+          <h1 className="font-display text-lg font-bold tracking-tight text-foreground whitespace-nowrap overflow-hidden">Aurora</h1>
         </div>
         <button onClick={onCloseMobile} className="md:hidden p-2 -mr-1 text-muted-foreground hover:text-foreground active:scale-95 transition-all rounded-lg hover:bg-surface-hover" aria-label="Close menu">
           <X className="h-5 w-5" />
@@ -300,23 +301,38 @@ function ThemeToggle({ theme }: ThemeToggleProps): JSX.Element {
 }
 
 function MobileThemeButton({ theme }: ThemeToggleProps): JSX.Element {
-  const Icon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor;
-  const label =
-    theme === "light"
-      ? "Light theme"
-      : theme === "dark"
-        ? "Dark theme"
-        : "System theme";
+  const choices: ReadonlyArray<{ value: Theme; Icon: IconType; label: string }> = [
+    { value: "light", Icon: Sun, label: "Light" },
+    { value: "system", Icon: Smartphone, label: "System" },
+    { value: "dark", Icon: Moon, label: "Dark" },
+  ];
   return (
-    <button
-      type="button"
-      onClick={toggleTheme}
-      title={label}
-      aria-label={label}
-      className="flex items-center gap-3 w-full py-2.5 px-3 text-[13px] font-medium text-muted-foreground hover:text-foreground hover:bg-surface-hover/80 active:scale-[0.98] transition-all rounded-lg md:hidden"
+    <div
+      className="flex overflow-hidden bg-background/30 p-0.5 border border-border/40 md:hidden"
+      role="radiogroup"
+      aria-label="Color theme"
     >
-      <Icon className="h-5 w-5 shrink-0" />
-      <span>{label}</span>
-    </button>
+      {choices.map(({ value, Icon, label }) => {
+        const active = theme === value;
+        return (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            aria-label={label}
+            title={label}
+            onClick={() => setTheme(value)}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-1.5 h-9 text-[12px] font-medium text-muted-foreground transition-all duration-200 active:scale-95",
+              active && "bg-surface text-foreground border border-border/40",
+            )}
+          >
+            <Icon className={cn("h-4 w-4", active && "text-accent")} />
+            <span className={cn(active && "text-foreground")}>{label}</span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
