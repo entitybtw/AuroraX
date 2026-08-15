@@ -1,6 +1,7 @@
 import { Surface, SectionHeader } from "@/components/ui/surface";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { RuntimeStatusBadge, useSettings, StatusChip } from "./SettingsContext";
 import { DatabaseIcon, SaveIcon } from "lucide-react";
 
@@ -85,11 +86,10 @@ export function CachingTab(): JSX.Element {
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
                 <div className="flex items-center gap-3 mt-1">
-                  <input
-                    type="checkbox"
+                  <Switch
                     checked={dashboardSettings.caching.exact_cache_enabled}
-                    onChange={e => setDashboardSettings({ ...dashboardSettings, caching: { ...dashboardSettings.caching, exact_cache_enabled: e.target.checked } })}
-                    className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
+                    onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, caching: { ...dashboardSettings.caching, exact_cache_enabled: checked } })}
+                    aria-label="Enable exact cache"
                   />
                   <span className="text-[14px] font-medium text-foreground">Enabled</span>
                 </div>
@@ -122,11 +122,10 @@ export function CachingTab(): JSX.Element {
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
                 <div className="flex items-center gap-3 mt-1">
-                  <input
-                    type="checkbox"
+                  <Switch
                     checked={dashboardSettings.caching.semantic_cache_enabled}
-                    onChange={e => setDashboardSettings({ ...dashboardSettings, caching: { ...dashboardSettings.caching, semantic_cache_enabled: e.target.checked } })}
-                    className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
+                    onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, caching: { ...dashboardSettings.caching, semantic_cache_enabled: checked } })}
+                    aria-label="Enable semantic cache"
                   />
                   <span className="text-[14px] font-medium text-foreground">Enabled</span>
                 </div>
@@ -178,11 +177,10 @@ export function CachingTab(): JSX.Element {
               </div>
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
                 <div className="flex items-center gap-3 mt-1">
-                  <input
-                    type="checkbox"
+                  <Switch
                     checked={dashboardSettings.caching.semantic_exclude_system_prompt}
-                    onChange={e => setDashboardSettings({ ...dashboardSettings, caching: { ...dashboardSettings.caching, semantic_exclude_system_prompt: e.target.checked } })}
-                    className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
+                    onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, caching: { ...dashboardSettings.caching, semantic_exclude_system_prompt: checked } })}
+                    aria-label="Exclude system prompt from semantic cache"
                   />
                   <span className="text-[14px] font-medium text-foreground">Exclude system prompt</span>
                 </div>
@@ -255,11 +253,10 @@ export function CachingTab(): JSX.Element {
               </div>
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
                 <div className="flex items-center gap-3 mt-1">
-                  <input
-                    type="checkbox"
+                  <Switch
                     checked={dashboardSettings.caching.prompt_cache_system_prompt}
-                    onChange={e => setDashboardSettings({ ...dashboardSettings, caching: { ...dashboardSettings.caching, prompt_cache_system_prompt: e.target.checked } })}
-                    className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
+                    onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, caching: { ...dashboardSettings.caching, prompt_cache_system_prompt: checked } })}
+                    aria-label="Enable system prompt cache"
                   />
                   <span className="text-[14px] font-medium text-foreground">System prompt cache</span>
                 </div>
@@ -267,11 +264,10 @@ export function CachingTab(): JSX.Element {
               </div>
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
                 <div className="flex items-center gap-3 mt-1">
-                  <input
-                    type="checkbox"
+                  <Switch
                     checked={dashboardSettings.caching.prompt_cache_first_message}
-                    onChange={e => setDashboardSettings({ ...dashboardSettings, caching: { ...dashboardSettings.caching, prompt_cache_first_message: e.target.checked } })}
-                    className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
+                    onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, caching: { ...dashboardSettings.caching, prompt_cache_first_message: checked } })}
+                    aria-label="Enable first message cache"
                   />
                   <span className="text-[14px] font-medium text-foreground">First message cache</span>
                 </div>
@@ -279,11 +275,10 @@ export function CachingTab(): JSX.Element {
               </div>
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
                 <div className="flex items-center gap-3 mt-1">
-                  <input
-                    type="checkbox"
+                  <Switch
                     checked={dashboardSettings.caching.prompt_cache_tools}
-                    onChange={e => setDashboardSettings({ ...dashboardSettings, caching: { ...dashboardSettings.caching, prompt_cache_tools: e.target.checked } })}
-                    className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
+                    onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, caching: { ...dashboardSettings.caching, prompt_cache_tools: checked } })}
+                    aria-label="Enable tools cache"
                   />
                   <span className="text-[14px] font-medium text-foreground">Tools cache</span>
                 </div>

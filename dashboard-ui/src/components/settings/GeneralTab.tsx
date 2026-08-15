@@ -1,6 +1,7 @@
 import { Surface, SectionHeader } from "@/components/ui/surface";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { useModels } from "@/lib/api/useModels";
 import { useProviderStatus } from "@/lib/api/useProviders";
 import { modelDisplayName } from "@/lib/api/models-types";
@@ -119,7 +120,11 @@ export function GeneralTab(): JSX.Element {
                 <StatusChip enabled={dashboardSettings.client.enable_anthropic_ingress ?? false} />
               </div>
               <div className="flex items-center gap-3 mt-1">
-                <input type="checkbox" checked={dashboardSettings.client.enable_anthropic_ingress ?? false} onChange={e => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, enable_anthropic_ingress: e.target.checked } })} className="h-4 w-4 rounded border-border text-accent focus:ring-accent" />
+                <Switch
+                  checked={dashboardSettings.client.enable_anthropic_ingress ?? false}
+                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, enable_anthropic_ingress: checked } })}
+                  aria-label="Enable Anthropic ingress"
+                />
                 <span className="text-[14px] font-medium text-foreground">Enable Anthropic ingress</span>
               </div>
               <div className="mt-1 text-[12px] text-muted-foreground">Expose /v1/messages endpoint for Anthropic-format chat completions. Allows Anthropic SDK clients and Claude Code CLI to route through the gateway. Requires restart.</div>
@@ -127,12 +132,20 @@ export function GeneralTab(): JSX.Element {
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Admin API</div>
               <div className="flex items-center gap-3 mt-1">
-                <input type="checkbox" checked={dashboardSettings.client.admin_endpoints_enabled ?? adminEndpointsEnabled} onChange={e => handleAdminEndpointToggle(e.target.checked)} className="h-4 w-4 rounded border-border text-accent focus:ring-accent" />
+                <Switch
+                  checked={dashboardSettings.client.admin_endpoints_enabled ?? adminEndpointsEnabled}
+                  onCheckedChange={(checked) => handleAdminEndpointToggle(checked)}
+                  aria-label="Enable admin API endpoints"
+                />
                 <span className="text-[14px] font-medium text-foreground">Enable admin API endpoints</span>
               </div>
               <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mt-2">Admin UI</div>
               <div className="flex items-center gap-3 mt-1">
-                <input type="checkbox" checked={dashboardSettings.client.admin_ui_enabled ?? adminUIEnabled} onChange={e => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, admin_ui_enabled: e.target.checked } })} className="h-4 w-4 rounded border-border text-accent focus:ring-accent" />
+                <Switch
+                  checked={dashboardSettings.client.admin_ui_enabled ?? adminUIEnabled}
+                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, admin_ui_enabled: checked } })}
+                  aria-label="Enable admin dashboard UI"
+                />
                 <span className="text-[14px] font-medium text-foreground">Enable admin dashboard UI</span>
               </div>
               <div className="mt-1 text-[12px] text-muted-foreground">Requires restart.</div>
@@ -154,11 +167,19 @@ export function GeneralTab(): JSX.Element {
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Debug endpoints</div>
               <div className="flex items-center gap-3 mt-1">
-                <input type="checkbox" checked={dashboardSettings.client.swagger_enabled ?? false} onChange={e => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, swagger_enabled: e.target.checked } })} className="h-4 w-4 rounded border-border text-accent focus:ring-accent" />
+                <Switch
+                  checked={dashboardSettings.client.swagger_enabled ?? false}
+                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, swagger_enabled: checked } })}
+                  aria-label="Enable Swagger / OpenAPI docs"
+                />
                 <span className="text-[14px] font-medium text-foreground">Swagger / OpenAPI docs</span>
               </div>
               <div className="flex items-center gap-3 mt-1">
-                <input type="checkbox" checked={dashboardSettings.client.pprof_enabled ?? false} onChange={e => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, pprof_enabled: e.target.checked } })} className="h-4 w-4 rounded border-border text-accent focus:ring-accent" />
+                <Switch
+                  checked={dashboardSettings.client.pprof_enabled ?? false}
+                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, pprof_enabled: checked } })}
+                  aria-label="Enable pprof profiling"
+                />
                 <span className="text-[14px] font-medium text-foreground">pprof profiling</span>
               </div>
               <div className="mt-1 text-[12px] text-muted-foreground">Requires restart.</div>
@@ -205,7 +226,11 @@ export function GeneralTab(): JSX.Element {
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Alias projection</div>
               <div className="flex items-center gap-3 mt-1">
-                <input type="checkbox" checked={!dashboardSettings.client.keep_only_aliases_at_models_endpoint} onChange={e => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, keep_only_aliases_at_models_endpoint: !e.target.checked } })} className="h-4 w-4 rounded border-border text-accent focus:ring-accent" />
+                <Switch
+                  checked={!dashboardSettings.client.keep_only_aliases_at_models_endpoint}
+                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, keep_only_aliases_at_models_endpoint: !checked } })}
+                  aria-label="Include concrete models"
+                />
                 <span className="text-[14px] font-medium text-foreground">Include concrete models</span>
               </div>
               <div className="mt-1 text-[12px] text-muted-foreground">Whether /v1/models keeps provider catalog entries in addition to aliases.</div>
@@ -213,7 +238,11 @@ export function GeneralTab(): JSX.Element {
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">OpenAI passthrough alias</div>
               <div className="flex items-center gap-3 mt-1">
-                <input type="checkbox" checked={dashboardSettings.client.allow_passthrough_v1_alias} onChange={e => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, allow_passthrough_v1_alias: e.target.checked } })} className="h-4 w-4 rounded border-border text-accent focus:ring-accent" />
+                <Switch
+                  checked={dashboardSettings.client.allow_passthrough_v1_alias}
+                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, allow_passthrough_v1_alias: checked } })}
+                  aria-label="Allow /p/{provider}/v1"
+                />
                 <span className="text-[14px] font-medium text-foreground">Allow /p/{"{provider}"}/v1</span>
               </div>
               <div className="mt-1 text-[12px] text-muted-foreground">Lets <code>/p/{"{provider}"}/v1/...</code> behave like the canonical <code>/p/{"{provider}"}/...</code> path.</div>
@@ -255,11 +284,10 @@ export function GeneralTab(): JSX.Element {
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
+                <Switch
                   checked={tokenSaver.enabled}
-                  onChange={e => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, enabled: e.target.checked } })}
-                  className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
+                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, enabled: checked } })}
+                  aria-label="Enable Token Saver"
                 />
                 <span className="text-[14px] font-medium text-foreground">Enable Token Saver</span>
               </div>
@@ -267,11 +295,10 @@ export function GeneralTab(): JSX.Element {
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
+                <Switch
                   checked={tokenSaver.apply_streaming}
-                  onChange={e => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, apply_streaming: e.target.checked } })}
-                  className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
+                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, apply_streaming: checked } })}
+                  aria-label="Apply to streaming requests"
                 />
                 <span className="text-[14px] font-medium text-foreground">Apply to streaming requests</span>
               </div>
@@ -286,11 +313,10 @@ export function GeneralTab(): JSX.Element {
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
+                <Switch
                   checked={tokenSaver.output_enabled}
-                  onChange={e => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, output_enabled: e.target.checked } })}
-                  className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
+                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, output_enabled: checked } })}
+                  aria-label="Enable concise output profile"
                 />
                 <span className="text-[14px] font-medium text-foreground">Concise output profile</span>
               </div>
@@ -308,11 +334,10 @@ export function GeneralTab(): JSX.Element {
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
+                <Switch
                   checked={tokenSaver.emit_headers}
-                  onChange={e => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, emit_headers: e.target.checked } })}
-                  className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
+                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, emit_headers: checked } })}
+                  aria-label="Emit observability headers"
                 />
                 <span className="text-[14px] font-medium text-foreground">Emit observability headers</span>
               </div>
@@ -320,11 +345,10 @@ export function GeneralTab(): JSX.Element {
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
+                <Switch
                   checked={tokenSaver.audit_enabled}
-                  onChange={e => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, audit_enabled: e.target.checked } })}
-                  className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
+                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, audit_enabled: checked } })}
+                  aria-label="Enable audit logging"
                 />
                 <span className="text-[14px] font-medium text-foreground">Audit logging</span>
               </div>

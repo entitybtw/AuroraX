@@ -10,12 +10,12 @@ interface SwitchProps {
 }
 
 /**
- * Toggle switch themed against aurora's CSS variables. Slightly larger on
- * touch screens (mobile) for an easier tap target, compact on desktop.
+ * Toggle switch — pill-shaped track with a circular knob, iOS-style.
+ * No border, just a colored track and a white knob with shadow.
  *
- * Geometry (md, track = w x h, border 1px):
- *  - mobile: track 48x28, knob 20, translate-x-6 (checked) / 2px (off)
- *  - desktop: track 44x24, knob 20, translate-x-5 (checked) / 2px (off)
+ * Geometry (md, borderless, symmetric):
+ *  - mobile: track 48×28, knob 20, translate-x-[26px] / 2px
+ *  - desktop: track 44×24, knob 20, translate-x-[22px] / 2px
  */
 export function Switch({
   checked,
@@ -27,13 +27,13 @@ export function Switch({
 }: SwitchProps): JSX.Element {
   const track =
     size === "sm"
-      ? "h-5 w-9"
+      ? "h-[22px] w-[38px]"
       : "h-7 w-12 md:h-6 md:w-11";
-  const knob = size === "sm" ? "h-3 w-3" : "h-5 w-5";
+  const knob = size === "sm" ? "h-4 w-4" : "h-5 w-5";
   const translate =
     size === "sm"
-      ? "translate-x-5"
-      : "translate-x-6 md:translate-x-5";
+      ? "translate-x-[20px]"
+      : "translate-x-[26px] md:translate-x-[22px]";
 
   return (
     <button
@@ -45,20 +45,19 @@ export function Switch({
       disabled={disabled}
       onClick={() => onCheckedChange(!checked)}
       className={cn(
-        "relative inline-flex shrink-0 items-center rounded-full border transition-colors duration-200 ease-[var(--ease-ios)]",
+        "relative inline-flex shrink-0 items-center rounded-full transition-colors duration-200 ease-[var(--ease-ios)]",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         "disabled:cursor-not-allowed disabled:opacity-40",
         "active:scale-[0.96]",
         track,
         checked
-          ? "border-accent bg-accent"
-          : "border-border bg-background/60 hover:border-border/80"
+          ? "bg-accent"
+          : "bg-border/60"
       )}
     >
       <span
         className={cn(
-          "pointer-events-none inline-block rounded-full shadow-sm transition-transform duration-200 ease-[var(--ease-spring)]",
-          "bg-foreground",
+          "pointer-events-none inline-block rounded-full bg-background shadow transition-transform duration-200 ease-[var(--ease-spring)]",
           knob,
           checked ? translate : "translate-x-0.5"
         )}
