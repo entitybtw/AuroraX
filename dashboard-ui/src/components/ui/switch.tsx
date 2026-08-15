@@ -11,9 +11,13 @@ interface SwitchProps {
 
 /**
  * Toggle switch — pill-shaped track with a circular knob, iOS-style.
- * No border, just a colored track and a white knob with shadow.
+ * Responsive: larger touch target on mobile, compact on desktop.
  *
- * Geometry (md, borderless, symmetric):
+ * sm geometry:
+ *  - mobile: track 42×26, knob 18, translate-x-[22px] / 2px   (touch ≥ 44)
+ *  - desktop: track 38×22, knob 14, translate-x-[20px] / 2px
+ *
+ * md geometry:
  *  - mobile: track 48×28, knob 20, translate-x-[26px] / 2px
  *  - desktop: track 44×24, knob 20, translate-x-[22px] / 2px
  */
@@ -27,12 +31,15 @@ export function Switch({
 }: SwitchProps): JSX.Element {
   const track =
     size === "sm"
-      ? "h-[22px] w-[38px]"
+      ? "h-[26px] w-[42px] md:h-[22px] md:w-[38px]"
       : "h-7 w-12 md:h-6 md:w-11";
-  const knob = size === "sm" ? "h-4 w-4" : "h-5 w-5";
+  const knob =
+    size === "sm"
+      ? "h-[18px] w-[18px] md:h-3.5 md:w-3.5"
+      : "h-5 w-5";
   const translate =
     size === "sm"
-      ? "translate-x-[20px]"
+      ? "translate-x-[22px] md:translate-x-[20px]"
       : "translate-x-[26px] md:translate-x-[22px]";
 
   return (
