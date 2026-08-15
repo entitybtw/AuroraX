@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -51,8 +52,10 @@ func (h *Handler) UpdateFallbackConfig(c *echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
 	}
 
-	// Normalize: trim whitespace, skip empty sources.
-	normalized := make(map[string]fallbackRuleEntry, len(req.Rules))
+	// Normalize: trim whitespace, skip empty sources. Use a slice to
+	// preserve the insertion order that the client sent.
+	normalized := make([]fallbackRuleEntry, 0, len(req.Rules))
+	seen := make(map[string]struct{}, len(req.Rules))
 	for _, rule := range req.Rules {
 		source := strings.TrimSpace(rule.Source)
 		if source == "" {
@@ -65,9 +68,18 @@ func (h *Handler) UpdateFallbackConfig(c *echo.Context) error {
 				targets = append(targets, t)
 			}
 		}
-		if len(targets) > 0 {
-			normalized[source] = fallbackRuleEntry{Targets: targets, Enabled: rule.Enabled}
+		if len(targets) == 0 {
+			continue
 		}
+		if _, dup := seen[source]; dup {
+			continue
+		}
+		seen[source] = struct{}{}
+		normalized = append(normalized, fallbackRuleEntry{
+			Source:  source,
+			Targets: targets,
+			Enabled: rule.Enabled,
+		})
 	}
 
 	raw, err := json.MarshalIndent(normalized, "", "  ")
@@ -114,8 +126,35 @@ func readFallbackRules(path string) ([]FallbackRule, error) {
 		return nil, err
 	}
 
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 {
+		return nil, nil
+	}
+
+	// New format: JSON array of {source, targets, enabled} objects.
+	if trimmed[0] == '[' {
+		var entries []fallbackRuleEntry
+		if err := json.Unmarshal(trimmed, &entries); err != nil {
+			return nil, err
+		}
+		rules := make([]FallbackRule, 0, len(entries))
+		for _, e := range entries {
+			source := strings.TrimSpace(e.Source)
+			if source == "" {
+				continue
+			}
+			targets := sanitizeTargets(e.Targets)
+			if len(targets) == 0 {
+				continue
+			}
+			rules = append(rules, FallbackRule{Source: source, Targets: targets, Enabled: e.Enabled})
+		}
+		return rules, nil
+	}
+
+	// Legacy format: JSON object {"source": {"targets": [...], "enabled": bool}}.
 	var data map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &data); err != nil {
+	if err := json.Unmarshal(trimmed, &data); err != nil {
 		return nil, err
 	}
 
@@ -129,12 +168,9 @@ func readFallbackRules(path string) ([]FallbackRule, error) {
 		if err != nil {
 			return nil, err
 		}
-		safeTargets := make([]string, 0, len(targets))
-		for _, t := range targets {
-			t = strings.TrimSpace(t)
-			if t != "" {
-				safeTargets = append(safeTargets, t)
-			}
+		safeTargets := sanitizeTargets(targets)
+		if len(safeTargets) == 0 {
+			continue
 		}
 		rules = append(rules, FallbackRule{Source: source, Targets: safeTargets, Enabled: enabled})
 	}
@@ -142,9 +178,22 @@ func readFallbackRules(path string) ([]FallbackRule, error) {
 	return rules, nil
 }
 
-// fallbackRuleEntry is the on-disk object form of a fallback rule. It replaces
-// the legacy array form but the reader also accepts the array form.
+func sanitizeTargets(targets []string) []string {
+	out := make([]string, 0, len(targets))
+	for _, t := range targets {
+		t = strings.TrimSpace(t)
+		if t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// fallbackRuleEntry is the on-disk form of a fallback rule. In the new format
+// it appears inside a JSON array with an explicit "source" key. The old
+// object-key format (where the source was the JSON key) is also supported.
 type fallbackRuleEntry struct {
+	Source  string   `json:"source,omitempty"`
 	Targets []string `json:"targets"`
 	Enabled bool     `json:"enabled"`
 }

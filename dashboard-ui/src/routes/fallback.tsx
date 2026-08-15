@@ -57,7 +57,7 @@ export function FallbackPage(): JSX.Element {
     try {
       setError("");
       const fetched = await fetchFallback();
-      setRules(fetched.toSorted((a, b) => a.source.localeCompare(b.source)));
+      setRules(fetched);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load fallback rules.");
     } finally {
