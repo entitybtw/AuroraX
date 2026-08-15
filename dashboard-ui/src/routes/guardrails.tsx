@@ -270,7 +270,7 @@ export function GuardrailsPage(): JSX.Element {
 
       {(guardrails.length > 0 || filter) && (
         <div className="relative">
-          <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40 pointer-events-none" />
           <Input
             placeholder="Filter by name, type, summary..."
             value={filter}

@@ -241,7 +241,7 @@ export function WorkflowsPage(): JSX.Element {
       {(workflows.length > 0 || filter) && (
         <div className="flex items-center justify-between mt-2">
           <div className="relative flex-1 max-w-md">
-            <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40 pointer-events-none" />
             <Input
               placeholder="Filter by scope, name, hash..."
               value={filter}
