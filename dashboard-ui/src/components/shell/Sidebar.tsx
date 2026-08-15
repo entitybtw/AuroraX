@@ -308,7 +308,7 @@ function MobileThemeButton({ theme }: ThemeToggleProps): JSX.Element {
   ];
   return (
     <div
-      className="flex overflow-hidden bg-background/30 p-0.5 border border-border/40 md:hidden"
+      className="grid grid-cols-3 bg-background/30 border border-border/40 md:hidden"
       role="radiogroup"
       aria-label="Color theme"
     >
@@ -324,12 +324,11 @@ function MobileThemeButton({ theme }: ThemeToggleProps): JSX.Element {
             title={label}
             onClick={() => setTheme(value)}
             className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 h-9 text-[12px] font-medium text-muted-foreground transition-all duration-200 active:scale-95",
-              active && "bg-surface text-foreground border border-border/40",
+              "flex items-center justify-center h-10 text-muted-foreground transition-all duration-200 active:scale-95 first:border-r border-border/40",
+              active && "bg-surface text-accent",
             )}
           >
-            <Icon className={cn("h-4 w-4", active && "text-accent")} />
-            <span className={cn(active && "text-foreground")}>{label}</span>
+            <Icon className="h-4 w-4" />
           </button>
         );
       })}

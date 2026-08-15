@@ -3,6 +3,7 @@ import {
   ArrowDown,
   ArrowUp,
   Check,
+  Edit3,
   Loader2,
   Plus,
   Trash2,
@@ -21,8 +22,6 @@ import { cn } from "@/lib/utils";
 
 const POLL_MS = 10_000;
 
-/* ── Banner ──────────────────────────────────────────────────────── */
-
 function Banner({ children, tone }: { children: string; tone: "warning" | "success" }): JSX.Element {
   return (
     <div className={cn("border px-4 py-3 text-sm rounded-lg", tone === "warning" ? "border-warning/30 bg-warning/15 text-warning" : "border-success/30 bg-success/15 text-success")}>
@@ -30,8 +29,6 @@ function Banner({ children, tone }: { children: string; tone: "warning" | "succe
     </div>
   );
 }
-
-/* ── Main page ───────────────────────────────────────────────────── */
 
 export function FallbackPage(): JSX.Element {
   const [rules, setRules] = React.useState<FallbackRule[]>([]);
@@ -47,11 +44,7 @@ export function FallbackPage(): JSX.Element {
   const loadRules = React.useCallback(async () => {
     try {
       setError("");
-      const fetched = await fetchFallback();
-      setRules((prev) => {
-        if (prev.length === 0) return fetched;
-        return fetched;
-      });
+      setRules(await fetchFallback());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load fallback rules.");
     } finally {
@@ -60,7 +53,6 @@ export function FallbackPage(): JSX.Element {
   }, []);
 
   React.useEffect(() => { void loadRules(); }, [loadRules]);
-
   React.useEffect(() => {
     const id = setInterval(() => { void loadRules(); }, POLL_MS);
     return () => clearInterval(id);
@@ -102,13 +94,8 @@ export function FallbackPage(): JSX.Element {
     <div className="flex flex-col gap-4 md:gap-6">
       <PageHeader
         title="Fallback"
-        subtitle="Configure fallback routing between models. Order is preserved from configs/fallback.json."
-        actions={
-          <Button onClick={() => setCreating(true)}>
-            <Plus className="h-4 w-4" />
-            Add Rule
-          </Button>
-        }
+        subtitle="Configure fallback routing. Order is preserved from configs/fallback.json."
+        actions={<Button onClick={() => setCreating(true)}><Plus className="h-4 w-4" /> Add Rule</Button>}
       />
 
       {error ? <Banner tone="warning">{error}</Banner> : null}
@@ -116,39 +103,19 @@ export function FallbackPage(): JSX.Element {
 
       {loading ? (
         <Surface className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading rules…
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading rules…
         </Surface>
       ) : rules.length === 0 && !creating ? (
-        <EmptyState
-          title="No fallback rules"
-          description="Add a rule to configure fallback routing for a source model."
-          action={<Button onClick={() => setCreating(true)}><Plus className="h-4 w-4" /> Add Rule</Button>}
-        />
+        <EmptyState title="No fallback rules" description="Add a rule to configure fallback routing." action={<Button onClick={() => setCreating(true)}><Plus className="h-4 w-4" /> Add Rule</Button>} />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {creating && (
-            <InlineRuleCard
-              source=""
-              targets={[]}
-              modelOptions={modelOptions}
-              isNew
-              saving={saving}
-              onSave={(s, t) => void addRule(s, t)}
-              onCancel={() => setCreating(false)}
-            />
+            <RuleCard editing source="" targets={[]} modelOptions={modelOptions} saving={saving}
+              onSave={(s, t) => void addRule(s, t)} onCancel={() => setCreating(false)} />
           )}
           {rules.map((rule, idx) => (
-            <InlineRuleCard
-              key={`${rule.source}-${idx}`}
-              source={rule.source}
-              targets={rule.targets}
-              modelOptions={modelOptions}
-              isNew={false}
-              saving={saving}
-              onSave={(s, t) => void updateRule(idx, { source: s, targets: t })}
-              onDelete={() => void deleteRule(idx)}
-            />
+            <RuleCard key={`${rule.source}-${idx}`} source={rule.source} targets={rule.targets} modelOptions={modelOptions} saving={saving}
+              onSave={(s, t) => void updateRule(idx, { source: s, targets: t })} onDelete={() => void deleteRule(idx)} />
           ))}
         </div>
       )}
@@ -156,50 +123,53 @@ export function FallbackPage(): JSX.Element {
   );
 }
 
-/* ── Inline Editable Rule Card ────────────────────────────────────── */
+/* ── Rule Card ───────────────────────────────────────────────────── */
 
-function InlineRuleCard({
-  source: initialSource,
-  targets: initialTargets,
+function RuleCard({
+  source: initSource,
+  targets: initTargets,
   modelOptions,
-  isNew,
   saving,
   onSave,
   onDelete,
   onCancel,
+  editing: startEditing,
 }: {
   source: string;
   targets: string[];
   modelOptions: string[];
-  isNew: boolean;
   saving: boolean;
   onSave: (source: string, targets: string[]) => void;
   onDelete?: () => void;
   onCancel?: () => void;
+  editing?: boolean;
 }): JSX.Element {
-  const [editing, setEditing] = React.useState(isNew);
-  const [source, setSource] = React.useState(initialSource);
-  const [targets, setTargets] = React.useState([...initialTargets]);
+  const [editing, setEditing] = React.useState(startEditing ?? false);
+  const [source, setSource] = React.useState(initSource);
+  const [targets, setTargets] = React.useState([...initTargets]);
   const [targetInput, setTargetInput] = React.useState("");
 
-  const addTarget = (value: string) => {
-    const v = value.trim();
-    if (!v || targets.includes(v)) return;
-    setTargets((prev) => [...prev, v]);
+  const addTarget = (v: string) => {
+    const val = v.trim();
+    if (!val || targets.includes(val)) return;
+    setTargets((p) => [...p, val]);
     setTargetInput("");
   };
 
-  const removeTarget = (index: number) => {
-    setTargets((prev) => prev.filter((_, i) => i !== index));
-  };
+  const removeTarget = (i: number) => setTargets((p) => p.filter((_, idx) => idx !== i));
 
-  const moveTarget = (index: number, dir: -1 | 1) => {
-    const ni = index + dir;
+  const moveTarget = (i: number, dir: -1 | 1) => {
+    const ni = i + dir;
     if (ni < 0 || ni >= targets.length) return;
     const next = [...targets];
-    const tmp = next[index]!;
-    next[index] = next[ni]!;
-    next[ni] = tmp;
+    next[i] = next[ni]!;
+    next[ni] = next[i]!;
+    setTargets(next);
+  };
+
+  const editTarget = (i: number, value: string) => {
+    const next = [...targets];
+    next[i] = value;
     setTargets(next);
   };
 
@@ -209,34 +179,26 @@ function InlineRuleCard({
     return (
       <Surface className="p-4 flex flex-col gap-3">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground shrink-0">Source</span>
-          <input
-            className="flex-1 h-9 border border-border/50 bg-background/40 px-3 font-mono text-sm focus:outline-none focus:border-accent/70 focus:ring-2 focus:ring-accent/15"
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-            placeholder="e.g. openai/gpt-4o"
-            autoFocus
-          />
+          <span className="text-xs font-medium text-muted-foreground shrink-0 w-14">Source</span>
+          <input className="flex-1 h-9 border border-border/50 bg-background/40 px-3 font-mono text-sm focus:outline-none focus:border-accent/70 focus:ring-2 focus:ring-accent/15"
+            value={source} onChange={(e) => setSource(e.target.value)} placeholder="e.g. openai/gpt-4o" autoFocus />
         </div>
 
         <div className="flex items-center gap-2">
-          <select
-            className="flex-1 h-9 border border-border/50 bg-background/40 px-3 font-mono text-sm focus:outline-none focus:border-accent/70"
-            value={targetInput}
-            onChange={(e) => setTargetInput(e.target.value)}
-          >
+          <span className="text-xs font-medium text-muted-foreground shrink-0 w-14">Add</span>
+          <select className="flex-1 h-9 border border-border/50 bg-background/40 px-3 font-mono text-sm focus:outline-none focus:border-accent/70"
+            value={targetInput} onChange={(e) => setTargetInput(e.target.value)}>
             <option value="">Select model…</option>
             {availableModels.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
           <Button type="button" variant="secondary" size="sm" onClick={() => addTarget(targetInput)} disabled={!targetInput.trim()}>Add</Button>
         </div>
-        <input
-          className="h-9 border border-border/50 bg-background/40 px-3 font-mono text-sm focus:outline-none focus:border-accent/70"
-          value={targetInput}
-          onChange={(e) => setTargetInput(e.target.value)}
-          placeholder="Or type custom model name…"
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTarget(targetInput); } }}
-        />
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground shrink-0 w-14">Or type</span>
+          <input className="flex-1 h-9 border border-border/50 bg-background/40 px-3 font-mono text-sm focus:outline-none focus:border-accent/70"
+            value={targetInput} onChange={(e) => setTargetInput(e.target.value)} placeholder="custom model name…"
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTarget(targetInput); } }} />
+        </div>
 
         {targets.length > 0 && (
           <div className="border border-border/60 bg-background/40 divide-y divide-border/40">
@@ -246,9 +208,9 @@ function InlineRuleCard({
                   <button type="button" disabled={idx === 0} onClick={() => moveTarget(idx, -1)} className="text-muted-foreground hover:text-foreground disabled:opacity-30"><ArrowUp className="h-3 w-3" /></button>
                   <button type="button" disabled={idx === targets.length - 1} onClick={() => moveTarget(idx, 1)} className="text-muted-foreground hover:text-foreground disabled:opacity-30"><ArrowDown className="h-3 w-3" /></button>
                 </div>
-                <span className="font-mono text-sm truncate flex-1">
-                  <span className="text-muted-foreground">{idx === 0 ? "primary" : `fallback ${idx}`}:</span> {t}
-                </span>
+                <Pill tone={idx === 0 ? "success" : "muted"} className="shrink-0 text-[10px]">{idx === 0 ? "primary" : `fb ${idx}`}</Pill>
+                <input className="flex-1 h-7 border border-border/40 bg-transparent px-2 font-mono text-sm focus:outline-none focus:border-accent/70"
+                  value={t} onChange={(e) => editTarget(idx, e.target.value)} />
                 <Button type="button" variant="ghost" size="icon" onClick={() => removeTarget(idx)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
               </div>
             ))}
@@ -258,8 +220,7 @@ function InlineRuleCard({
         <div className="flex gap-2 justify-end">
           {onCancel && <Button variant="secondary" size="sm" onClick={onCancel} disabled={saving}>Cancel</Button>}
           <Button size="sm" onClick={() => onSave(source, targets)} disabled={saving || !source.trim() || targets.length === 0}>
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-            Save
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Save
           </Button>
         </div>
       </Surface>
@@ -267,34 +228,31 @@ function InlineRuleCard({
   }
 
   return (
-    <Surface className="p-4 flex flex-col gap-3 cursor-pointer hover:border-accent/30 transition-colors" onClick={() => setEditing(true)}>
+    <Surface className="p-4 flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="font-mono text-sm font-semibold text-foreground truncate">{initialSource}</h3>
+            <h3 className="font-mono text-sm font-semibold text-foreground truncate">{initSource}</h3>
             <Pill tone="accent">source</Pill>
           </div>
         </div>
-        {onDelete && (
-          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Delete rule">
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </Button>
-        )}
+        <div className="flex items-center gap-1 shrink-0">
+          <Button variant="ghost" size="icon" onClick={() => setEditing(true)} title="Edit rule"><Edit3 className="h-4 w-4" /></Button>
+          {onDelete && <Button variant="ghost" size="icon" onClick={onDelete} title="Delete rule"><Trash2 className="h-4 w-4 text-destructive" /></Button>}
+        </div>
       </div>
 
       <div className="border border-border/60 bg-background/40 p-3">
         <div className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground mb-2">Target Chain</div>
         <div className="flex flex-col">
-          {initialTargets.map((target, idx) => (
+          {initTargets.map((target, idx) => (
             <React.Fragment key={`${target}-${idx}`}>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground w-5 text-right shrink-0">{idx + 1}.</span>
                 <span className="font-mono text-sm text-foreground truncate">{target}</span>
                 <Pill tone={idx === 0 ? "success" : "muted"} className="ml-auto shrink-0">{idx === 0 ? "primary" : `fallback ${idx}`}</Pill>
               </div>
-              {idx < initialTargets.length - 1 && (
-                <div className="flex items-center justify-center py-0.5"><ArrowDown className="h-3 w-3 text-muted-foreground" /></div>
-              )}
+              {idx < initTargets.length - 1 && <div className="flex items-center justify-center py-0.5"><ArrowDown className="h-3 w-3 text-muted-foreground" /></div>}
             </React.Fragment>
           ))}
         </div>
