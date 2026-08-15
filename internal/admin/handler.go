@@ -51,6 +51,7 @@ type Handler struct {
 	responseCache        *responsecache.ResponseCacheMiddleware
 	runtimeConfig        DashboardConfigResponse
 	runtimeRefresher     RuntimeRefresher
+	fallbackReloader     FallbackReloader
 	settingsManager      DashboardSettingsManager
 	configuredProviders  []providers.SanitizedProviderConfig
 	providerOverrides    *ProviderOverrideStore
@@ -389,6 +390,11 @@ type RuntimeRefresher interface {
 	RefreshRuntime(ctx context.Context) (RuntimeRefreshReport, error)
 }
 
+// FallbackReloader reloads manual fallback rules into the live resolver.
+type FallbackReloader interface {
+	ReloadFallback() error
+}
+
 // DashboardSettingsManager updates the admin-managed editable config subset.
 type DashboardSettingsManager interface {
 	UpdateDashboardSettings(ctx context.Context, req DashboardSettingsUpdateRequest) (DashboardSettingsUpdateResponse, error)
@@ -513,6 +519,14 @@ func WithDashboardRuntimeConfig(values DashboardConfigResponse) Option {
 func WithRuntimeRefresher(refresher RuntimeRefresher) Option {
 	return func(h *Handler) {
 		h.runtimeRefresher = refresher
+	}
+}
+
+// WithFallbackReloader enables live reload of manual fallback rules after the
+// dashboard rewrites fallback.json.
+func WithFallbackReloader(reloader FallbackReloader) Option {
+	return func(h *Handler) {
+		h.fallbackReloader = reloader
 	}
 }
 

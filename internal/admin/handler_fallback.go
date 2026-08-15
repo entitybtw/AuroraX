@@ -79,6 +79,14 @@ func (h *Handler) UpdateFallbackConfig(c *echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": fmt.Sprintf("failed to write %s: %v", path, err)})
 	}
 
+	// Apply the new rules to the live resolver immediately so edits, toggles,
+	// and deletions take effect without a restart.
+	if h.fallbackReloader != nil {
+		if err := h.fallbackReloader.ReloadFallback(); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": fmt.Sprintf("saved %s but live reload failed: %v", path, err)})
+		}
+	}
+
 	// Re-read to return the canonical state.
 	rules, err := readFallbackRules(path)
 	if err != nil {
