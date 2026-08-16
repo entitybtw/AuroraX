@@ -95,7 +95,7 @@ function ConfigSourceBadge({ source }: { source: string | undefined }): JSX.Elem
 
 interface ProviderModalProps {
   mode: "add" | "edit";
-  initial: (ProviderFormData & { originalName?: string }) | undefined;
+  initial: (ProviderFormData & { originalName?: string; apiKeySet?: boolean }) | undefined;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -159,8 +159,11 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">API Key</label>
-            <Input type="password" placeholder="sk-..." value={form.api_key}
+            <Input type="password" placeholder={mode === "edit" && initial?.apiKeySet ? "Leave empty to keep existing key" : "sk-..."} value={form.api_key}
               onChange={(e) => setForm({ ...form, api_key: e.target.value })} />
+            {mode === "edit" && initial?.apiKeySet && (
+              <div className="text-[11px] text-success">A key is already set for this provider. Leave empty to keep it.</div>
+            )}
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Models</label>
@@ -199,7 +202,7 @@ export function ProvidersTab(): JSX.Element {
   });
 
   const [modalOpen, setModalOpen] = useState<"add" | "edit" | null>(null);
-  const [editingProvider, setEditingProvider] = useState<ProviderFormData & { originalName: string } | null>(null);
+  const [editingProvider, setEditingProvider] = useState<ProviderFormData & { originalName: string; apiKeySet?: boolean } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const deleteMutation = useMutation({
@@ -316,7 +319,7 @@ export function ProvidersTab(): JSX.Element {
                         aria-label={`Toggle provider ${provider.name}`}
                         title={`${provider.config?.enabled === false ? "Enable" : "Disable"} ${provider.name}`}
                       />
-                      <button onClick={() => { setEditingProvider({ name: provider.name, originalName: provider.name, type: provider.config?.type || provider.type || "", base_url: provider.config?.base_url || "", api_version: provider.config?.api_version || "", api_key: "", models: provider.config?.models?.join(", ") || "", bind_ip: provider.config?.bind_ip || "" }); setModalOpen("edit"); }} className="p-1.5 hover:bg-border/20 transition-colors" title="Edit provider">
+                      <button onClick={() => { setEditingProvider({ name: provider.name, originalName: provider.name, type: provider.config?.type || provider.type || "", base_url: provider.config?.base_url || "", api_version: provider.config?.api_version || "", api_key: "", models: provider.config?.models?.join(", ") || "", bind_ip: provider.config?.bind_ip || "", apiKeySet: provider.config?.api_key_set ?? false }); setModalOpen("edit"); }} className="p-1.5 hover:bg-border/20 transition-colors" title="Edit provider">
                         <Edit3Icon className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
                       <button onClick={() => setDeleteConfirm(provider.name)} className="p-1.5 hover:bg-destructive/10 transition-colors" title="Delete provider">
