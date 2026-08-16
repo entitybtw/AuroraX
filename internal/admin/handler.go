@@ -572,6 +572,17 @@ func (h *Handler) SetConfiguredProviders(configs []providers.SanitizedProviderCo
 	}
 	h.mutationMu.Lock()
 	defer h.mutationMu.Unlock()
+	keyCount := 0
+	bindCount := 0
+	for _, c := range configs {
+		if c.APIKey != "" {
+			keyCount++
+		}
+		if c.BindIP != "" {
+			bindCount++
+		}
+	}
+	slog.Info("SetConfiguredProviders", "providers", len(configs), "with_key", keyCount, "with_bind", bindCount)
 	h.configuredProviders = cloneConfiguredProviders(configs)
 }
 
