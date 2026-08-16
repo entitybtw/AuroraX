@@ -1432,6 +1432,7 @@ func dashboardSettingsSnapshot(cfg *config.Config) admin.DashboardSettingsSnapsh
 		},
 		ResponseHeaders: admin.DashboardResponseHeadersSettingsSnapshot{
 			Enabled:              cfg.ResponseHeaders.Enabled,
+			Mode:                 cfg.ResponseHeaders.Mode,
 			IncludeFallback:      cfg.ResponseHeaders.IncludeFallback,
 			IncludeNonFallback:   cfg.ResponseHeaders.IncludeNonFallback,
 			ActualProviderHeader: cfg.ResponseHeaders.ActualProviderHeader,
