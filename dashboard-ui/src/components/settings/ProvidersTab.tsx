@@ -5,7 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { RuntimeStatusBadge, useSettings, StatusChip } from "./SettingsContext";
 import { ServerIcon, RefreshCwIcon, PlusIcon, Edit3Icon, Trash2Icon, SaveIcon, XIcon } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchProviderStatus, createProvider, updateProvider, deleteProvider, setProviderEnabled, type ProviderFormData } from "@/lib/api/providers";
+import { fetchProviderStatus, createProvider, updateProvider, deleteProvider, setProviderEnabled, type ProviderFormData, type ProviderStatusResponse } from "@/lib/api/providers";
 import { withBasePath } from "@/lib/basepath";
 import { useState } from "react";
 
@@ -206,7 +206,26 @@ export function ProvidersTab(): JSX.Element {
 
   const toggleMutation = useMutation({
     mutationFn: ({ name, enabled }: { name: string; enabled: boolean }) => setProviderEnabled(name, enabled),
-    onSuccess: () => {
+    onMutate: async ({ name, enabled }) => {
+      await queryClient.cancelQueries({ queryKey: ["provider-status"] });
+      const previous = queryClient.getQueryData<ProviderStatusResponse>(["provider-status"]);
+      queryClient.setQueryData<ProviderStatusResponse>(["provider-status"], (old: ProviderStatusResponse | undefined) => {
+        if (!old) return old;
+        return {
+          ...old,
+          providers: old.providers.map((p) =>
+            p.name === name ? { ...p, config: { ...p.config, enabled } } : p
+          ),
+        };
+      });
+      return previous ? { previous } : {};
+    },
+    onError: (_err: Error, _variables, context: { previous?: ProviderStatusResponse } | undefined) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["provider-status"], context.previous);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["provider-status"] });
     },
   });

@@ -905,12 +905,6 @@ func applyYAML(cfg *Config) (map[string]RawProviderConfig, map[string]RawPoolCon
 	rawProviders := make(map[string]RawProviderConfig)
 	rawPools := make(map[string]RawPoolConfig)
 
-	if data == nil {
-		return rawProviders, rawPools, nil
-	}
-
-	expanded := expandString(string(data))
-
 	// yamlTarget is a local struct that mirrors Config for YAML unmarshaling,
 	// using RawProviderConfig for providers so nullable resilience overrides are preserved.
 	type yamlTarget struct {
@@ -919,16 +913,20 @@ func applyYAML(cfg *Config) (map[string]RawProviderConfig, map[string]RawPoolCon
 		RawPools     map[string]RawPoolConfig     `yaml:"pools"`
 	}
 
-	target := yamlTarget{Config: cfg}
-	if err := yaml.Unmarshal([]byte(expanded), &target); err != nil {
-		return nil, nil, fmt.Errorf("failed to parse %s: %w", configPath, err)
-	}
+	if data != nil {
+		expanded := expandString(string(data))
 
-	if target.RawProviders != nil {
-		rawProviders = target.RawProviders
-	}
-	if target.RawPools != nil {
-		rawPools = target.RawPools
+		target := yamlTarget{Config: cfg}
+		if err := yaml.Unmarshal([]byte(expanded), &target); err != nil {
+			return nil, nil, fmt.Errorf("failed to parse %s: %w", configPath, err)
+		}
+
+		if target.RawProviders != nil {
+			rawProviders = target.RawProviders
+		}
+		if target.RawPools != nil {
+			rawPools = target.RawPools
+		}
 	}
 
 	for _, overlayPath := range dashboardOverridePaths(customPath) {
