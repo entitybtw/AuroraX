@@ -6,6 +6,8 @@ import {
   type RuntimeRefreshReport,
 } from "./providers-types";
 
+export type { ProviderStatusResponse, RuntimeRefreshReport };
+
 export function fetchProviderStatus(): Promise<ProviderStatusResponse> {
   return apiFetch("/admin/api/v1/providers/status", {
     schema: ProviderStatusResponseSchema,

@@ -482,23 +482,14 @@ export function GeneralTab(): JSX.Element {
 
       <Surface id="response-headers" className="p-6 scroll-mt-20">
         <div className="flex flex-col gap-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex items-start gap-3">
-              <div className="border border-border/40 bg-background/80 p-2">
-                <GaugeIcon className="h-4 w-4 text-accent" />
-              </div>
-              <SectionHeader
-                title="Response Headers"
-                subtitle="Add debug headers to responses showing actual provider, model, and fallback chain information. Each header can be toggled independently and custom headers are supported."
-              />
+          <div className="flex items-start gap-3">
+            <div className="border border-border/40 bg-background/80 p-2">
+              <GaugeIcon className="h-4 w-4 text-accent" />
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button onClick={handleDashboardSettingsSave} disabled={mutations.saveDashboardSettingsMutation.isPending} variant="outline" size="sm">
-                <SaveIcon className="mr-2 h-4 w-4" />
-                {mutations.saveDashboardSettingsMutation.isPending ? "Saving..." : "Save Response Headers"}
-              </Button>
-              {mutations.saveDashboardSettingsMutation.isError && <span className="text-[13px] font-medium text-destructive">{mutations.saveDashboardSettingsMutation?.error?.message}</span>}
-            </div>
+            <SectionHeader
+              title="Response Headers"
+              subtitle="Add debug headers to responses showing actual provider, model, and fallback chain information. Each header can be toggled independently and custom headers are supported."
+            />
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -656,6 +647,14 @@ export function GeneralTab(): JSX.Element {
                 ))}
               </div>
             )}
+          </div>
+          <div className="flex items-center gap-3 mt-2 border-t border-border/50 pt-4">
+            <Button onClick={handleDashboardSettingsSave} disabled={mutations.saveDashboardSettingsMutation.isPending}>
+              <SaveIcon className="mr-2 h-4 w-4" />
+              {mutations.saveDashboardSettingsMutation.isPending ? "Saving..." : "Save Response Headers"}
+            </Button>
+            {mutations.saveDashboardSettingsMutation.isSuccess && <span className="text-[13px] font-medium text-success">Saved</span>}
+            {mutations.saveDashboardSettingsMutation.isError && <span className="text-[13px] font-medium text-destructive">{mutations.saveDashboardSettingsMutation?.error?.message}</span>}
           </div>
         </div>
       </Surface>
