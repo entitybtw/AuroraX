@@ -120,6 +120,7 @@ type DashboardSettingsSnapshot struct {
 	Pricing              DashboardPricingSettingsSnapshot              `json:"pricing"`
 	TokenSaver           DashboardTokenSaverSettingsSnapshot           `json:"token_saver"`
 	Proxy                DashboardProxySettingsSnapshot                `json:"proxy"`
+	ResponseHeaders      DashboardResponseHeadersSettingsSnapshot      `json:"response_headers"`
 }
 
 type DashboardStorageSettingsSnapshot struct {
@@ -224,6 +225,12 @@ type DashboardProxySettingsSnapshot struct {
 	NoProxy          string `json:"no_proxy"`
 	ProxyAuthEnabled bool   `json:"proxy_auth_enabled"`
 	CACertPEM        string `json:"ca_cert_pem,omitempty"`
+}
+
+type DashboardResponseHeadersSettingsSnapshot struct {
+	Enabled          bool `json:"enabled"`
+	IncludeFallback  bool `json:"include_fallback"`
+	IncludeNonFallback bool `json:"include_non_fallback"`
 }
 
 type DashboardSecuritySettingsSnapshot struct {
@@ -717,6 +724,11 @@ func normalizeDashboardSettingsSnapshot(values DashboardSettingsSnapshot) Dashbo
 			NoProxy:          strings.TrimSpace(values.Proxy.NoProxy),
 			ProxyAuthEnabled: values.Proxy.ProxyAuthEnabled,
 			CACertPEM:        strings.TrimSpace(values.Proxy.CACertPEM),
+		},
+		ResponseHeaders: DashboardResponseHeadersSettingsSnapshot{
+			Enabled:           values.ResponseHeaders.Enabled,
+			IncludeFallback:   values.ResponseHeaders.IncludeFallback,
+			IncludeNonFallback: values.ResponseHeaders.IncludeNonFallback,
 		},
 		Security: DashboardSecuritySettingsSnapshot{
 			MasterKeyConfigured: values.Security.MasterKeyConfigured,

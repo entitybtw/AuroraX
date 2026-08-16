@@ -1,0 +1,110 @@
+package server
+
+import (
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/labstack/echo/v5"
+
+	"aurora/configuration"
+	"aurora/internal/core"
+	"aurora/internal/gateway"
+)
+
+func TestApplyResponseHeaders(t *testing.T) {
+	tests := []struct {
+		name       string
+		cfg        config.ResponseHeadersConfig
+		meta       gateway.ExecutionMeta
+		requested  string
+		wantActual map[string]string
+	}{
+		{
+			name: "disabled emits nothing",
+			cfg:  config.ResponseHeadersConfig{Enabled: false, IncludeFallback: true, IncludeNonFallback: true},
+			meta: gateway.ExecutionMeta{ProviderType: "openai", ProviderName: "primary", Model: "gpt-4o"},
+			wantActual: map[string]string{},
+		},
+		{
+			name: "non-fallback with include_non_fallback",
+			cfg:  config.ResponseHeadersConfig{Enabled: true, IncludeFallback: false, IncludeNonFallback: true},
+			meta: gateway.ExecutionMeta{ProviderType: "openai", ProviderName: "primary", Model: "gpt-4o", UsedFallback: false},
+			requested: "gpt-4o",
+			wantActual: map[string]string{
+				"X-Actual-Provider": "primary",
+				"X-Actual-Model":    "gpt-4o",
+				"X-Requested-Model": "gpt-4o",
+			},
+		},
+		{
+			name: "non-fallback suppressed when include_non_fallback disabled",
+			cfg:  config.ResponseHeadersConfig{Enabled: true, IncludeFallback: true, IncludeNonFallback: false},
+			meta: gateway.ExecutionMeta{ProviderType: "openai", ProviderName: "primary", Model: "gpt-4o", UsedFallback: false},
+			wantActual: map[string]string{},
+		},
+		{
+			name: "fallback emits chain and failover model",
+			cfg:  config.ResponseHeadersConfig{Enabled: true, IncludeFallback: true, IncludeNonFallback: false},
+			meta: gateway.ExecutionMeta{ProviderType: "openai", ProviderName: "fallback-inst", Model: "gpt-4o-mini", UsedFallback: true, FallbackChain: []string{"gpt-4o", "gpt-4o-mini"}},
+			requested: "gpt-4o",
+			wantActual: map[string]string{
+				"X-Actual-Provider": "fallback-inst",
+				"X-Actual-Model":    "gpt-4o-mini",
+				"X-Requested-Model": "gpt-4o",
+				"X-Fallback-Chain":  "gpt-4o,gpt-4o-mini",
+			},
+		},
+		{
+			name: "fallback suppressed when include_fallback disabled",
+			cfg:  config.ResponseHeadersConfig{Enabled: true, IncludeFallback: false, IncludeNonFallback: true},
+			meta: gateway.ExecutionMeta{ProviderType: "openai", ProviderName: "fb", Model: "m", UsedFallback: true, FallbackChain: []string{"a", "b"}},
+			wantActual: map[string]string{},
+		},
+		{
+			name: "provider falls back to type when name empty",
+			cfg:  config.ResponseHeadersConfig{Enabled: true, IncludeFallback: false, IncludeNonFallback: true},
+			meta: gateway.ExecutionMeta{ProviderType: "openai", ProviderName: "", Model: "gpt-4o", UsedFallback: false},
+			requested: "gpt-4o",
+			wantActual: map[string]string{
+				"X-Actual-Provider": "openai",
+				"X-Actual-Model":    "gpt-4o",
+				"X-Requested-Model": "gpt-4o",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+
+			svc := &translatedInferenceService{}
+			svc.setResponseHeadersConfig(tt.cfg)
+
+			workflow := &core.Workflow{
+				Resolution: &core.RequestModelResolution{
+					Requested: core.NewRequestedModelSelector(tt.requested, ""),
+				},
+			}
+
+			svc.applyResponseHeaders(c, workflow, tt.meta)
+
+			headers := rec.Header()
+			for key, want := range tt.wantActual {
+				if got := headers.Get(key); got != want {
+					t.Errorf("header %s = %q, want %q", key, got, want)
+				}
+			}
+			if len(tt.wantActual) == 0 {
+				for _, key := range []string{"X-Actual-Provider", "X-Actual-Model", "X-Requested-Model", "X-Fallback-Chain"} {
+					if got := headers.Get(key); got != "" {
+						t.Errorf("header %s = %q, want unset", key, got)
+					}
+				}
+			}
+		})
+	}
+}

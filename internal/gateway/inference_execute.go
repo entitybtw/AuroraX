@@ -27,9 +27,9 @@ func (o *InferenceOrchestrator) DispatchChatCompletion(
 	ctx context.Context,
 	workflow *core.Workflow,
 	req *core.ChatRequest,
-) (*core.ChatResponse, string, string, string, bool, error) {
+) (*core.ChatResponse, string, string, string, bool, []string, error) {
 	if err := o.validateProviderAndRequest(req != nil, "chat request is required"); err != nil {
-		return nil, "", "", "", false, err
+		return nil, "", "", "", false, nil, err
 	}
 	return o.executeChatCompletion(ctx, workflow, req)
 }
@@ -40,18 +40,19 @@ func (o *InferenceOrchestrator) StreamChatCompletion(ctx context.Context, workfl
 		return nil, err
 	}
 	streamReq, providerType, providerName, usageModel := o.ResolveChatRoute(workflow, req)
-	stream, resolvedProviderType, resolvedProviderName, resolvedUsageModel, failoverModel, usedFallback, err := o.streamChatCompletion(ctx, workflow, streamReq, providerType, providerName, usageModel)
+	stream, resolvedProviderType, resolvedProviderName, resolvedUsageModel, failoverModel, usedFallback, fallbackChain, err := o.streamChatCompletion(ctx, workflow, streamReq, providerType, providerName, usageModel)
 	if err != nil {
 		return nil, err
 	}
 	return &StreamResult{
 		Stream: stream,
 		Meta: ExecutionMeta{
-			ProviderType:  resolvedProviderType,
-			ProviderName:  resolvedProviderName,
-			Model:         resolvedUsageModel,
-			FailoverModel: failoverModel,
-			UsedFallback:  usedFallback,
+			ProviderType:   resolvedProviderType,
+			ProviderName:   resolvedProviderName,
+			Model:          resolvedUsageModel,
+			FailoverModel:  failoverModel,
+			UsedFallback:   usedFallback,
+			FallbackChain:  fallbackChain,
 		},
 	}, nil
 }
@@ -69,9 +70,9 @@ func (o *InferenceOrchestrator) DispatchResponses(
 	ctx context.Context,
 	workflow *core.Workflow,
 	req *core.ResponsesRequest,
-) (*core.ResponsesResponse, string, string, string, bool, error) {
+) (*core.ResponsesResponse, string, string, string, bool, []string, error) {
 	if err := o.validateProviderAndRequest(req != nil, "responses request is required"); err != nil {
-		return nil, "", "", "", false, err
+		return nil, "", "", "", false, nil, err
 	}
 	return o.executeResponses(ctx, workflow, req)
 }
@@ -85,18 +86,19 @@ func (o *InferenceOrchestrator) StreamResponses(ctx context.Context, workflow *c
 	if (workflow == nil || workflow.UsageEnabled()) && o.ShouldEnforceReturningUsageData() {
 		ctx = core.WithEnforceReturningUsageData(ctx, true)
 	}
-	stream, resolvedProviderType, resolvedProviderName, resolvedUsageModel, failoverModel, usedFallback, err := o.streamResponses(ctx, workflow, req, providerType, providerName, usageModel)
+	stream, resolvedProviderType, resolvedProviderName, resolvedUsageModel, failoverModel, usedFallback, fallbackChain, err := o.streamResponses(ctx, workflow, req, providerType, providerName, usageModel)
 	if err != nil {
 		return nil, err
 	}
 	return &StreamResult{
 		Stream: stream,
 		Meta: ExecutionMeta{
-			ProviderType:  resolvedProviderType,
-			ProviderName:  resolvedProviderName,
-			Model:         resolvedUsageModel,
-			FailoverModel: failoverModel,
-			UsedFallback:  usedFallback,
+			ProviderType:   resolvedProviderType,
+			ProviderName:   resolvedProviderName,
+			Model:          resolvedUsageModel,
+			FailoverModel:  failoverModel,
+			UsedFallback:   usedFallback,
+			FallbackChain:  fallbackChain,
 		},
 	}, nil
 }
@@ -252,19 +254,19 @@ func (o *InferenceOrchestrator) executeChatCompletion(
 	ctx context.Context,
 	workflow *core.Workflow,
 	req *core.ChatRequest,
-) (*core.ChatResponse, string, string, string, bool, error) {
+) (*core.ChatResponse, string, string, string, bool, []string, error) {
 	if err := o.validateProviderAndRequest(req != nil, "chat request is required"); err != nil {
-		return nil, "", "", "", false, err
+		return nil, "", "", "", false, nil, err
 	}
-	resp, providerType, providerName, failoverModel, usedFallback, err := executeTranslatedProviderRequest(o, ctx, workflow, req, req.Model, req.Provider, CloneChatRequestForSelector, o.chatCompletionProviderCall, chatResponseProvider)
+	resp, providerType, providerName, failoverModel, usedFallback, fallbackChain, err := executeTranslatedProviderRequest(o, ctx, workflow, req, req.Model, req.Provider, CloneChatRequestForSelector, o.chatCompletionProviderCall, chatResponseProvider)
 	if err != nil {
-		return nil, "", "", "", false, err
+		return nil, "", "", "", false, nil, err
 	}
 	resp, err = o.patchChatResponse(ctx, resp)
 	if err != nil {
-		return nil, "", "", "", false, err
+		return nil, "", "", "", false, nil, err
 	}
-	return resp, providerType, providerName, failoverModel, usedFallback, nil
+	return resp, providerType, providerName, failoverModel, usedFallback, fallbackChain, nil
 }
 
 func (o *InferenceOrchestrator) streamChatCompletion(
@@ -272,9 +274,9 @@ func (o *InferenceOrchestrator) streamChatCompletion(
 	workflow *core.Workflow,
 	req *core.ChatRequest,
 	providerType, providerName, usageModel string,
-) (io.ReadCloser, string, string, string, string, bool, error) {
+) (io.ReadCloser, string, string, string, string, bool, []string, error) {
 	if err := o.validateProviderAndRequest(req != nil, "chat request is required"); err != nil {
-		return nil, "", "", "", "", false, err
+		return nil, "", "", "", "", false, nil, err
 	}
 	return streamTranslatedProviderRequest(o, ctx, workflow, req, req.Model, req.Provider, providerType, providerName, usageModel, CloneChatRequestForSelector, o.streamChatCompletionProviderCall)
 }
@@ -283,19 +285,19 @@ func (o *InferenceOrchestrator) executeResponses(
 	ctx context.Context,
 	workflow *core.Workflow,
 	req *core.ResponsesRequest,
-) (*core.ResponsesResponse, string, string, string, bool, error) {
+) (*core.ResponsesResponse, string, string, string, bool, []string, error) {
 	if err := o.validateProviderAndRequest(req != nil, "responses request is required"); err != nil {
-		return nil, "", "", "", false, err
+		return nil, "", "", "", false, nil, err
 	}
-	resp, providerType, providerName, failoverModel, usedFallback, err := executeTranslatedProviderRequest(o, ctx, workflow, req, req.Model, req.Provider, CloneResponsesRequestForSelector, o.responsesProviderCall, responsesResponseProvider)
+	resp, providerType, providerName, failoverModel, usedFallback, fallbackChain, err := executeTranslatedProviderRequest(o, ctx, workflow, req, req.Model, req.Provider, CloneResponsesRequestForSelector, o.responsesProviderCall, responsesResponseProvider)
 	if err != nil {
-		return nil, "", "", "", false, err
+		return nil, "", "", "", false, nil, err
 	}
 	resp, err = o.patchResponsesResponse(ctx, resp)
 	if err != nil {
-		return nil, "", "", "", false, err
+		return nil, "", "", "", false, nil, err
 	}
-	return resp, providerType, providerName, failoverModel, usedFallback, nil
+	return resp, providerType, providerName, failoverModel, usedFallback, fallbackChain, nil
 }
 
 func (o *InferenceOrchestrator) streamResponses(
@@ -303,15 +305,15 @@ func (o *InferenceOrchestrator) streamResponses(
 	workflow *core.Workflow,
 	req *core.ResponsesRequest,
 	providerType, providerName, usageModel string,
-) (io.ReadCloser, string, string, string, string, bool, error) {
+) (io.ReadCloser, string, string, string, string, bool, []string, error) {
 	if err := o.validateProviderAndRequest(req != nil, "responses request is required"); err != nil {
-		return nil, "", "", "", "", false, err
+		return nil, "", "", "", "", false, nil, err
 	}
 	return streamTranslatedProviderRequest(o, ctx, workflow, req, req.Model, req.Provider, providerType, providerName, usageModel, CloneResponsesRequestForSelector, o.streamResponsesProviderCall)
 }
 
 type translatedExecutionSpec[Req any, Resp any, Result any] struct {
-	execute func(*InferenceOrchestrator, context.Context, *core.Workflow, Req) (Resp, string, string, string, bool, error)
+	execute func(*InferenceOrchestrator, context.Context, *core.Workflow, Req) (Resp, string, string, string, bool, []string, error)
 	model   func(Resp) string
 	usage   func(Resp, string, string, string, *usage.PricingResult) *usage.UsageEntry
 	build   func(Resp, ExecutionMeta) Result
@@ -348,7 +350,7 @@ func executeTranslatedResult[Req any, Resp any, Result any](
 	spec translatedExecutionSpec[Req, Resp, Result],
 ) (Result, error) {
 	resp, meta, err := executeWithUsage(o, ctx, workflow,
-		func() (Resp, string, string, string, bool, error) {
+		func() (Resp, string, string, string, bool, []string, error) {
 			return spec.execute(o, ctx, workflow, req)
 		},
 		spec.model,
@@ -368,11 +370,11 @@ func executeWithUsage[Resp any](
 	o *InferenceOrchestrator,
 	ctx context.Context,
 	workflow *core.Workflow,
-	execute func() (Resp, string, string, string, bool, error),
+	execute func() (Resp, string, string, string, bool, []string, error),
 	modelFromResponse func(Resp) string,
 	entry func(Resp, string, *usage.PricingResult) *usage.UsageEntry,
 ) (Resp, ExecutionMeta, error) {
-	resp, providerType, providerName, failoverModel, usedFallback, err := execute()
+	resp, providerType, providerName, failoverModel, usedFallback, fallbackChain, err := execute()
 	if err != nil {
 		var zero Resp
 		return zero, ExecutionMeta{}, err
@@ -382,11 +384,12 @@ func executeWithUsage[Resp any](
 		return entry(resp, providerType, pricingResult)
 	})
 	return resp, ExecutionMeta{
-		ProviderType:  providerType,
-		ProviderName:  providerName,
-		Model:         model,
-		FailoverModel: failoverModel,
-		UsedFallback:  usedFallback,
+		ProviderType:   providerType,
+		ProviderName:   providerName,
+		Model:          model,
+		FailoverModel:  failoverModel,
+		UsedFallback:   usedFallback,
+		FallbackChain:  fallbackChain,
 	}, nil
 }
 
@@ -397,12 +400,12 @@ func executeTranslatedProviderRequest[Req any, Resp any](
 	req Req,
 	model, provider string,
 	cloneForSelector func(Req, core.ModelSelector) Req,
-	call func(context.Context, Req) (Resp, error),
+	call func(context.Context, Req) (Resp, string, error),
 	responseProvider func(Resp) string,
-) (Resp, string, string, string, bool, error) {
+) (Resp, string, string, string, bool, []string, error) {
 	return executeTranslatedWithFallback(ctx, o, workflow, req, model, provider, cloneForSelector,
 		func(ctx context.Context, req Req) (Resp, string, error) {
-			resp, err := call(ctx, req)
+			resp, _, err := call(ctx, req)
 			if err != nil {
 				var zero Resp
 				return zero, "", err
@@ -421,16 +424,16 @@ func streamTranslatedProviderRequest[Req any](
 	providerType, providerName, usageModel string,
 	cloneForSelector func(Req, core.ModelSelector) Req,
 	call func(context.Context, Req) (io.ReadCloser, error),
-) (io.ReadCloser, string, string, string, string, bool, error) {
+) (io.ReadCloser, string, string, string, string, bool, []string, error) {
 	stream, err := call(ctx, req)
 	if err == nil && stream != nil {
-		return stream, providerType, providerName, usageModel, "", false, nil
+		return stream, providerType, providerName, usageModel, "", false, nil, nil
 	}
 	if err == nil {
 		err = emptyProviderStreamError(providerType)
 	}
 
-	stream, resolvedProviderType, resolvedProviderName, resolvedUsageModel, failoverModel, err := tryFallbackStream(ctx, o, workflow, model, provider, err,
+	stream, resolvedProviderType, resolvedProviderName, resolvedUsageModel, failoverModel, fallbackChain, err := tryFallbackStream(ctx, o, workflow, model, provider, err,
 		func(selector core.ModelSelector, providerType, providerName string) (io.ReadCloser, string, string, error) {
 			stream, err := call(ctx, cloneForSelector(req, selector))
 			if err != nil {
@@ -443,9 +446,9 @@ func streamTranslatedProviderRequest[Req any](
 		},
 	)
 	if err != nil {
-		return nil, "", "", "", "", false, err
+		return nil, "", "", "", "", false, nil, err
 	}
-	return stream, resolvedProviderType, resolvedProviderName, resolvedUsageModel, failoverModel, true, nil
+	return stream, resolvedProviderType, resolvedProviderName, resolvedUsageModel, failoverModel, true, fallbackChain, nil
 }
 
 func (o *InferenceOrchestrator) validateProviderAndRequest(requestPresent bool, requiredMessage string) *core.GatewayError {
@@ -458,26 +461,26 @@ func (o *InferenceOrchestrator) validateProviderAndRequest(requestPresent bool, 
 	return nil
 }
 
-func (o *InferenceOrchestrator) chatCompletionProviderCall(ctx context.Context, req *core.ChatRequest) (*core.ChatResponse, error) {
+func (o *InferenceOrchestrator) chatCompletionProviderCall(ctx context.Context, req *core.ChatRequest) (*core.ChatResponse, string, error) {
 	resp, err := o.provider.ChatCompletion(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if resp == nil {
-		return nil, emptyProviderResponseError("")
+		return nil, "", emptyProviderResponseError("")
 	}
-	return resp, nil
+	return resp, o.provider.GetProviderType(req.Model), nil
 }
 
-func (o *InferenceOrchestrator) responsesProviderCall(ctx context.Context, req *core.ResponsesRequest) (*core.ResponsesResponse, error) {
+func (o *InferenceOrchestrator) responsesProviderCall(ctx context.Context, req *core.ResponsesRequest) (*core.ResponsesResponse, string, error) {
 	resp, err := o.provider.Responses(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if resp == nil {
-		return nil, emptyProviderResponseError("")
+		return nil, "", emptyProviderResponseError("")
 	}
-	return resp, nil
+	return resp, o.provider.GetProviderType(req.Model), nil
 }
 
 func (o *InferenceOrchestrator) streamChatCompletionProviderCall(ctx context.Context, req *core.ChatRequest) (io.ReadCloser, error) {
@@ -501,7 +504,7 @@ func executeChatCompletionRequest(
 	ctx context.Context,
 	workflow *core.Workflow,
 	req *core.ChatRequest,
-) (*core.ChatResponse, string, string, string, bool, error) {
+) (*core.ChatResponse, string, string, string, bool, []string, error) {
 	return o.executeChatCompletion(ctx, workflow, req)
 }
 
@@ -510,7 +513,7 @@ func executeResponsesRequest(
 	ctx context.Context,
 	workflow *core.Workflow,
 	req *core.ResponsesRequest,
-) (*core.ResponsesResponse, string, string, string, bool, error) {
+) (*core.ResponsesResponse, string, string, string, bool, []string, error) {
 	return o.executeResponses(ctx, workflow, req)
 }
 

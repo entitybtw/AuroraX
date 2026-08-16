@@ -26,6 +26,7 @@ type dashboardSettingsOverlay struct {
 
 	HTTP                 *dashboardHTTPOverlay                 `yaml:"http,omitempty"`
 	Proxy                *dashboardProxyOverlay                `yaml:"proxy,omitempty"`
+	ResponseHeaders      *dashboardResponseHeadersOverlay      `yaml:"response_headers,omitempty"`
 	Resilience           *dashboardResilienceOverlay           `yaml:"resilience,omitempty"`
 	Guardrails           *dashboardGuardrailsOverlay           `yaml:"guardrails,omitempty"`
 	Workflows            *dashboardWorkflowsOverlay            `yaml:"workflows,omitempty"`
@@ -134,6 +135,12 @@ type dashboardProxyOverlay struct {
 	CACertPEM        *string `yaml:"ca_cert_pem,omitempty"`
 }
 
+type dashboardResponseHeadersOverlay struct {
+	Enabled           *bool `yaml:"enabled,omitempty"`
+	IncludeFallback   *bool `yaml:"include_fallback,omitempty"`
+	IncludeNonFallback *bool `yaml:"include_non_fallback,omitempty"`
+}
+
 type dashboardResilienceOverlay struct {
 	Retry          *dashboardRetryOverlay          `yaml:"retry,omitempty"`
 	CircuitBreaker *dashboardCircuitBreakerOverlay `yaml:"circuit_breaker,omitempty"`
@@ -217,6 +224,7 @@ func (a *App) UpdateDashboardSettings(_ context.Context, req admin.DashboardSett
 		a.server.SetAllowPassthroughV1Alias(a.config.Server.AllowPassthroughV1Alias)
 		a.server.SetTokenSaver(a.config.TokenSaver)
 		a.server.SetPromptCacheConfig(a.config.Cache.Prompt)
+		a.server.SetResponseHeadersConfig(a.config.ResponseHeaders)
 	}
 
 	restartReasons := collectDashboardRestartReasons(&oldCfg, a.config)
@@ -450,6 +458,9 @@ func applyDashboardSettingsToConfig(cfg *config.Config, req admin.DashboardSetti
 	cfg.Cache.Prompt.ToolsCache = req.Caching.PromptCache.ToolsCache
 	cfg.Cache.Prompt.MinTokensBeforeCache = req.Caching.PromptCache.MinTokens
 	applyDashboardTokenSaverToConfig(cfg, req.TokenSaver)
+	cfg.ResponseHeaders.Enabled = req.ResponseHeaders.Enabled
+	cfg.ResponseHeaders.IncludeFallback = req.ResponseHeaders.IncludeFallback
+	cfg.ResponseHeaders.IncludeNonFallback = req.ResponseHeaders.IncludeNonFallback
 }
 
 func applyDashboardTokenSaverToConfig(cfg *config.Config, values admin.DashboardSettingsUpdateTokenSaver) {
@@ -499,6 +510,9 @@ func applyDashboardSettingsToOverlay(overlay *dashboardSettingsOverlay, req admi
 	}
 	if overlay.Proxy == nil {
 		overlay.Proxy = &dashboardProxyOverlay{}
+	}
+	if overlay.ResponseHeaders == nil {
+		overlay.ResponseHeaders = &dashboardResponseHeadersOverlay{}
 	}
 	if overlay.Resilience == nil {
 		overlay.Resilience = &dashboardResilienceOverlay{}
@@ -645,6 +659,10 @@ func applyDashboardSettingsToOverlay(overlay *dashboardSettingsOverlay, req admi
 	overlay.Proxy.NoProxy = stringPtr(strings.TrimSpace(req.Proxy.NoProxy))
 	overlay.Proxy.ProxyAuthEnabled = boolPtr(req.Proxy.ProxyAuthEnabled)
 	overlay.Proxy.CACertPEM = stringPtr(strings.TrimSpace(req.Proxy.CACertPEM))
+
+	overlay.ResponseHeaders.Enabled = boolPtr(req.ResponseHeaders.Enabled)
+	overlay.ResponseHeaders.IncludeFallback = boolPtr(req.ResponseHeaders.IncludeFallback)
+	overlay.ResponseHeaders.IncludeNonFallback = boolPtr(req.ResponseHeaders.IncludeNonFallback)
 
 	initialBackoff := (time.Duration(req.Performance.RetryInitialBackoffMilliseconds) * time.Millisecond).String()
 	maxBackoff := (time.Duration(req.Performance.RetryMaxBackoffMilliseconds) * time.Millisecond).String()

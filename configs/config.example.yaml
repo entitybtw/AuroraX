@@ -325,6 +325,16 @@ token_saver:
   audit:
     enabled: true # env: TOKEN_SAVER_AUDIT_ENABLED
 
+# ========= RESPONSE HEADERS =========
+# Additional debug headers added to gateway responses
+response_headers:
+  # Enable adding X-Actual-Provider / X-Actual-Model / X-Requested-Model / X-Fallback-Chain headers
+  enabled: false # env: RESPONSE_HEADERS_ENABLED
+  # Add headers when a fallback was used during request execution
+  include_fallback: true # env: RESPONSE_HEADERS_INCLUDE_FALLBACK
+  # Add headers when no fallback was used (normal request execution)
+  include_non_fallback: true # env: RESPONSE_HEADERS_INCLUDE_NON_FALLBACK
+
 # ========= WORKFLOWS =========
 # Workflow execution and refresh
 workflows:

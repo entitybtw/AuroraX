@@ -468,6 +468,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 		EnableAnthropicIngress:               appCfg.Server.EnableAnthropicIngress,
 		TokenSaver:                           appCfg.TokenSaver,
 		PromptCacheConfig:                    appCfg.Cache.Prompt,
+		ResponseHeadersConfig:                appCfg.ResponseHeaders,
 		Capabilities:                         config.ResolveCapabilities(appCfg.Edition),
 	}
 

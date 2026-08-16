@@ -44,22 +44,27 @@ func tryFallbackResponse[T any](
 	model, provider string,
 	primaryErr error,
 	call func(selector core.ModelSelector, providerType, providerName string) (T, string, error),
-) (T, string, string, string, bool, error) {
+) (T, string, string, string, bool, []string, error) {
 	var zero T
 
 	fallbacks := o.FallbackSelectors(workflow)
 	if len(fallbacks) == 0 || !ShouldAttemptFallback(primaryErr) {
-		return zero, "", "", "", false, primaryErr
+		return zero, "", "", "", false, nil, primaryErr
 	}
 
 	requestID := strings.TrimSpace(core.GetRequestID(ctx))
 	primaryModel := currentSelectorForWorkflow(workflow, model, provider)
 	lastErr := primaryErr
+
+	// Track the fallback chain - start with primary model
+	fallbackChain := []string{primaryModel}
+
 	for _, selector := range fallbacks {
 		if o.modelAuthorizer != nil && !o.modelAuthorizer.AllowsModel(ctx, selector) {
 			continue
 		}
 		qualified := selector.QualifiedModel()
+		fallbackChain = append(fallbackChain, qualified)
 		providerType := o.ProviderTypeForSelector(selector, ProviderTypeFromWorkflow(workflow))
 		providerName := ResolvedProviderName(o.provider, selector, ProviderNameFromWorkflow(workflow))
 		slog.Warn("primary model attempt failed, trying fallback",
@@ -78,12 +83,12 @@ func tryFallbackResponse[T any](
 				"to", qualified,
 				"provider_type", resolvedProviderType,
 			)
-			return resp, resolvedProviderType, providerName, qualified, true, nil
+			return resp, resolvedProviderType, providerName, qualified, true, fallbackChain, nil
 		}
 		lastErr = err
 	}
 
-	return zero, "", "", "", false, lastErr
+	return zero, "", "", "", false, fallbackChain, lastErr
 }
 
 func executeWithFallbackResponse[T any](
@@ -93,10 +98,10 @@ func executeWithFallbackResponse[T any](
 	model, provider string,
 	primary func() (T, string, string, error),
 	fallback func(selector core.ModelSelector, providerType, providerName string) (T, string, error),
-) (T, string, string, string, bool, error) {
+) (T, string, string, string, bool, []string, error) {
 	resp, resolvedProviderType, resolvedProviderName, err := primary()
 	if err == nil {
-		return resp, resolvedProviderType, resolvedProviderName, "", false, nil
+		return resp, resolvedProviderType, resolvedProviderName, "", false, nil, nil
 	}
 	return tryFallbackResponse(ctx, o, workflow, model, provider, err, fallback)
 }
@@ -109,7 +114,7 @@ func executeTranslatedWithFallback[Req any, Resp any](
 	model, provider string,
 	cloneForSelector func(Req, core.ModelSelector) Req,
 	call func(context.Context, Req) (Resp, string, error),
-) (Resp, string, string, string, bool, error) {
+) (Resp, string, string, string, bool, []string, error) {
 	return executeWithFallbackResponse(ctx, o, workflow, model, provider,
 		func() (Resp, string, string, error) {
 			callReq := req
@@ -141,20 +146,25 @@ func tryFallbackStream(
 	model, provider string,
 	primaryErr error,
 	call func(selector core.ModelSelector, providerType, providerName string) (io.ReadCloser, string, string, error),
-) (io.ReadCloser, string, string, string, string, error) {
+) (io.ReadCloser, string, string, string, string, []string, error) {
 	fallbacks := o.FallbackSelectors(workflow)
 	if len(fallbacks) == 0 || !ShouldAttemptFallback(primaryErr) {
-		return nil, "", "", "", "", primaryErr
+		return nil, "", "", "", "", nil, primaryErr
 	}
 
 	requestID := strings.TrimSpace(core.GetRequestID(ctx))
 	primaryModel := currentSelectorForWorkflow(workflow, model, provider)
 	lastErr := primaryErr
+
+	// Track the fallback chain - start with primary model
+	fallbackChain := []string{primaryModel}
+
 	for _, selector := range fallbacks {
 		if o.modelAuthorizer != nil && !o.modelAuthorizer.AllowsModel(ctx, selector) {
 			continue
 		}
 		qualified := selector.QualifiedModel()
+		fallbackChain = append(fallbackChain, qualified)
 		providerType := o.ProviderTypeForSelector(selector, ProviderTypeFromWorkflow(workflow))
 		providerName := ResolvedProviderName(o.provider, selector, ProviderNameFromWorkflow(workflow))
 		slog.Warn("primary model attempt failed, trying fallback stream",
@@ -173,12 +183,12 @@ func tryFallbackStream(
 				"to", qualified,
 				"provider_type", resolvedProviderType,
 			)
-			return stream, resolvedProviderType, providerName, usageModel, qualified, nil
+			return stream, resolvedProviderType, providerName, usageModel, qualified, fallbackChain, nil
 		}
 		lastErr = err
 	}
 
-	return nil, "", "", "", "", lastErr
+	return nil, "", "", "", "", fallbackChain, lastErr
 }
 
 // ShouldAttemptFallback reports whether err should trigger translated fallback.

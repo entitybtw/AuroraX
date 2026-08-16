@@ -100,3 +100,7 @@ token_saver:
     on_error: allow
     emit_headers: false
     audit_enabled: false
+response_headers:
+    enabled: false
+    include_fallback: true
+    include_non_fallback: true

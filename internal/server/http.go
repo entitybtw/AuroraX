@@ -86,6 +86,7 @@ type Config struct {
 	GuardrailsHash                       string                                 // Optional: SHA-256 hash of active guardrail rules; stored in context post-patch for semantic cache
 	TokenSaver                           config.TokenSaverConfig                // Optional: policy-driven prompt/tool-output compression settings
 	PromptCacheConfig                    config.PromptCacheConfig               // Policy for applying prompt cache breakpoints
+	ResponseHeadersConfig                config.ResponseHeadersConfig           // Optional: additional response headers for debugging
 	Capabilities                         map[string]bool                        // Runtime edition capabilities for route gating
 	IPExtractor                          echo.IPExtractor                       // Optional: trusted client IP extraction strategy for proxied deployments
 	EnableAnthropicIngress               bool                                   // Enable /v1/messages Anthropic-format endpoint
@@ -144,6 +145,7 @@ func New(provider core.RoutableProvider, cfg *Config) *Server {
 		handler.guardrailsHash = cfg.GuardrailsHash
 		handler.tokenSaver = tokensaver.NewService(cfg.TokenSaver)
 		handler.promptCacheConfig = promptCacheConfigFromConfig(cfg.PromptCacheConfig)
+		handler.responseHeadersConfig = cfg.ResponseHeadersConfig
 	}
 	if cfg != nil && cfg.EnabledPassthroughProviders != nil {
 		handler.setEnabledPassthroughProviders(cfg.EnabledPassthroughProviders)
