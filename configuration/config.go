@@ -388,6 +388,11 @@ type ResponseHeadersConfig struct {
 	// Default: false.
 	Enabled bool `yaml:"enabled" env:"RESPONSE_HEADERS_ENABLED"`
 
+	// Mode controls when headers are added.
+	// Values: "success" (only 2xx), "error" (only 4xx/5xx), "always" (all responses).
+	// Default: "success".
+	Mode string `yaml:"mode" env:"RESPONSE_HEADERS_MODE"`
+
 	// IncludeFallback controls whether headers are added when a fallback
 	// was used during request execution.
 	// Default: true.
@@ -799,6 +804,7 @@ func buildDefaultConfig() *Config {
 		TokenSaver: defaultTokenSaverConfig(),
 		ResponseHeaders: ResponseHeadersConfig{
 			Enabled:              false,
+			Mode:                 "success",
 			IncludeFallback:      true,
 			IncludeNonFallback:   true,
 			ActualProviderHeader: true,

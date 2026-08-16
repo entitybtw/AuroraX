@@ -115,6 +115,7 @@ export interface DashboardSettingsFormState {
   };
   response_headers: {
     enabled: boolean;
+    mode: "success" | "error" | "always";
     include_fallback: boolean;
     include_non_fallback: boolean;
     actual_provider_header: boolean;

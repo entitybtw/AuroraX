@@ -229,6 +229,7 @@ type DashboardProxySettingsSnapshot struct {
 
 type DashboardResponseHeadersSettingsSnapshot struct {
 	Enabled               bool                                `json:"enabled"`
+	Mode                  string                              `json:"mode"`
 	IncludeFallback       bool                                `json:"include_fallback"`
 	IncludeNonFallback    bool                                `json:"include_non_fallback"`
 	ActualProviderHeader  bool                                `json:"actual_provider_header"`
@@ -738,6 +739,7 @@ func normalizeDashboardSettingsSnapshot(values DashboardSettingsSnapshot) Dashbo
 		},
 		ResponseHeaders: DashboardResponseHeadersSettingsSnapshot{
 			Enabled:              values.ResponseHeaders.Enabled,
+			Mode:                 values.ResponseHeaders.Mode,
 			IncludeFallback:      values.ResponseHeaders.IncludeFallback,
 			IncludeNonFallback:   values.ResponseHeaders.IncludeNonFallback,
 			ActualProviderHeader: values.ResponseHeaders.ActualProviderHeader,
