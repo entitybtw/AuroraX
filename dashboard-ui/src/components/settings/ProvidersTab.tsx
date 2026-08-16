@@ -319,7 +319,7 @@ export function ProvidersTab(): JSX.Element {
                         aria-label={`Toggle provider ${provider.name}`}
                         title={`${provider.config?.enabled === false ? "Enable" : "Disable"} ${provider.name}`}
                       />
-                      <button onClick={() => { setEditingProvider({ name: provider.name, originalName: provider.name, type: provider.config?.type || provider.type || "", base_url: provider.config?.base_url || "", api_version: provider.config?.api_version || "", api_key: "", models: provider.config?.models?.join(", ") || "", bind_ip: provider.config?.bind_ip || "", apiKeySet: provider.config?.api_key_set ?? false }); setModalOpen("edit"); }} className="p-1.5 hover:bg-border/20 transition-colors" title="Edit provider">
+                      <button onClick={() => { setEditingProvider({ name: provider.name, originalName: provider.name, type: provider.config?.type || provider.type || "", base_url: provider.config?.base_url || "", api_version: provider.config?.api_version || "", api_key: provider.config?.api_key || "", models: provider.config?.models?.join(", ") || "", bind_ip: provider.config?.bind_ip || "", apiKeySet: provider.config?.api_key_set ?? false }); setModalOpen("edit"); }} className="p-1.5 hover:bg-border/20 transition-colors" title="Edit provider">
                         <Edit3Icon className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
                       <button onClick={() => setDeleteConfirm(provider.name)} className="p-1.5 hover:bg-destructive/10 transition-colors" title="Delete provider">
