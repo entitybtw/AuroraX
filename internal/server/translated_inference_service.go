@@ -195,7 +195,7 @@ func (s *translatedInferenceService) dispatchChatCompletion(c *echo.Context, req
 	result, err := s.inference().ExecuteChatCompletion(ctx, workflow, req, requestID, endpoint)
 	recordGatewayPhase(endpoint, "provider_dispatch", errStatus(err), streamLabel, time.Since(providerStart))
 	if err != nil {
-		return handleError(c, err)
+		return s.handleErrorWithResponseHeaders(c, err, workflow)
 	}
 	if result.Meta.UsedFallback {
 		markRequestFallbackUsed(c)
@@ -353,6 +353,60 @@ func expandResponseHeaderTemplate(template, actualProvider, actualModel, request
 		"{request_id}", requestID,
 	)
 	return strings.TrimSpace(replacer.Replace(template))
+}
+
+// handleErrorWithResponseHeaders converts a gateway error into an HTTP response
+// and, when the response headers feature is enabled and the mode permits error
+// responses, adds debug headers derived from the request workflow (the resolved
+// provider and requested model). Unlike applyResponseHeaders it does not need
+// execution metadata, so it works for provider errors like rate limits (429).
+func (s *translatedInferenceService) handleErrorWithResponseHeaders(c *echo.Context, err error, workflow *core.Workflow) error {
+	cfg := s.currentResponseHeadersConfig()
+	if cfg.Enabled && modeAllowsErrorHeaders(cfg.Mode) {
+		header := c.Response().Header()
+		providerName := gateway.ProviderNameFromWorkflow(workflow)
+		providerType := gateway.ProviderTypeFromWorkflow(workflow)
+		actualProvider := providerName
+		if actualProvider == "" {
+			actualProvider = providerType
+		}
+		requestedModel := ""
+		if workflow != nil {
+			requestedModel = workflow.RequestedQualifiedModel()
+		}
+		requestID := requestIDFromContextOrHeader(c.Request())
+
+		if cfg.ActualProviderHeader && actualProvider != "" {
+			header.Set("X-Actual-Provider", actualProvider)
+		}
+		if cfg.RequestedModelHeader && requestedModel != "" {
+			header.Set("X-Requested-Model", requestedModel)
+		}
+		if requestID != "" {
+			header.Set("X-Request-ID", requestID)
+		}
+		for _, custom := range cfg.CustomHeaders {
+			if !custom.Enabled || strings.TrimSpace(custom.Name) == "" {
+				continue
+			}
+			name := http.CanonicalHeaderKey(strings.TrimSpace(custom.Name))
+			value := expandResponseHeaderTemplate(custom.Value, actualProvider, "", requestedModel, "", requestID)
+			if name != "" && value != "" {
+				header.Set(name, value)
+			}
+		}
+	}
+	return handleError(c, err)
+}
+
+// modeAllowsErrorHeaders reports whether the response headers mode includes error responses.
+func modeAllowsErrorHeaders(mode string) bool {
+	switch strings.TrimSpace(mode) {
+	case "error", "always":
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *translatedInferenceService) Responses(c *echo.Context) error {
@@ -526,7 +580,7 @@ func (s *translatedInferenceService) dispatchResponses(c *echo.Context, req *cor
 	result, err := s.inference().ExecuteResponses(ctx, workflow, req, requestID, endpoint)
 	recordGatewayPhase(endpoint, "provider_dispatch", errStatus(err), streamLabel, time.Since(providerStart))
 	if err != nil {
-		return handleError(c, err)
+		return s.handleErrorWithResponseHeaders(c, err, workflow)
 	}
 	if result.Meta.UsedFallback {
 		markRequestFallbackUsed(c)
@@ -852,7 +906,7 @@ func (s *translatedInferenceService) handleStreamingResponse(
 ) error {
 	stream, err := streamFn()
 	if err != nil {
-		return handleError(c, err)
+		return s.handleErrorWithResponseHeaders(c, err, workflow)
 	}
 	return s.handleStreamingReadCloser(c, workflow, model, provider, providerName, "", gateway.ExecutionMeta{}, stream)
 }
