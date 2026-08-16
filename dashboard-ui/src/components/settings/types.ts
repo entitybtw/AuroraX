@@ -113,6 +113,11 @@ export interface DashboardSettingsFormState {
     proxy_auth_enabled: boolean;
     ca_cert_pem: string;
   };
+  response_headers: {
+    enabled: boolean;
+    include_fallback: boolean;
+    include_non_fallback: boolean;
+  };
 }
 
 export interface DashboardSettingsSaveResponse {

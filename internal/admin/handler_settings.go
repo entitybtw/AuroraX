@@ -24,6 +24,13 @@ type DashboardSettingsUpdateRequest struct {
 	Pricing              DashboardSettingsUpdatePricing              `json:"pricing"`
 	TokenSaver           DashboardSettingsUpdateTokenSaver           `json:"token_saver"`
 	Proxy                DashboardSettingsUpdateProxy                `json:"proxy"`
+	ResponseHeaders      DashboardSettingsUpdateResponseHeaders      `json:"response_headers"`
+}
+
+type DashboardSettingsUpdateResponseHeaders struct {
+	Enabled           bool `json:"enabled"`
+	IncludeFallback   bool `json:"include_fallback"`
+	IncludeNonFallback bool `json:"include_non_fallback"`
 }
 
 type DashboardSettingsUpdateClient struct {

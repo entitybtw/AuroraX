@@ -7,6 +7,7 @@ import (
 
 	"github.com/labstack/echo/v5"
 
+	"aurora/configuration"
 	"aurora/internal/audit_logging"
 	batchstore "aurora/internal/batch"
 	"aurora/internal/core"
@@ -41,6 +42,7 @@ type Handler struct {
 	guardrailsHash                  string
 	tokenSaver                      *tokensaver.Service
 	promptCacheConfig               *core.PromptCacheConfig
+	responseHeadersConfig           config.ResponseHeadersConfig
 
 	translatedSvc           *translatedInferenceService
 	translatedSvcOnce       sync.Once
@@ -148,6 +150,7 @@ func (h *Handler) translatedInference() *translatedInferenceService {
 			tokenSaver:               h.tokenSaver,
 			responseStore:            h.currentResponseStore(),
 			promptCacheConfig:        h.promptCacheConfig,
+			responseHeaders:          h.responseHeadersConfig,
 		}
 		s.initHandlers()
 		h.responseStoreMu.Lock()

@@ -47,6 +47,7 @@ type Config struct {
 	Resilience           ResilienceConfig           `yaml:"resilience"`
 	TokenSaver           TokenSaverConfig           `yaml:"token_saver"`
 	Edition              EditionConfig              `yaml:"edition"`
+	ResponseHeaders      ResponseHeadersConfig      `yaml:"response_headers"`
 }
 
 // LoadResult is returned by Load and bundles the application config with the raw
@@ -378,6 +379,24 @@ type HTTPProxyConfig struct {
 	NoProxy          string `yaml:"no_proxy" env:"NO_PROXY"`
 	ProxyAuthEnabled bool   `yaml:"proxy_auth_enabled"`
 	CACertPEM        string `yaml:"ca_cert_pem"`
+}
+
+// ResponseHeadersConfig controls the additional response headers added to
+// gateway responses for debugging and monitoring purposes.
+type ResponseHeadersConfig struct {
+	// Enabled controls whether the additional response headers are added.
+	// Default: false.
+	Enabled bool `yaml:"enabled" env:"RESPONSE_HEADERS_ENABLED"`
+
+	// IncludeFallback controls whether headers are added when a fallback
+	// was used during request execution.
+	// Default: true.
+	IncludeFallback bool `yaml:"include_fallback" env:"RESPONSE_HEADERS_INCLUDE_FALLBACK"`
+
+	// IncludeNonFallback controls whether headers are added when no fallback
+	// was used (normal request execution).
+	// Default: true.
+	IncludeNonFallback bool `yaml:"include_non_fallback" env:"RESPONSE_HEADERS_INCLUDE_NON_FALLBACK"`
 }
 
 // WorkflowsConfig holds runtime refresh behavior for persisted workflows.
@@ -742,6 +761,11 @@ func buildDefaultConfig() *Config {
 		Admin:      AdminConfig{EndpointsEnabled: false, UIEnabled: false},
 		Guardrails: GuardrailsConfig{},
 		TokenSaver: defaultTokenSaverConfig(),
+		ResponseHeaders: ResponseHeadersConfig{
+			Enabled:            false,
+			IncludeFallback:    true,
+			IncludeNonFallback: true,
+		},
 		Edition: EditionConfig{
 			Name: EditionOSS,
 		},

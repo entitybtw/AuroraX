@@ -112,11 +112,12 @@ type PreparedRerankRequest struct {
 
 // ExecutionMeta describes the concrete route used for provider execution.
 type ExecutionMeta struct {
-	ProviderType  string
-	ProviderName  string
-	Model         string
-	FailoverModel string
-	UsedFallback  bool
+	ProviderType     string
+	ProviderName     string
+	Model            string
+	FailoverModel    string
+	UsedFallback     bool
+	FallbackChain    []string
 }
 
 // ChatCompletionResult is the non-streaming chat completion result.

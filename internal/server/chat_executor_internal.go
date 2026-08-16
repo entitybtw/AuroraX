@@ -2,8 +2,8 @@ package server
 
 import (
 	"context"
-	json "github.com/goccy/go-json"
 	"errors"
+	json "github.com/goccy/go-json"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -146,10 +146,11 @@ func (e *InternalChatCompletionExecutor) executeChatCompletion(
 		providerName  string
 		failoverModel string
 		usedFallback  bool
+		cacheType     string
 	)
 	result, err := e.responseCache.HandleInternalRequest(ctx, http.MethodPost, "/v1/chat/completions", body, func(c *echo.Context) error {
 		var execErr error
-		resp, providerType, providerName, failoverModel, usedFallback, execErr = e.orchestrator.DispatchChatCompletion(c.Request().Context(), workflow, req)
+		resp, providerType, providerName, failoverModel, usedFallback, _, execErr = e.orchestrator.DispatchChatCompletion(c.Request().Context(), workflow, req)
 		if execErr != nil {
 			return execErr
 		}
@@ -174,7 +175,7 @@ func (e *InternalChatCompletionExecutor) executeChatCompletion(
 		}
 		return &cached, cachedProviderType, cachedProviderName, "", false, result.CacheType, nil
 	}
-	return resp, providerType, providerName, failoverModel, usedFallback, "", nil
+	return resp, providerType, providerName, failoverModel, usedFallback, cacheType, nil
 }
 
 func (e *InternalChatCompletionExecutor) dispatchChatCompletionNoCache(
@@ -182,7 +183,7 @@ func (e *InternalChatCompletionExecutor) dispatchChatCompletionNoCache(
 	workflow *core.Workflow,
 	req *core.ChatRequest,
 ) (*core.ChatResponse, string, string, string, bool, string, error) {
-	resp, providerType, providerName, failoverModel, usedFallback, err := e.orchestrator.DispatchChatCompletion(ctx, workflow, req)
+	resp, providerType, providerName, failoverModel, usedFallback, _, err := e.orchestrator.DispatchChatCompletion(ctx, workflow, req)
 	return resp, providerType, providerName, failoverModel, usedFallback, "", err
 }
 

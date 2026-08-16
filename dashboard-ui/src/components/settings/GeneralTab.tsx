@@ -479,6 +479,62 @@ export function GeneralTab(): JSX.Element {
           </div>
         </div>
       </Surface>
+
+      <Surface id="response-headers" className="p-6 scroll-mt-20">
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="border border-border/40 bg-background/80 p-2">
+                <GaugeIcon className="h-4 w-4 text-accent" />
+              </div>
+              <SectionHeader
+                title="Response Headers"
+                subtitle="Add debug headers to responses showing actual provider, model, and fallback chain information."
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={dashboardSettings.response_headers?.enabled ?? false}
+                    onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, enabled: checked } })}
+                    aria-label="Enable response headers"
+                  />
+                  <div className="flex min-w-0 flex-col gap-1">
+                    <span className="truncate text-[14px] font-semibold text-foreground">Enable response headers</span>
+                    <span className="text-[11px] text-muted-foreground">Add X-Actual-Provider, X-Actual-Model, X-Requested-Model, X-Fallback-Chain headers to responses</span>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-1 text-[12px] text-muted-foreground">When enabled, responses will include headers showing the actual provider, model, and fallback chain used.</div>
+            </div>
+            <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={dashboardSettings.response_headers?.include_fallback ?? true}
+                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, include_fallback: checked } })}
+                  aria-label="Include headers on fallback requests"
+                />
+                <span className="text-[14px] font-medium text-foreground">Include on fallback requests</span>
+              </div>
+              <div className="mt-1 text-[12px] text-muted-foreground">Add headers when a fallback provider was used (request failed over to another provider).</div>
+            </div>
+            <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={dashboardSettings.response_headers?.include_non_fallback ?? true}
+                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, include_non_fallback: checked } })}
+                  aria-label="Include headers on non-fallback requests"
+                />
+                <span className="text-[14px] font-medium text-foreground">Include on non-fallback requests</span>
+              </div>
+              <div className="mt-1 text-[12px] text-muted-foreground">Add headers even when no fallback occurred (normal successful request).</div>
+            </div>
+          </div>
+        </div>
+      </Surface>
     </div>
   );
 }

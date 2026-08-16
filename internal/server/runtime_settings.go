@@ -53,6 +53,17 @@ func (s *Server) SetPromptCacheConfig(cfg config.PromptCacheConfig) {
 	}
 }
 
+// SetResponseHeadersConfig updates the runtime response headers config.
+func (s *Server) SetResponseHeadersConfig(cfg config.ResponseHeadersConfig) {
+	if s == nil || s.handler == nil {
+		return
+	}
+	s.handler.responseHeadersConfig = cfg
+	if s.handler.translatedSvc != nil {
+		s.handler.translatedSvc.setResponseHeadersConfig(cfg)
+	}
+}
+
 // SetTokenSaver updates the runtime Token Saver service used by chat completions.
 func (s *Server) SetTokenSaver(cfg config.TokenSaverConfig) {
 	if s == nil || s.handler == nil {

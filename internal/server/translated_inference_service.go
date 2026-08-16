@@ -16,6 +16,7 @@ import (
 
 	"github.com/labstack/echo/v5"
 
+	"aurora/configuration"
 	"aurora/internal/audit_logging"
 	"aurora/internal/core"
 	"aurora/internal/gateway"
@@ -49,6 +50,9 @@ type translatedInferenceService struct {
 	responseStoreMu     sync.RWMutex
 	promptCacheConfig   *core.PromptCacheConfig
 	promptCacheConfigMu sync.RWMutex
+
+	responseHeaders   config.ResponseHeadersConfig
+	responseHeadersMu sync.RWMutex
 
 	orchestrator *gateway.InferenceOrchestrator
 
@@ -182,6 +186,7 @@ func (s *translatedInferenceService) dispatchChatCompletion(c *echo.Context, req
 			result.Meta.ProviderType,
 			result.Meta.ProviderName,
 			result.Meta.FailoverModel,
+			result.Meta,
 			result.Stream,
 		)
 	}
@@ -204,6 +209,8 @@ func (s *translatedInferenceService) dispatchChatCompletion(c *echo.Context, req
 			result.Meta.ProviderName,
 		)
 	}
+
+	s.applyResponseHeaders(c, workflow, result.Meta)
 
 	writeStart := time.Now()
 	err = c.JSON(http.StatusOK, result.Response)
@@ -245,6 +252,18 @@ func (s *translatedInferenceService) setPromptCacheConfig(cfg *core.PromptCacheC
 	s.promptCacheConfig = cfg
 }
 
+func (s *translatedInferenceService) currentResponseHeadersConfig() config.ResponseHeadersConfig {
+	s.responseHeadersMu.RLock()
+	defer s.responseHeadersMu.RUnlock()
+	return s.responseHeaders
+}
+
+func (s *translatedInferenceService) setResponseHeadersConfig(cfg config.ResponseHeadersConfig) {
+	s.responseHeadersMu.Lock()
+	defer s.responseHeadersMu.Unlock()
+	s.responseHeaders = cfg
+}
+
 func (s *translatedInferenceService) emitTokenSaverHeaders(c *echo.Context, meta tokensaver.Metadata) {
 	if !meta.Enabled || !meta.EmitHeaders {
 		return
@@ -260,6 +279,40 @@ func (s *translatedInferenceService) emitTokenSaverHeaders(c *echo.Context, meta
 	}
 	if meta.OutputProfileApplied {
 		header.Set("X-Aurora-Token-Saver-Profile", "caveman")
+	}
+}
+
+// applyResponseHeaders adds X-Actual-Provider / X-Actual-Model /
+// X-Requested-Model / X-Fallback-Chain response headers when the response
+// headers feature is enabled. The include flags control whether headers are
+// emitted on fallback and non-fallback executions respectively.
+func (s *translatedInferenceService) applyResponseHeaders(c *echo.Context, workflow *core.Workflow, meta gateway.ExecutionMeta) {
+	cfg := s.currentResponseHeadersConfig()
+	if !cfg.Enabled {
+		return
+	}
+	if meta.UsedFallback {
+		if !cfg.IncludeFallback {
+			return
+		}
+	} else if !cfg.IncludeNonFallback {
+		return
+	}
+
+	header := c.Response().Header()
+	actualProvider := strings.TrimSpace(meta.ProviderName)
+	if actualProvider == "" {
+		actualProvider = strings.TrimSpace(meta.ProviderType)
+	}
+	requestedModel := ""
+	if workflow != nil {
+		requestedModel = workflow.RequestedQualifiedModel()
+	}
+	header.Set("X-Actual-Provider", actualProvider)
+	header.Set("X-Actual-Model", strings.TrimSpace(meta.Model))
+	header.Set("X-Requested-Model", strings.TrimSpace(requestedModel))
+	if len(meta.FallbackChain) > 0 {
+		header.Set("X-Fallback-Chain", strings.Join(meta.FallbackChain, ","))
 	}
 }
 
@@ -425,6 +478,7 @@ func (s *translatedInferenceService) dispatchResponses(c *echo.Context, req *cor
 			result.Meta.ProviderType,
 			result.Meta.ProviderName,
 			result.Meta.FailoverModel,
+			result.Meta,
 			result.Stream,
 		)
 	}
@@ -451,6 +505,8 @@ func (s *translatedInferenceService) dispatchResponses(c *echo.Context, req *cor
 	if err := s.storeResponseSnapshot(ctx, workflow, req, result.Response, result.Meta.ProviderType, result.Meta.ProviderName, requestID); err != nil {
 		s.recordResponseSnapshotStoreFailure(workflow, result.Response, result.Meta.ProviderType, result.Meta.ProviderName, requestID, err)
 	}
+
+	s.applyResponseHeaders(c, workflow, result.Meta)
 
 	writeStart := time.Now()
 	err = c.JSON(http.StatusOK, result.Response)
@@ -695,12 +751,15 @@ func (s *translatedInferenceService) handleStreamingReadCloser(
 	workflow *core.Workflow,
 	model, provider, providerName string,
 	failoverModel string,
+	meta gateway.ExecutionMeta,
 	stream io.ReadCloser,
 ) error {
 	auditlog.MarkEntryAsStreaming(c, true)
 	auditlog.EnrichEntryWithStream(c, true)
 	auditlog.EnrichEntryWithFailover(c, failoverModel)
 	auditlog.EnrichEntryWithResolvedRoute(c, qualifyExecutedModel(workflow, model, providerName), provider, providerName)
+
+	s.applyResponseHeaders(c, workflow, meta)
 
 	entry := auditlog.GetStreamEntryFromContext(c)
 	auditEnabled := s.logger != nil && s.logger.Config().Enabled && (workflow == nil || workflow.AuditEnabled())
@@ -756,7 +815,7 @@ func (s *translatedInferenceService) handleStreamingResponse(
 	if err != nil {
 		return handleError(c, err)
 	}
-	return s.handleStreamingReadCloser(c, workflow, model, provider, providerName, "", stream)
+	return s.handleStreamingReadCloser(c, workflow, model, provider, providerName, "", gateway.ExecutionMeta{}, stream)
 }
 
 func recordStreamingError(streamEntry *auditlog.LogEntry, model, provider, path, requestID string, err error) {
