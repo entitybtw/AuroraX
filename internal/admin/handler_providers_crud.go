@@ -315,7 +315,7 @@ func (h *Handler) UpdateProvider(c *echo.Context) error {
 	if req.APIVersion != nil {
 		updated.APIVersion = strings.TrimSpace(*req.APIVersion)
 	}
-	if req.APIKey != nil {
+	if req.APIKey != nil && strings.TrimSpace(*req.APIKey) != "" {
 		updated.APIKey = strings.TrimSpace(*req.APIKey)
 	}
 	if req.Models != nil {
