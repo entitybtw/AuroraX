@@ -277,8 +277,9 @@ function EditDialog({
     const ni = i + dir;
     if (ni < 0 || ni >= targets.length) return;
     const next = [...targets];
+    const value = next[i];
     next[i] = next[ni]!;
-    next[ni] = next[i]!;
+    next[ni] = value!;
     onTargetsChange(next);
   };
 
