@@ -14,6 +14,7 @@ import (
 
 	"aurora/internal/authorization_scope"
 	"aurora/internal/core"
+	configpkg "aurora/configuration"
 )
 
 type AuthKeyRateLimiter interface {
@@ -217,11 +218,11 @@ func (l *InMemoryAuthKeyRateLimiter) checkWindow(baseKey string, scope string, l
 	}
 }
 
-func AuthKeyRateLimitMiddleware(limiter AuthKeyRateLimiter) echo.MiddlewareFunc {
+func AuthKeyRateLimitMiddleware(limiter AuthKeyRateLimiter, responseHeadersConfig configpkg.ResponseHeadersConfig) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
 			if err := enforceAuthKeyRateLimit(c, limiter); err != nil {
-				return handleError(c, err)
+				return handleErrorWithHeaders(c, err, responseHeadersConfig)
 			}
 			return next(c)
 		}

@@ -4,11 +4,13 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v5"
 
 	"aurora/internal/audit_logging"
 	"aurora/internal/core"
+	configpkg "aurora/configuration"
 )
 
 // handleError converts gateway errors to appropriate HTTP responses.
@@ -54,6 +56,62 @@ func gatewayErrorCode(err *core.GatewayError) string {
 		return ""
 	}
 	return *err.Code
+}
+
+// handleErrorWithHeaders handles errors and adds response headers based on config.
+func handleErrorWithHeaders(c *echo.Context, err error, cfg configpkg.ResponseHeadersConfig) error {
+	if !cfg.Enabled {
+		return handleError(c, err)
+	}
+
+	// First, call the original handleError to get the error response
+	_ = handleError(c, err)
+
+	// If response headers are enabled and mode allows error responses, add headers
+	if !cfg.Enabled {
+		return nil
+	}
+
+	status := 0
+	if resp, ok := c.Response().(*echo.Response); ok {
+		status = resp.Status
+	}
+
+	switch cfg.Mode {
+	case "success":
+		return nil // Don't add headers to error responses in success mode
+	case "error":
+		if status < 400 {
+			return nil
+		}
+	case "always":
+		// Add headers for all responses
+	default:
+		return nil
+	}
+
+	// Add error response headers
+	header := c.Response().Header()
+	requestID := requestIDFromContextOrHeader(c.Request())
+
+	// Add request ID if available
+	if requestID != "" {
+		header.Set("X-Request-ID", requestID)
+	}
+
+	// Add custom headers with placeholders
+	for _, custom := range cfg.CustomHeaders {
+		if !custom.Enabled || strings.TrimSpace(custom.Name) == "" {
+			continue
+		}
+		name := http.CanonicalHeaderKey(strings.TrimSpace(custom.Name))
+		value := expandResponseHeaderTemplateForError(custom.Value, requestID)
+		if name != "" && value != "" {
+			header.Set(name, value)
+		}
+	}
+
+	return nil
 }
 
 func logHandledError(c *echo.Context, gatewayErr *core.GatewayError) {

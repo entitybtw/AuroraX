@@ -319,7 +319,7 @@ func New(provider core.RoutableProvider, cfg *Config) *Server {
 	e.Use(WorkflowResolutionWithResolverAndPolicy(provider, modelResolver, workflowPolicyResolver))
 	// Auth key rate limit — redundant in bench mode with no managed keys
 	if authConfigured && !minimalBenchModeEnabled() {
-		e.Use(AuthKeyRateLimitMiddleware(authKeyRateLimiter))
+		e.Use(AuthKeyRateLimitMiddleware(authKeyRateLimiter, cfg.ResponseHeadersConfig))
 	}
 
 	// Public routes

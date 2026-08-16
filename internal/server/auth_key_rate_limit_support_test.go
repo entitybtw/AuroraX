@@ -16,6 +16,7 @@ import (
 
 	"aurora/internal/authorization_scope"
 	"aurora/internal/core"
+	configpkg "aurora/configuration"
 )
 
 func TestInMemoryAuthKeyRateLimiterRejectsOverLimitRequests(t *testing.T) {
@@ -129,7 +130,8 @@ func TestAuthKeyRateLimitMiddlewarePassesTenantContextToLimiter(t *testing.T) {
 	e := echo.New()
 	limiter := &capturingAuthKeyRateLimiter{}
 	limits := core.AuthKeyRateLimits{RequestsPerMinute: 1}
-	handler := AuthKeyRateLimitMiddleware(limiter)(func(c *echo.Context) error {
+	cfg := configpkg.ResponseHeadersConfig{Enabled: false}
+	handler := AuthKeyRateLimitMiddleware(limiter, cfg)(func(c *echo.Context) error {
 		return c.String(http.StatusOK, "ok")
 	})
 
@@ -153,7 +155,8 @@ func TestAuthKeyRateLimitMiddlewareMapsExceededLimitTo429(t *testing.T) {
 	e := echo.New()
 	limiter := NewInMemoryAuthKeyRateLimiter()
 	limits := core.AuthKeyRateLimits{RequestsPerMinute: 1}
-	handler := AuthKeyRateLimitMiddleware(limiter)(func(c *echo.Context) error {
+	cfg := configpkg.ResponseHeadersConfig{Enabled: false}
+	handler := AuthKeyRateLimitMiddleware(limiter, cfg)(func(c *echo.Context) error {
 		return c.String(http.StatusOK, "ok")
 	})
 
@@ -184,7 +187,8 @@ func TestAuthKeyRateLimitMiddlewareSkipsMasterKeyAndUnlimitedRequests(t *testing
 	e := echo.New()
 	limiter := NewInMemoryAuthKeyRateLimiter()
 	calls := 0
-	handler := AuthKeyRateLimitMiddleware(limiter)(func(c *echo.Context) error {
+	cfg := configpkg.ResponseHeadersConfig{Enabled: false}
+	handler := AuthKeyRateLimitMiddleware(limiter, cfg)(func(c *echo.Context) error {
 		calls++
 		return c.String(http.StatusOK, "ok")
 	})
