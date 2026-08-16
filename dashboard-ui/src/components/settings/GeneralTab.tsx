@@ -489,27 +489,31 @@ export function GeneralTab(): JSX.Element {
               </div>
               <SectionHeader
                 title="Response Headers"
-                subtitle="Add debug headers to responses showing actual provider, model, and fallback chain information."
+                subtitle="Add debug headers to responses showing actual provider, model, and fallback chain information. Each header can be toggled independently and custom headers are supported."
               />
             </div>
-          </div>
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Switch
-                    checked={dashboardSettings.response_headers?.enabled ?? false}
-                    onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, enabled: checked } })}
-                    aria-label="Enable response headers"
-                  />
-                  <div className="flex min-w-0 flex-col gap-1">
-                    <span className="truncate text-[14px] font-semibold text-foreground">Enable response headers</span>
-                    <span className="text-[11px] text-muted-foreground">Add X-Actual-Provider, X-Actual-Model, X-Requested-Model, X-Fallback-Chain headers to responses</span>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-1 text-[12px] text-muted-foreground">When enabled, responses will include headers showing the actual provider, model, and fallback chain used.</div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button onClick={handleDashboardSettingsSave} disabled={mutations.saveDashboardSettingsMutation.isPending} variant="outline" size="sm">
+                <SaveIcon className="mr-2 h-4 w-4" />
+                {mutations.saveDashboardSettingsMutation.isPending ? "Saving..." : "Save Response Headers"}
+              </Button>
+              {mutations.saveDashboardSettingsMutation.isError && <span className="text-[13px] font-medium text-destructive">{mutations.saveDashboardSettingsMutation?.error?.message}</span>}
             </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <Switch
+              checked={dashboardSettings.response_headers?.enabled ?? false}
+              onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, enabled: checked } })}
+              aria-label="Enable response headers"
+            />
+            <div className="flex min-w-0 flex-col gap-1">
+              <span className="text-[14px] font-semibold text-foreground">Enable response headers</span>
+              <span className="text-[11px] text-muted-foreground">Master switch for all response debug headers.</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <div className="flex items-center gap-3">
                 <Switch
@@ -532,6 +536,126 @@ export function GeneralTab(): JSX.Element {
               </div>
               <div className="mt-1 text-[12px] text-muted-foreground">Add headers even when no fallback occurred (normal successful request).</div>
             </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Built-in headers</div>
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <div className="border border-border/40 bg-surface p-4 flex items-center gap-3 transition-colors hover:bg-surface-hover/30">
+                <Switch
+                  checked={dashboardSettings.response_headers?.actual_provider_header ?? true}
+                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, actual_provider_header: checked } })}
+                  aria-label="X-Actual-Provider header"
+                />
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <code className="text-[12px] font-semibold text-foreground">X-Actual-Provider</code>
+                  <span className="text-[11px] text-muted-foreground">The provider that actually served the response.</span>
+                </div>
+              </div>
+              <div className="border border-border/40 bg-surface p-4 flex items-center gap-3 transition-colors hover:bg-surface-hover/30">
+                <Switch
+                  checked={dashboardSettings.response_headers?.actual_model_header ?? true}
+                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, actual_model_header: checked } })}
+                  aria-label="X-Actual-Model header"
+                />
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <code className="text-[12px] font-semibold text-foreground">X-Actual-Model</code>
+                  <span className="text-[11px] text-muted-foreground">The model that actually produced the response.</span>
+                </div>
+              </div>
+              <div className="border border-border/40 bg-surface p-4 flex items-center gap-3 transition-colors hover:bg-surface-hover/30">
+                <Switch
+                  checked={dashboardSettings.response_headers?.requested_model_header ?? true}
+                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, requested_model_header: checked } })}
+                  aria-label="X-Requested-Model header"
+                />
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <code className="text-[12px] font-semibold text-foreground">X-Requested-Model</code>
+                  <span className="text-[11px] text-muted-foreground">The originally requested model selector.</span>
+                </div>
+              </div>
+              <div className="border border-border/40 bg-surface p-4 flex items-center gap-3 transition-colors hover:bg-surface-hover/30">
+                <Switch
+                  checked={dashboardSettings.response_headers?.fallback_chain_header ?? true}
+                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, fallback_chain_header: checked } })}
+                  aria-label="X-Fallback-Chain header"
+                />
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <code className="text-[12px] font-semibold text-foreground">X-Fallback-Chain</code>
+                  <span className="text-[11px] text-muted-foreground">Comma-separated models attempted before a success.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Custom headers</div>
+              <Button variant="outline" size="sm" onClick={() => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, custom_headers: [...(dashboardSettings.response_headers?.custom_headers ?? []), { name: "", value: "", enabled: true }] } })}>
+                Add custom header
+              </Button>
+            </div>
+            <span className="text-[11px] text-muted-foreground">Values support placeholders: {"{actual_provider}, {actual_model}, {requested_model}, {fallback_chain}, {request_id}"}</span>
+            {(dashboardSettings.response_headers?.custom_headers ?? []).length === 0 ? (
+              <div className="border border-dashed border-border/60 bg-background/40 p-4 text-[12px] text-muted-foreground">No custom headers configured. Add one to emit an additional response header.</div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {(dashboardSettings.response_headers?.custom_headers ?? []).map((header, index) => (
+                  <div key={index} className="flex flex-col gap-2 border border-border/40 bg-surface p-3 sm:flex-row sm:items-center">
+                    <div className="flex items-center gap-3 sm:w-16">
+                      <Switch
+                        checked={header.enabled}
+                        onCheckedChange={(checked) => setDashboardSettings({
+                          ...dashboardSettings,
+                          response_headers: {
+                            ...dashboardSettings.response_headers,
+                            custom_headers: (dashboardSettings.response_headers?.custom_headers ?? []).map((item, i) => i === index ? { ...item, enabled: checked } : item),
+                          },
+                        })}
+                        aria-label={`Enable custom header ${index + 1}`}
+                      />
+                    </div>
+                    <Input
+                      placeholder="X-Custom-Header"
+                      className="flex-1"
+                      value={header.name}
+                      onChange={e => setDashboardSettings({
+                        ...dashboardSettings,
+                        response_headers: {
+                          ...dashboardSettings.response_headers,
+                          custom_headers: (dashboardSettings.response_headers?.custom_headers ?? []).map((item, i) => i === index ? { ...item, name: e.target.value } : item),
+                        },
+                      })}
+                    />
+                    <Input
+                      placeholder="{actual_model} via {actual_provider}"
+                      className="flex-1"
+                      value={header.value}
+                      onChange={e => setDashboardSettings({
+                        ...dashboardSettings,
+                        response_headers: {
+                          ...dashboardSettings.response_headers,
+                          custom_headers: (dashboardSettings.response_headers?.custom_headers ?? []).map((item, i) => i === index ? { ...item, value: e.target.value } : item),
+                        },
+                      })}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDashboardSettings({
+                        ...dashboardSettings,
+                        response_headers: {
+                          ...dashboardSettings.response_headers,
+                          custom_headers: (dashboardSettings.response_headers?.custom_headers ?? []).filter((_, i) => i !== index),
+                        },
+                      })}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </Surface>

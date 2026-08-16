@@ -117,6 +117,15 @@ export interface DashboardSettingsFormState {
     enabled: boolean;
     include_fallback: boolean;
     include_non_fallback: boolean;
+    actual_provider_header: boolean;
+    actual_model_header: boolean;
+    requested_model_header: boolean;
+    fallback_chain_header: boolean;
+    custom_headers: {
+      name: string;
+      value: string;
+      enabled: boolean;
+    }[];
   };
 }
 

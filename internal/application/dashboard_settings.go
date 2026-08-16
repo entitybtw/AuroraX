@@ -136,9 +136,20 @@ type dashboardProxyOverlay struct {
 }
 
 type dashboardResponseHeadersOverlay struct {
-	Enabled           *bool `yaml:"enabled,omitempty"`
-	IncludeFallback   *bool `yaml:"include_fallback,omitempty"`
-	IncludeNonFallback *bool `yaml:"include_non_fallback,omitempty"`
+	Enabled              *bool                             `yaml:"enabled,omitempty"`
+	IncludeFallback      *bool                             `yaml:"include_fallback,omitempty"`
+	IncludeNonFallback   *bool                             `yaml:"include_non_fallback,omitempty"`
+	ActualProviderHeader *bool                             `yaml:"actual_provider_header,omitempty"`
+	ActualModelHeader    *bool                             `yaml:"actual_model_header,omitempty"`
+	RequestedModelHeader *bool                             `yaml:"requested_model_header,omitempty"`
+	FallbackChainHeader  *bool                             `yaml:"fallback_chain_header,omitempty"`
+	CustomHeaders        []dashboardCustomHeaderOverlay     `yaml:"custom_headers,omitempty"`
+}
+
+type dashboardCustomHeaderOverlay struct {
+	Name    string `yaml:"name"`
+	Value   string `yaml:"value"`
+	Enabled bool   `yaml:"enabled"`
 }
 
 type dashboardResilienceOverlay struct {
@@ -461,6 +472,41 @@ func applyDashboardSettingsToConfig(cfg *config.Config, req admin.DashboardSetti
 	cfg.ResponseHeaders.Enabled = req.ResponseHeaders.Enabled
 	cfg.ResponseHeaders.IncludeFallback = req.ResponseHeaders.IncludeFallback
 	cfg.ResponseHeaders.IncludeNonFallback = req.ResponseHeaders.IncludeNonFallback
+	cfg.ResponseHeaders.ActualProviderHeader = req.ResponseHeaders.ActualProviderHeader
+	cfg.ResponseHeaders.ActualModelHeader = req.ResponseHeaders.ActualModelHeader
+	cfg.ResponseHeaders.RequestedModelHeader = req.ResponseHeaders.RequestedModelHeader
+	cfg.ResponseHeaders.FallbackChainHeader = req.ResponseHeaders.FallbackChainHeader
+	cfg.ResponseHeaders.CustomHeaders = mapDashboardUpdateCustomHeaders(req.ResponseHeaders.CustomHeaders)
+}
+
+func mapDashboardUpdateCustomHeaders(values []admin.DashboardUpdateCustomResponseHeader) []config.CustomResponseHeaderConfig {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]config.CustomResponseHeaderConfig, 0, len(values))
+	for _, h := range values {
+		out = append(out, config.CustomResponseHeaderConfig{
+			Name:    strings.TrimSpace(h.Name),
+			Value:   strings.TrimSpace(h.Value),
+			Enabled: h.Enabled,
+		})
+	}
+	return out
+}
+
+func mapDashboardUpdateCustomHeadersOverlay(values []admin.DashboardUpdateCustomResponseHeader) []dashboardCustomHeaderOverlay {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]dashboardCustomHeaderOverlay, 0, len(values))
+	for _, h := range values {
+		out = append(out, dashboardCustomHeaderOverlay{
+			Name:    strings.TrimSpace(h.Name),
+			Value:   strings.TrimSpace(h.Value),
+			Enabled: h.Enabled,
+		})
+	}
+	return out
 }
 
 func applyDashboardTokenSaverToConfig(cfg *config.Config, values admin.DashboardSettingsUpdateTokenSaver) {
@@ -663,6 +709,11 @@ func applyDashboardSettingsToOverlay(overlay *dashboardSettingsOverlay, req admi
 	overlay.ResponseHeaders.Enabled = boolPtr(req.ResponseHeaders.Enabled)
 	overlay.ResponseHeaders.IncludeFallback = boolPtr(req.ResponseHeaders.IncludeFallback)
 	overlay.ResponseHeaders.IncludeNonFallback = boolPtr(req.ResponseHeaders.IncludeNonFallback)
+	overlay.ResponseHeaders.ActualProviderHeader = boolPtr(req.ResponseHeaders.ActualProviderHeader)
+	overlay.ResponseHeaders.ActualModelHeader = boolPtr(req.ResponseHeaders.ActualModelHeader)
+	overlay.ResponseHeaders.RequestedModelHeader = boolPtr(req.ResponseHeaders.RequestedModelHeader)
+	overlay.ResponseHeaders.FallbackChainHeader = boolPtr(req.ResponseHeaders.FallbackChainHeader)
+	overlay.ResponseHeaders.CustomHeaders = mapDashboardUpdateCustomHeadersOverlay(req.ResponseHeaders.CustomHeaders)
 
 	initialBackoff := (time.Duration(req.Performance.RetryInitialBackoffMilliseconds) * time.Millisecond).String()
 	maxBackoff := (time.Duration(req.Performance.RetryMaxBackoffMilliseconds) * time.Millisecond).String()

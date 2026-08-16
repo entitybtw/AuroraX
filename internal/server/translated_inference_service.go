@@ -282,10 +282,10 @@ func (s *translatedInferenceService) emitTokenSaverHeaders(c *echo.Context, meta
 	}
 }
 
-// applyResponseHeaders adds X-Actual-Provider / X-Actual-Model /
-// X-Requested-Model / X-Fallback-Chain response headers when the response
-// headers feature is enabled. The include flags control whether headers are
-// emitted on fallback and non-fallback executions respectively.
+// applyResponseHeaders adds debug response headers when the response headers
+// feature is enabled. The include flags control whether headers are emitted on
+// fallback and non-fallback executions respectively. Each built-in header can
+// be toggled independently, and additional custom headers are appended.
 func (s *translatedInferenceService) applyResponseHeaders(c *echo.Context, workflow *core.Workflow, meta gateway.ExecutionMeta) {
 	cfg := s.currentResponseHeadersConfig()
 	if !cfg.Enabled {
@@ -304,16 +304,55 @@ func (s *translatedInferenceService) applyResponseHeaders(c *echo.Context, workf
 	if actualProvider == "" {
 		actualProvider = strings.TrimSpace(meta.ProviderType)
 	}
+	actualModel := strings.TrimSpace(meta.Model)
 	requestedModel := ""
 	if workflow != nil {
 		requestedModel = workflow.RequestedQualifiedModel()
 	}
-	header.Set("X-Actual-Provider", actualProvider)
-	header.Set("X-Actual-Model", strings.TrimSpace(meta.Model))
-	header.Set("X-Requested-Model", strings.TrimSpace(requestedModel))
+	fallbackChain := ""
 	if len(meta.FallbackChain) > 0 {
-		header.Set("X-Fallback-Chain", strings.Join(meta.FallbackChain, ","))
+		fallbackChain = strings.Join(meta.FallbackChain, ",")
 	}
+
+	if cfg.ActualProviderHeader && actualProvider != "" {
+		header.Set("X-Actual-Provider", actualProvider)
+	}
+	if cfg.ActualModelHeader && actualModel != "" {
+		header.Set("X-Actual-Model", actualModel)
+	}
+	if cfg.RequestedModelHeader && requestedModel != "" {
+		header.Set("X-Requested-Model", requestedModel)
+	}
+	if cfg.FallbackChainHeader && fallbackChain != "" {
+		header.Set("X-Fallback-Chain", fallbackChain)
+	}
+
+	for _, custom := range cfg.CustomHeaders {
+		if !custom.Enabled || strings.TrimSpace(custom.Name) == "" {
+			continue
+		}
+		name := http.CanonicalHeaderKey(strings.TrimSpace(custom.Name))
+		value := expandResponseHeaderTemplate(custom.Value, actualProvider, actualModel, requestedModel, fallbackChain, requestIDFromContextOrHeader(c.Request()))
+		if name != "" && value != "" {
+			header.Set(name, value)
+		}
+	}
+}
+
+// expandResponseHeaderTemplate replaces supported placeholders in a custom
+// header value with the concrete route information for the current request.
+func expandResponseHeaderTemplate(template, actualProvider, actualModel, requestedModel, fallbackChain, requestID string) string {
+	if !strings.Contains(template, "{") {
+		return strings.TrimSpace(template)
+	}
+	replacer := strings.NewReplacer(
+		"{actual_provider}", actualProvider,
+		"{actual_model}", actualModel,
+		"{requested_model}", requestedModel,
+		"{fallback_chain}", fallbackChain,
+		"{request_id}", requestID,
+	)
+	return strings.TrimSpace(replacer.Replace(template))
 }
 
 func (s *translatedInferenceService) Responses(c *echo.Context) error {

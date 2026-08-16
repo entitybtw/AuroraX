@@ -334,6 +334,20 @@ response_headers:
   include_fallback: true # env: RESPONSE_HEADERS_INCLUDE_FALLBACK
   # Add headers when no fallback was used (normal request execution)
   include_non_fallback: true # env: RESPONSE_HEADERS_INCLUDE_NON_FALLBACK
+  # Emit the X-Actual-Provider header (the provider that actually served the response)
+  actual_provider_header: true # env: RESPONSE_HEADERS_ACTUAL_PROVIDER
+  # Emit the X-Actual-Model header (the model that actually produced the response)
+  actual_model_header: true # env: RESPONSE_HEADERS_ACTUAL_MODEL
+  # Emit the X-Requested-Model header (the originally requested model selector)
+  requested_model_header: true # env: RESPONSE_HEADERS_REQUESTED_MODEL
+  # Emit the X-Fallback-Chain header (comma-separated models attempted before a success)
+  fallback_chain_header: true # env: RESPONSE_HEADERS_FALLBACK_CHAIN
+  # Custom response headers. Values support placeholders: {actual_provider},
+  # {actual_model}, {requested_model}, {fallback_chain}, {request_id}
+  custom_headers:
+    - name: X-Custom-Header
+      value: "{actual_model} via {actual_provider}"
+      enabled: true
 
 # ========= WORKFLOWS =========
 # Workflow execution and refresh

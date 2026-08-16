@@ -397,6 +397,42 @@ type ResponseHeadersConfig struct {
 	// was used (normal request execution).
 	// Default: true.
 	IncludeNonFallback bool `yaml:"include_non_fallback" env:"RESPONSE_HEADERS_INCLUDE_NON_FALLBACK"`
+
+	// ActualProviderHeader controls whether the X-Actual-Provider header
+	// (the provider that actually served the response) is added.
+	// Default: true.
+	ActualProviderHeader bool `yaml:"actual_provider_header" env:"RESPONSE_HEADERS_ACTUAL_PROVIDER"`
+
+	// ActualModelHeader controls whether the X-Actual-Model header
+	// (the model that actually produced the response) is added.
+	// Default: true.
+	ActualModelHeader bool `yaml:"actual_model_header" env:"RESPONSE_HEADERS_ACTUAL_MODEL"`
+
+	// RequestedModelHeader controls whether the X-Requested-Model header
+	// (the originally requested model selector) is added.
+	// Default: true.
+	RequestedModelHeader bool `yaml:"requested_model_header" env:"RESPONSE_HEADERS_REQUESTED_MODEL"`
+
+	// FallbackChainHeader controls whether the X-Fallback-Chain header
+	// (comma-separated models attempted before a success) is added.
+	// Default: true.
+	FallbackChainHeader bool `yaml:"fallback_chain_header" env:"RESPONSE_HEADERS_FALLBACK_CHAIN"`
+
+	// CustomHeaders are additional headers added verbatim to responses.
+	// Values support the same placeholders as the built-in headers.
+	// Default: none.
+	CustomHeaders []CustomResponseHeaderConfig `yaml:"custom_headers"`
+}
+
+// CustomResponseHeaderConfig defines a user-provided response header.
+type CustomResponseHeaderConfig struct {
+	// Name is the HTTP header name (e.g. "X-Custom-Header").
+	Name string `yaml:"name"`
+	// Value is the header value. Supported placeholders: {actual_provider},
+	// {actual_model}, {requested_model}, {fallback_chain}, {request_id}.
+	Value string `yaml:"value"`
+	// Enabled controls whether this header is emitted.
+	Enabled bool `yaml:"enabled"`
 }
 
 // WorkflowsConfig holds runtime refresh behavior for persisted workflows.
@@ -762,9 +798,13 @@ func buildDefaultConfig() *Config {
 		Guardrails: GuardrailsConfig{},
 		TokenSaver: defaultTokenSaverConfig(),
 		ResponseHeaders: ResponseHeadersConfig{
-			Enabled:            false,
-			IncludeFallback:    true,
-			IncludeNonFallback: true,
+			Enabled:              false,
+			IncludeFallback:      true,
+			IncludeNonFallback:   true,
+			ActualProviderHeader: true,
+			ActualModelHeader:    true,
+			RequestedModelHeader: true,
+			FallbackChainHeader:  true,
 		},
 		Edition: EditionConfig{
 			Name: EditionOSS,
