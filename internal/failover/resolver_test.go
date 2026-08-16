@@ -295,3 +295,33 @@ func modelInfoWithCategories(
 func intPtr(v int) *int {
 	return &v
 }
+
+func TestResolverChainAliasByName(t *testing.T) {
+	registry := newFakeRegistry(
+		modelInfo("ds-flash-free", "vllm", "provider-zen-1", 1287, "ds-flash-free"),
+		modelInfo("ds-flash-free", "vllm", "provider-zen-2", 1287, "ds-flash-free"),
+	)
+
+	resolver := NewResolver(config.FallbackConfig{
+		DefaultMode: config.FallbackModeManual,
+		Manual: map[string][]string{
+			"deepseek-chain": []string{"provider-zen-1/ds-flash-free", "provider-zen-2/ds-flash-free"},
+		},
+	}, registry)
+
+	// A client requests the chain by alias name, not a real provider model.
+	got := resolver.ResolveFallbacks(&core.RequestModelResolution{
+		Requested:        core.NewRequestedModelSelector("deepseek-chain", ""),
+		ResolvedSelector: core.ModelSelector{Model: "deepseek-chain"},
+	}, core.OperationChatCompletions)
+
+	if len(got) != 2 {
+		t.Fatalf("len(got) = %d, want 2 (got %v)", len(got), got)
+	}
+	if got[0].QualifiedModel() != "provider-zen-1/ds-flash-free" {
+		t.Fatalf("got[0] = %q, want %q", got[0].QualifiedModel(), "provider-zen-1/ds-flash-free")
+	}
+	if got[1].QualifiedModel() != "provider-zen-2/ds-flash-free" {
+		t.Fatalf("got[1] = %q, want %q", got[1].QualifiedModel(), "provider-zen-2/ds-flash-free")
+	}
+}

@@ -94,7 +94,7 @@ export function FallbackPage(): JSX.Element {
 
   const saveRule = async () => {
     if (!formSource.trim() || formTargets.length === 0) {
-      setError("Source and at least one target required.");
+      setError("Chain name and at least one target required.");
       return;
     }
     setSaving(true);
@@ -180,7 +180,7 @@ export function FallbackPage(): JSX.Element {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-mono text-sm font-semibold text-foreground truncate">{rule.source}</h3>
-                    <Pill tone="accent">source</Pill>
+                    <Pill tone="accent">chain</Pill>
                     {rule.enabled === false && <Pill tone="muted">disabled</Pill>}
                   </div>
                 </div>
@@ -294,17 +294,19 @@ function EditDialog({
       <DialogContent className="w-screen max-w-none sm:w-[calc(100vw-2rem)] sm:max-w-2xl h-screen max-h-none sm:h-auto sm:max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6 rounded-none sm:rounded-xl">
         <DialogHeader>
           <DialogTitle className="text-lg">{isEdit ? "Edit Fallback Rule" : "Add Fallback Rule"}</DialogTitle>
-          <DialogDescription>Define a source model and ordered fallback targets.</DialogDescription>
+          <DialogDescription>Define a chain name and ordered fallback targets. Clients call the chain by name.</DialogDescription>
         </DialogHeader>
 
         <div className="flex w-full min-w-0 flex-col gap-4">
           <label className="block w-full space-y-2">
-            <span className="text-sm font-medium text-muted-foreground">Source model</span>
-            <select className="w-full h-12 sm:h-11 border border-border/50 bg-background/40 px-3 sm:px-4 font-mono text-base sm:text-sm focus:outline-none focus:border-accent/70 focus:ring-2 focus:ring-accent/15 rounded-lg"
-              value={source} onChange={(e) => onSourceChange(e.target.value)}>
-              <option value="">Select source…</option>
-              {modelOptions.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
+            <span className="text-sm font-medium text-muted-foreground">Chain name</span>
+            <input
+              className="w-full h-12 sm:h-11 border border-border/50 bg-background/40 px-3 sm:px-4 font-mono text-base sm:text-sm focus:outline-none focus:border-accent/70 focus:ring-2 focus:ring-accent/15 rounded-lg"
+              placeholder="e.g. deepseek-chain"
+              value={source}
+              onChange={(e) => onSourceChange(e.target.value)}
+            />
+            <div className="text-[12px] text-muted-foreground">Clients can call this fallback chain by name (e.g. <code>model="deepseek-chain"</code>).</div>
           </label>
 
           <label className="block w-full space-y-2">
