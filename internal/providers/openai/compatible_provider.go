@@ -57,6 +57,7 @@ func NewCompatibleProvider(apiKey string, opts providers.ProviderOptions, cfg Co
 		Retry:          opts.Resilience.Retry,
 		Hooks:          opts.Hooks,
 		CircuitBreaker: opts.Resilience.CircuitBreaker,
+		BindIP:         opts.BindIP,
 	}
 	p.client = llmclient.New(clientCfg, func(req *http.Request) {
 		if cfg.SetHeaders != nil {

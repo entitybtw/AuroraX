@@ -39,6 +39,7 @@ export const SanitizedProviderConfigSchema = z.object({
   base_url: z.string().optional(),
   api_version: z.string().optional(),
   models: z.array(z.string()).optional(),
+  bind_ip: z.string().optional(),
   enabled: z.boolean().optional(),
   resilience: SanitizedResilienceConfigSchema.optional(),
 });

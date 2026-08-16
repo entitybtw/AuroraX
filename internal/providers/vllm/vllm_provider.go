@@ -48,6 +48,7 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 			Retry:          opts.Resilience.Retry,
 			Hooks:          opts.Hooks,
 			CircuitBreaker: opts.Resilience.CircuitBreaker,
+			BindIP:         opts.BindIP,
 		}, func(req *http.Request) {
 			setHeaders(req, cfg.APIKey)
 		}),
