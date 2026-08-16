@@ -173,7 +173,7 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Bind IP</label>
-            <Input type="text" placeholder="203.0.113.1" value={form.bind_ip ?? ""}
+            <Input type="text" placeholder="203.0.113.10" value={form.bind_ip ?? ""}
               onChange={(e) => setForm({ ...form, bind_ip: e.target.value })} />
             <div className="text-[11px] text-muted-foreground">Optional local outbound IP for upstream requests (use when the provider rate-limits per source IP)</div>
           </div>
