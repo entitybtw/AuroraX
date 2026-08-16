@@ -52,7 +52,10 @@ func (h *Handler) buildProviderStatusResponse() providerStatusResponse {
 				BaseURL:    override.BaseURL,
 				APIVersion: override.APIVersion,
 				Models:     parseOverrideModels(override.Models),
+				BindIP:     strings.TrimSpace(override.BindIP),
 				Enabled:    override.IsEnabled(),
+				APIKey:     strings.TrimSpace(override.APIKey),
+				APIKeySet:  strings.TrimSpace(override.APIKey) != "",
 			}
 			configuredByName[override.Name] = cfg
 			if _, inSet := nameSet[override.Name]; !inSet {
