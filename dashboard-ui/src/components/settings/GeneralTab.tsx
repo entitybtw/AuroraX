@@ -2,6 +2,7 @@ import { Surface, SectionHeader } from "@/components/ui/surface";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { ToggleField } from "@/components/ui/toggle-field";
 import { useModels } from "@/lib/api/useModels";
 import { useProviderStatus } from "@/lib/api/useProviders";
 import { modelDisplayName } from "@/lib/api/models-types";
@@ -119,36 +120,30 @@ export function GeneralTab(): JSX.Element {
                 <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Anthropic ingress</div>
                 <StatusChip enabled={dashboardSettings.client.enable_anthropic_ingress ?? false} />
               </div>
-              <div className="flex items-center gap-3 mt-1">
-                <Switch
-                  checked={dashboardSettings.client.enable_anthropic_ingress ?? false}
-                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, enable_anthropic_ingress: checked } })}
-                  aria-label="Enable Anthropic ingress"
-                />
-                <span className="text-[14px] font-medium text-foreground">Enable Anthropic ingress</span>
-              </div>
-              <div className="mt-1 text-[12px] text-muted-foreground">Expose /v1/messages endpoint for Anthropic-format chat completions. Allows Anthropic SDK clients and Claude Code CLI to route through the gateway. Requires restart.</div>
+              <ToggleField
+                label="Enable Anthropic ingress"
+                description="Expose /v1/messages endpoint for Anthropic-format chat completions. Allows Anthropic SDK clients and Claude Code CLI to route through the gateway. Requires restart."
+                checked={dashboardSettings.client.enable_anthropic_ingress ?? false}
+                onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, enable_anthropic_ingress: checked } })}
+                aria-label="Enable Anthropic ingress"
+              />
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Admin API</div>
-              <div className="flex items-center gap-3 mt-1">
-                <Switch
-                  checked={dashboardSettings.client.admin_endpoints_enabled ?? adminEndpointsEnabled}
-                  onCheckedChange={(checked) => handleAdminEndpointToggle(checked)}
-                  aria-label="Enable admin API endpoints"
-                />
-                <span className="text-[14px] font-medium text-foreground">Enable admin API endpoints</span>
-              </div>
+              <ToggleField
+                label="Enable admin API endpoints"
+                checked={dashboardSettings.client.admin_endpoints_enabled ?? adminEndpointsEnabled}
+                onCheckedChange={(checked) => handleAdminEndpointToggle(checked)}
+                aria-label="Enable admin API endpoints"
+              />
               <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mt-2">Admin UI</div>
-              <div className="flex items-center gap-3 mt-1">
-                <Switch
-                  checked={dashboardSettings.client.admin_ui_enabled ?? adminUIEnabled}
-                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, admin_ui_enabled: checked } })}
-                  aria-label="Enable admin dashboard UI"
-                />
-                <span className="text-[14px] font-medium text-foreground">Enable admin dashboard UI</span>
-              </div>
-              <div className="mt-1 text-[12px] text-muted-foreground">Requires restart.</div>
+              <ToggleField
+                label="Enable admin dashboard UI"
+                description="Requires restart."
+                checked={dashboardSettings.client.admin_ui_enabled ?? adminUIEnabled}
+                onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, admin_ui_enabled: checked } })}
+                aria-label="Enable admin dashboard UI"
+              />
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Server port & base path</div>
@@ -166,23 +161,19 @@ export function GeneralTab(): JSX.Element {
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Debug endpoints</div>
-              <div className="flex items-center gap-3 mt-1">
-                <Switch
-                  checked={dashboardSettings.client.swagger_enabled ?? false}
-                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, swagger_enabled: checked } })}
-                  aria-label="Enable Swagger / OpenAPI docs"
-                />
-                <span className="text-[14px] font-medium text-foreground">Swagger / OpenAPI docs</span>
-              </div>
-              <div className="flex items-center gap-3 mt-1">
-                <Switch
-                  checked={dashboardSettings.client.pprof_enabled ?? false}
-                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, pprof_enabled: checked } })}
-                  aria-label="Enable pprof profiling"
-                />
-                <span className="text-[14px] font-medium text-foreground">pprof profiling</span>
-              </div>
-              <div className="mt-1 text-[12px] text-muted-foreground">Requires restart.</div>
+              <ToggleField
+                label="Swagger / OpenAPI docs"
+                checked={dashboardSettings.client.swagger_enabled ?? false}
+                onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, swagger_enabled: checked } })}
+                aria-label="Enable Swagger / OpenAPI docs"
+              />
+              <ToggleField
+                label="pprof profiling"
+                description="Requires restart."
+                checked={dashboardSettings.client.pprof_enabled ?? false}
+                onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, pprof_enabled: checked } })}
+                aria-label="Enable pprof profiling"
+              />
             </div>
           </div>
           <div className="flex items-center gap-3 mt-2 border-t border-border/50 pt-4">
@@ -223,30 +214,26 @@ export function GeneralTab(): JSX.Element {
               </select>
               <div className="mt-1 text-[12px] text-muted-foreground">Controls how configured provider model lists are applied to discovery.</div>
             </div>
-            <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Alias projection</div>
-              <div className="flex items-center gap-3 mt-1">
-                <Switch
+              <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Alias projection</div>
+                <ToggleField
+                  label="Include concrete models"
+                  description="Whether /v1/models keeps provider catalog entries in addition to aliases."
                   checked={!dashboardSettings.client.keep_only_aliases_at_models_endpoint}
                   onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, keep_only_aliases_at_models_endpoint: !checked } })}
                   aria-label="Include concrete models"
                 />
-                <span className="text-[14px] font-medium text-foreground">Include concrete models</span>
               </div>
-              <div className="mt-1 text-[12px] text-muted-foreground">Whether /v1/models keeps provider catalog entries in addition to aliases.</div>
-            </div>
-            <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">OpenAI passthrough alias</div>
-              <div className="flex items-center gap-3 mt-1">
-                <Switch
+              <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">OpenAI passthrough alias</div>
+                <ToggleField
+                  label={"Allow /p/{provider}/v1"}
+                  description="Lets /p/{provider}/v1/... behave like the canonical /p/{provider}/... path."
                   checked={dashboardSettings.client.allow_passthrough_v1_alias}
                   onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, allow_passthrough_v1_alias: checked } })}
                   aria-label="Allow /p/{provider}/v1"
                 />
-                <span className="text-[14px] font-medium text-foreground">Allow /p/{"{provider}"}/v1</span>
               </div>
-              <div className="mt-1 text-[12px] text-muted-foreground">Lets <code>/p/{"{provider}"}/v1/...</code> behave like the canonical <code>/p/{"{provider}"}/...</code> path.</div>
-            </div>
             <div className="border border-border/60 bg-surface-hover/20 p-4">
               <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Compatibility status</div>
               <div className="mt-2 text-[14px] font-medium text-foreground">Handled by the gateway</div>
@@ -283,26 +270,22 @@ export function GeneralTab(): JSX.Element {
           </div>
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="flex items-center gap-3">
-                <Switch
-                  checked={tokenSaver.enabled}
-                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, enabled: checked } })}
-                  aria-label="Enable Token Saver"
-                />
-                <span className="text-[14px] font-medium text-foreground">Enable Token Saver</span>
-              </div>
-              <div className="mt-1 text-[12px] text-muted-foreground">Applies deterministic compression before provider dispatch when the request matches this policy.</div>
+              <ToggleField
+                label="Enable Token Saver"
+                description="Applies deterministic compression before provider dispatch when the request matches this policy."
+                checked={tokenSaver.enabled}
+                onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, enabled: checked } })}
+                aria-label="Enable Token Saver"
+              />
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="flex items-center gap-3">
-                <Switch
-                  checked={tokenSaver.apply_streaming}
-                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, apply_streaming: checked } })}
-                  aria-label="Apply to streaming requests"
-                />
-                <span className="text-[14px] font-medium text-foreground">Apply to streaming requests</span>
-              </div>
-              <div className="mt-1 text-[12px] text-muted-foreground">When disabled, streaming chat completions bypass compression.</div>
+              <ToggleField
+                label="Apply to streaming requests"
+                description="When disabled, streaming chat completions bypass compression."
+                checked={tokenSaver.apply_streaming}
+                onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, apply_streaming: checked } })}
+                aria-label="Apply to streaming requests"
+              />
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">On error</div>
@@ -312,15 +295,13 @@ export function GeneralTab(): JSX.Element {
               </select>
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="flex items-center gap-3">
-                <Switch
-                  checked={tokenSaver.output_enabled}
-                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, output_enabled: checked } })}
-                  aria-label="Enable concise output profile"
-                />
-                <span className="text-[14px] font-medium text-foreground">Concise output profile</span>
-              </div>
-              <div className="mt-1 text-[12px] text-muted-foreground">Adds a safe concise-response instruction except when JSON response format is requested.</div>
+              <ToggleField
+                label="Concise output profile"
+                description="Adds a safe concise-response instruction except when JSON response format is requested."
+                checked={tokenSaver.output_enabled}
+                onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, output_enabled: checked } })}
+                aria-label="Enable concise output profile"
+              />
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Output level</div>
@@ -333,26 +314,22 @@ export function GeneralTab(): JSX.Element {
               <div className="mt-1 text-[12px] text-muted-foreground">Controls response profile verbosity. Full is the balanced default; ultra and wenyan are more aggressive.</div>
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="flex items-center gap-3">
-                <Switch
-                  checked={tokenSaver.emit_headers}
-                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, emit_headers: checked } })}
-                  aria-label="Emit observability headers"
-                />
-                <span className="text-[14px] font-medium text-foreground">Emit observability headers</span>
-              </div>
-              <div className="mt-1 text-[12px] text-muted-foreground">Headers include only status and character counts, never prompt content.</div>
+              <ToggleField
+                label="Emit observability headers"
+                description="Headers include only status and character counts, never prompt content."
+                checked={tokenSaver.emit_headers}
+                onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, emit_headers: checked } })}
+                aria-label="Emit observability headers"
+              />
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="flex items-center gap-3">
-                <Switch
-                  checked={tokenSaver.audit_enabled}
-                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, audit_enabled: checked } })}
-                  aria-label="Enable audit logging"
-                />
-                <span className="text-[14px] font-medium text-foreground">Audit logging</span>
-              </div>
-              <div className="mt-1 text-[12px] text-muted-foreground">Logs token saver decisions to the audit trail. Disabled by default; enable for compliance visibility.</div>
+              <ToggleField
+                label="Audit logging"
+                description="Logs token saver decisions to the audit trail. Disabled by default; enable for compliance visibility."
+                checked={tokenSaver.audit_enabled}
+                onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, audit_enabled: checked } })}
+                aria-label="Enable audit logging"
+              />
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30 xl:col-span-2">
               <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Endpoint scope</div>
@@ -492,17 +469,13 @@ export function GeneralTab(): JSX.Element {
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <Switch
-              checked={dashboardSettings.response_headers?.enabled ?? false}
-              onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, enabled: checked } })}
-              aria-label="Enable response headers"
-            />
-            <div className="flex min-w-0 flex-col gap-1">
-              <span className="text-[14px] font-semibold text-foreground">Enable response headers</span>
-              <span className="text-[11px] text-muted-foreground">Master switch for all response debug headers.</span>
-            </div>
-          </div>
+          <ToggleField
+            label={<span className="text-[14px] font-semibold">Enable response headers</span>}
+            description="Master switch for all response debug headers."
+            checked={dashboardSettings.response_headers?.enabled ?? false}
+            onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, enabled: checked } })}
+            aria-label="Enable response headers"
+          />
 
           <div className="flex flex-col gap-2">
             <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">When to add headers</label>
@@ -520,75 +493,63 @@ export function GeneralTab(): JSX.Element {
 
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="flex items-center gap-3">
-                <Switch
-                  checked={dashboardSettings.response_headers?.include_fallback ?? true}
-                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, include_fallback: checked } })}
-                  aria-label="Include headers on fallback requests"
-                />
-                <span className="text-[14px] font-medium text-foreground">Include on fallback requests</span>
-              </div>
-              <div className="mt-1 text-[12px] text-muted-foreground">Add headers when a fallback provider was used (request failed over to another provider).</div>
+              <ToggleField
+                label="Include on fallback requests"
+                description="Add headers when a fallback provider was used (request failed over to another provider)."
+                checked={dashboardSettings.response_headers?.include_fallback ?? true}
+                onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, include_fallback: checked } })}
+                aria-label="Include headers on fallback requests"
+              />
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="flex items-center gap-3">
-                <Switch
-                  checked={dashboardSettings.response_headers?.include_non_fallback ?? true}
-                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, include_non_fallback: checked } })}
-                  aria-label="Include headers on non-fallback requests"
-                />
-                <span className="text-[14px] font-medium text-foreground">Include on non-fallback requests</span>
-              </div>
-              <div className="mt-1 text-[12px] text-muted-foreground">Add headers even when no fallback occurred (normal successful request).</div>
+              <ToggleField
+                label="Include on non-fallback requests"
+                description="Add headers even when no fallback occurred (normal successful request)."
+                checked={dashboardSettings.response_headers?.include_non_fallback ?? true}
+                onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, include_non_fallback: checked } })}
+                aria-label="Include headers on non-fallback requests"
+              />
             </div>
           </div>
 
           <div className="flex flex-col gap-2">
             <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Built-in headers</div>
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <div className="border border-border/40 bg-surface p-4 flex items-center gap-3 transition-colors hover:bg-surface-hover/30">
-                <Switch
+              <div className="border border-border/40 bg-surface p-4 transition-colors hover:bg-surface-hover/30">
+                <ToggleField
+                  label={<code className="text-[12px] font-semibold">X-Actual-Provider</code>}
+                  description="The provider that actually served the response."
                   checked={dashboardSettings.response_headers?.actual_provider_header ?? true}
                   onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, actual_provider_header: checked } })}
                   aria-label="X-Actual-Provider header"
                 />
-                <div className="flex min-w-0 flex-col gap-0.5">
-                  <code className="text-[12px] font-semibold text-foreground">X-Actual-Provider</code>
-                  <span className="text-[11px] text-muted-foreground">The provider that actually served the response.</span>
-                </div>
               </div>
-              <div className="border border-border/40 bg-surface p-4 flex items-center gap-3 transition-colors hover:bg-surface-hover/30">
-                <Switch
+              <div className="border border-border/40 bg-surface p-4 transition-colors hover:bg-surface-hover/30">
+                <ToggleField
+                  label={<code className="text-[12px] font-semibold">X-Actual-Model</code>}
+                  description="The model that actually produced the response."
                   checked={dashboardSettings.response_headers?.actual_model_header ?? true}
                   onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, actual_model_header: checked } })}
                   aria-label="X-Actual-Model header"
                 />
-                <div className="flex min-w-0 flex-col gap-0.5">
-                  <code className="text-[12px] font-semibold text-foreground">X-Actual-Model</code>
-                  <span className="text-[11px] text-muted-foreground">The model that actually produced the response.</span>
-                </div>
               </div>
-              <div className="border border-border/40 bg-surface p-4 flex items-center gap-3 transition-colors hover:bg-surface-hover/30">
-                <Switch
+              <div className="border border-border/40 bg-surface p-4 transition-colors hover:bg-surface-hover/30">
+                <ToggleField
+                  label={<code className="text-[12px] font-semibold">X-Requested-Model</code>}
+                  description="The originally requested model selector."
                   checked={dashboardSettings.response_headers?.requested_model_header ?? true}
                   onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, requested_model_header: checked } })}
                   aria-label="X-Requested-Model header"
                 />
-                <div className="flex min-w-0 flex-col gap-0.5">
-                  <code className="text-[12px] font-semibold text-foreground">X-Requested-Model</code>
-                  <span className="text-[11px] text-muted-foreground">The originally requested model selector.</span>
-                </div>
               </div>
-              <div className="border border-border/40 bg-surface p-4 flex items-center gap-3 transition-colors hover:bg-surface-hover/30">
-                <Switch
+              <div className="border border-border/40 bg-surface p-4 transition-colors hover:bg-surface-hover/30">
+                <ToggleField
+                  label={<code className="text-[12px] font-semibold">X-Fallback-Chain</code>}
+                  description="Comma-separated models attempted before a success."
                   checked={dashboardSettings.response_headers?.fallback_chain_header ?? true}
                   onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, fallback_chain_header: checked } })}
                   aria-label="X-Fallback-Chain header"
                 />
-                <div className="flex min-w-0 flex-col gap-0.5">
-                  <code className="text-[12px] font-semibold text-foreground">X-Fallback-Chain</code>
-                  <span className="text-[11px] text-muted-foreground">Comma-separated models attempted before a success.</span>
-                </div>
               </div>
             </div>
           </div>

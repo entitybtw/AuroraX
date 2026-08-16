@@ -1,7 +1,7 @@
 import { Surface, SectionHeader } from "@/components/ui/surface";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
+import { ToggleField } from "@/components/ui/toggle-field";
 import { RuntimeStatusBadge, useSettings, StatusChip } from "./SettingsContext";
 import { DatabaseIcon, SaveIcon } from "lucide-react";
 
@@ -85,14 +85,12 @@ export function CachingTab(): JSX.Element {
             <h4 className="font-semibold text-[15px] tracking-tight text-foreground mb-3">Exact Cache</h4>
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-                <div className="flex items-center gap-3 mt-1">
-                  <Switch
-                    checked={dashboardSettings.caching.exact_cache_enabled}
-                    onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, caching: { ...dashboardSettings.caching, exact_cache_enabled: checked } })}
-                    aria-label="Enable exact cache"
-                  />
-                  <span className="text-[14px] font-medium text-foreground">Enabled</span>
-                </div>
+                <ToggleField
+                  label="Enabled"
+                  checked={dashboardSettings.caching.exact_cache_enabled}
+                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, caching: { ...dashboardSettings.caching, exact_cache_enabled: checked } })}
+                  aria-label="Enable exact cache"
+                />
               </div>
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">TTL</div>
@@ -121,14 +119,12 @@ export function CachingTab(): JSX.Element {
             <h4 className="font-semibold text-[15px] tracking-tight text-foreground mb-3">Semantic Cache</h4>
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-                <div className="flex items-center gap-3 mt-1">
-                  <Switch
-                    checked={dashboardSettings.caching.semantic_cache_enabled}
-                    onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, caching: { ...dashboardSettings.caching, semantic_cache_enabled: checked } })}
-                    aria-label="Enable semantic cache"
-                  />
-                  <span className="text-[14px] font-medium text-foreground">Enabled</span>
-                </div>
+                <ToggleField
+                  label="Enabled"
+                  checked={dashboardSettings.caching.semantic_cache_enabled}
+                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, caching: { ...dashboardSettings.caching, semantic_cache_enabled: checked } })}
+                  aria-label="Enable semantic cache"
+                />
               </div>
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Similarity threshold</div>
@@ -176,14 +172,12 @@ export function CachingTab(): JSX.Element {
                 />
               </div>
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-                <div className="flex items-center gap-3 mt-1">
-                  <Switch
-                    checked={dashboardSettings.caching.semantic_exclude_system_prompt}
-                    onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, caching: { ...dashboardSettings.caching, semantic_exclude_system_prompt: checked } })}
-                    aria-label="Exclude system prompt from semantic cache"
-                  />
-                  <span className="text-[14px] font-medium text-foreground">Exclude system prompt</span>
-                </div>
+                <ToggleField
+                  label="Exclude system prompt"
+                  checked={dashboardSettings.caching.semantic_exclude_system_prompt}
+                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, caching: { ...dashboardSettings.caching, semantic_exclude_system_prompt: checked } })}
+                  aria-label="Exclude system prompt from semantic cache"
+                />
               </div>
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Embedder provider</div>
@@ -252,37 +246,31 @@ export function CachingTab(): JSX.Element {
                 <div className="mt-1 text-[12px] text-muted-foreground">Auto injects breakpoints; Manual uses only explicit request cache_control</div>
               </div>
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-                <div className="flex items-center gap-3 mt-1">
-                  <Switch
-                    checked={dashboardSettings.caching.prompt_cache_system_prompt}
-                    onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, caching: { ...dashboardSettings.caching, prompt_cache_system_prompt: checked } })}
-                    aria-label="Enable system prompt cache"
-                  />
-                  <span className="text-[14px] font-medium text-foreground">System prompt cache</span>
-                </div>
-                <div className="mt-1 text-[12px] text-muted-foreground">Mark system prompt content for caching (auto mode)</div>
+                <ToggleField
+                  label="System prompt cache"
+                  description="Mark system prompt content for caching (auto mode)"
+                  checked={dashboardSettings.caching.prompt_cache_system_prompt}
+                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, caching: { ...dashboardSettings.caching, prompt_cache_system_prompt: checked } })}
+                  aria-label="Enable system prompt cache"
+                />
               </div>
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-                <div className="flex items-center gap-3 mt-1">
-                  <Switch
-                    checked={dashboardSettings.caching.prompt_cache_first_message}
-                    onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, caching: { ...dashboardSettings.caching, prompt_cache_first_message: checked } })}
-                    aria-label="Enable first message cache"
-                  />
-                  <span className="text-[14px] font-medium text-foreground">First message cache</span>
-                </div>
-                <div className="mt-1 text-[12px] text-muted-foreground">Mark first user message for caching (auto mode)</div>
+                <ToggleField
+                  label="First message cache"
+                  description="Mark first user message for caching (auto mode)"
+                  checked={dashboardSettings.caching.prompt_cache_first_message}
+                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, caching: { ...dashboardSettings.caching, prompt_cache_first_message: checked } })}
+                  aria-label="Enable first message cache"
+                />
               </div>
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-                <div className="flex items-center gap-3 mt-1">
-                  <Switch
-                    checked={dashboardSettings.caching.prompt_cache_tools}
-                    onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, caching: { ...dashboardSettings.caching, prompt_cache_tools: checked } })}
-                    aria-label="Enable tools cache"
-                  />
-                  <span className="text-[14px] font-medium text-foreground">Tools cache</span>
-                </div>
-                <div className="mt-1 text-[12px] text-muted-foreground">Mark tool definitions for caching (auto mode)</div>
+                <ToggleField
+                  label="Tools cache"
+                  description="Mark tool definitions for caching (auto mode)"
+                  checked={dashboardSettings.caching.prompt_cache_tools}
+                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, caching: { ...dashboardSettings.caching, prompt_cache_tools: checked } })}
+                  aria-label="Enable tools cache"
+                />
               </div>
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Min tokens before cache</div>

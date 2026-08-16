@@ -1,7 +1,7 @@
 import { Surface, SectionHeader } from "@/components/ui/surface";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
+import { ToggleField } from "@/components/ui/toggle-field";
 import { RuntimeStatusBadge, useSettings } from "./SettingsContext";
 import { ActivityIcon, GaugeIcon, SaveIcon } from "lucide-react";
 
@@ -97,15 +97,13 @@ export function NetworkingTab(): JSX.Element {
               <div className="mt-1 text-[12px] text-muted-foreground">Comma-separated hosts to bypass the proxy.</div>
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="flex items-center gap-3">
-                <Switch
-                  checked={dashboardSettings.proxy.proxy_auth_enabled}
-                  onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, proxy: { ...dashboardSettings.proxy, proxy_auth_enabled: checked } })}
-                  aria-label="Enable proxy auth"
-                />
-                <span className="text-[14px] font-medium text-foreground">Proxy auth required</span>
-              </div>
-              <div className="mt-1 text-[12px] text-muted-foreground">Toggle if your proxy requires username/password authentication.</div>
+              <ToggleField
+                label="Proxy auth required"
+                description="Toggle if your proxy requires username/password authentication."
+                checked={dashboardSettings.proxy.proxy_auth_enabled}
+                onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, proxy: { ...dashboardSettings.proxy, proxy_auth_enabled: checked } })}
+                aria-label="Enable proxy auth"
+              />
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30 xl:col-span-2">
               <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">CA certificate (PEM)</div>

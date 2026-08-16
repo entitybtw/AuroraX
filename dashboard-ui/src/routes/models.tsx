@@ -27,7 +27,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
+import { ToggleField } from "@/components/ui/toggle-field";
 import {
   Dialog,
   DialogContent,
@@ -1129,10 +1129,13 @@ function AliasDialog({
             <Field label="Description">
               <textarea className="field-input min-h-24" value={form.description} onChange={(e) => onChange({ ...form, description: e.target.value })} />
             </Field>
-            <div className="flex items-center gap-2 text-sm text-foreground">
-              <Switch checked={form.enabled} size="sm" onCheckedChange={(checked) => onChange({ ...form, enabled: checked })} aria-label="Alias enabled" />
-              Alias is enabled
-            </div>
+            <ToggleField
+              size="sm"
+              label="Alias is enabled"
+              checked={form.enabled}
+              onCheckedChange={(checked) => onChange({ ...form, enabled: checked })}
+              aria-label="Alias enabled"
+            />
             {form.mode === "edit" ? <p className="text-xs text-muted-foreground">Renaming an alias creates the new name first, then removes the old one.</p> : null}
             {error ? <p className="text-sm text-warning">{error}</p> : null}
             <DialogFooter>
@@ -1180,10 +1183,14 @@ function OverrideDialog({
             <Field label="Selector">
               <input className="field-input font-mono" value={form.selector} disabled />
             </Field>
-            <div className="flex items-center gap-3 rounded-lg border border-border bg-background/35 p-3 text-sm text-foreground">
-              <Switch checked={form.enabled} size="sm" onCheckedChange={(checked) => onChange({ ...form, enabled: checked })} aria-label="Override enabled" />
-              {form.enabled ? "Enabled for matching user paths" : "Disabled for every user path"}
-            </div>
+            <ToggleField
+              size="sm"
+              label={form.enabled ? "Enabled for matching user paths" : "Disabled for every user path"}
+              checked={form.enabled}
+              onCheckedChange={(checked) => onChange({ ...form, enabled: checked })}
+              aria-label="Override enabled"
+              className="rounded-lg border border-border bg-background/35 px-3 py-3"
+            />
             <Field label="User Paths">
               <textarea
                 className="field-input min-h-28 font-mono"
