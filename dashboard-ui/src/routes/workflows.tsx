@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { PlusIcon, SearchIcon, PencilIcon, ShieldIcon, XCircleIcon, AlertCircleIcon, EyeIcon, ChevronDown, Info, ListOrdered, SlidersHorizontal, Crosshair } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
+import { ToggleField } from "@/components/ui/toggle-field";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Surface, EmptyState } from "@/components/ui/surface";
 import { Input } from "@/components/ui/input";
@@ -458,18 +458,16 @@ export function WorkflowsPage(): JSX.Element {
                   ].map((feat) => {
                     const isEnabled = formData.features?.[feat.key as keyof typeof formData.features];
                     return (
-                      <label key={feat.key} className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors ${isEnabled ? 'border-accent bg-accent/5' : 'bg-background hover:bg-muted/50'}`}>
-                        <Switch
-                          checked={!!isEnabled}
-                          size="sm"
-                          onCheckedChange={() => handleToggleFeature(feat.key as keyof typeof formData.features)}
-                          aria-label={`Toggle ${feat.label}`}
-                        />
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium text-foreground">{feat.label}</span>
-                          <span className="text-xs text-muted-foreground">{feat.detail}</span>
-                        </div>
-                      </label>
+                      <ToggleField
+                        key={feat.key}
+                        label={feat.label}
+                        description={feat.detail}
+                        size="sm"
+                        checked={!!isEnabled}
+                        onCheckedChange={() => handleToggleFeature(feat.key as keyof typeof formData.features)}
+                        aria-label={`Toggle ${feat.label}`}
+                        className={`rounded-lg border p-3 ${isEnabled ? "border-accent bg-accent/5" : "bg-background hover:bg-muted/50"}`}
+                      />
                     );
                   })}
                 </div>
