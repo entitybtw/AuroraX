@@ -2,20 +2,21 @@
 package server
 
 import (
+	"errors"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/labstack/echo/v5"
 
-	"aurora/configuration"
 	"aurora/internal/audit_logging"
-	batchstore "aurora/internal/batch"
+	"aurora/internal/batch"
 	"aurora/internal/core"
-
 	"aurora/internal/response_cache"
 	"aurora/internal/response_store"
 	"aurora/internal/token_saver"
 	"aurora/internal/usage"
+	configpkg "aurora/configuration"
 )
 
 // Handler holds the HTTP handlers
@@ -33,7 +34,7 @@ type Handler struct {
 	usageLogger                     usage.LoggerInterface
 
 	pricingResolver                 usage.PricingResolver
-	batchStore                      batchstore.Store
+	batchStore                      batch.Store
 	responseStore                   responsestore.Store
 	responseStoreMu                 sync.RWMutex
 	normalizePassthroughV1Prefix    bool
@@ -42,7 +43,7 @@ type Handler struct {
 	guardrailsHash                  string
 	tokenSaver                      *tokensaver.Service
 	promptCacheConfig               *core.PromptCacheConfig
-	responseHeadersConfig           config.ResponseHeadersConfig
+	responseHeadersConfig           configpkg.ResponseHeadersConfig
 
 	translatedSvc           *translatedInferenceService
 	translatedSvcOnce       sync.Once
@@ -99,7 +100,7 @@ func newHandlerWithAuthorizer(
 		logger:                   logger,
 		usageLogger:              usageLogger,
 		pricingResolver:          pricingResolver,
-		batchStore:               batchstore.NewMemoryStore(),
+		batchStore:               batch.NewMemoryStore(),
 		responseStore: responsestore.NewMemoryStore(
 			responsestore.WithTTL(responsestore.DefaultMemoryStoreTTL),
 			responsestore.WithMaxEntries(responsestore.DefaultMemoryStoreMaxEntries),
@@ -111,7 +112,7 @@ func newHandlerWithAuthorizer(
 
 // SetBatchStore replaces the batch store used by lifecycle endpoints.
 // nil is ignored to keep an always-available fallback memory store.
-func (h *Handler) SetBatchStore(store batchstore.Store) {
+func (h *Handler) SetBatchStore(store batch.Store) {
 	if store == nil {
 		return
 	}
@@ -324,7 +325,7 @@ func (h *Handler) ListModels(c *echo.Context) error {
 
 	resp, err := h.provider.ListModels(ctx)
 	if err != nil {
-		return handleError(c, err)
+		return h.handleError(c, err)
 	}
 	if h.keepOnlyAliasesAtModelsEndpoint {
 		object := "list"
@@ -726,4 +727,68 @@ func (h *Handler) CancelBatch(c *echo.Context) error {
 // @Router       /v1/batches/{id}/results [get]
 func (h *Handler) BatchResults(c *echo.Context) error {
 	return h.nativeBatch().BatchResults(c)
+}
+
+// handleError converts gateway errors to appropriate HTTP responses and adds response headers.
+func (h *Handler) handleError(c *echo.Context, err error) error {
+	if gatewayErr, ok := errors.AsType[*core.GatewayError](err); ok {
+		logHandledError(c, gatewayErr)
+		auditlog.EnrichEntryWithError(c, string(gatewayErr.Type), gatewayErr.Message, gatewayErrorCode(gatewayErr))
+		h.applyErrorResponseHeaders(c, err)
+		return c.JSON(gatewayErr.HTTPStatusCode(), gatewayErr.ToJSON())
+	}
+
+	gatewayErr := core.NewProviderError("", http.StatusInternalServerError, "an unexpected error occurred", err)
+	logHandledError(c, gatewayErr)
+	auditlog.EnrichEntryWithError(c, string(gatewayErr.Type), gatewayErr.Message, gatewayErrorCode(gatewayErr))
+	return c.JSON(gatewayErr.HTTPStatusCode(), gatewayErr.ToJSON())
+}
+
+// applyErrorResponseHeaders adds response headers to error responses based on config.
+func (h *Handler) applyErrorResponseHeaders(c *echo.Context, err error) {
+	if c == nil || err == nil || !h.responseHeadersConfig.Enabled {
+		return
+	}
+
+	cfg := h.responseHeadersConfig
+	status := 0
+	if resp, ok := c.Response().(*echo.Response); ok {
+		status = resp.Status
+	}
+
+	switch cfg.Mode {
+	case "success":
+		// Don't add headers to error responses in success mode
+		return
+	case "error":
+		if status >= 400 {
+			// Add headers for error responses
+		} else {
+			return
+		}
+	case "always":
+		// Add headers for all responses
+	default:
+		return
+	}
+
+	header := c.Response().Header()
+	requestID := requestIDFromContextOrHeader(c.Request())
+
+	// Add request ID if available
+	if requestID != "" {
+		header.Set("X-Request-ID", requestID)
+	}
+
+	// Add custom headers with placeholders
+	for _, custom := range cfg.CustomHeaders {
+		if !custom.Enabled || strings.TrimSpace(custom.Name) == "" {
+			continue
+		}
+		name := http.CanonicalHeaderKey(strings.TrimSpace(custom.Name))
+		value := expandResponseHeaderTemplateForError(custom.Value, requestID)
+		if name != "" && value != "" {
+			header.Set(name, value)
+		}
+	}
 }
