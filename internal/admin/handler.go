@@ -228,9 +228,20 @@ type DashboardProxySettingsSnapshot struct {
 }
 
 type DashboardResponseHeadersSettingsSnapshot struct {
-	Enabled          bool `json:"enabled"`
-	IncludeFallback  bool `json:"include_fallback"`
-	IncludeNonFallback bool `json:"include_non_fallback"`
+	Enabled               bool                                `json:"enabled"`
+	IncludeFallback       bool                                `json:"include_fallback"`
+	IncludeNonFallback    bool                                `json:"include_non_fallback"`
+	ActualProviderHeader  bool                                `json:"actual_provider_header"`
+	ActualModelHeader     bool                                `json:"actual_model_header"`
+	RequestedModelHeader  bool                                `json:"requested_model_header"`
+	FallbackChainHeader   bool                                `json:"fallback_chain_header"`
+	CustomHeaders         []DashboardCustomResponseHeader      `json:"custom_headers"`
+}
+
+type DashboardCustomResponseHeader struct {
+	Name    string `json:"name"`
+	Value   string `json:"value"`
+	Enabled bool   `json:"enabled"`
 }
 
 type DashboardSecuritySettingsSnapshot struct {
@@ -726,9 +737,14 @@ func normalizeDashboardSettingsSnapshot(values DashboardSettingsSnapshot) Dashbo
 			CACertPEM:        strings.TrimSpace(values.Proxy.CACertPEM),
 		},
 		ResponseHeaders: DashboardResponseHeadersSettingsSnapshot{
-			Enabled:           values.ResponseHeaders.Enabled,
-			IncludeFallback:   values.ResponseHeaders.IncludeFallback,
-			IncludeNonFallback: values.ResponseHeaders.IncludeNonFallback,
+			Enabled:              values.ResponseHeaders.Enabled,
+			IncludeFallback:      values.ResponseHeaders.IncludeFallback,
+			IncludeNonFallback:   values.ResponseHeaders.IncludeNonFallback,
+			ActualProviderHeader: values.ResponseHeaders.ActualProviderHeader,
+			ActualModelHeader:    values.ResponseHeaders.ActualModelHeader,
+			RequestedModelHeader: values.ResponseHeaders.RequestedModelHeader,
+			FallbackChainHeader:  values.ResponseHeaders.FallbackChainHeader,
+			CustomHeaders:        values.ResponseHeaders.CustomHeaders,
 		},
 		Security: DashboardSecuritySettingsSnapshot{
 			MasterKeyConfigured: values.Security.MasterKeyConfigured,

@@ -104,3 +104,11 @@ response_headers:
     enabled: false
     include_fallback: true
     include_non_fallback: true
+    actual_provider_header: true
+    actual_model_header: true
+    requested_model_header: true
+    fallback_chain_header: true
+    custom_headers:
+        - name: X-Custom-Header
+          value: "{actual_model} via {actual_provider}"
+          enabled: true

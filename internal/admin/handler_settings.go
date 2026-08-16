@@ -28,9 +28,20 @@ type DashboardSettingsUpdateRequest struct {
 }
 
 type DashboardSettingsUpdateResponseHeaders struct {
-	Enabled           bool `json:"enabled"`
-	IncludeFallback   bool `json:"include_fallback"`
-	IncludeNonFallback bool `json:"include_non_fallback"`
+	Enabled               bool                            `json:"enabled"`
+	IncludeFallback       bool                            `json:"include_fallback"`
+	IncludeNonFallback    bool                            `json:"include_non_fallback"`
+	ActualProviderHeader  bool                            `json:"actual_provider_header"`
+	ActualModelHeader     bool                            `json:"actual_model_header"`
+	RequestedModelHeader  bool                            `json:"requested_model_header"`
+	FallbackChainHeader   bool                            `json:"fallback_chain_header"`
+	CustomHeaders         []DashboardUpdateCustomResponseHeader `json:"custom_headers"`
+}
+
+type DashboardUpdateCustomResponseHeader struct {
+	Name    string `json:"name"`
+	Value   string `json:"value"`
+	Enabled bool   `json:"enabled"`
 }
 
 type DashboardSettingsUpdateClient struct {
