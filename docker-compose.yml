@@ -49,6 +49,9 @@ services:
       - ./configs/editions/oss.team.example.yaml:/app/configs/config.yaml:ro
       - ./.aurora.local/fallback.local.json:/app/configs/fallback.local.json:ro
       - ./.aurora.local/provider-overrides.json:/app/configs/provider-overrides.json
+      # Persists dashboard-edited settings (response headers, caching, etc.) across container recreation.
+      # Create the file first: mkdir -p .aurora.local && touch .aurora.local/dashboard-overrides.yaml
+      - ./.aurora.local/dashboard-overrides.yaml:/app/configs/dashboard-overrides.yaml
       - aurora_data:/app/data
     depends_on:
       redis:
