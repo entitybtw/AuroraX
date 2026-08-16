@@ -186,6 +186,13 @@ func (a *App) RefreshRuntime(ctx context.Context) (admin.RuntimeRefreshReport, e
 		report.ProviderCount = registry.ProviderCount()
 	}
 	finalizeRuntimeRefreshReport(&report)
+
+	// Refresh the admin provider inventory snapshot so dashboard edits
+	// (api keys, bind IPs, models) are visible without a restart.
+	if a.providers != nil && a.adminHandler != nil {
+		a.adminHandler.SetConfiguredProviders(a.providers.ConfiguredProviders)
+	}
+
 	return report, nil
 }
 

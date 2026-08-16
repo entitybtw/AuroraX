@@ -64,6 +64,7 @@ type App struct {
 	guardrails        *guardrails.Result
 	workflows         *workflow.Result
 	server            *server.Server
+	adminHandler      *admin.Handler
 
 	// fallbackResolver is a swappable wrapper around the failover resolver so
 	// manual fallback rule changes apply at runtime without a restart.
@@ -512,6 +513,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 		if adminErr != nil {
 			slog.Warn("failed to initialize admin", "error", adminErr)
 		} else {
+			app.adminHandler = adminHandler
 			serverCfg.AdminEndpointsEnabled = true
 			serverCfg.AdminHandler = adminHandler
 			slog.Info("admin API enabled", "api", config.JoinBasePath(appCfg.Server.BasePath, "/admin/api/v1"))
