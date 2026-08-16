@@ -85,7 +85,7 @@ function defaults(): DashboardSettingsFormState {
     pricing: { enforce_returning_usage_data: true, pricing_recalculation_enabled: true, usage_retention_days: 90 },
     token_saver: { enabled: false, apply_streaming: true, endpoints: ["chat_completions"], output_enabled: false, output_profile: "concise", output_level: "full", emit_headers: true, on_error: "allow", model_include: [], model_exclude: [], provider_include: [], provider_exclude: [], audit_enabled: true },
     proxy: { http_proxy: "", https_proxy: "", no_proxy: "", proxy_auth_enabled: false, ca_cert_pem: "" },
-    response_headers: { enabled: false, include_fallback: true, include_non_fallback: true, actual_provider_header: true, actual_model_header: true, requested_model_header: true, fallback_chain_header: true, custom_headers: [] },
+    response_headers: { enabled: false, mode: "success", include_fallback: true, include_non_fallback: true, actual_provider_header: true, actual_model_header: true, requested_model_header: true, fallback_chain_header: true, custom_headers: [] },
   };
 }
 

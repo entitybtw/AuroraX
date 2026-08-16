@@ -242,6 +242,9 @@ func New(provider core.RoutableProvider, cfg *Config) *Server {
 	}
 	e.Use(middleware.Recover())
 
+	// Response headers middleware — adds debug headers to responses based on Mode config
+	e.Use(responseHeadersMiddleware(handler))
+
 	// Body size limit (default: 10MB)
 	bodySizeLimit := "10M"
 	if cfg != nil && cfg.BodySizeLimit != "" {
@@ -561,4 +564,88 @@ func parseBodySizeLimitBytes(limit string) int64 {
 	}
 
 	return value
+}
+
+// responseHeadersMiddleware adds response headers based on the ResponseHeadersConfig.
+// It runs after the handler and adds headers to responses based on the Mode config:
+// - "success": only 2xx responses
+// - "error": only 4xx/5xx responses
+// - "always": all responses
+func responseHeadersMiddleware(h *Handler) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			err := next(c)
+			cfg := h.responseHeadersConfig
+			if !cfg.Enabled {
+				return err
+			}
+
+			status := 0
+	if resp, ok := c.Response().(*echo.Response); ok {
+		status = resp.Status
+	}
+			addHeaders := false
+			switch cfg.Mode {
+			case "success":
+				addHeaders = status >= 200 && status < 300
+			case "error":
+				addHeaders = status >= 400
+			case "always":
+				addHeaders = true
+			default:
+				addHeaders = status >= 200 && status < 300
+			}
+
+			if !addHeaders {
+				return err
+			}
+
+			// For error responses, we don't have execution meta, so add minimal headers
+			header := c.Response().Header()
+			requestID := requestIDFromContextOrHeader(c.Request())
+
+			if cfg.ActualProviderHeader {
+				// For errors, we don't know the actual provider, skip
+			}
+			if cfg.ActualModelHeader {
+				// For errors, we don't know the actual model, skip
+			}
+			if cfg.RequestedModelHeader {
+				// We could add requested model from context if available
+			}
+			if cfg.FallbackChainHeader {
+				// For errors, skip
+			}
+
+			// Add request ID header if available
+			if requestID != "" {
+				header.Set("X-Request-ID", requestID)
+			}
+
+			// Add custom headers
+			for _, custom := range cfg.CustomHeaders {
+				if !custom.Enabled || strings.TrimSpace(custom.Name) == "" {
+					continue
+				}
+				name := http.CanonicalHeaderKey(strings.TrimSpace(custom.Name))
+				value := expandResponseHeaderTemplateForError(custom.Value, requestID)
+				if name != "" && value != "" {
+					header.Set(name, value)
+				}
+			}
+
+			return err
+		}
+	}
+}
+
+// expandResponseHeaderTemplateForError replaces placeholders for error responses.
+func expandResponseHeaderTemplateForError(template, requestID string) string {
+	if !strings.Contains(template, "{") {
+		return strings.TrimSpace(template)
+	}
+	replacer := strings.NewReplacer(
+		"{request_id}", requestID,
+	)
+	return strings.TrimSpace(replacer.Replace(template))
 }

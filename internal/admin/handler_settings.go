@@ -29,6 +29,7 @@ type DashboardSettingsUpdateRequest struct {
 
 type DashboardSettingsUpdateResponseHeaders struct {
 	Enabled               bool                            `json:"enabled"`
+	Mode                  string                          `json:"mode"`
 	IncludeFallback       bool                            `json:"include_fallback"`
 	IncludeNonFallback    bool                            `json:"include_non_fallback"`
 	ActualProviderHeader  bool                            `json:"actual_provider_header"`

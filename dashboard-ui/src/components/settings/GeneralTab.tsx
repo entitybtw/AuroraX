@@ -504,6 +504,20 @@ export function GeneralTab(): JSX.Element {
             </div>
           </div>
 
+          <div className="flex flex-col gap-2">
+            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">When to add headers</label>
+            <select
+              className="field-input w-full max-w-xs"
+              value={dashboardSettings.response_headers?.mode ?? "success"}
+              onChange={(e) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, mode: e.target.value as "success" | "error" | "always" } })}
+            >
+              <option value="success">Only successful responses (2xx)</option>
+              <option value="error">Only error responses (4xx/5xx)</option>
+              <option value="always">All responses</option>
+            </select>
+            <span className="text-[11px] text-muted-foreground">Control when debug headers are injected into responses.</span>
+          </div>
+
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <div className="flex items-center gap-3">

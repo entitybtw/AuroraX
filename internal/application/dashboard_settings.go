@@ -137,6 +137,7 @@ type dashboardProxyOverlay struct {
 
 type dashboardResponseHeadersOverlay struct {
 	Enabled              *bool                             `yaml:"enabled,omitempty"`
+	Mode                 *string                           `yaml:"mode,omitempty"`
 	IncludeFallback      *bool                             `yaml:"include_fallback,omitempty"`
 	IncludeNonFallback   *bool                             `yaml:"include_non_fallback,omitempty"`
 	ActualProviderHeader *bool                             `yaml:"actual_provider_header,omitempty"`
@@ -470,6 +471,7 @@ func applyDashboardSettingsToConfig(cfg *config.Config, req admin.DashboardSetti
 	cfg.Cache.Prompt.MinTokensBeforeCache = req.Caching.PromptCache.MinTokens
 	applyDashboardTokenSaverToConfig(cfg, req.TokenSaver)
 	cfg.ResponseHeaders.Enabled = req.ResponseHeaders.Enabled
+	cfg.ResponseHeaders.Mode = req.ResponseHeaders.Mode
 	cfg.ResponseHeaders.IncludeFallback = req.ResponseHeaders.IncludeFallback
 	cfg.ResponseHeaders.IncludeNonFallback = req.ResponseHeaders.IncludeNonFallback
 	cfg.ResponseHeaders.ActualProviderHeader = req.ResponseHeaders.ActualProviderHeader
@@ -707,6 +709,7 @@ func applyDashboardSettingsToOverlay(overlay *dashboardSettingsOverlay, req admi
 	overlay.Proxy.CACertPEM = stringPtr(strings.TrimSpace(req.Proxy.CACertPEM))
 
 	overlay.ResponseHeaders.Enabled = boolPtr(req.ResponseHeaders.Enabled)
+	overlay.ResponseHeaders.Mode = stringPtr(req.ResponseHeaders.Mode)
 	overlay.ResponseHeaders.IncludeFallback = boolPtr(req.ResponseHeaders.IncludeFallback)
 	overlay.ResponseHeaders.IncludeNonFallback = boolPtr(req.ResponseHeaders.IncludeNonFallback)
 	overlay.ResponseHeaders.ActualProviderHeader = boolPtr(req.ResponseHeaders.ActualProviderHeader)
