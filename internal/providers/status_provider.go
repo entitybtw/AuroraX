@@ -35,6 +35,7 @@ type SanitizedProviderConfig struct {
 	BaseURL    string                    `json:"base_url,omitempty"`
 	APIVersion string                    `json:"api_version,omitempty"`
 	Models     []string                  `json:"models,omitempty"`
+	BindIP     string                    `json:"bind_ip,omitempty"`
 	Enabled    bool                      `json:"enabled"`
 	Resilience SanitizedResilienceConfig `json:"resilience"`
 }
@@ -96,6 +97,7 @@ func SanitizeProviderConfigs(configs map[string]ProviderConfig) []SanitizedProvi
 			BaseURL:    strings.TrimSpace(cfg.BaseURL),
 			APIVersion: strings.TrimSpace(cfg.APIVersion),
 			Models:     models,
+			BindIP:     strings.TrimSpace(cfg.BindIP),
 			Enabled:    true,
 			Resilience: SanitizedResilienceConfig{
 				Retry: SanitizedRetryConfig{

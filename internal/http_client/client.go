@@ -264,3 +264,30 @@ func tlsConfig(caCertPEM string) *tls.Config {
 	}
 	return &tls.Config{RootCAs: pool}
 }
+
+// NewHTTPClientWithBindIP creates a new HTTP client whose outbound connections
+// are bound to the given local source IP address. When bindIP is empty it falls
+// back to the shared global transport (connection pool reuse). This is useful
+// on multi-homed hosts where the upstream rate-limits per source IP.
+func NewHTTPClientWithBindIP(bindIP string) *http.Client {
+	bindIP = strings.TrimSpace(bindIP)
+	if bindIP == "" {
+		return NewDefaultHTTPClient()
+	}
+
+	base := ensureGlobalTransport().Clone()
+	dialer := &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}
+	base.DialContext = (&net.Dialer{
+		Timeout:   dialer.Timeout,
+		KeepAlive: dialer.KeepAlive,
+		LocalAddr: &net.TCPAddr{IP: net.ParseIP(bindIP)},
+	}).DialContext
+
+	return &http.Client{
+		Transport: base,
+		Timeout:   DefaultConfig().Timeout,
+	}
+}

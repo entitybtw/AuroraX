@@ -25,6 +25,8 @@ type ProviderConfig struct {
 	// win. Empty/nil when no per-model metadata is declared in YAML.
 	ModelMetadataOverrides map[string]*core.ModelMetadata
 	Resilience             config.ResilienceConfig
+	// BindIP optionally sets the local outbound IP for the upstream HTTP client.
+	BindIP string
 }
 
 // resolveProviders applies env var overrides to the raw YAML provider map, filters
@@ -448,6 +450,7 @@ func buildProviderConfig(raw config.RawProviderConfig, global config.ResilienceC
 		Models:                 config.ProviderModelIDs(raw.Models),
 		ModelMetadataOverrides: config.ProviderModelMetadataOverrides(raw.Models),
 		Resilience:             global,
+		BindIP:                 strings.TrimSpace(raw.BindIP),
 	}
 
 	if raw.Resilience == nil {

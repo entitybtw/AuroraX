@@ -25,6 +25,8 @@ type ProviderOverride struct {
 	APIVersion string `json:"api_version"`
 	APIKey     string `json:"api_key"`
 	Models     string `json:"models"`
+	// BindIP optionally sets the local outbound IP for this provider's upstream requests.
+	BindIP string `json:"bind_ip,omitempty"`
 	// Enabled controls whether the provider participates in the runtime.
 	// A nil pointer (legacy entries written before this field) means enabled.
 	Enabled *bool `json:"enabled,omitempty"`
@@ -141,6 +143,7 @@ func (s *ProviderOverrideStore) RawConfigs() map[string]config.RawProviderConfig
 			BaseURL:    strings.TrimSpace(override.BaseURL),
 			APIVersion: strings.TrimSpace(override.APIVersion),
 			Models:     rawProviderModelsFromOverride(override.Models),
+			BindIP:     strings.TrimSpace(override.BindIP),
 		}
 	}
 	return out
@@ -177,6 +180,7 @@ type providerUpdateRequest struct {
 	APIVersion *string `json:"api_version"`
 	APIKey     *string `json:"api_key"`
 	Models     *string `json:"models"`
+	BindIP     *string `json:"bind_ip"`
 	Enabled    *bool   `json:"enabled"`
 }
 
@@ -316,6 +320,9 @@ func (h *Handler) UpdateProvider(c *echo.Context) error {
 	}
 	if req.Models != nil {
 		updated.Models = strings.TrimSpace(*req.Models)
+	}
+	if req.BindIP != nil {
+		updated.BindIP = strings.TrimSpace(*req.BindIP)
 	}
 	if req.Enabled != nil {
 		updated.Enabled = boolPtr(*req.Enabled)

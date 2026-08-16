@@ -16,6 +16,8 @@ type ProviderOptions struct {
 	Hooks      llmclient.Hooks
 	Models     []string
 	Resilience config.ResilienceConfig
+	// BindIP optionally sets the local outbound IP for the upstream HTTP client.
+	BindIP string
 }
 
 // ProviderConstructor is the constructor signature for providers.
@@ -99,6 +101,7 @@ func (f *ProviderFactory) Create(cfg ProviderConfig) (core.Provider, error) {
 		Hooks:      hooks,
 		Models:     cfg.Models,
 		Resilience: cfg.Resilience,
+		BindIP:     cfg.BindIP,
 	}
 
 	return builder(cfg, opts), nil

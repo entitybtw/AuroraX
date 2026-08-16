@@ -69,6 +69,10 @@ type RawProviderConfig struct {
 	APIVersion string               `yaml:"api_version"`
 	Models     []RawProviderModel   `yaml:"models"`
 	Resilience *RawResilienceConfig `yaml:"resilience"`
+	// BindIP optionally sets the local outbound IP address used when this
+	// provider's HTTP client connects to the upstream. Useful when the host
+	// has multiple public IPs and the upstream rate-limits per source IP.
+	BindIP string `yaml:"bind_ip"`
 }
 
 // RawPoolConfig is the YAML-sourced provider pool definition. Pools group

@@ -29,6 +29,7 @@ export interface ProviderFormData {
   api_key: string;
   models: string;
   enabled?: boolean;
+  bind_ip?: string;
 }
 
 export function createProvider(data: ProviderFormData): Promise<{ message: string; provider: string }> {

@@ -70,6 +70,8 @@ type Config struct {
 	CircuitBreaker config.CircuitBreakerConfig
 	// Hooks provides optional observability callbacks invoked on request start and end.
 	Hooks Hooks
+	// BindIP optionally sets the local outbound IP for upstream connections.
+	BindIP string
 }
 
 // DefaultConfig returns default client configuration
@@ -117,7 +119,7 @@ type Client struct {
 // New creates a new LLM client with the given configuration
 func New(cfg Config, headerSetter HeaderSetter) *Client {
 	c := &Client{
-		httpClient:   httpclient.NewDefaultHTTPClient(),
+		httpClient:   httpClientForConfig(cfg),
 		config:       cfg,
 		headerSetter: headerSetter,
 	}
@@ -131,6 +133,13 @@ func New(cfg Config, headerSetter HeaderSetter) *Client {
 	}
 
 	return c
+}
+
+func httpClientForConfig(cfg Config) *http.Client {
+	if strings.TrimSpace(cfg.BindIP) != "" {
+		return httpclient.NewHTTPClientWithBindIP(cfg.BindIP)
+	}
+	return httpclient.NewDefaultHTTPClient()
 }
 
 // NewWithHTTPClient creates a new LLM client with a custom HTTP client
