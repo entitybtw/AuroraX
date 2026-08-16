@@ -19,7 +19,7 @@ func requestModelResolver(aliasService *aliases.Service, comboService *combos.Se
 	return aliasService
 }
 
-func exposedModelLister(aliasService *aliases.Service, comboService *combos.Service, fallback config.FallbackConfig) server.ExposedModelLister {
+func exposedModelLister(aliasService *aliases.Service, comboService *combos.Service, fallbackProvider func() config.FallbackConfig) server.ExposedModelLister {
 	listers := make([]server.ExposedModelLister, 0, 3)
 	if aliasService != nil {
 		listers = append(listers, aliasService)
@@ -27,7 +27,7 @@ func exposedModelLister(aliasService *aliases.Service, comboService *combos.Serv
 	if comboService != nil {
 		listers = append(listers, comboService)
 	}
-	if chainLister := fallbackChainModelLister(fallback); chainLister != nil {
+	if chainLister := fallbackChainModelLister(fallbackProvider); chainLister != nil {
 		listers = append(listers, chainLister)
 	}
 	return compositeExposedModelLister{listers: listers}
@@ -35,7 +35,21 @@ func exposedModelLister(aliasService *aliases.Service, comboService *combos.Serv
 
 // fallbackChainModelLister surfaces each manual fallback chain name (source) as
 // a selectable model in GET /v1/models so clients can request a chain by name.
-func fallbackChainModelLister(fallback config.FallbackConfig) server.ExposedModelLister {
+// The provider function is re-evaluated on every call so chain edits made via
+// the dashboard appear immediately without a restart.
+func fallbackChainModelLister(fallbackProvider func() config.FallbackConfig) server.ExposedModelLister {
+	if fallbackProvider == nil {
+		return nil
+	}
+	return dynamicFallbackChainLister{fallbackProvider: fallbackProvider}
+}
+
+type dynamicFallbackChainLister struct {
+	fallbackProvider func() config.FallbackConfig
+}
+
+func (l dynamicFallbackChainLister) ExposedModels() []core.Model {
+	fallback := l.fallbackProvider()
 	names := make([]string, 0, len(fallback.Manual))
 	for source := range fallback.Manual {
 		source = strings.TrimSpace(source)
@@ -65,15 +79,7 @@ func fallbackChainModelLister(fallback config.FallbackConfig) server.ExposedMode
 			},
 		})
 	}
-	return staticExposedModelLister{models: models}
-}
-
-type staticExposedModelLister struct {
-	models []core.Model
-}
-
-func (l staticExposedModelLister) ExposedModels() []core.Model {
-	return l.models
+	return models
 }
 
 type compositeExposedModelLister struct {

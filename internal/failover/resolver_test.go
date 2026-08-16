@@ -298,14 +298,14 @@ func intPtr(v int) *int {
 
 func TestResolverChainAliasByName(t *testing.T) {
 	registry := newFakeRegistry(
-		modelInfo("ds-flash-free", "vllm", "provider-zen-1", 1287, "ds-flash-free"),
-		modelInfo("ds-flash-free", "vllm", "provider-zen-2", 1287, "ds-flash-free"),
+		modelInfo("ds-flash-free", "provider-a", "vllm", 1287, "ds-flash-free"),
+		modelInfo("ds-flash-free", "provider-b", "vllm", 1287, "ds-flash-free"),
 	)
 
 	resolver := NewResolver(config.FallbackConfig{
 		DefaultMode: config.FallbackModeManual,
 		Manual: map[string][]string{
-			"deepseek-chain": []string{"provider-zen-1/ds-flash-free", "provider-zen-2/ds-flash-free"},
+			"deepseek-chain": []string{"provider-a/ds-flash-free", "provider-b/ds-flash-free"},
 		},
 	}, registry)
 
@@ -318,10 +318,10 @@ func TestResolverChainAliasByName(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("len(got) = %d, want 2 (got %v)", len(got), got)
 	}
-	if got[0].QualifiedModel() != "provider-zen-1/ds-flash-free" {
-		t.Fatalf("got[0] = %q, want %q", got[0].QualifiedModel(), "provider-zen-1/ds-flash-free")
+	if got[0].QualifiedModel() != "provider-a/ds-flash-free" {
+		t.Fatalf("got[0] = %q, want %q", got[0].QualifiedModel(), "provider-a/ds-flash-free")
 	}
-	if got[1].QualifiedModel() != "provider-zen-2/ds-flash-free" {
-		t.Fatalf("got[1] = %q, want %q", got[1].QualifiedModel(), "provider-zen-2/ds-flash-free")
+	if got[1].QualifiedModel() != "provider-b/ds-flash-free" {
+		t.Fatalf("got[1] = %q, want %q", got[1].QualifiedModel(), "provider-b/ds-flash-free")
 	}
 }
