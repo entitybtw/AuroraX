@@ -454,7 +454,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 		WorkflowPolicyResolver:               workflowResult.Service,
 		TranslatedRequestPatcher:             translatedRequestPatcher,
 		BatchRequestPreparer:                 batchRequestPreparer,
-		ExposedModelLister:                   exposedModelLister(app.aliases.Service, app.combos.Service, appCfg.Fallback),
+		ExposedModelLister:                   exposedModelLister(app.aliases.Service, app.combos.Service, func() config.FallbackConfig { return app.config.Fallback }),
 		KeepOnlyAliasesAtModelsEndpoint:      appCfg.Models.KeepOnlyAliasesAtModelsEndpoint,
 		PassthroughSemanticEnrichers:         cfg.Factory.PassthroughSemanticEnrichers(),
 		BatchStore:                           batchResult.Store,
