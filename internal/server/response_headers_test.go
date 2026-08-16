@@ -228,9 +228,83 @@ func TestApplyResponseHeaders(t *testing.T) {
 					}
 				}
 			}
-			for _, key := range tt.wantUnset {
-				if got := headers.Get(key); got != "" {
-					t.Errorf("header %s = %q, want unset", key, got)
+		for _, key := range tt.wantUnset {
+			if got := headers.Get(key); got != "" {
+				t.Errorf("header %s = %q, want unset", key, got)
+			}
+		}
+	})
+	}
+}
+
+func TestHandleErrorWithResponseHeaders(t *testing.T) {
+	tests := []struct {
+		name       string
+		cfg        config.ResponseHeadersConfig
+		mode       string
+		provider   string
+		requested  string
+		wantActual map[string]string
+	}{
+		{
+			name:       "always mode adds provider and requested model on error",
+			cfg:        config.ResponseHeadersConfig{Enabled: true, Mode: "always", ActualProviderHeader: true, RequestedModelHeader: true},
+			provider:   "provider-zen-4",
+			requested:  "provider-zen-4/ds-flash-free",
+			wantActual: map[string]string{"X-Actual-Provider": "provider-zen-4", "X-Requested-Model": "provider-zen-4/ds-flash-free"},
+		},
+		{
+			name:       "disabled config adds nothing",
+			cfg:        config.ResponseHeadersConfig{Enabled: false},
+			provider:   "provider-zen-4",
+			requested:  "provider-zen-4/ds-flash-free",
+			wantActual: map[string]string{},
+		},
+		{
+			name:       "success mode adds nothing on error",
+			cfg:        config.ResponseHeadersConfig{Enabled: true, Mode: "success", ActualProviderHeader: true},
+			provider:   "provider-zen-4",
+			requested:  "provider-zen-4/ds-flash-free",
+			wantActual: map[string]string{},
+		},
+		{
+			name:       "error mode adds headers on error",
+			cfg:        config.ResponseHeadersConfig{Enabled: true, Mode: "error", ActualProviderHeader: true},
+			provider:   "provider-zen-4",
+			requested:  "provider-zen-4/ds-flash-free",
+			wantActual: map[string]string{"X-Actual-Provider": "provider-zen-4"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+
+			svc := &translatedInferenceService{}
+			svc.setResponseHeadersConfig(tt.cfg)
+
+			workflow := &core.Workflow{
+				Resolution: &core.RequestModelResolution{
+					ProviderName: tt.provider,
+					Requested:    core.NewRequestedModelSelector(tt.requested, ""),
+				},
+			}
+
+			err := core.NewRateLimitError("vllm", "rate limit exceeded")
+			svc.handleErrorWithResponseHeaders(c, err, workflow)
+
+			headers := rec.Header()
+			for key, want := range tt.wantActual {
+				if got := headers.Get(key); got != want {
+					t.Errorf("header %s = %q, want %q", key, got, want)
+				}
+			}
+			if len(tt.wantActual) == 0 {
+				if got := headers.Get("X-Actual-Provider"); got != "" {
+					t.Errorf("header X-Actual-Provider = %q, want unset", got)
 				}
 			}
 		})
