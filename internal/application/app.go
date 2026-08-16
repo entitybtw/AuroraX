@@ -1430,6 +1430,16 @@ func dashboardSettingsSnapshot(cfg *config.Config) admin.DashboardSettingsSnapsh
 			ProxyAuthEnabled: cfg.HTTP.Proxy.ProxyAuthEnabled,
 			CACertPEM:        strings.TrimSpace(cfg.HTTP.Proxy.CACertPEM),
 		},
+		ResponseHeaders: admin.DashboardResponseHeadersSettingsSnapshot{
+			Enabled:              cfg.ResponseHeaders.Enabled,
+			IncludeFallback:      cfg.ResponseHeaders.IncludeFallback,
+			IncludeNonFallback:   cfg.ResponseHeaders.IncludeNonFallback,
+			ActualProviderHeader: cfg.ResponseHeaders.ActualProviderHeader,
+			ActualModelHeader:    cfg.ResponseHeaders.ActualModelHeader,
+			RequestedModelHeader: cfg.ResponseHeaders.RequestedModelHeader,
+			FallbackChainHeader:  cfg.ResponseHeaders.FallbackChainHeader,
+			CustomHeaders:        mapDashboardCustomHeadersSnapshot(cfg.ResponseHeaders.CustomHeaders),
+		},
 		Security: admin.DashboardSecuritySettingsSnapshot{
 			MasterKeyConfigured: strings.TrimSpace(cfg.Server.MasterKey) != "",
 			GuardrailsEnabled:   cfg.Guardrails.Enabled,
@@ -1461,6 +1471,21 @@ func dashboardSettingsSnapshot(cfg *config.Config) admin.DashboardSettingsSnapsh
 			AuditEnabled:    cfg.TokenSaver.Audit.Enabled,
 		},
 	}
+}
+
+func mapDashboardCustomHeadersSnapshot(headers []config.CustomResponseHeaderConfig) []admin.DashboardCustomResponseHeader {
+	if len(headers) == 0 {
+		return nil
+	}
+	out := make([]admin.DashboardCustomResponseHeader, 0, len(headers))
+	for _, h := range headers {
+		out = append(out, admin.DashboardCustomResponseHeader{
+			Name:    h.Name,
+			Value:   h.Value,
+			Enabled: h.Enabled,
+		})
+	}
+	return out
 }
 
 func applyHTTPClientConfig(cfg config.HTTPConfig) {
