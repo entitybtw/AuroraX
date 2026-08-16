@@ -563,6 +563,18 @@ func WithConfiguredProviders(configs []providers.SanitizedProviderConfig) Option
 	}
 }
 
+// SetConfiguredProviders refreshes the admin-safe provider inventory snapshot
+// after a runtime rebuild so the dashboard reflects provider overrides (api
+// keys, bind IPs) without a restart.
+func (h *Handler) SetConfiguredProviders(configs []providers.SanitizedProviderConfig) {
+	if h == nil {
+		return
+	}
+	h.mutationMu.Lock()
+	defer h.mutationMu.Unlock()
+	h.configuredProviders = cloneConfiguredProviders(configs)
+}
+
 // WithProviderOverrides enables provider CRUD via the admin API.
 func WithProviderOverrides(store ...*ProviderOverrideStore) Option {
 	return func(h *Handler) {
