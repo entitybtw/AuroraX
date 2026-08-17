@@ -23,6 +23,9 @@ var ErrRegistryNotInitialized = fmt.Errorf("model registry has no models: ensure
 type Router struct {
 	lookup core.ModelLookup
 	pools  *pool.Registry
+	// hiddenProviders holds provider instance names flagged pool_only. Their
+	// models are omitted from the public model list unless surfaced via a pool.
+	hiddenProviders map[string]bool
 }
 
 type providerTypeRegistry interface {
@@ -87,6 +90,23 @@ func (r *Router) Pools() *pool.Registry {
 		r.pools = pool.NewRegistry()
 	}
 	return r.pools
+}
+
+// SetHiddenProviders marks the given provider instance names as pool-only:
+// their models are omitted from the public model list unless surfaced through a
+// pool. Passing nil clears the set.
+func (r *Router) SetHiddenProviders(names map[string]bool) {
+	if names == nil {
+		r.hiddenProviders = nil
+		return
+	}
+	hidden := make(map[string]bool, len(names))
+	for name, v := range names {
+		if v {
+			hidden[strings.TrimSpace(name)] = true
+		}
+	}
+	r.hiddenProviders = hidden
 }
 
 // checkReady verifies the lookup has models available.
@@ -783,7 +803,7 @@ func (r *Router) ListModels(_ context.Context) (*core.ModelsResponse, error) {
 		return nil, registryUnavailableError(err)
 	}
 
-	if prov, ok := r.lookup.(modelWithProviderLister); ok && r.pools.Count() > 0 {
+	if prov, ok := r.lookup.(modelWithProviderLister); ok {
 		return r.listModelsWithPools(prov), nil
 	}
 
@@ -804,12 +824,19 @@ func (r *Router) ListModels(_ context.Context) (*core.ModelsResponse, error) {
 func (r *Router) listModelsWithPools(lister modelWithProviderLister) *core.ModelsResponse {
 	allModels := lister.ListModelsWithProvider()
 	poolMembers := r.collectPoolMembers()
+	hidden := r.hiddenProviders
 	seen := map[string]bool{}
 	result := make([]core.Model, 0, len(allModels))
 
 	for _, m := range allModels {
 		modelID := strings.TrimSpace(m.Model.ID)
-		poolName, isMember := poolMembers[m.ProviderName]
+		providerName := m.ProviderName
+		// Pool-only providers that are not members of any pool are hidden so
+		// they don't clutter the model list; they become reachable only via a pool.
+		if hidden[providerName] && poolMembers[providerName] == "" {
+			continue
+		}
+		poolName, isMember := poolMembers[providerName]
 		if !isMember {
 			result = append(result, m.Model)
 			continue

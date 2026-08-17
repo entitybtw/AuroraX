@@ -39,6 +39,7 @@ type SanitizedProviderConfig struct {
 	Enabled    bool                      `json:"enabled"`
 	APIKey     string                    `json:"api_key,omitempty"`
 	APIKeySet  bool                      `json:"api_key_set,omitempty"`
+	PoolOnly   bool                      `json:"pool_only,omitempty"`
 	Resilience SanitizedResilienceConfig `json:"resilience"`
 }
 
@@ -103,6 +104,7 @@ func SanitizeProviderConfigs(configs map[string]ProviderConfig) []SanitizedProvi
 			Enabled:    true,
 			APIKey:     strings.TrimSpace(cfg.APIKey),
 			APIKeySet:  strings.TrimSpace(cfg.APIKey) != "",
+			PoolOnly:   cfg.PoolOnly,
 			Resilience: SanitizedResilienceConfig{
 				Retry: SanitizedRetryConfig{
 					MaxRetries:     cfg.Resilience.Retry.MaxRetries,

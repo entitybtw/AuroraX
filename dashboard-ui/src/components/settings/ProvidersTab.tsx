@@ -101,7 +101,7 @@ interface ProviderModalProps {
 }
 
 function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps): JSX.Element {
-  const [form, setForm] = useState<ProviderFormData>(initial ?? { name: "", type: "", base_url: "", api_version: "", api_key: "", models: "", bind_ip: "" });
+  const [form, setForm] = useState<ProviderFormData>(initial ?? { name: "", type: "", base_url: "", api_version: "", api_key: "", models: "", bind_ip: "", pool_only: false });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -176,6 +176,18 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
             <Input type="text" placeholder="203.0.113.10" value={form.bind_ip ?? ""}
               onChange={(e) => setForm({ ...form, bind_ip: e.target.value })} />
             <div className="text-[11px] text-muted-foreground">Optional local outbound IP for upstream requests (use when the provider rate-limits per source IP)</div>
+          </div>
+          <div className="flex items-center justify-between gap-3 border border-border/40 bg-background/30 px-3 py-2.5">
+            <div className="flex flex-col gap-1 pr-2">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Pool only</label>
+              <div className="text-[11px] text-muted-foreground">Hide this provider's models from the model list; reachable only through a pool that lists it as a member.</div>
+            </div>
+            <Switch
+              checked={form.pool_only ?? false}
+              size="sm"
+              onCheckedChange={(v) => setForm({ ...form, pool_only: v })}
+              aria-label="Pool only"
+            />
           </div>
         </div>
         {error && <div className="mt-3 text-[13px] font-medium text-destructive">{error}</div>}
@@ -306,6 +318,7 @@ export function ProvidersTab(): JSX.Element {
                           <span className="truncate text-[14px] font-semibold text-foreground">{provider.name}</span>
                           <ConfigSourceBadge source={provider.config_source} />
                           {provider.config?.enabled === false && <Pill tone="muted">disabled</Pill>}
+                          {provider.config?.pool_only && <Pill tone="accent">pool-only</Pill>}
                         </div>
                         <span className="text-[11px] text-muted-foreground">{provider.type || provider.config?.type || "custom"}</span>
                       </div>
@@ -319,7 +332,7 @@ export function ProvidersTab(): JSX.Element {
                         aria-label={`Toggle provider ${provider.name}`}
                         title={`${provider.config?.enabled === false ? "Enable" : "Disable"} ${provider.name}`}
                       />
-                      <button onClick={() => { setEditingProvider({ name: provider.name, originalName: provider.name, type: provider.config?.type || provider.type || "", base_url: provider.config?.base_url || "", api_version: provider.config?.api_version || "", api_key: provider.config?.api_key || "", models: provider.config?.models?.join(", ") || "", bind_ip: provider.config?.bind_ip || "", apiKeySet: provider.config?.api_key_set ?? false }); setModalOpen("edit"); }} className="p-1.5 hover:bg-border/20 transition-colors" title="Edit provider">
+                      <button onClick={() => { setEditingProvider({ name: provider.name, originalName: provider.name, type: provider.config?.type || provider.type || "", base_url: provider.config?.base_url || "", api_version: provider.config?.api_version || "", api_key: provider.config?.api_key || "",                          models: provider.config?.models?.join(", ") || "", bind_ip: provider.config?.bind_ip || "", pool_only: provider.config?.pool_only ?? false, apiKeySet: provider.config?.api_key_set ?? false }); setModalOpen("edit"); }} className="p-1.5 hover:bg-border/20 transition-colors" title="Edit provider">
                         <Edit3Icon className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
                       <button onClick={() => setDeleteConfirm(provider.name)} className="p-1.5 hover:bg-destructive/10 transition-colors" title="Delete provider">

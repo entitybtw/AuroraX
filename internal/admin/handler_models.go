@@ -65,6 +65,20 @@ func (h *Handler) ListModels(c *echo.Context) error {
 	poolMembers := h.collectPoolMembers()
 	models = h.buildPoolAwareModelInventory(models, poolMembers)
 
+	// Hide pool-only providers from the inventory unless they are surfaced
+	// through a pool (buildPoolAwareModelInventory already collapses pool
+	// members into pool-qualified entries).
+	if hidden := h.poolOnlyProviders(); len(hidden) > 0 {
+		kept := make([]providers.ModelWithProvider, 0, len(models))
+		for _, model := range models {
+			if hidden[model.ProviderName] && poolMembers[model.ProviderName] == "" {
+				continue
+			}
+			kept = append(kept, model)
+		}
+		models = kept
+	}
+
 	access := h.modelAccessResolver()
 	response := make([]modelInventoryResponse, 0, len(models))
 	for _, model := range models {
@@ -94,6 +108,18 @@ func (h *Handler) collectPoolMembers() map[string]string {
 		}
 	}
 	return members
+}
+
+// poolOnlyProviders returns the set of provider instance names flagged pool-only
+// (their models are hidden from the public model list unless surfaced via a pool).
+func (h *Handler) poolOnlyProviders() map[string]bool {
+	hidden := map[string]bool{}
+	for _, p := range h.configuredProviders {
+		if p.PoolOnly {
+			hidden[strings.TrimSpace(p.Name)] = true
+		}
+	}
+	return hidden
 }
 
 // buildPoolAwareModelInventory filters out models that belong to pool-member
@@ -205,11 +231,11 @@ func (h *Handler) AuthMe(c *echo.Context) error {
 						"provider":     "master_key",
 					},
 					"roles": []map[string]any{
-						{ "id": "admin", "name": "Admin", "is_system": true },
+						{"id": "admin", "name": "Admin", "is_system": true},
 					},
 					"permissions": []map[string]any{
-						{ "action": "read", "resource": "*", "effect": "allow" },
-						{ "action": "write", "resource": "*", "effect": "allow" },
+						{"action": "read", "resource": "*", "effect": "allow"},
+						{"action": "write", "resource": "*", "effect": "allow"},
 					},
 				})
 			}

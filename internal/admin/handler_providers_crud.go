@@ -27,6 +27,9 @@ type ProviderOverride struct {
 	Models     string `json:"models"`
 	// BindIP optionally sets the local outbound IP for this provider's upstream requests.
 	BindIP string `json:"bind_ip,omitempty"`
+	// PoolOnly hides this provider's models from the public model list; it is
+	// only reachable through a pool that lists it as a member.
+	PoolOnly *bool `json:"pool_only,omitempty"`
 	// Enabled controls whether the provider participates in the runtime.
 	// A nil pointer (legacy entries written before this field) means enabled.
 	Enabled *bool `json:"enabled,omitempty"`
@@ -41,8 +44,8 @@ func (o ProviderOverride) IsEnabled() bool {
 // ProviderOverrideStore holds provider overrides created via the admin API.
 // Persists to a JSON file so overrides survive restarts.
 type ProviderOverrideStore struct {
-	mu        sync.Mutex
-	overrides map[string]ProviderOverride // name -> override
+	mu          sync.Mutex
+	overrides   map[string]ProviderOverride // name -> override
 	persistPath string
 }
 
@@ -144,6 +147,7 @@ func (s *ProviderOverrideStore) RawConfigs() map[string]config.RawProviderConfig
 			APIVersion: strings.TrimSpace(override.APIVersion),
 			Models:     rawProviderModelsFromOverride(override.Models),
 			BindIP:     strings.TrimSpace(override.BindIP),
+			PoolOnly:   override.PoolOnly != nil && *override.PoolOnly,
 		}
 	}
 	return out
@@ -173,6 +177,7 @@ type providerCreateRequest struct {
 	APIKey     string `json:"api_key"`
 	Models     string `json:"models"`
 	Enabled    *bool  `json:"enabled"`
+	PoolOnly   *bool  `json:"pool_only"`
 }
 
 type providerUpdateRequest struct {
@@ -182,6 +187,7 @@ type providerUpdateRequest struct {
 	Models     *string `json:"models"`
 	BindIP     *string `json:"bind_ip"`
 	Enabled    *bool   `json:"enabled"`
+	PoolOnly   *bool   `json:"pool_only"`
 }
 
 type providerModifyResponse struct {
@@ -253,6 +259,7 @@ func (h *Handler) CreateProvider(c *echo.Context) error {
 		APIKey:     strings.TrimSpace(req.APIKey),
 		Models:     strings.TrimSpace(req.Models),
 		Enabled:    boolPtrOrDefault(req.Enabled, true),
+		PoolOnly:   req.PoolOnly,
 	})
 	apply := h.applyRuntimeRefresh(c)
 
@@ -326,6 +333,9 @@ func (h *Handler) UpdateProvider(c *echo.Context) error {
 	}
 	if req.Enabled != nil {
 		updated.Enabled = boolPtr(*req.Enabled)
+	}
+	if req.PoolOnly != nil {
+		updated.PoolOnly = boolPtr(*req.PoolOnly)
 	}
 
 	h.providerOverrides.upsert(updated)
