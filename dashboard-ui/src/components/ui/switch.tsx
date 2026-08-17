@@ -12,11 +12,13 @@ interface SwitchProps {
 /**
  * iOS-style toggle switch — pill track, white knob with shadow.
  * Uses Catppuccin semantic colors: --success for on, --border/--bg-surface-hover for off.
- * Responsive: larger touch targets on mobile.
+ * Fixed compact size on every screen (same as desktop), so toggles stay small
+ * and pleasant on mobile too. min-h-0 keeps the global mobile
+ * button{min-height:44px} rule from stretching the pill.
  *
  * Geometry (borderless, symmetric 2px margins):
- *  sm:  track 52×26 (mobile) / 46×22 (desktop), knob 22 / 18
- *  md:  track 56×28 (mobile) / 50×24 (desktop), knob 24 / 20
+ *  sm:  track 46×22, knob 18
+ *  md:  track 50×24, knob 20
  */
 export function Switch({
   checked,
@@ -28,16 +30,16 @@ export function Switch({
 }: SwitchProps): JSX.Element {
   const track =
     size === "sm"
-      ? "h-[26px] w-[52px] md:h-[22px] md:w-[46px]"
-      : "h-7 w-[56px] md:h-6 md:w-[50px]";
+      ? "h-[22px] w-[46px]"
+      : "h-6 w-[50px]";
   const knob =
     size === "sm"
-      ? "h-[22px] w-[22px] md:h-[18px] md:w-[18px]"
-      : "h-[24px] w-[24px] md:h-[20px] md:w-[20px]";
+      ? "h-[18px] w-[18px]"
+      : "h-[20px] w-[20px]";
   const translate =
     size === "sm"
-      ? "translate-x-[28px] md:translate-x-[26px]"
-      : "translate-x-[30px] md:translate-x-[28px]";
+      ? "translate-x-[26px]"
+      : "translate-x-[28px]";
 
   return (
     <button
