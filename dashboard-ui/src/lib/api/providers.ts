@@ -31,6 +31,8 @@ export interface ProviderFormData {
   enabled?: boolean;
   bind_ip?: string;
   pool_only?: boolean;
+  /** When present on an update, renames the provider to this value. */
+  new_name?: string;
 }
 
 export function createProvider(data: ProviderFormData): Promise<{ message: string; provider: string }> {
