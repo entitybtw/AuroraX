@@ -24,7 +24,7 @@ export function fetchPoolOptions(): Promise<PoolOptions> {
 export function createPool(payload: PoolConfigPayload): Promise<PoolModifyResponse> {
   return apiFetch("/admin/api/v1/pools", {
     method: "POST",
-    body: JSON.stringify(payload),
+    json: payload,
     schema: PoolModifyResponseSchema,
   }) as Promise<PoolModifyResponse>;
 }
@@ -35,7 +35,7 @@ export function updatePool(
 ): Promise<PoolModifyResponse> {
   return apiFetch(`/admin/api/v1/pools/${encodeURIComponent(name)}`, {
     method: "PUT",
-    body: JSON.stringify(payload),
+    json: payload,
     schema: PoolModifyResponseSchema,
   }) as Promise<PoolModifyResponse>;
 }
