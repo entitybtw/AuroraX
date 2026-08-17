@@ -1,6 +1,7 @@
-import { SearchIcon, FilterXIcon } from "lucide-react";
+import { FilterXIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 
 export interface LogFilterValues {
   search: string;
@@ -35,15 +36,12 @@ export function LogSidebarFilters({ filters, onChange, onClear, entryCount }: Lo
         )}
       </div>
 
-      <div className="relative">
-        <SearchIcon className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-foreground/40 pointer-events-none" />
-        <Input
-          placeholder="Search logs..."
-          value={filters.search}
-          onChange={(e) => { set("search", e.target.value); }}
-          className="h-9 pl-12 text-xs bg-background"
-        />
-      </div>
+      <SearchInput
+        placeholder="Search logs..."
+        value={filters.search}
+        onChange={(e) => { set("search", e.target.value); }}
+        className="h-9 text-xs bg-background"
+      />
 
       <div className="space-y-3">
         <FilterSelect label="Method" value={filters.method} onChange={(v) => set("method", v)} options={["", "GET", "POST", "PUT", "PATCH", "DELETE"]} displayLabels={["All methods", "GET", "POST", "PUT", "PATCH", "DELETE"]} />

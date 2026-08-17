@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { PlusIcon, SearchIcon, PencilIcon, Trash2Icon } from "lucide-react";
+import { PlusIcon, PencilIcon, Trash2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Surface, EmptyState } from "@/components/ui/surface";
 import { DataTable, TableWrap, Td, Th } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { useGuardrails } from "@/lib/api/useGuardrails";
 import { useDashboardConfig } from "@/lib/api/useDashboardConfig";
 import { flagOn } from "@/lib/api/dashboard-config";
@@ -270,15 +271,12 @@ export function GuardrailsPage(): JSX.Element {
       )}
 
       {(guardrails.length > 0 || filter) && (
-        <div className="relative">
-          <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40 pointer-events-none" />
-          <Input
-            placeholder="Filter by name, type, summary..."
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="pl-12 max-w-md"
-          />
-        </div>
+        <SearchInput
+          placeholder="Filter by name, type, summary..."
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="max-w-md"
+        />
       )}
 
       {isLoading ? (

@@ -1,10 +1,11 @@
 import { useState, useMemo } from "react";
-import { PlusIcon, SearchIcon, PencilIcon, ShieldIcon, XCircleIcon, AlertCircleIcon, EyeIcon, ChevronDown, Info, ListOrdered, SlidersHorizontal, Crosshair } from "lucide-react";
+import { PlusIcon, PencilIcon, ShieldIcon, XCircleIcon, AlertCircleIcon, EyeIcon, ChevronDown, Info, ListOrdered, SlidersHorizontal, Crosshair } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ToggleField } from "@/components/ui/toggle-field";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Surface, EmptyState } from "@/components/ui/surface";
 import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { useWorkflows } from "@/lib/api/useWorkflows";
 import { useGuardrails } from "@/lib/api/useGuardrails";
 import { useDashboardConfig } from "@/lib/api/useDashboardConfig";
@@ -241,15 +242,12 @@ export function WorkflowsPage(): JSX.Element {
 
       {(workflows.length > 0 || filter) && (
         <div className="flex items-center justify-between mt-2">
-          <div className="relative flex-1 max-w-md">
-            <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40 pointer-events-none" />
-            <Input
-              placeholder="Filter by scope, name, hash..."
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="pl-12"
-            />
-          </div>
+          <SearchInput
+            placeholder="Filter by scope, name, hash..."
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            containerClassName="flex-1 max-w-md"
+          />
           <div className="text-sm text-muted-foreground">
             <span className="font-medium text-foreground">{filteredWorkflows.length}</span> active scopes
           </div>
