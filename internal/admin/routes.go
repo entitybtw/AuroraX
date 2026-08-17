@@ -43,7 +43,10 @@ func (h *Handler) RegisterRoutes(g RouteRegistrar) {
 	g.PUT("/providers/:name", h.UpdateProvider)
 	g.DELETE("/providers/:name", h.DeleteProvider)
 	g.GET("/pools", h.ListPools)
+	g.GET("/pools/options", h.PoolOptions)
+	g.POST("/pools", h.CreatePool)
 	g.PUT("/pools/:name", h.UpdatePool)
+	g.DELETE("/pools/:name", h.DeletePool)
 	g.POST("/runtime/refresh", h.RefreshRuntime)
 
 	g.GET("/models", h.ListModels)

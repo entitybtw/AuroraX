@@ -75,7 +75,11 @@ func buildPoolRegistry(rawPools map[string]config.RawPoolConfig, providerMap map
 				return nil, fmt.Errorf("pool %q: mixed provider types (%q and %q) — all members must share a type", name, sharedType, pCfg.Type)
 			}
 			caps := inferCapabilities(pCfg.Type)
-			members = append(members, pool.MemberConfig{ProviderName: memberName, Capabilities: caps})
+			members = append(members, pool.MemberConfig{
+				ProviderName: memberName,
+				Capabilities: caps,
+				Weight:       raw.Weights[memberName],
+			})
 		}
 
 		if len(members) == 0 {
@@ -84,11 +88,13 @@ func buildPoolRegistry(rawPools map[string]config.RawPoolConfig, providerMap map
 		}
 
 		health := poolHealthChecker(registry, raw.HealthAware)
+		healthAware := raw.HealthAware == nil || *raw.HealthAware
 		p, err := pool.NewPool(pool.Config{
-			Name:     name,
-			Strategy: strategy,
-			Members:  members,
-			Health:   health,
+			Name:        name,
+			Strategy:    strategy,
+			Members:     members,
+			Health:      health,
+			HealthAware: healthAware,
 		})
 		if err != nil {
 			return nil, err
