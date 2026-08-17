@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect } from "react";
-import { SearchIcon, AlertTriangleIcon, BarChart2Icon, TableIcon, PieChartIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { AlertTriangleIcon, BarChart2Icon, TableIcon, PieChartIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { Surface } from "@/components/ui/surface";
 import { DataTable, TableWrap, Td, Th } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { DateRangeSelect } from "@/components/overview/DateRangeSelect";
 import { UserPathChart } from "@/components/charts/UserPathChart";
 import { ModelSplitChart } from "@/components/charts/ModelSplitChart";
@@ -345,15 +346,13 @@ export function UsagePage(): JSX.Element {
             <h3 className="font-semibold text-[17px] tracking-tight text-foreground">Request Log Stream</h3>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 min-w-[200px]">
-              <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40 pointer-events-none" />
-              <Input
-                placeholder="Search requests..."
-                value={logSearch}
-                onChange={(e) => setLogSearch(e.target.value)}
-                className="pl-12 h-9"
-              />
-            </div>
+            <SearchInput
+              placeholder="Search requests..."
+              value={logSearch}
+              onChange={(e) => setLogSearch(e.target.value)}
+              className="h-9"
+              containerClassName="flex-1 min-w-[200px]"
+            />
             <Input
               placeholder="Model filter"
               value={logModel}
