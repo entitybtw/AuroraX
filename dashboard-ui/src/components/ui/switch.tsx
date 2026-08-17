@@ -50,12 +50,14 @@ export function Switch({
       title={title}
       disabled={disabled}
       onClick={() => onCheckedChange(!checked)}
+      /* Inline minHeight overrides global `button { min-height: 44px }` on
+         mobile regardless of CSS layers or --spacing variable resolution. */
+      style={{ minHeight: 0 }}
       className={cn(
         "relative inline-flex shrink-0 items-center rounded-full transition-colors duration-200 ease-[var(--ease-ios)]",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         "disabled:cursor-not-allowed disabled:opacity-40",
         "active:scale-[0.97]",
-        "min-h-0 touch-manipulation",
         track,
         checked
           ? "bg-success"
