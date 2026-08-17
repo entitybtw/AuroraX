@@ -39,6 +39,17 @@ func (r *InitResult) Rebuild(ctx context.Context, rawProviders map[string]config
 		r.Pools.Replace(pools)
 	}
 	r.Router.SetPools(r.Pools)
+
+	// Mark pool-only providers so their models are hidden from the public
+	// model list unless surfaced through a pool.
+	hidden := make(map[string]bool, len(providerMap))
+	for name, pc := range providerMap {
+		if pc.PoolOnly {
+			hidden[name] = true
+		}
+	}
+	r.Router.SetHiddenProviders(hidden)
+
 	r.ConfiguredProviders = SanitizeProviderConfigs(providerMap)
 	r.CredentialResolvedProviders = maps.Clone(credentialResolved)
 	return count, nil

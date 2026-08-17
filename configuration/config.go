@@ -30,24 +30,24 @@ var bodySizeLimitRegex = regexp.MustCompile(`(?i)^(\d+)([KMG])?B?$`)
 
 // Config holds the application configuration.
 type Config struct {
-	Server               ServerConfig               `yaml:"server"`
-	Models               ModelsConfig               `yaml:"models"`
-	Cache                CacheConfig                `yaml:"cache"`
-	Storage              StorageConfig              `yaml:"storage"`
-	Logging              LogConfig                  `yaml:"logging"`
-	Usage                UsageConfig                `yaml:"usage"`
-	Metrics              MetricsConfig              `yaml:"metrics"`
-	HTTP                 HTTPConfig                 `yaml:"http"`
-	Admin                AdminConfig                `yaml:"admin"`
-	Guardrails           GuardrailsConfig           `yaml:"guardrails"`
-	Fallback             FallbackConfig             `yaml:"fallback"`
-	Combos               CombosConfig               `yaml:"combos"`
-	CLITools             CLIToolsConfig             `yaml:"cli_tools"`
-	Workflows            WorkflowsConfig            `yaml:"workflows"`
-	Resilience           ResilienceConfig           `yaml:"resilience"`
-	TokenSaver           TokenSaverConfig           `yaml:"token_saver"`
-	Edition              EditionConfig              `yaml:"edition"`
-	ResponseHeaders      ResponseHeadersConfig      `yaml:"response_headers"`
+	Server          ServerConfig          `yaml:"server"`
+	Models          ModelsConfig          `yaml:"models"`
+	Cache           CacheConfig           `yaml:"cache"`
+	Storage         StorageConfig         `yaml:"storage"`
+	Logging         LogConfig             `yaml:"logging"`
+	Usage           UsageConfig           `yaml:"usage"`
+	Metrics         MetricsConfig         `yaml:"metrics"`
+	HTTP            HTTPConfig            `yaml:"http"`
+	Admin           AdminConfig           `yaml:"admin"`
+	Guardrails      GuardrailsConfig      `yaml:"guardrails"`
+	Fallback        FallbackConfig        `yaml:"fallback"`
+	Combos          CombosConfig          `yaml:"combos"`
+	CLITools        CLIToolsConfig        `yaml:"cli_tools"`
+	Workflows       WorkflowsConfig       `yaml:"workflows"`
+	Resilience      ResilienceConfig      `yaml:"resilience"`
+	TokenSaver      TokenSaverConfig      `yaml:"token_saver"`
+	Edition         EditionConfig         `yaml:"edition"`
+	ResponseHeaders ResponseHeadersConfig `yaml:"response_headers"`
 }
 
 // LoadResult is returned by Load and bundles the application config with the raw
@@ -73,6 +73,10 @@ type RawProviderConfig struct {
 	// provider's HTTP client connects to the upstream. Useful when the host
 	// has multiple public IPs and the upstream rate-limits per source IP.
 	BindIP string `yaml:"bind_ip"`
+	// PoolOnly, when true, hides this provider's models from the public model
+	// list. The provider is then only reachable through a pool that lists it as
+	// a member, keeping the /v1/models list uncluttered.
+	PoolOnly bool `yaml:"pool_only"`
 }
 
 // RawPoolConfig is the YAML-sourced provider pool definition. Pools group
@@ -227,8 +231,6 @@ type AdminConfig struct {
 	// a warning is logged and UI is forced to false.
 	// Default: true
 	UIEnabled bool `yaml:"ui_enabled" env:"ADMIN_UI_ENABLED"`
-
-
 }
 
 // GuardrailsConfig holds configuration for the request guardrails pipeline.
@@ -667,8 +669,6 @@ type MetricsConfig struct {
 	Endpoint string `yaml:"endpoint" env:"METRICS_ENDPOINT"`
 }
 
-
-
 // RetryConfig holds resolved retry settings for an LLM client.
 // This is the canonical type shared between config and llmclient.
 type RetryConfig struct {
@@ -721,7 +721,7 @@ func buildDefaultConfig() *Config {
 			BasePath:                "/",
 			SwaggerEnabled:          false,
 			PprofEnabled:            false,
-			DisableRequestLogging: true,
+			DisableRequestLogging:   true,
 			EnablePassthroughRoutes: true,
 			EnableAnthropicIngress:  false,
 			AllowPassthroughV1Alias: true,
@@ -982,8 +982,6 @@ func dashboardOverridePaths(customPath string) []string {
 		"dashboard-overrides.yaml",
 	}
 }
-
-
 
 func validatePublicHTTPURL(raw, field string) error {
 	u, err := url.Parse(strings.TrimSpace(raw))

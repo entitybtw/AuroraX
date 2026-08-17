@@ -33,6 +33,9 @@ type ProviderConfig struct {
 	Resilience             config.ResilienceConfig
 	// BindIP optionally sets the local outbound IP for the upstream HTTP client.
 	BindIP string
+	// PoolOnly hides this provider's models from the public model list; the
+	// provider is only reachable through a pool that lists it as a member.
+	PoolOnly bool
 }
 
 // resolveProviders applies env var overrides to the raw YAML provider map, filters
@@ -457,6 +460,7 @@ func buildProviderConfig(raw config.RawProviderConfig, global config.ResilienceC
 		ModelMetadataOverrides: config.ProviderModelMetadataOverrides(raw.Models),
 		Resilience:             global,
 		BindIP:                 strings.TrimSpace(raw.BindIP),
+		PoolOnly:               raw.PoolOnly,
 	}
 
 	if raw.Resilience == nil {

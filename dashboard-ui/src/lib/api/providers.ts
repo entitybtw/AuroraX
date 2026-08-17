@@ -30,6 +30,7 @@ export interface ProviderFormData {
   models: string;
   enabled?: boolean;
   bind_ip?: string;
+  pool_only?: boolean;
 }
 
 export function createProvider(data: ProviderFormData): Promise<{ message: string; provider: string }> {
