@@ -739,11 +739,14 @@ func (c *Client) calculateBackoff(attempt int) time.Duration {
 	return time.Duration(backoff)
 }
 
-// isRetryable returns true if the status code indicates a retryable error
+// isRetryable returns true if the status code indicates a retryable error.
+// 429 (rate limit) is deliberately NOT retried on the same provider: retrying
+// the same rate-limited upstream just burns backoff time, while the gateway
+// treats 429 as a fallback trigger so the request moves to the next provider
+// or model in the fallback chain immediately.
 func (c *Client) isRetryable(statusCode int) bool {
-	// Retry on rate limits and specific server errors that are typically transient
-	return statusCode == http.StatusTooManyRequests ||
-		statusCode == http.StatusServiceUnavailable ||
+	// Retry on specific transient server errors.
+	return statusCode == http.StatusServiceUnavailable ||
 		statusCode == http.StatusBadGateway ||
 		statusCode == http.StatusGatewayTimeout
 }

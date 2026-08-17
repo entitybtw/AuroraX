@@ -186,7 +186,7 @@ func TestClient_Do_Retries(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		count := atomic.AddInt32(&attempts, 1)
 		if count < 3 {
-			w.WriteHeader(http.StatusTooManyRequests)
+			w.WriteHeader(http.StatusServiceUnavailable)
 			_, _ = w.Write([]byte(`{"error":{"message":"Rate limited"}}`))
 			return
 		}
@@ -272,7 +272,7 @@ func TestClient_Do_RetriesExhausted(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&attempts, 1)
-		w.WriteHeader(http.StatusTooManyRequests)
+		w.WriteHeader(http.StatusServiceUnavailable)
 		_, _ = w.Write([]byte(`{"error":{"message":"Rate limited"}}`))
 	}))
 	defer server.Close()
@@ -440,7 +440,7 @@ func TestClient_DoPassthrough_WithRetries(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		count := atomic.AddInt32(&attempts, 1)
 		if count < 3 {
-			w.WriteHeader(http.StatusTooManyRequests)
+			w.WriteHeader(http.StatusServiceUnavailable)
 			_, _ = w.Write([]byte(`{"error":{"message":"rate limited"}}`))
 			return
 		}
