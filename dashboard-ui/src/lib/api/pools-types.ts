@@ -16,6 +16,8 @@ export const PoolSnapshotSchema = z.object({
   name: z.string(),
   strategy: z.string(),
   members: z.array(PoolMemberSnapshotSchema),
+  health_aware: z.boolean().optional().default(true),
+  source: z.string().optional().default("config"),
 });
 export type PoolSnapshot = z.infer<typeof PoolSnapshotSchema>;
 
@@ -31,3 +33,35 @@ export const PoolsResponseSchema = z.object({
   pools: z.array(PoolSnapshotSchema),
 });
 export type PoolsResponse = z.infer<typeof PoolsResponseSchema>;
+
+export const PoolOptionsSchema = z.object({
+  providers: z.array(
+    z.object({
+      name: z.string(),
+      type: z.string(),
+    }),
+  ),
+});
+export type PoolOptions = z.infer<typeof PoolOptionsSchema>;
+
+export const PoolModifyResponseSchema = z.object({
+  message: z.string(),
+  pool: z.string(),
+  runtime_applied: z.boolean(),
+  requires_runtime_refresh: z.boolean(),
+  runtime_refresh_error: z.string().optional(),
+});
+export type PoolModifyResponse = z.infer<typeof PoolModifyResponseSchema>;
+
+// Supported load-balancing strategies shown in the UI.
+export const POOL_STRATEGIES = ["round_robin", "weighted"] as const;
+export type PoolStrategy = (typeof POOL_STRATEGIES)[number];
+
+// Payload sent to create/update a pool.
+export interface PoolConfigPayload {
+  name: string;
+  members: string[];
+  strategy: string;
+  weights?: Record<string, number>;
+  health_aware?: boolean;
+}

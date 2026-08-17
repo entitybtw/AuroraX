@@ -29,12 +29,12 @@ import (
 type Capability string
 
 const (
-	CapChat       Capability = "chat"
-	CapEmbedding  Capability = "embedding"
-	CapRerank     Capability = "reranker"
-	CapResponses  Capability = "responses"
-	CapFiles      Capability = "files"
-	CapBatches    Capability = "batches"
+	CapChat      Capability = "chat"
+	CapEmbedding Capability = "embedding"
+	CapRerank    Capability = "reranker"
+	CapResponses Capability = "responses"
+	CapFiles     Capability = "files"
+	CapBatches   Capability = "batches"
 )
 
 // Strategy enumerates supported load-balancing strategies.
@@ -42,7 +42,11 @@ type Strategy string
 
 const (
 	StrategyRoundRobin Strategy = "round_robin"
+	StrategyWeighted   Strategy = "weighted"
 )
+
+// SupportedStrategies is the set of load-balancing strategies the gateway knows.
+var SupportedStrategies = []Strategy{StrategyRoundRobin, StrategyWeighted}
 
 // ParseStrategy normalizes a string to a Strategy. Empty defaults to round_robin.
 func ParseStrategy(s string) (Strategy, error) {
@@ -50,10 +54,11 @@ func ParseStrategy(s string) (Strategy, error) {
 	if s == "" {
 		return StrategyRoundRobin, nil
 	}
-	if s == string(StrategyRoundRobin) {
-		return StrategyRoundRobin, nil
+	switch Strategy(s) {
+	case StrategyRoundRobin, StrategyWeighted:
+		return Strategy(s), nil
 	}
-	return "", fmt.Errorf("unsupported pool strategy %q (OSS edition supports: round_robin)", s)
+	return "", fmt.Errorf("unsupported pool strategy %q (supported: round_robin, weighted)", s)
 }
 
 // HealthChecker reports whether a configured provider name is currently
@@ -73,12 +78,13 @@ func (alwaysHealthy) IsProviderHealthy(string) bool { return true }
 //
 // A Pool is safe for concurrent use. It does not reach into the registry to
 // dispatch requests — the caller (Router) does the actual provider call. The
-// pool only owns selection state (round-robin index).
+// pool only owns selection state (round-robin index / weighted counters).
 type Pool struct {
-	name     string
-	strategy Strategy
-	members  []*Member
-	memberIx map[string]int
+	name        string
+	strategy    Strategy
+	members     []*Member
+	memberIx    map[string]int
+	healthAware bool
 
 	rrIndex uint64
 	health  HealthChecker
@@ -88,6 +94,9 @@ type Pool struct {
 type Member struct {
 	ProviderName string
 	Capabilities []Capability
+	// Weight biases selection for the weighted strategy. A value <= 0 is
+	// treated as 1 at selection time.
+	Weight int
 
 	totalRequests int64
 	totalErrors   int64
@@ -108,16 +117,18 @@ func (m *Member) SupportsCapability(c Capability) bool {
 
 // Config is the validated input for NewPool.
 type Config struct {
-	Name     string
-	Strategy Strategy
-	Members  []MemberConfig
-	Health   HealthChecker
+	Name        string
+	Strategy    Strategy
+	Members     []MemberConfig
+	Health      HealthChecker
+	HealthAware bool
 }
 
 // MemberConfig is the per-member input to NewPool.
 type MemberConfig struct {
 	ProviderName string
 	Capabilities []Capability
+	Weight       int
 }
 
 // NewPool constructs a pool from a validated Config.
@@ -147,7 +158,11 @@ func NewPool(cfg Config) (*Pool, error) {
 		}
 		capabilities := make([]Capability, len(mc.Capabilities))
 		copy(capabilities, mc.Capabilities)
-		members = append(members, &Member{ProviderName: providerName, Capabilities: capabilities})
+		members = append(members, &Member{
+			ProviderName: providerName,
+			Capabilities: capabilities,
+			Weight:       mc.Weight,
+		})
 		memberIx[providerName] = len(members) - 1
 	}
 
@@ -157,13 +172,17 @@ func NewPool(cfg Config) (*Pool, error) {
 	}
 
 	return &Pool{
-		name:     name,
-		strategy: strategy,
-		members:  members,
-		memberIx: memberIx,
-		health:   health,
+		name:        name,
+		strategy:    strategy,
+		members:     members,
+		memberIx:    memberIx,
+		healthAware: cfg.HealthAware,
+		health:      health,
 	}, nil
 }
+
+// HealthAware reports whether the pool skips unhealthy members during selection.
+func (p *Pool) HealthAware() bool { return p.healthAware }
 
 func (p *Pool) Name() string { return p.name }
 
@@ -181,6 +200,7 @@ func (p *Pool) Members() []MemberSnapshot {
 			TotalErrors:   atomic.LoadInt64(&m.totalErrors),
 			Healthy:       p.health.IsProviderHealthy(m.ProviderName),
 			Capabilities:  caps,
+			Weight:        m.Weight,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ProviderName < out[j].ProviderName })
@@ -195,6 +215,7 @@ type MemberSnapshot struct {
 	TotalErrors   int64        `json:"total_errors"`
 	Healthy       bool         `json:"healthy"`
 	Capabilities  []Capability `json:"capabilities,omitempty"`
+	Weight        int          `json:"weight"`
 }
 
 // Pick chooses the next eligible member for a request, excluding any names in
@@ -254,8 +275,40 @@ func (p *Pool) choose(eligible []*Member) *Member {
 	if len(eligible) == 1 {
 		return eligible[0]
 	}
+	if p.strategy == StrategyWeighted {
+		return p.chooseWeighted(eligible)
+	}
 	idx := atomic.AddUint64(&p.rrIndex, 1) - 1
 	return eligible[idx%uint64(len(eligible))]
+}
+
+// chooseWeighted selects an eligible member using weighted round-robin. The
+// counter is advanced on every call so weights are honored over time rather
+// than always favoring the first (heaviest) member.
+func (p *Pool) chooseWeighted(eligible []*Member) *Member {
+	total := 0
+	for _, m := range eligible {
+		total += effectiveWeight(m.Weight)
+	}
+	if total <= 0 {
+		return eligible[0]
+	}
+	r := int(atomic.AddUint64(&p.rrIndex, 1)-1) % total
+	for _, m := range eligible {
+		w := effectiveWeight(m.Weight)
+		if r < w {
+			return m
+		}
+		r -= w
+	}
+	return eligible[len(eligible)-1]
+}
+
+func effectiveWeight(w int) int {
+	if w <= 0 {
+		return 1
+	}
+	return w
 }
 
 func noopRelease(bool) {}

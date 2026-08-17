@@ -1,8 +1,8 @@
 package pool
 
 import (
-	json "github.com/goccy/go-json"
 	"fmt"
+	json "github.com/goccy/go-json"
 	"os"
 	"path/filepath"
 	"sort"
@@ -121,9 +121,10 @@ func (r *Registry) Snapshot() []PoolSnapshot {
 	out := make([]PoolSnapshot, 0, len(r.pools))
 	for _, p := range r.pools {
 		out = append(out, PoolSnapshot{
-			Name:     p.Name(),
-			Strategy: string(p.Strategy()),
-			Members:  p.Members(),
+			Name:        p.Name(),
+			Strategy:    string(p.Strategy()),
+			Members:     p.Members(),
+			HealthAware: p.HealthAware(),
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
@@ -132,9 +133,13 @@ func (r *Registry) Snapshot() []PoolSnapshot {
 
 // PoolSnapshot is a read-only diagnostic view of a configured pool.
 type PoolSnapshot struct {
-	Name     string           `json:"name"`
-	Strategy string           `json:"strategy"`
-	Members  []MemberSnapshot `json:"members"`
+	Name        string           `json:"name"`
+	Strategy    string           `json:"strategy"`
+	Members     []MemberSnapshot `json:"members"`
+	HealthAware bool             `json:"health_aware"`
+	// Source indicates where the pool was defined: "config" for static/config
+	// file pools, "ui" for pools created through the admin dashboard.
+	Source string `json:"source,omitempty"`
 }
 
 // Count returns the number of registered pools.
@@ -153,7 +158,7 @@ func (r *Registry) HasPool(name string) bool {
 
 // persistedPoolCounters is the on-disk snapshot format for pool member stats.
 type persistedPoolCounters struct {
-	Version int                             `json:"version"`
+	Version int                              `json:"version"`
 	Pools   map[string][]persistedMemberStat `json:"pools"`
 }
 
