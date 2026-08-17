@@ -53,6 +53,7 @@ export function Switch({
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         "disabled:cursor-not-allowed disabled:opacity-40",
         "active:scale-[0.97]",
+        "min-h-0 touch-manipulation",
         track,
         checked
           ? "bg-success"
