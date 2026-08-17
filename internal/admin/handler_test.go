@@ -2065,6 +2065,45 @@ func TestProviderStatus_DistinguishesProvidersWithSameTypeByName(t *testing.T) {
 	}
 }
 
+func TestProviderStatus_ReportsPoolOnlyFromUIOverride(t *testing.T) {
+	store := NewProviderOverrideStore()
+	store.upsert(ProviderOverride{
+		Name:     "zen-acc-1",
+		Type:     "openai",
+		BaseURL:  "https://zen.example.com/v1",
+		Enabled:  boolPtr(true),
+		PoolOnly: boolPtr(true),
+	})
+
+	h := NewHandler(nil, nil, WithProviderOverrides(store))
+	c, rec := newHandlerContext("/admin/api/v1/providers/status")
+	if err := h.ProviderStatus(c); err != nil {
+		t.Fatalf("ProviderStatus() error = %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+
+	var body providerStatusResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	var found *providerStatusItemResponse
+	for i := range body.Providers {
+		if body.Providers[i].Name == "zen-acc-1" {
+			found = &body.Providers[i]
+			break
+		}
+	}
+	if found == nil {
+		t.Fatalf("missing zen-acc-1 in %#v", body.Providers)
+	}
+	if !found.Config.PoolOnly {
+		t.Fatalf("pool_only = false for UI-created provider, want true: %+v", found.Config)
+	}
+}
+
 func TestClassifyProviderStatus_RegisteredZeroModelProviderIsConfigured(t *testing.T) {
 	status, label, reason, _ := classifyProviderStatus(
 		providers.SanitizedProviderConfig{Name: "openai"},

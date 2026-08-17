@@ -56,6 +56,7 @@ func (h *Handler) buildProviderStatusResponse() providerStatusResponse {
 				Enabled:    override.IsEnabled(),
 				APIKey:     strings.TrimSpace(override.APIKey),
 				APIKeySet:  strings.TrimSpace(override.APIKey) != "",
+				PoolOnly:   override.PoolOnly != nil && *override.PoolOnly,
 			}
 			configuredByName[override.Name] = cfg
 			if _, inSet := nameSet[override.Name]; !inSet {
