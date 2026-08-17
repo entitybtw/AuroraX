@@ -276,11 +276,21 @@ func fetchProviderInventory(
 	configuredModels []string,
 ) (*core.ModelsResponse, configuredProviderModelsApplyReason, time.Time, error) {
 	fetchAt := time.Now().UTC()
-	if mode == config.ConfiguredProviderModelsModeAllowlist && len(configuredModels) > 0 {
+
+	// OpenRouter exposes a huge multi-vendor catalog, so an explicit `models:`
+	// list is always enforced as an allowlist: only the models the operator
+	// listed are exposed/routed, never the full upstream catalog. Other
+	// providers keep the configured global mode (fallback/allowlist).
+	effectiveMode := mode
+	if providerType == ProviderTypeOpenRouter && len(configuredModels) > 0 {
+		effectiveMode = config.ConfiguredProviderModelsModeAllowlist
+	}
+
+	if effectiveMode == config.ConfiguredProviderModelsModeAllowlist && len(configuredModels) > 0 {
 		resp, reason := applyConfiguredProviderModels(
 			providerName,
 			providerType,
-			mode,
+			effectiveMode,
 			configuredModels,
 			nil,
 			nil,
@@ -294,7 +304,7 @@ func fetchProviderInventory(
 	resp, reason := applyConfiguredProviderModels(
 		providerName,
 		providerType,
-		mode,
+		effectiveMode,
 		configuredModels,
 		resp,
 		err,
