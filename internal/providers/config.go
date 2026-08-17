@@ -11,6 +11,12 @@ import (
 	"aurora/internal/core"
 )
 
+// ProviderTypeOpenRouter is the registration type for the OpenRouter provider.
+// OpenRouter exposes a huge multi-vendor catalog, so an explicit `models:`
+// list is treated as an allowlist: the gateway only exposes / routes to the
+// models the operator listed, never the full upstream catalog.
+const ProviderTypeOpenRouter = "openrouter"
+
 // ProviderConfig holds the fully resolved provider configuration after merging
 // global defaults with per-provider overrides.
 type ProviderConfig struct {
