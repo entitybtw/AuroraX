@@ -7,11 +7,13 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v5"
 
+	"aurora/configuration"
 	"aurora/internal/providers"
 )
 
@@ -173,5 +175,62 @@ func TestPoolOptions_ExcludesNothing(t *testing.T) {
 	}
 	if len(body.Providers) != 3 {
 		t.Fatalf("providers = %d, want 3", len(body.Providers))
+	}
+}
+
+func TestProviderRename_UpdatesPoolReferences(t *testing.T) {
+	h := newPoolTestHandler(t)
+
+	// Create a UI-managed pool referencing oa-east and oa-west.
+	rec := doPoolRequest(t, h, http.MethodPost, "/admin/api/v1/pools", map[string]any{
+		"name": "p1", "members": []string{"oa-east", "oa-west"}, "strategy": "round_robin",
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create pool status = %d, want 201 body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Rename provider oa-east -> oa-east-renamed.
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPut, "/admin/api/v1/providers/oa-east", bytes.NewBufferString(
+		`{"new_name":"oa-east-renamed"}`,
+	))
+	req.Header.Set("Content-Type", "application/json")
+	rrec := httptest.NewRecorder()
+	c := e.NewContext(req, rrec)
+	c.SetPathValues(echo.PathValues{{Name: "name", Value: "oa-east"}})
+	if err := h.UpdateProvider(c); err != nil {
+		t.Fatalf("UpdateProvider failed: %v", err)
+	}
+	if rrec.Code != http.StatusOK {
+		t.Fatalf("rename status = %d, want 200 body=%s", rrec.Code, rrec.Body.String())
+	}
+
+	// New name exists and is enabled; old name is disabled.
+	renamed, ok := h.providerOverrides.get("oa-east-renamed")
+	if !ok {
+		t.Fatalf("renamed provider override not found")
+	}
+	if !renamed.IsEnabled() {
+		t.Fatalf("renamed provider should be enabled")
+	}
+	old, ok := h.providerOverrides.get("oa-east")
+	if !ok {
+		t.Fatalf("old provider override missing (should exist as disabled stub)")
+	}
+	if old.IsEnabled() {
+		t.Fatalf("old provider should be disabled after rename")
+	}
+
+	// The pool's members were rewritten to the new name.
+	pools := h.poolWeights.ApplyToRawPools(map[string]config.RawPoolConfig{})
+	p1, ok := pools["p1"]
+	if !ok {
+		t.Fatalf("pool p1 not found in overrides")
+	}
+	if !slices.Contains(p1.Members, "oa-east-renamed") {
+		t.Fatalf("pool members %v missing renamed member", p1.Members)
+	}
+	if slices.Contains(p1.Members, "oa-east") {
+		t.Fatalf("pool members %v still reference old name", p1.Members)
 	}
 }

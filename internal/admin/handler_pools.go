@@ -137,6 +137,34 @@ func (s *PoolOverrideStore) delete(name string) {
 	s.deleted[name] = true
 }
 
+// RenameMembers replaces every reference to oldName in the members/weights of
+// UI-managed pools with newName, so a renamed provider stays wired into pools.
+func (s *PoolOverrideStore) RenameMembers(oldName, newName string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for poolName, raw := range s.pools {
+		changed := false
+		members := make([]string, 0, len(raw.Members))
+		for _, m := range raw.Members {
+			if m == oldName {
+				members = append(members, newName)
+				changed = true
+				continue
+			}
+			members = append(members, m)
+		}
+		if w, ok := raw.Weights[oldName]; ok {
+			delete(raw.Weights, oldName)
+			raw.Weights[newName] = w
+			changed = true
+		}
+		if changed {
+			raw.Members = members
+			s.pools[poolName] = raw
+		}
+	}
+}
+
 // ApplyToRawPools merges UI-managed pool definitions on top of the static config
 // pools: deleted pools are removed, managed pools replace or add entries.
 func (s *PoolOverrideStore) ApplyToRawPools(base map[string]cfg.RawPoolConfig) map[string]cfg.RawPoolConfig {

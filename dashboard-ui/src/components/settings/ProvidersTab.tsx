@@ -112,7 +112,12 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
       if (mode === "add") {
         await createProvider(form);
       } else {
-        await updateProvider(initial?.originalName ?? form.name, form);
+        const originalName = initial?.originalName ?? form.name;
+        if (originalName && form.name !== originalName) {
+          await updateProvider(originalName, { ...form, new_name: form.name });
+        } else {
+          await updateProvider(originalName, form);
+        }
       }
       onSaved();
       onClose();
@@ -136,8 +141,10 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Name</label>
             <Input type="text" placeholder="my-provider" value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              disabled={mode === "edit"} className={mode === "edit" ? "opacity-60" : ""} />
+              onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            {mode === "edit" && (
+              <div className="text-[11px] text-muted-foreground">Rename by editing this value. Pools that referenced the old name are updated automatically.</div>
+            )}
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Type</label>

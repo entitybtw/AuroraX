@@ -188,6 +188,8 @@ type providerUpdateRequest struct {
 	BindIP     *string `json:"bind_ip"`
 	Enabled    *bool   `json:"enabled"`
 	PoolOnly   *bool   `json:"pool_only"`
+	// NewName renames the provider (both UI-created and static providers).
+	NewName *string `json:"new_name"`
 }
 
 type providerModifyResponse struct {
@@ -338,7 +340,32 @@ func (h *Handler) UpdateProvider(c *echo.Context) error {
 		updated.PoolOnly = boolPtr(*req.PoolOnly)
 	}
 
-	h.providerOverrides.upsert(updated)
+	// Rename support: the caller may supply a new_name. The new override is
+	// stored under the new key; the old name is disabled so the runtime drops
+	// it, and any UI-managed pools that referenced the old name are updated.
+	if req.NewName != nil {
+		newName := strings.TrimSpace(*req.NewName)
+		if newName == "" {
+			return handleError(c, core.NewInvalidRequestError("new_name must not be empty", nil))
+		}
+		if err := h.validateProviderRename(name, newName); err != nil {
+			return handleError(c, core.NewInvalidRequestError(err.Error(), nil))
+		}
+		updated.Name = newName
+		h.providerOverrides.upsert(updated)
+		// Disable the old name so static/UI entries under it stop participating.
+		h.providerOverrides.upsert(ProviderOverride{
+			Name:    name,
+			Type:    updated.Type,
+			Enabled: boolPtr(false),
+		})
+		if h.poolWeights != nil {
+			h.poolWeights.RenameMembers(name, newName)
+			h.poolWeights.save()
+		}
+	} else {
+		h.providerOverrides.upsert(updated)
+	}
 	apply := h.applyRuntimeRefresh(c)
 
 	return c.JSON(http.StatusOK, providerModifyResponse{
@@ -349,6 +376,23 @@ func (h *Handler) UpdateProvider(c *echo.Context) error {
 		RuntimeRefresh:         apply.Report,
 		RuntimeRefreshError:    apply.Error,
 	})
+}
+
+// validateProviderRename checks that newName is free to use: it must not collide
+// with another configured provider instance or a pool name.
+func (h *Handler) validateProviderRename(oldName, newName string) error {
+	for name := range h.providerTypeByName() {
+		if name == oldName {
+			continue
+		}
+		if name == newName {
+			return fmt.Errorf("provider %q already exists", newName)
+		}
+	}
+	if h.pools != nil && h.pools.HasPool(newName) {
+		return fmt.Errorf("pool name %q collides with the new provider name", newName)
+	}
+	return nil
 }
 
 // DeleteProvider handles DELETE /admin/api/v1/providers/:name
