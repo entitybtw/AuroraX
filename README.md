@@ -1,15 +1,15 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/aurorallm/aurora/main/docs-assets/assets/aurora-logo-animated.svg" width="96" height="96" alt="Aurora Logo">
+  <img src="docs-assets/assets/aurora-logo-animated.svg" width="96" height="96" alt="Aurora Logo">
 </p>
 
-<h1 align="center"> Aurora - The Fastest AI Gateway </h1>
+<h1 align="center">Aurora - The Fastest AI Gateway </h1>
+<h2 align="center">A fork focused on multi-IP setups </h2>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/aurorallm/aurora" alt="License" height="20"></a>
   <a href="https://www.npmjs.com/package/iaurora"><img src="https://img.shields.io/npm/v/iaurora" alt="npm" height="20"></a>
   <a href="https://www.npmjs.com/package/iaurora"><img src="https://img.shields.io/npm/dw/iaurora" alt="npm weekly downloads" height="20"></a>
   <a href="https://github.com/aurorallm/aurora"><img src="https://img.shields.io/github/stars/aurorallm/aurora" alt="GitHub Stars" height="20"></a>
-  <a href="https://discord.gg/AfaFBSU2km"><img src="https://dcbadge.limes.pink/api/server/https://discord.gg/AfaFBSU2km?style=flat" alt="Discord" height="20"></a>
   <img src="https://img.shields.io/docker/pulls/aurorahq/aurora" alt="Docker Pulls" height="20">
   <a href="https://artifacthub.io/packages/search?repo=aurora-gateway"><img src="https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/aurora-gateway" alt="Artifact Hub" height="20"></a>
 </p>
@@ -18,9 +18,22 @@
 
 <p align="center">14 provider types &bull; OpenAI &amp; Anthropic compatible &bull; Go &bull; Apache 2.0  &bull; Built for raw speed </p>
 
-<a href="https://raw.githubusercontent.com/aurorallm/aurora/main/docs-assets/assets/dashboard-overview.png">
-  <img src="https://raw.githubusercontent.com/aurorallm/aurora/main/docs-assets/assets/dashboard-overview.png" alt="Aurora admin dashboard showing provider stats and usage metrics" width="100%">
+<a href="docs-assets/assets/dashboard-overview.png">
+  <img src="docs-assets/assets/dashboard-overview.png" alt="Aurora admin dashboard showing provider stats and usage metrics" width="100%">
 </a>
+
+---
+
+## What's new in this fork
+
+Dashboard-driven operations — no more `.env`-only workflows for the things you change most. Everything below is managed from the UI and **survives restarts**.
+
+- **Redesigned dashboard** — full **Catppuccin** theme, mobile-responsive, compact/touch-friendly layout, clean auth/logo/sidebar, shared `SearchInput` fix in audit logs & usage.
+- **Provider CRUD** — manage providers from the UI (base URL, API key, models, type). Per-provider `bind_ip`, `pool_only`, runtime enable/disable, live rename, duplicate protection. Status shows if a key is set **without exposing it**. OpenRouter list is now an **allowlist**; **vLLM** type added to the dashboard (was `.env`-only).
+- **Fallback chains** — edit rules in the UI, applied at **runtime**; callable by name, exposed in `/v1/models`, order preserved on toggle/edit/delete.
+- **Provider pools** — create/edit/delete with member selection and **weighted / round-robin** strategies; health-aware members, `pool_only` models, live registry rebuild.
+- **Response headers** — configurable `X-Actual-Provider` / `X-Actual-Model` / `X-Requested` / `X-Fallback-Chain`, per-header toggles, custom headers, success/error/always modes, emitted on `429`/`401`.
+- **Persistence** — state saved to `configs/provider-overrides.json`, `configs/pool-overrides.json`, `configs/fallback.json` (env-overridable); Docker volumes keep it across recreation.
 
 ---
 
@@ -92,7 +105,7 @@ No SDK changes. No format changes. Just swap the `base_url`.
 - **Audit logging** — full request/response capture, buffered writes, configurable retention (body/header logging, buffer size, flush interval), live SSE stream
 - **Usage analytics** — per-model token counting, cost tracking, daily aggregation by model/user-path, pricing recalculation action
 - **Prometheus metrics** — `aurora_requests_total`, `aurora_request_duration_seconds`, `aurora_requests_in_flight`, plus gateway phase timing
-- **Admin dashboard** — React SPA built into the Go binary: providers, pools, models, aliases, guardrails, cache, usage, audit, auth keys, workflows, console, playground
+- **Admin dashboard** — React SPA built into the Go binary (Catppuccin, fully mobile-responsive): full provider CRUD, fallback chains, provider pools, response-header config, plus models, aliases, guardrails, cache, usage, audit, auth keys, workflows, console, playground
 - **pprof endpoints** — Go runtime profiling at `/debug/pprof/*` (heap, goroutine, mutex, block, threadcreate)
 - **Structured logging** — configurable format (JSON/text), level (debug/info/warn/error), source info, service metadata
 
@@ -350,7 +363,7 @@ curl http://localhost:8080/v1/rerank \
 
 Dashboard: `http://localhost:8080/admin/dashboard`
 
-**Docs:** [aurorallm.online/docs](https://aurorallm.online/docs) · [Website](https://aurorallm.online) · [npm](https://www.npmjs.com/package/iaurora) · [Docker](https://hub.docker.com/r/aurorahq/aurora) · [GitHub](https://github.com/aurorallm/aurora)
+**Upstream docs:** [aurorallm.online/docs](https://aurorallm.online/docs) · [npm](https://www.npmjs.com/package/iaurora) · [GitHub](https://github.com/aurorallm/aurora)
 
 ---
 
@@ -714,46 +727,8 @@ aurora/
 └── scripts/           # Build and utility scripts
 ```
 
----
-
-## Enterprise Deployments
-
-Aurora supports enterprise-grade deployments for teams running production AI systems at scale.
-In addition to private networking, custom security controls, and governance, **Aurora Enterprise** unlocks advanced capabilities including SSO, RBAC, tenant isolation, budget enforcement, compliance workflows, and production support.
-
-The Enterprise edition is a separate distribution with a signed license.
-
-<a href="https://raw.githubusercontent.com/aurorallm/aurora/main/docs-assets/assets/comparison.png">
-  <img src="https://raw.githubusercontent.com/aurorallm/aurora/main/docs-assets/assets/comparison.png" alt="OSS vs Enterprise comparison" width="100%" style="border-radius:12px;margin:16px 0;">
-</a>
-
-<div align="center">
-  <a href="mailto:team.auroragate@gmail.com?subject=Aurora%20Enterprise%20Inquiry" style="display:block;margin-top:5px;">
-    <img src="https://img.shields.io/badge/Email%20Us-Enterprise-5865F2?style=for-the-badge&logo=gmail&logoColor=white" alt="Email Aurora Enterprise" width="200"/>
-  </a>
-</div>
-
----
-
-## Documentation
-
-- [aurorallm.online/docs](https://aurorallm.online/docs) — full documentation
-- [aurorallm.online/docs/getting-started/quickstart](https://aurorallm.online/docs/getting-started/quickstart) — quickstart guide
-- [aurorallm.online/docs/guides](https://aurorallm.online/docs/guides) — provider and integration guides
-- [aurorallm.online/docs/api/overview](https://aurorallm.online/docs/api/overview) — API reference
-- [aurorallm.online/benchmarks](https://aurorallm.online/benchmarks) — performance benchmarks
-
----
-
-## Need Help?
-
-[Join our Discord](https://discord.gg/AfaFBSU2km) for community support, setup help, and discussions.
-
-
----
-
 ## License
 
 This project is licensed under the Apache 2.0 License — see the [LICENSE](LICENSE) file for details.
 
-Built by the Aurora team.
+Community fork of [Aurora](https://github.com/aurorallm/aurora). The upstream project is built by the Aurora team.
