@@ -18,6 +18,8 @@ export const PoolSnapshotSchema = z.object({
   members: z.array(PoolMemberSnapshotSchema),
   health_aware: z.boolean().optional().default(true),
   source: z.string().optional().default("config"),
+  user_agent: z.string().optional(),
+  auto_fetch_models: z.boolean().nullable().optional(),
 });
 export type PoolSnapshot = z.infer<typeof PoolSnapshotSchema>;
 
@@ -64,4 +66,6 @@ export interface PoolConfigPayload {
   strategy: string;
   weights?: Record<string, number>;
   health_aware?: boolean;
+  user_agent?: string;
+  auto_fetch_models?: boolean;
 }

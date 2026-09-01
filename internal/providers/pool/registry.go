@@ -121,10 +121,12 @@ func (r *Registry) Snapshot() []PoolSnapshot {
 	out := make([]PoolSnapshot, 0, len(r.pools))
 	for _, p := range r.pools {
 		out = append(out, PoolSnapshot{
-			Name:        p.Name(),
-			Strategy:    string(p.Strategy()),
-			Members:     p.Members(),
-			HealthAware: p.HealthAware(),
+			Name:             p.Name(),
+			Strategy:         string(p.Strategy()),
+			Members:          p.Members(),
+			HealthAware:      p.HealthAware(),
+			UserAgent:        p.UserAgent(),
+			AutoFetchModels:  p.AutoFetchModels(),
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
@@ -133,10 +135,12 @@ func (r *Registry) Snapshot() []PoolSnapshot {
 
 // PoolSnapshot is a read-only diagnostic view of a configured pool.
 type PoolSnapshot struct {
-	Name        string           `json:"name"`
-	Strategy    string           `json:"strategy"`
-	Members     []MemberSnapshot `json:"members"`
-	HealthAware bool             `json:"health_aware"`
+	Name             string           `json:"name"`
+	Strategy         string           `json:"strategy"`
+	Members          []MemberSnapshot `json:"members"`
+	HealthAware      bool             `json:"health_aware"`
+	UserAgent        string           `json:"user_agent,omitempty"`
+	AutoFetchModels  *bool            `json:"auto_fetch_models,omitempty"`
 	// Source indicates where the pool was defined: "config" for static/config
 	// file pools, "ui" for pools created through the admin dashboard.
 	Source string `json:"source,omitempty"`

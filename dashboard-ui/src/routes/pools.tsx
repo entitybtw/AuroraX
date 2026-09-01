@@ -13,6 +13,8 @@ import {
   Server,
   ShieldCheck,
   Weight,
+  Globe,
+  Database,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -50,6 +52,8 @@ interface PoolForm {
   name: string;
   strategy: "round_robin" | "weighted";
   healthAware: boolean;
+  userAgent: string;
+  autoFetchModels: boolean;
   members: MemberForm[];
 }
 
@@ -84,6 +88,8 @@ export function PoolsPage(): JSX.Element {
       name: "",
       strategy: "round_robin",
       healthAware: true,
+      userAgent: "",
+      autoFetchModels: true,
       members: [],
     });
     void loadOptions();
@@ -97,6 +103,8 @@ export function PoolsPage(): JSX.Element {
       name: pool.name,
       strategy: (pool.strategy as PoolForm["strategy"]) || "round_robin",
       healthAware: pool.health_aware,
+      userAgent: pool.user_agent ?? "",
+      autoFetchModels: pool.auto_fetch_models ?? true,
       members: pool.members.map((m) => ({
         name: m.provider_name,
         type: "",
@@ -121,6 +129,8 @@ export function PoolsPage(): JSX.Element {
       members: form.members.map((m) => m.name),
       strategy: form.strategy,
       health_aware: form.healthAware,
+      ...(form.userAgent ? { user_agent: form.userAgent } : {}),
+      auto_fetch_models: form.autoFetchModels,
       ...(form.strategy === "weighted"
         ? {
             weights: Object.fromEntries(
@@ -264,6 +274,16 @@ function PoolSelector({
             <span className="rounded bg-background/60 px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground">
               {pool.members.length}
             </span>
+            {pool.user_agent && (
+              <span className="rounded bg-accent/10 px-1.5 py-0.5 text-[9px] tabular-nums text-accent" title="Custom User-Agent">
+                <Globe className="h-2.5 w-2.5 inline" />
+              </span>
+            )}
+            {pool.auto_fetch_models === false && (
+              <span className="rounded bg-muted/10 px-1.5 py-0.5 text-[9px] tabular-nums text-muted-foreground" title="Auto-fetch disabled">
+                <Database className="h-2.5 w-2.5 inline opacity-50" />
+              </span>
+            )}
           </button>
         );
       })}
@@ -345,6 +365,18 @@ function PoolView({
           label="Weighted"
           value={pool.strategy === "weighted" ? "Yes" : "No"}
           sub="Per-member weights"
+        />
+        <StatCard
+          icon={Globe}
+          label="User Agent"
+          value={pool.user_agent || "default"}
+          sub="Override for pool"
+        />
+        <StatCard
+          icon={Database}
+          label="Auto-fetch models"
+          value={pool.auto_fetch_models !== false ? "On" : "Off"}
+          sub="Discover via /models"
         />
       </div>
 
@@ -535,6 +567,25 @@ function PoolDialog({
                 onCheckedChange={(checked) => onChange({ ...form, healthAware: checked })}
                 aria-label="Health-aware routing"
               />
+            </div>
+            <Field label="User Agent">
+              <input
+                className="field-input font-mono"
+                value={form.userAgent}
+                placeholder="my-app/1.0"
+                onChange={(e) => onChange({ ...form, userAgent: e.target.value })}
+              />
+              <p className="text-[11px] text-muted-foreground">Override User-Agent header for all members of this pool</p>
+            </Field>
+            <div className="flex items-end">
+              <ToggleField
+                size="sm"
+                label="Auto-fetch models"
+                checked={form.autoFetchModels}
+                onCheckedChange={(checked) => onChange({ ...form, autoFetchModels: checked })}
+                aria-label="Auto-fetch models"
+              />
+              <p className="text-[11px] ml-2 text-muted-foreground">Automatically discover models via /models endpoint for pool members</p>
             </div>
           </div>
 
