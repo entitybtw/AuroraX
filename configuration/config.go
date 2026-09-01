@@ -106,6 +106,14 @@ type RawPoolConfig struct {
 	// HealthAware enables circuit-breaker-aware member skipping. Defaults
 	// to true; set to false to route to unhealthy members regardless.
 	HealthAware *bool `yaml:"health_aware"`
+	// UserAgent optionally overrides the User-Agent header sent to the upstream
+	// provider for all members of this pool. When set, it overrides individual
+	// provider user_agent settings for requests routed through this pool.
+	UserAgent string `yaml:"user_agent"`
+	// AutoFetchModels controls whether the gateway calls /models to discover
+	// available models for pool members. When set, it overrides individual
+	// provider auto_fetch_models settings for model discovery through this pool.
+	AutoFetchModels *bool `yaml:"auto_fetch_models"`
 }
 
 // RawResilienceConfig holds optional per-provider resilience overrides from YAML.

@@ -80,11 +80,13 @@ func (alwaysHealthy) IsProviderHealthy(string) bool { return true }
 // dispatch requests — the caller (Router) does the actual provider call. The
 // pool only owns selection state (round-robin index / weighted counters).
 type Pool struct {
-	name        string
-	strategy    Strategy
-	members     []*Member
-	memberIx    map[string]int
-	healthAware bool
+	name             string
+	strategy         Strategy
+	members          []*Member
+	memberIx         map[string]int
+	healthAware      bool
+	userAgent        string
+	autoFetchModels  *bool
 
 	rrIndex uint64
 	health  HealthChecker
@@ -117,11 +119,13 @@ func (m *Member) SupportsCapability(c Capability) bool {
 
 // Config is the validated input for NewPool.
 type Config struct {
-	Name        string
-	Strategy    Strategy
-	Members     []MemberConfig
-	Health      HealthChecker
-	HealthAware bool
+	Name             string
+	Strategy         Strategy
+	Members          []MemberConfig
+	Health           HealthChecker
+	HealthAware      bool
+	UserAgent        string
+	AutoFetchModels  *bool
 }
 
 // MemberConfig is the per-member input to NewPool.
@@ -172,17 +176,25 @@ func NewPool(cfg Config) (*Pool, error) {
 	}
 
 	return &Pool{
-		name:        name,
-		strategy:    strategy,
-		members:     members,
-		memberIx:    memberIx,
-		healthAware: cfg.HealthAware,
-		health:      health,
+		name:             name,
+		strategy:         strategy,
+		members:          members,
+		memberIx:         memberIx,
+		healthAware:      cfg.HealthAware,
+		userAgent:        cfg.UserAgent,
+		autoFetchModels:  cfg.AutoFetchModels,
+		health:           health,
 	}, nil
 }
 
 // HealthAware reports whether the pool skips unhealthy members during selection.
 func (p *Pool) HealthAware() bool { return p.healthAware }
+
+// UserAgent returns the pool-level User-Agent override, if set.
+func (p *Pool) UserAgent() string { return p.userAgent }
+
+// AutoFetchModels returns the pool-level auto-fetch models override, if set.
+func (p *Pool) AutoFetchModels() *bool { return p.autoFetchModels }
 
 func (p *Pool) Name() string { return p.name }
 

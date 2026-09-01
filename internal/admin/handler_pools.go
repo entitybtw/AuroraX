@@ -187,8 +187,10 @@ func (s *PoolOverrideStore) ApplyToRawPools(base map[string]cfg.RawPoolConfig) m
 // result without affecting the source map.
 func cloneRawPoolConfig(raw cfg.RawPoolConfig) cfg.RawPoolConfig {
 	cp := cfg.RawPoolConfig{
-		Strategy:    raw.Strategy,
-		HealthAware: raw.HealthAware,
+		Strategy:         raw.Strategy,
+		HealthAware:      raw.HealthAware,
+		UserAgent:        raw.UserAgent,
+		AutoFetchModels:  raw.AutoFetchModels,
 	}
 	if raw.Members != nil {
 		cp.Members = make([]string, len(raw.Members))
@@ -260,11 +262,13 @@ func (h *Handler) PoolOptions(c *echo.Context) error {
 }
 
 type poolConfigRequest struct {
-	Name        string         `json:"name"`
-	Members     []string       `json:"members"`
-	Strategy    string         `json:"strategy"`
-	Weights     map[string]int `json:"weights,omitempty"`
-	HealthAware *bool          `json:"health_aware,omitempty"`
+	Name              string         `json:"name"`
+	Members           []string       `json:"members"`
+	Strategy          string         `json:"strategy"`
+	Weights           map[string]int `json:"weights,omitempty"`
+	HealthAware       *bool          `json:"health_aware,omitempty"`
+	UserAgent         string         `json:"user_agent,omitempty"`
+	AutoFetchModels   *bool          `json:"auto_fetch_models,omitempty"`
 }
 
 // CreatePool handles POST /admin/api/v1/pools — creates a new load-balanced pool.
@@ -400,10 +404,12 @@ func (h *Handler) validatePoolConfig(name string, req poolConfigRequest) (cfg.Ra
 	}
 
 	return cfg.RawPoolConfig{
-		Members:     members,
-		Strategy:    strings.TrimSpace(req.Strategy),
-		Weights:     weights,
-		HealthAware: req.HealthAware,
+		Members:         members,
+		Strategy:        strings.TrimSpace(req.Strategy),
+		Weights:         weights,
+		HealthAware:     req.HealthAware,
+		UserAgent:       strings.TrimSpace(req.UserAgent),
+		AutoFetchModels: req.AutoFetchModels,
 	}, nil
 }
 

@@ -90,11 +90,13 @@ func buildPoolRegistry(rawPools map[string]config.RawPoolConfig, providerMap map
 		health := poolHealthChecker(registry, raw.HealthAware)
 		healthAware := raw.HealthAware == nil || *raw.HealthAware
 		p, err := pool.NewPool(pool.Config{
-			Name:        name,
-			Strategy:    strategy,
-			Members:     members,
-			Health:      health,
-			HealthAware: healthAware,
+			Name:             name,
+			Strategy:         strategy,
+			Members:          members,
+			Health:           health,
+			HealthAware:      healthAware,
+			UserAgent:        strings.TrimSpace(raw.UserAgent),
+			AutoFetchModels:  raw.AutoFetchModels,
 		})
 		if err != nil {
 			return nil, err
