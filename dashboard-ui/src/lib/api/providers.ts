@@ -31,6 +31,8 @@ export interface ProviderFormData {
   enabled?: boolean;
   bind_ip?: string;
   pool_only?: boolean;
+  user_agent?: string;
+  auto_fetch_models?: boolean;
   /** When present on an update, renames the provider to this value. */
   new_name?: string;
 }
