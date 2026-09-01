@@ -309,6 +309,9 @@ func initializeProviders(ctx context.Context, providerMap map[string]ProviderCon
 		if len(pCfg.ModelMetadataOverrides) > 0 {
 			registry.SetProviderMetadataOverrides(name, pCfg.ModelMetadataOverrides)
 		}
+		if pCfg.AutoFetchModels != nil && !*pCfg.AutoFetchModels {
+			registry.SetProviderAutoFetchModels(name, false)
+		}
 		count++
 		slog.Debug("provider registered", "name", name, "type", pCfg.Type)
 	}

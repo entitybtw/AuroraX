@@ -33,6 +33,7 @@ func (r *ModelRegistry) Initialize(ctx context.Context) error {
 func (r *ModelRegistry) initialize(ctx context.Context) error {
 	providers, providerTypes, providerNames := r.snapshotProviders()
 	configuredProviderModels, configuredProviderModelsMode := r.snapshotConfiguredProviderModels()
+	autoFetchModels := r.snapshotProviderAutoFetchModels()
 
 	fetched := r.fetchAllProviderModels(
 		ctx,
@@ -41,6 +42,7 @@ func (r *ModelRegistry) initialize(ctx context.Context) error {
 		providerNames,
 		configuredProviderModels,
 		configuredProviderModelsMode,
+		autoFetchModels,
 	)
 
 	if fetched.totalModels == 0 {
@@ -91,6 +93,7 @@ func (r *ModelRegistry) fetchAllProviderModels(
 	providerNames map[core.Provider]string,
 	configuredProviderModels map[string][]string,
 	configuredProviderModelsMode config.ConfiguredProviderModelsMode,
+	autoFetchModels map[string]bool,
 ) fetchedInventory {
 	out := fetchedInventory{
 		models:           make(map[string]*ModelInfo),
@@ -108,6 +111,12 @@ func (r *ModelRegistry) fetchAllProviderModels(
 		}
 
 		configuredModels := configuredProviderModels[providerName]
+		shouldAutoFetch := true
+		if autoFetchModels != nil {
+			if v, ok := autoFetchModels[providerName]; ok {
+				shouldAutoFetch = v
+			}
+		}
 		resp, configuredReason, fetchAt, err := fetchProviderInventory(
 			ctx,
 			provider,
@@ -115,6 +124,7 @@ func (r *ModelRegistry) fetchAllProviderModels(
 			providerTypes[provider],
 			configuredProviderModelsMode,
 			configuredModels,
+			shouldAutoFetch,
 		)
 		var configuredUpstreamError string
 		if configuredReason != configuredProviderModelsNotApplied {
@@ -274,6 +284,7 @@ func fetchProviderInventory(
 	providerType string,
 	mode config.ConfiguredProviderModelsMode,
 	configuredModels []string,
+	autoFetch bool,
 ) (*core.ModelsResponse, configuredProviderModelsApplyReason, time.Time, error) {
 	fetchAt := time.Now().UTC()
 
@@ -297,6 +308,24 @@ func fetchProviderInventory(
 			fetchAt.Unix(),
 		)
 		return resp, reason, fetchAt, nil
+	}
+
+	// When auto_fetch_models is false, skip the upstream /models call and use
+	// only the configured model list (or return nil if none configured).
+	if !autoFetch {
+		if len(configuredModels) > 0 {
+			resp, reason := applyConfiguredProviderModels(
+				providerName,
+				providerType,
+				effectiveMode,
+				configuredModels,
+				nil,
+				nil,
+				fetchAt.Unix(),
+			)
+			return resp, reason, fetchAt, nil
+		}
+		return nil, configuredProviderModelsNotApplied, fetchAt, nil
 	}
 
 	resp, err := provider.ListModels(ctx)

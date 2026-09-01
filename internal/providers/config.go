@@ -36,6 +36,12 @@ type ProviderConfig struct {
 	// PoolOnly hides this provider's models from the public model list; the
 	// provider is only reachable through a pool that lists it as a member.
 	PoolOnly bool
+	// UserAgent optionally overrides the User-Agent header sent to the upstream provider.
+	UserAgent string
+	// AutoFetchModels controls whether the gateway calls /models to discover
+	// available models. When nil or true, models are fetched automatically.
+	// When explicitly false, only explicitly configured models are used.
+	AutoFetchModels *bool
 }
 
 // resolveProviders applies env var overrides to the raw YAML provider map, filters
@@ -461,6 +467,8 @@ func buildProviderConfig(raw config.RawProviderConfig, global config.ResilienceC
 		Resilience:             global,
 		BindIP:                 strings.TrimSpace(raw.BindIP),
 		PoolOnly:               raw.PoolOnly,
+		UserAgent:              strings.TrimSpace(raw.UserAgent),
+		AutoFetchModels:        raw.AutoFetchModels,
 	}
 
 	if raw.Resilience == nil {

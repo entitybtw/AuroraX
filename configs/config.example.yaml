@@ -364,6 +364,11 @@ providers:
     api_key: "${OPENAI_API_KEY}" # env: OPENAI_API_KEY
     base_url: "https://api.openai.com/v1" # env: OPENAI_BASE_URL
     # models: ["gpt-4o-mini", "gpt-4o"] # env: OPENAI_MODELS (optional)
+    # Custom User-Agent header sent to the upstream provider
+    # user_agent: "MyApp/1.0"
+    # Whether to auto-fetch models from the provider's /models endpoint (default: true)
+    # Set to false to only use explicitly configured models
+    # auto_fetch_models: true
     # Prefer structured retries instead of provider native retries:
     # resilience:
     #   retry:

@@ -26,15 +26,17 @@ var Registration = providers.Registration{
 
 // Provider implements the core.Provider interface for DeepSeek.
 type Provider struct {
-	client *llmclient.Client
-	apiKey string
+	client   *llmclient.Client
+	apiKey   string
+	customUA string
 }
 
 var _ core.Provider = (*Provider)(nil)
 
 // New creates a new DeepSeek provider.
 func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Provider {
-	p := &Provider{apiKey: cfg.APIKey}
+	customUA := strings.TrimSpace(opts.UserAgent)
+	p := &Provider{apiKey: cfg.APIKey, customUA: customUA}
 	clientCfg := llmclient.Config{
 		ProviderName:   "deepseek",
 		BaseURL:        providers.ResolveBaseURL(cfg.BaseURL, defaultBaseURL),
@@ -69,6 +71,9 @@ func (p *Provider) setHeaders(req *http.Request) {
 	req.Header.Set("Authorization", "Bearer "+p.apiKey)
 	if requestID := core.GetRequestID(req.Context()); requestID != "" {
 		req.Header.Set("X-Request-Id", requestID)
+	}
+	if p.customUA != "" {
+		req.Header.Set("User-Agent", p.customUA)
 	}
 }
 

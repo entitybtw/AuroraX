@@ -33,6 +33,11 @@ type ProviderOverride struct {
 	// Enabled controls whether the provider participates in the runtime.
 	// A nil pointer (legacy entries written before this field) means enabled.
 	Enabled *bool `json:"enabled,omitempty"`
+	// UserAgent optionally overrides the User-Agent header sent to the upstream provider.
+	UserAgent string `json:"user_agent,omitempty"`
+	// AutoFetchModels controls whether the gateway calls /models to discover models.
+	// A nil pointer means enabled (auto-fetch on).
+	AutoFetchModels *bool `json:"auto_fetch_models,omitempty"`
 }
 
 // IsEnabled reports whether the override is active. Legacy overrides that
@@ -141,13 +146,15 @@ func (s *ProviderOverrideStore) RawConfigs() map[string]config.RawProviderConfig
 			continue
 		}
 		out[name] = config.RawProviderConfig{
-			Type:       strings.TrimSpace(override.Type),
-			APIKey:     strings.TrimSpace(override.APIKey),
-			BaseURL:    strings.TrimSpace(override.BaseURL),
-			APIVersion: strings.TrimSpace(override.APIVersion),
-			Models:     rawProviderModelsFromOverride(override.Models),
-			BindIP:     strings.TrimSpace(override.BindIP),
-			PoolOnly:   override.PoolOnly != nil && *override.PoolOnly,
+			Type:            strings.TrimSpace(override.Type),
+			APIKey:          strings.TrimSpace(override.APIKey),
+			BaseURL:         strings.TrimSpace(override.BaseURL),
+			APIVersion:      strings.TrimSpace(override.APIVersion),
+			Models:          rawProviderModelsFromOverride(override.Models),
+			BindIP:          strings.TrimSpace(override.BindIP),
+			PoolOnly:        override.PoolOnly != nil && *override.PoolOnly,
+			UserAgent:       strings.TrimSpace(override.UserAgent),
+			AutoFetchModels: override.AutoFetchModels,
 		}
 	}
 	return out
@@ -170,24 +177,28 @@ func (s *ProviderOverrideStore) DisabledNames() []string {
 }
 
 type providerCreateRequest struct {
-	Name       string `json:"name"`
-	Type       string `json:"type"`
-	BaseURL    string `json:"base_url"`
-	APIVersion string `json:"api_version"`
-	APIKey     string `json:"api_key"`
-	Models     string `json:"models"`
-	Enabled    *bool  `json:"enabled"`
-	PoolOnly   *bool  `json:"pool_only"`
+	Name            string `json:"name"`
+	Type            string `json:"type"`
+	BaseURL         string `json:"base_url"`
+	APIVersion      string `json:"api_version"`
+	APIKey          string `json:"api_key"`
+	Models          string `json:"models"`
+	Enabled         *bool  `json:"enabled"`
+	PoolOnly        *bool  `json:"pool_only"`
+	UserAgent       string `json:"user_agent"`
+	AutoFetchModels *bool  `json:"auto_fetch_models"`
 }
 
 type providerUpdateRequest struct {
-	BaseURL    *string `json:"base_url"`
-	APIVersion *string `json:"api_version"`
-	APIKey     *string `json:"api_key"`
-	Models     *string `json:"models"`
-	BindIP     *string `json:"bind_ip"`
-	Enabled    *bool   `json:"enabled"`
-	PoolOnly   *bool   `json:"pool_only"`
+	BaseURL         *string `json:"base_url"`
+	APIVersion      *string `json:"api_version"`
+	APIKey          *string `json:"api_key"`
+	Models          *string `json:"models"`
+	BindIP          *string `json:"bind_ip"`
+	Enabled         *bool   `json:"enabled"`
+	PoolOnly        *bool   `json:"pool_only"`
+	UserAgent       *string `json:"user_agent"`
+	AutoFetchModels *bool   `json:"auto_fetch_models"`
 	// NewName renames the provider (both UI-created and static providers).
 	NewName *string `json:"new_name"`
 }
@@ -254,14 +265,16 @@ func (h *Handler) CreateProvider(c *echo.Context) error {
 	}
 
 	h.providerOverrides.upsert(ProviderOverride{
-		Name:       req.Name,
-		Type:       req.Type,
-		BaseURL:    strings.TrimSpace(req.BaseURL),
-		APIVersion: strings.TrimSpace(req.APIVersion),
-		APIKey:     strings.TrimSpace(req.APIKey),
-		Models:     strings.TrimSpace(req.Models),
-		Enabled:    boolPtrOrDefault(req.Enabled, true),
-		PoolOnly:   req.PoolOnly,
+		Name:            req.Name,
+		Type:            req.Type,
+		BaseURL:         strings.TrimSpace(req.BaseURL),
+		APIVersion:      strings.TrimSpace(req.APIVersion),
+		APIKey:          strings.TrimSpace(req.APIKey),
+		Models:          strings.TrimSpace(req.Models),
+		Enabled:         boolPtrOrDefault(req.Enabled, true),
+		PoolOnly:        req.PoolOnly,
+		UserAgent:       strings.TrimSpace(req.UserAgent),
+		AutoFetchModels: req.AutoFetchModels,
 	})
 	apply := h.applyRuntimeRefresh(c)
 
@@ -338,6 +351,12 @@ func (h *Handler) UpdateProvider(c *echo.Context) error {
 	}
 	if req.PoolOnly != nil {
 		updated.PoolOnly = boolPtr(*req.PoolOnly)
+	}
+	if req.UserAgent != nil {
+		updated.UserAgent = strings.TrimSpace(*req.UserAgent)
+	}
+	if req.AutoFetchModels != nil {
+		updated.AutoFetchModels = boolPtr(*req.AutoFetchModels)
 	}
 
 	// Rename support: the caller may supply a new_name. The new override is

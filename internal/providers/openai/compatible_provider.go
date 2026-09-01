@@ -59,9 +59,13 @@ func NewCompatibleProvider(apiKey string, opts providers.ProviderOptions, cfg Co
 		CircuitBreaker: opts.Resilience.CircuitBreaker,
 		BindIP:         opts.BindIP,
 	}
+	customUA := strings.TrimSpace(opts.UserAgent)
 	p.client = llmclient.New(clientCfg, func(req *http.Request) {
 		if cfg.SetHeaders != nil {
 			cfg.SetHeaders(req, apiKey)
+		}
+		if customUA != "" {
+			req.Header.Set("User-Agent", customUA)
 		}
 	})
 	return p

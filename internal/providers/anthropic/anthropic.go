@@ -54,6 +54,7 @@ type Provider struct {
 
 // New creates a new Anthropic provider.
 func New(providerCfg providers.ProviderConfig, opts providers.ProviderOptions) core.Provider {
+	customUA := strings.TrimSpace(opts.UserAgent)
 	p := &Provider{
 		apiKey:               providerCfg.APIKey,
 		batchResultEndpoints: make(map[string]map[string]string),
@@ -66,7 +67,12 @@ func New(providerCfg providers.ProviderConfig, opts providers.ProviderOptions) c
 		CircuitBreaker: opts.Resilience.CircuitBreaker,
 		BindIP:         opts.BindIP,
 	}
-	p.client = llmclient.New(clientCfg, p.setHeaders)
+	p.client = llmclient.New(clientCfg, func(req *http.Request) {
+		p.setHeaders(req)
+		if customUA != "" {
+			req.Header.Set("User-Agent", customUA)
+		}
+	})
 	return p
 }
 

@@ -33,13 +33,15 @@ const (
 
 // Provider implements the core.Provider interface for xAI
 type Provider struct {
-	client *llmclient.Client
-	apiKey string
+	client   *llmclient.Client
+	apiKey   string
+	customUA string
 }
 
 // New creates a new xAI provider.
 func New(providerCfg providers.ProviderConfig, opts providers.ProviderOptions) core.Provider {
-	p := &Provider{apiKey: providerCfg.APIKey}
+	customUA := strings.TrimSpace(opts.UserAgent)
+	p := &Provider{apiKey: providerCfg.APIKey, customUA: customUA}
 	clientCfg := llmclient.Config{
 		ProviderName:   "xai",
 		BaseURL:        providers.ResolveBaseURL(providerCfg.BaseURL, defaultBaseURL),
@@ -77,6 +79,9 @@ func (p *Provider) setHeaders(req *http.Request) {
 	// Forward request ID if present in context
 	if requestID := core.GetRequestID(req.Context()); requestID != "" {
 		req.Header.Set("X-Request-ID", requestID)
+	}
+	if p.customUA != "" {
+		req.Header.Set("User-Agent", p.customUA)
 	}
 }
 
