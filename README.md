@@ -30,6 +30,8 @@ Dashboard-driven operations — no more `.env`-only workflows for the things you
 
 - **Redesigned dashboard** — full **Catppuccin** theme, mobile-responsive, compact/touch-friendly layout, clean auth/logo/sidebar, shared `SearchInput` fix in audit logs & usage.
 - **Provider CRUD** — manage providers from the UI (base URL, API key, models, type). Per-provider `bind_ip`, `pool_only`, runtime enable/disable, live rename, duplicate protection. Status shows if a key is set **without exposing it**. OpenRouter list is now an **allowlist**; **vLLM** type added to the dashboard (was `.env`-only).
+- **Custom User-Agent** — set a custom `User-Agent` header per provider for upstream attribution (e.g. OpenRouter recommends this for credits).
+- **Auto-fetch models toggle** — disable automatic `/models` discovery per provider to use only explicitly configured model lists.
 - **Fallback chains** — edit rules in the UI, applied at **runtime**; callable by name, exposed in `/v1/models`, order preserved on toggle/edit/delete.
 - **Provider pools** — create/edit/delete with member selection and **weighted / round-robin** strategies; health-aware members, `pool_only` models, live registry rebuild.
 - **Response headers** — configurable `X-Actual-Provider` / `X-Actual-Model` / `X-Requested` / `X-Fallback-Chain`, per-header toggles, custom headers, success/error/always modes, emitted on `429`/`401`.
@@ -60,6 +62,8 @@ No SDK changes. No format changes. Just swap the `base_url`.
 
 - **14 provider types** — OpenAI, Anthropic, Gemini, Groq, DeepSeek, OpenRouter, xAI, Z.ai, MiniMax, Azure OpenAI, Oracle, Ollama, vLLM, Jina
 - **Auto-discovery** — set an API key as an env var, restart, provider + all its models appear automatically
+- **Auto-fetch toggle** — disable per-provider model auto-discovery to use only explicitly configured model lists
+- **Custom User-Agent** — set a custom `User-Agent` header per provider for upstream attribution or branding
 - **Provider pools** — group multiple keys/endpoints, load-balance with round-robin or weighted distribution, health-aware failover
 - **Model aliases** — rename/remap any model to a custom identifier across the entire gateway
 - **Model overrides** — enable or disable specific models per user path, persisted via dashboard or `user_pricing.yaml`
@@ -402,6 +406,23 @@ Custom base URL:
 
 ```env
 OPENAI_BASE_URL=https://my-corp-openai-proxy.example.com/v1
+```
+
+YAML provider config supports additional options:
+
+```yaml
+providers:
+  openai:
+    type: openai
+    api_key: "${OPENAI_API_KEY}"
+    base_url: "https://api.openai.com/v1"
+    # Custom User-Agent header for upstream attribution
+    user_agent: "MyApp/1.0"
+    # Disable auto-fetching models from /models endpoint (use only configured list)
+    auto_fetch_models: false
+    models:
+      - gpt-4o
+      - gpt-4o-mini
 ```
 
 Multiple instances of the same provider (underscores become hyphens in the provider name):

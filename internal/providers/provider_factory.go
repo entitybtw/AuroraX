@@ -18,6 +18,8 @@ type ProviderOptions struct {
 	Resilience config.ResilienceConfig
 	// BindIP optionally sets the local outbound IP for the upstream HTTP client.
 	BindIP string
+	// UserAgent optionally overrides the User-Agent header sent to the upstream provider.
+	UserAgent string
 }
 
 // ProviderConstructor is the constructor signature for providers.
@@ -102,6 +104,7 @@ func (f *ProviderFactory) Create(cfg ProviderConfig) (core.Provider, error) {
 		Models:     cfg.Models,
 		Resilience: cfg.Resilience,
 		BindIP:     cfg.BindIP,
+		UserAgent:  cfg.UserAgent,
 	}
 
 	return builder(cfg, opts), nil

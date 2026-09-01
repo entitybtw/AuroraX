@@ -29,6 +29,7 @@ func (r *ModelRegistry) ReplaceProviders(ctx context.Context, providerMap map[st
 	r.providerRuntime = make(map[string]providerRuntimeState)
 	r.configMetadataOverrides = nil
 	r.configuredProviderModels = nil
+	r.providerAutoFetchModels = nil
 	r.initialized = false
 	r.invalidateSortedCaches()
 	r.mu.Unlock()

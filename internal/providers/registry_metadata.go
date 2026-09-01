@@ -272,6 +272,19 @@ func (r *ModelRegistry) snapshotConfiguredProviderModels() (map[string][]string,
 	return out, mode
 }
 
+func (r *ModelRegistry) snapshotProviderAutoFetchModels() map[string]bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if len(r.providerAutoFetchModels) == 0 {
+		return nil
+	}
+	out := make(map[string]bool, len(r.providerAutoFetchModels))
+	for provider, auto := range r.providerAutoFetchModels {
+		out[provider] = auto
+	}
+	return out
+}
+
 // collectionEmpty reports whether a reflect.Value representing a slice, array,
 // or map has no elements (covering both nil and non-nil-but-zero-length), and
 // falls back to reflect.Value.IsZero for other kinds. This lets override-

@@ -53,6 +53,11 @@ type ModelRegistry struct {
 	configuredProviderModels     map[string][]string
 	configuredProviderModelsMode config.ConfiguredProviderModelsMode
 
+	// providerAutoFetchModels tracks whether the gateway should call /models
+	// to discover available models for each provider. Keyed by provider name.
+	// Missing entries default to true (auto-fetch enabled).
+	providerAutoFetchModels map[string]bool
+
 	// userOverridesPath, when non-empty, points at a YAML file of per-field
 	// metadata overrides applied on top of the model list every time the list
 	// is loaded or refreshed. Operator values win per-field. See
@@ -254,6 +259,22 @@ func (r *ModelRegistry) SetProviderConfiguredModels(providerName string, models 
 		r.configuredProviderModels = make(map[string][]string)
 	}
 	r.configuredProviderModels[providerName] = normalized
+}
+
+// SetProviderAutoFetchModels records whether the gateway should call /models
+// to discover available models for the given provider instance. When false,
+// only explicitly configured models (from the models: list) are used.
+func (r *ModelRegistry) SetProviderAutoFetchModels(providerName string, autoFetch bool) {
+	providerName = strings.TrimSpace(providerName)
+	if providerName == "" {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.providerAutoFetchModels == nil {
+		r.providerAutoFetchModels = make(map[string]bool)
+	}
+	r.providerAutoFetchModels[providerName] = autoFetch
 }
 
 // RegisterProviderWithNameAndType adds a provider with a configured provider instance name and type.

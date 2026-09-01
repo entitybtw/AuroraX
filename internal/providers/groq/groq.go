@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"aurora/internal/core"
 	"aurora/internal/language_model_client"
@@ -28,13 +29,15 @@ const (
 
 // Provider implements the core.Provider interface for Groq
 type Provider struct {
-	client *llmclient.Client
-	apiKey string
+	client   *llmclient.Client
+	apiKey   string
+	customUA string
 }
 
 // New creates a new Groq provider.
 func New(providerCfg providers.ProviderConfig, opts providers.ProviderOptions) core.Provider {
-	p := &Provider{apiKey: providerCfg.APIKey}
+	customUA := strings.TrimSpace(opts.UserAgent)
+	p := &Provider{apiKey: providerCfg.APIKey, customUA: customUA}
 	clientCfg := llmclient.Config{
 		ProviderName:   "groq",
 		BaseURL:        providers.ResolveBaseURL(providerCfg.BaseURL, defaultBaseURL),
@@ -72,6 +75,9 @@ func (p *Provider) setHeaders(req *http.Request) {
 	// Forward request ID if present in context
 	if requestID := core.GetRequestID(req.Context()); requestID != "" {
 		req.Header.Set("X-Request-ID", requestID)
+	}
+	if p.customUA != "" {
+		req.Header.Set("User-Agent", p.customUA)
 	}
 }
 

@@ -77,6 +77,14 @@ type RawProviderConfig struct {
 	// list. The provider is then only reachable through a pool that lists it as
 	// a member, keeping the /v1/models list uncluttered.
 	PoolOnly bool `yaml:"pool_only"`
+	// UserAgent optionally overrides the User-Agent header sent to the upstream
+	// provider. When empty, the Go default http.Client User-Agent is used.
+	UserAgent string `yaml:"user_agent"`
+	// AutoFetchModels controls whether the gateway calls the provider's
+	// /models endpoint to discover available models at startup and during
+	// periodic refresh. When false, only explicitly configured models (in the
+	// models: list) are used. Default: true (auto-fetch enabled).
+	AutoFetchModels *bool `yaml:"auto_fetch_models"`
 }
 
 // RawPoolConfig is the YAML-sourced provider pool definition. Pools group

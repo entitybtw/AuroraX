@@ -30,17 +30,19 @@ type SanitizedResilienceConfig struct {
 
 // SanitizedProviderConfig is the admin-safe provider configuration view.
 type SanitizedProviderConfig struct {
-	Name       string                    `json:"name"`
-	Type       string                    `json:"type"`
-	BaseURL    string                    `json:"base_url,omitempty"`
-	APIVersion string                    `json:"api_version,omitempty"`
-	Models     []string                  `json:"models,omitempty"`
-	BindIP     string                    `json:"bind_ip,omitempty"`
-	Enabled    bool                      `json:"enabled"`
-	APIKey     string                    `json:"api_key,omitempty"`
-	APIKeySet  bool                      `json:"api_key_set,omitempty"`
-	PoolOnly   bool                      `json:"pool_only,omitempty"`
-	Resilience SanitizedResilienceConfig `json:"resilience"`
+	Name            string                    `json:"name"`
+	Type            string                    `json:"type"`
+	BaseURL         string                    `json:"base_url,omitempty"`
+	APIVersion      string                    `json:"api_version,omitempty"`
+	Models          []string                  `json:"models,omitempty"`
+	BindIP          string                    `json:"bind_ip,omitempty"`
+	Enabled         bool                      `json:"enabled"`
+	APIKey          string                    `json:"api_key,omitempty"`
+	APIKeySet       bool                      `json:"api_key_set,omitempty"`
+	PoolOnly        bool                      `json:"pool_only,omitempty"`
+	UserAgent       string                    `json:"user_agent,omitempty"`
+	AutoFetchModels bool                      `json:"auto_fetch_models"`
+	Resilience      SanitizedResilienceConfig `json:"resilience"`
 }
 
 // ProviderRuntimeSnapshot describes runtime diagnostics for a configured provider.
@@ -95,16 +97,18 @@ func SanitizeProviderConfigs(configs map[string]ProviderConfig) []SanitizedProvi
 		}
 
 		result = append(result, SanitizedProviderConfig{
-			Name:       strings.TrimSpace(name),
-			Type:       strings.TrimSpace(cfg.Type),
-			BaseURL:    strings.TrimSpace(cfg.BaseURL),
-			APIVersion: strings.TrimSpace(cfg.APIVersion),
-			Models:     models,
-			BindIP:     strings.TrimSpace(cfg.BindIP),
-			Enabled:    true,
-			APIKey:     strings.TrimSpace(cfg.APIKey),
-			APIKeySet:  strings.TrimSpace(cfg.APIKey) != "",
-			PoolOnly:   cfg.PoolOnly,
+			Name:            strings.TrimSpace(name),
+			Type:            strings.TrimSpace(cfg.Type),
+			BaseURL:         strings.TrimSpace(cfg.BaseURL),
+			APIVersion:      strings.TrimSpace(cfg.APIVersion),
+			Models:          models,
+			BindIP:          strings.TrimSpace(cfg.BindIP),
+			Enabled:         true,
+			APIKey:          strings.TrimSpace(cfg.APIKey),
+			APIKeySet:       strings.TrimSpace(cfg.APIKey) != "",
+			PoolOnly:        cfg.PoolOnly,
+			UserAgent:       strings.TrimSpace(cfg.UserAgent),
+			AutoFetchModels: cfg.AutoFetchModels == nil || *cfg.AutoFetchModels,
 			Resilience: SanitizedResilienceConfig{
 				Retry: SanitizedRetryConfig{
 					MaxRetries:     cfg.Resilience.Retry.MaxRetries,

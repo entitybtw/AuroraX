@@ -40,6 +40,7 @@ type Provider struct {
 	httpClient       *http.Client
 	hooks            llmclient.Hooks
 	apiKey           string
+	customUA         string
 	modelsURL        string
 	modelsClientConf llmclient.Config
 }
@@ -47,10 +48,12 @@ type Provider struct {
 // New creates a new Gemini provider.
 func New(providerCfg providers.ProviderConfig, opts providers.ProviderOptions) core.Provider {
 	baseURL := providers.ResolveBaseURL(providerCfg.BaseURL, defaultOpenAICompatibleBaseURL)
+	customUA := strings.TrimSpace(opts.UserAgent)
 	p := &Provider{
 		httpClient: nil,
 		apiKey:     providerCfg.APIKey,
 		hooks:      opts.Hooks,
+		customUA:   customUA,
 		modelsURL:  defaultModelsBaseURL,
 		modelsClientConf: llmclient.Config{
 			ProviderName:   "gemini",
@@ -113,6 +116,9 @@ func (p *Provider) setHeaders(req *http.Request) {
 	// Forward request ID if present in context for request tracing
 	if requestID := core.GetRequestID(req.Context()); requestID != "" {
 		req.Header.Set("X-Request-Id", requestID)
+	}
+	if p.customUA != "" {
+		req.Header.Set("User-Agent", p.customUA)
 	}
 }
 

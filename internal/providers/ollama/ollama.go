@@ -36,11 +36,13 @@ type Provider struct {
 	client       *llmclient.Client
 	nativeClient *llmclient.Client
 	apiKey       string // Accepted but ignored by Ollama
+	customUA     string
 }
 
 // New creates a new Ollama provider.
 func New(providerCfg providers.ProviderConfig, opts providers.ProviderOptions) core.Provider {
-	p := &Provider{apiKey: providerCfg.APIKey}
+	customUA := strings.TrimSpace(opts.UserAgent)
+	p := &Provider{apiKey: providerCfg.APIKey, customUA: customUA}
 	clientCfg := llmclient.Config{
 		ProviderName:   "ollama",
 		BaseURL:        defaultBaseURL,
@@ -110,6 +112,9 @@ func (p *Provider) setHeaders(req *http.Request) {
 	// Forward request ID if present in context
 	if requestID := core.GetRequestID(req.Context()); requestID != "" {
 		req.Header.Set("X-Request-ID", requestID)
+	}
+	if p.customUA != "" {
+		req.Header.Set("User-Agent", p.customUA)
 	}
 }
 
