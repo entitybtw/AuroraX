@@ -84,6 +84,10 @@ func Init(ctx context.Context, result *config.LoadResult, factory *ProviderFacto
 
 	providerMap, credentialResolved := resolveProviders(result.RawProviders, result.Config.Resilience, factory.discoveryConfigsSnapshot())
 
+	// Apply pool-level user_agent overrides to member providers BEFORE
+	// provider instantiation so HTTP clients pick up the pool's User-Agent.
+	applyPoolUserAgentOverrides(providerMap, result.RawPools)
+
 	modelCache, err := initCache(result.Config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize cache: %w", err)
@@ -92,6 +96,10 @@ func Init(ctx context.Context, result *config.LoadResult, factory *ProviderFacto
 	registry := NewModelRegistry()
 	registry.SetCache(modelCache)
 	registry.SetConfiguredProviderModelsMode(result.Config.Models.ConfiguredProviderModelsMode)
+
+	// Apply pool-level auto_fetch_models overrides AFTER registry creation
+	// but BEFORE model discovery starts.
+	applyPoolAutoFetchOverrides(registry, result.RawPools)
 
 	count, err := initializeProviders(ctx, providerMap, factory, registry)
 	if err != nil {

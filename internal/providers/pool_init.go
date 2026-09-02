@@ -9,6 +9,47 @@ import (
 	"aurora/internal/providers/pool"
 )
 
+// applyPoolUserAgentOverrides modifies provider configs based on pool membership.
+// When a pool has user_agent set, all member providers inherit that User-Agent.
+// This runs BEFORE provider instantiation so HTTP clients use the pool's value.
+func applyPoolUserAgentOverrides(providerMap map[string]ProviderConfig, rawPools map[string]config.RawPoolConfig) {
+	for _, raw := range rawPools {
+		ua := strings.TrimSpace(raw.UserAgent)
+		if ua == "" {
+			continue
+		}
+		for _, memberName := range raw.Members {
+			memberName = strings.TrimSpace(memberName)
+			if memberName == "" {
+				continue
+			}
+			if _, ok := providerMap[memberName]; ok {
+				cfg := providerMap[memberName]
+				cfg.UserAgent = ua
+				providerMap[memberName] = cfg
+			}
+		}
+	}
+}
+
+// applyPoolAutoFetchOverrides applies pool-level auto_fetch_models settings to
+// the registry. When a pool has auto_fetch_models set, it overrides the
+// provider-level setting for model discovery.
+func applyPoolAutoFetchOverrides(registry *ModelRegistry, rawPools map[string]config.RawPoolConfig) {
+	for _, raw := range rawPools {
+		if raw.AutoFetchModels == nil {
+			continue
+		}
+		for _, memberName := range raw.Members {
+			memberName = strings.TrimSpace(memberName)
+			if memberName == "" {
+				continue
+			}
+			registry.SetProviderAutoFetchModels(memberName, *raw.AutoFetchModels)
+		}
+	}
+}
+
 // providerTypeCapabilities maps a provider's type string to the pool
 // capabilities it supports. This is used at pool build time to annotate
 // pool members so that the router can filter by capability during dispatch.
@@ -103,18 +144,6 @@ func buildPoolRegistry(rawPools map[string]config.RawPoolConfig, providerMap map
 		}
 		if err := pools.Register(p); err != nil {
 			return nil, err
-		}
-
-		// Apply pool-level auto_fetch_models to member providers in the registry.
-		// This overrides provider-level settings for model discovery.
-		if raw.AutoFetchModels != nil {
-			for _, memberName := range raw.Members {
-				memberName = strings.TrimSpace(memberName)
-				if memberName == "" {
-					continue
-				}
-				registry.SetProviderAutoFetchModels(memberName, *raw.AutoFetchModels)
-			}
 		}
 	}
 
