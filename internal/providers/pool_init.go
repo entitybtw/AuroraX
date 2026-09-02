@@ -104,6 +104,18 @@ func buildPoolRegistry(rawPools map[string]config.RawPoolConfig, providerMap map
 		if err := pools.Register(p); err != nil {
 			return nil, err
 		}
+
+		// Apply pool-level auto_fetch_models to member providers in the registry.
+		// This overrides provider-level settings for model discovery.
+		if raw.AutoFetchModels != nil {
+			for _, memberName := range raw.Members {
+				memberName = strings.TrimSpace(memberName)
+				if memberName == "" {
+					continue
+				}
+				registry.SetProviderAutoFetchModels(memberName, *raw.AutoFetchModels)
+			}
+		}
 	}
 
 	return pools, nil
