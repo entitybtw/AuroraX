@@ -29,6 +29,10 @@ func (r *InitResult) Rebuild(ctx context.Context, rawProviders map[string]config
 	if err != nil {
 		return 0, err
 	}
+	// Apply pool-level overrides BEFORE provider replacement so HTTP
+	// clients and model fetching use the pool's values.
+	applyPoolUserAgentOverrides(providerMap, rawPools)
+	applyPoolAutoFetchOverrides(r.Registry, rawPools)
 	count, err := r.Registry.ReplaceProviders(ctx, providerMap, factory)
 	if err != nil {
 		return count, err
