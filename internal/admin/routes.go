@@ -101,4 +101,6 @@ func (h *Handler) RegisterRoutes(g RouteRegistrar) {
 	g.POST("/workflows", h.CreateWorkflow)
 	g.POST("/workflows/:id/deactivate", h.DeactivateWorkflow)
 
+	// Session hub routes are registered separately via sessionhub.RegisterSessionHubRoutes
+
 }

@@ -48,6 +48,7 @@ type Config struct {
 	TokenSaver      TokenSaverConfig      `yaml:"token_saver"`
 	Edition         EditionConfig         `yaml:"edition"`
 	ResponseHeaders ResponseHeadersConfig `yaml:"response_headers"`
+	SessionHub      SessionHubConfig       `yaml:"session_hub"`
 }
 
 // LoadResult is returned by Load and bundles the application config with the raw
@@ -190,6 +191,53 @@ func NormalizeEditionName(name EditionName) EditionName {
 
 func ResolveCapabilities(edition EditionConfig) map[string]bool {
 	return map[string]bool{}
+}
+
+// SessionHubConfig defines the header transformation and session-mapping engine.
+type SessionHubConfig struct {
+	// Enabled controls whether the session hub is active.
+	Enabled bool `yaml:"enabled"`
+
+	// Providers maps provider names to their header transformation rules.
+	// Each provider can have its own set of rules for generating/rewriting
+	// session IDs and other headers.
+	Providers map[string]SessionHubProviderRule `yaml:"providers"`
+}
+
+// SessionHubProviderRule defines header transformation rules for a single provider.
+type SessionHubProviderRule struct {
+	// Enabled controls whether this provider's rules are active.
+	Enabled bool `yaml:"enabled"`
+
+	// Headers defines the transformation rules for each header.
+	Headers []SessionHubHeaderRule `yaml:"headers"`
+}
+
+// SessionHubHeaderRule defines how a single header is transformed.
+type SessionHubHeaderRule struct {
+	// Name is the header name (e.g. "x-opencode-session").
+	Name string `yaml:"name"`
+
+	// Mode defines the transformation mode:
+	//   - "generate": create a new random value
+	//   - "map": map inbound value to unique outbound per provider
+	//   - "passthrough": pass original value unchanged
+	//   - "static": use a fixed value
+	//   - "random_from_list": pick random from a list
+	//   - "remove": strip the header
+	Mode string `yaml:"mode"`
+
+	// Prefix is prepended to generated values (e.g. "ses_").
+	Prefix string `yaml:"prefix"`
+
+	// Length is the byte length of the random hex part (default: 16).
+	Length int `yaml:"length"`
+
+	// Value is the static value for mode=static.
+	Value string `yaml:"value"`
+
+	// Values is the list for mode=random_from_list.
+	Values []string `yaml:"values"`
 }
 
 func HasCapability(edition EditionConfig, key CapabilityKey) bool {
