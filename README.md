@@ -19,6 +19,13 @@
   <img src="docs-assets/assets/dashboard-overview.png" alt="Aurora admin dashboard showing provider stats and usage metrics" width="100%">
 </a>
 
+## Documentation
+
+- [Getting Started](documentation/GETTING_STARTED.md) — first run, build, config, basic usage
+- [Deployment](documentation/DEPLOYMENT.md) — Docker / Docker Compose, state files, multi-IP host networking
+- [Session Hub](documentation/SESSION_HUB.md) — header transformation & session mapping engine, API reference
+- [Docker image](documentation/DOCKER_PUSH.md) — build & publish `entbtw/aurora`, tags
+
 ---
 
 ## What's new in this fork
@@ -810,6 +817,7 @@ aurora/
 ├── internal/          # Core packages (providers, gateway, storage, guardrails, etc.)
 ├── dashboard-ui/      # React admin dashboard (Vite)
 ├── configs/           # Configuration profiles and examples
+├── documentation/     # Markdown docs (Getting Started, Deployment, Session Hub, Docker)
 ├── docs-assets/       # Images, models.json, assets
 ├── helm/              # Kubernetes Helm charts
 ├── monitoring/        # Prometheus + Grafana configs
