@@ -8,7 +8,6 @@ package sessionhub
 
 import (
 	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"sync"
@@ -99,19 +98,23 @@ func ParseConfig(data []byte) (*HubConfig, error) {
 	return cfg, nil
 }
 
-// GenerateID produces a random hex string of the given byte length.
-func GenerateID(byteLen int) string {
-	b := make([]byte, byteLen)
+// GenerateID produces a random alphanumeric string of the given length.
+func GenerateID(length int) string {
+	const alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, length)
 	rand.Read(b)
-	return hex.EncodeToString(b)
+	for i := range b {
+		b[i] = alphabet[int(b[i])%len(alphabet)]
+	}
+	return string(b)
 }
 
-// GenerateValue builds a full value with prefix + random hex.
-func GenerateValue(prefix string, hexLen int) string {
-	if hexLen <= 0 {
-		hexLen = 16
+// GenerateValue builds a full value with prefix + random alphanumeric.
+func GenerateValue(prefix string, length int) string {
+	if length <= 0 {
+		length = 28
 	}
-	return prefix + GenerateID(hexLen)
+	return prefix + GenerateID(length)
 }
 
 // SessionEntry is one inbound→outbound mapping.
@@ -153,14 +156,14 @@ func (s *Store) Get(provider, inbound string) string {
 }
 
 // GetOrCreate returns the existing outbound value or creates a new one.
-func (s *Store) GetOrCreate(provider, inbound, prefix string, hexLen int) string {
+func (s *Store) GetOrCreate(provider, inbound, prefix string, length int) string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	key := storeKey(provider, inbound)
 	if e, ok := s.entries[key]; ok {
 		return e.OutboundValue
 	}
-	out := GenerateValue(prefix, hexLen)
+	out := GenerateValue(prefix, length)
 	e := &SessionEntry{
 		InboundValue:  inbound,
 		OutboundValue: out,
