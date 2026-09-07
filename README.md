@@ -3,15 +3,12 @@
 </p>
 
 <h1 align="center">Aurora - The Fastest AI Gateway </h1>
-<h2 align="center">A fork focused on multi-IP setups </h2>
+<h2 align="center">A fork of aurorallm/aurora — vibecoded with AI </h2>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/aurorallm/aurora" alt="License" height="20"></a>
-  <a href="https://www.npmjs.com/package/iaurora"><img src="https://img.shields.io/npm/v/iaurora" alt="npm" height="20"></a>
-  <a href="https://www.npmjs.com/package/iaurora"><img src="https://img.shields.io/npm/dw/iaurora" alt="npm weekly downloads" height="20"></a>
-  <a href="https://github.com/aurorallm/aurora"><img src="https://img.shields.io/github/stars/aurorallm/aurora" alt="GitHub Stars" height="20"></a>
-  <img src="https://img.shields.io/docker/pulls/aurorahq/aurora" alt="Docker Pulls" height="20">
-  <a href="https://artifacthub.io/packages/search?repo=aurora-gateway"><img src="https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/aurora-gateway" alt="Artifact Hub" height="20"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/entitybtw/aurora" alt="License" height="20"></a>
+  <a href="https://github.com/entitybtw/aurora"><img src="https://img.shields.io/github/stars/entitybtw/aurora?style=social" alt="GitHub Stars" height="20"></a>
+  <a href="https://github.com/entitybtw/aurora/fork"><img src="https://img.shields.io/github/forks/entitybtw/aurora?style=social" alt="GitHub Forks" height="20"></a>
 </p>
 
 <p align="center"><b>One API for every AI provider. Self-hosted. No vendor lock-in.</b></p>
@@ -26,7 +23,7 @@
 
 ## What's new in this fork
 
-Dashboard-driven operations — no more `.env`-only workflows for the things you change most. Everything below is managed from the UI and **survives restarts**.
+Dashboard-driven operations — no more `.env`-only workflows for the things you change most. Everything below is managed from the UI and **persists across restarts**.
 
 > **Warning:** This fork contains custom features not present in the original [aurorallm/aurora](https://github.com/aurorallm/aurora). Some features are designed for advanced API integration workflows and require careful configuration. Use at your own discretion.
 
@@ -515,7 +512,7 @@ AZURE_API_VERSION=2024-10-21
 OpenRouter extras:
 
 ```env
-OPENROUTER_SITE_URL=https://github.com/aurorallm/aurora
+OPENROUTER_SITE_URL=https://github.com/entitybtw/aurora
 OPENROUTER_APP_NAME=Aurora Gateway
 ```
 
@@ -826,4 +823,4 @@ aurora/
 
 This project is licensed under the Apache 2.0 License — see the [LICENSE](LICENSE) file for details.
 
-Community fork of [Aurora](https://github.com/aurorallm/aurora). The upstream project is built by the Aurora team.
+Community fork of [Aurora](https://github.com/aurorallm/aurora). Session Hub features and multi-account integration built by [entitybtw](https://github.com/entitybtw/aurora). The upstream project is built by the Aurora team.
