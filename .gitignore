@@ -1,3 +1,7 @@
 node_modules/
 pnpm-lock.yaml
 резюме/
+configs/session-hub-rules.yaml
+configs/dashboard-overrides.yaml
+configs/aurora.yaml
+configs/.env

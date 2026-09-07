@@ -345,7 +345,9 @@ func main() {
 
 	factory := providers.NewProviderFactory()
 
-	// Initialize session hub and attach to factory before provider creation
+	// Initialize session hub and attach to factory before provider creation.
+	// Rules added at runtime are persisted to this file and reload on restart.
+	hubFile := config.SessionHubRulesPath()
 	hubCfg := &sessionhub.HubConfig{
 		Enabled:   true,
 		Providers: make(map[string]sessionhub.ProviderRule),
@@ -366,7 +368,7 @@ func main() {
 			hubCfg.Providers[name] = rule
 		}
 	}
-	sessionHub := sessionhub.New(hubCfg)
+	sessionHub := sessionhub.NewWithPersistence(hubFile, hubCfg)
 	factory.SetSessionHub(func(providerName string, headers http.Header) bool {
 		return sessionHub.Apply(headers, providerName) != nil
 	})
