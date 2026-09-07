@@ -14,6 +14,9 @@ type Hub struct {
 	mu     sync.RWMutex
 	config *HubConfig
 	store  *Store
+	// providerPool maps a concrete provider instance name to the pools that
+	// contain it, so a rule bound to a pool applies to every member provider.
+	providerPool map[string][]string
 }
 
 // New creates a Hub with the given config.
@@ -22,8 +25,9 @@ func New(cfg *HubConfig) *Hub {
 		cfg = &HubConfig{Providers: make(map[string]ProviderRule)}
 	}
 	return &Hub{
-		config: cfg,
-		store:  NewStore(),
+		config:       cfg,
+		store:        NewStore(),
+		providerPool: make(map[string][]string),
 	}
 }
 
@@ -73,19 +77,59 @@ func (h *Hub) DeleteProviderRule(provider string) {
 
 // Apply applies header transformations for the given provider.
 // It returns the generated/mapped values, or nil if no rule matched.
+//
+// Rule resolution order for the named target:
+//  1. exact rule keyed by the target name (provider OR pool OR fallback OR type)
+//  2. if the target is a concrete provider, any rule bound to a pool that
+//     contains that provider (first match wins)
+//  3. the wildcard rule "*"
 func (h *Hub) Apply(headers http.Header, provider string) map[string]string {
-	rule, ok := h.GetProviderRule(provider)
+	rule, ok := h.resolveRule(provider)
 	if !ok {
-		// No rule for this provider — try the default "global" rule
-		rule, ok = h.GetProviderRule("*")
-		if !ok {
-			return nil
-		}
+		return nil
 	}
 	if !rule.Enabled && len(rule.Headers) > 0 {
 		return nil
 	}
 	return Transform(headers, provider, rule, h.store)
+}
+
+func (h *Hub) resolveRule(target string) (ProviderRule, bool) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	if rule, ok := h.config.Providers[target]; ok {
+		return rule, true
+	}
+	// Try pool associations for the target provider
+	for _, pool := range h.providerPool[target] {
+		if rule, ok := h.config.Providers[pool]; ok {
+			return rule, true
+		}
+	}
+	if rule, ok := h.config.Providers["*"]; ok {
+		return rule, true
+	}
+	return ProviderRule{}, false
+}
+
+// SetPoolMembership registers that the given pool contains the listed
+// concrete provider names. Rules bound to the pool then apply to every member.
+func (h *Hub) SetPoolMembership(poolProvider string, members []string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.providerPool[poolProvider] = append([]string(nil), members...)
+	// Index reverse lookup provider -> pools for Apply
+	for _, m := range members {
+		existing := h.providerPool[m]
+		for _, e := range existing {
+			if e == poolProvider {
+				goto next
+			}
+		}
+		h.providerPool[m] = append(h.providerPool[m], poolProvider)
+	next:
+	}
 }
 
 // Stats returns global stats.

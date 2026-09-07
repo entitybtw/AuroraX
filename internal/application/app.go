@@ -568,6 +568,9 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 				return hub.Apply(headers, providerName) != nil
 			})
 		}
+		if app.providers != nil && app.providers.Pools != nil {
+			registerSessionHubPoolMemberships(app.sessionHub, app.providers.Pools)
+		}
 		serverCfg.SessionHub = app.sessionHub
 		slog.Info("session hub initialized", "providers", len(app.sessionHub.Config().Providers))
 	}
@@ -1082,8 +1085,7 @@ func initAdmin(
 	return adminHandler, dashHandler, nil
 }
 
-func configGuardrailDefinitions(cfg config.GuardrailsConfig) ([]guardrails.Definition, error) {
-	if !cfg.Enabled {
+func configGuardrailDefinitions(cfg config.GuardrailsConfig) ([]guardrails.Definition, error) {if !cfg.Enabled {
 		return nil, nil
 	}
 
@@ -1969,4 +1971,24 @@ func newComboFallbackResolver(result *combos.Result, next gateway.FallbackResolv
 		return next
 	}
 	return gateway.NewComboFallbackResolver(result.Service, next)
+}
+
+// registerSessionHubPoolMemberships records pool->member associations in the
+// session hub so a rule bound to a pool applies to every concrete member
+// provider routed through it.
+func registerSessionHubPoolMemberships(hub *sessionhub.Hub, pools *pool.Registry) {
+	if hub == nil || pools == nil {
+		return
+	}
+	for _, snap := range pools.Snapshot() {
+		members := make([]string, 0, len(snap.Members))
+		for _, m := range snap.Members {
+			if m.ProviderName != "" {
+				members = append(members, m.ProviderName)
+			}
+		}
+		if snap.Name != "" && len(members) > 0 {
+			hub.SetPoolMembership(snap.Name, members)
+		}
+	}
 }
