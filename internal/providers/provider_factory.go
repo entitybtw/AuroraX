@@ -3,6 +3,7 @@ package providers
 
 import (
 	"fmt"
+	"net/http"
 	"sort"
 	"sync"
 
@@ -20,7 +21,17 @@ type ProviderOptions struct {
 	BindIP string
 	// UserAgent optionally overrides the User-Agent header sent to the upstream provider.
 	UserAgent string
+	// ProviderName is the configured instance name (e.g. "opencode-zen").
+	// Empty when the creating caller does not supply a name.
+	ProviderName string
+	// SessionHub optionally provides a header transformer for session mapping.
+	// When set, providers wrap their headerSetter to apply session hub rules.
+	SessionHub SessionHubTransformer
 }
+
+// SessionHubTransformer transforms headers for a given provider name.
+// Returns true if any transformation was applied.
+type SessionHubTransformer func(providerName string, headers http.Header) bool
 
 // ProviderConstructor is the constructor signature for providers.
 type ProviderConstructor func(cfg ProviderConfig, opts ProviderOptions) core.Provider
@@ -49,6 +60,7 @@ type ProviderFactory struct {
 	discoveryConfigs     map[string]DiscoveryConfig
 	passthroughEnrichers map[string]core.PassthroughSemanticEnricher
 	hooks                llmclient.Hooks
+	sessionHub           SessionHubTransformer
 }
 
 // NewProviderFactory creates a new provider factory instance.
@@ -65,6 +77,13 @@ func (f *ProviderFactory) SetHooks(hooks llmclient.Hooks) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.hooks = hooks
+}
+
+// SetSessionHub configures the session hub transformer for all providers.
+func (f *ProviderFactory) SetSessionHub(transformer SessionHubTransformer) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.sessionHub = transformer
 }
 
 // Add adds a provider constructor to the factory.
@@ -100,11 +119,13 @@ func (f *ProviderFactory) Create(cfg ProviderConfig) (core.Provider, error) {
 	}
 
 	opts := ProviderOptions{
-		Hooks:      hooks,
-		Models:     cfg.Models,
-		Resilience: cfg.Resilience,
-		BindIP:     cfg.BindIP,
-		UserAgent:  cfg.UserAgent,
+		Hooks:        hooks,
+		Models:       cfg.Models,
+		Resilience:   cfg.Resilience,
+		BindIP:       cfg.BindIP,
+		UserAgent:    cfg.UserAgent,
+		ProviderName: cfg.Name,
+		SessionHub:   f.sessionHub,
 	}
 
 	return builder(cfg, opts), nil

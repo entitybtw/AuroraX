@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -20,6 +21,7 @@ import (
 
 	"aurora/configuration"
 	"aurora/internal/application"
+	"aurora/internal/sessionhub"
 	"aurora/internal/telemetry"
 	"aurora/internal/providers"
 	"aurora/internal/providers/anthropic"
@@ -343,6 +345,32 @@ func main() {
 
 	factory := providers.NewProviderFactory()
 
+	// Initialize session hub and attach to factory before provider creation
+	hubCfg := &sessionhub.HubConfig{
+		Enabled:   true,
+		Providers: make(map[string]sessionhub.ProviderRule),
+	}
+	if result.Config.SessionHub.Enabled {
+		for name, rawRule := range result.Config.SessionHub.Providers {
+			rule := sessionhub.ProviderRule{Enabled: rawRule.Enabled}
+			for _, hr := range rawRule.Headers {
+				rule.Headers = append(rule.Headers, sessionhub.HeaderRule{
+					Name:   hr.Name,
+					Mode:   sessionhub.HeaderMode(hr.Mode),
+					Prefix: hr.Prefix,
+					Length: hr.Length,
+					Value:  hr.Value,
+					Values: hr.Values,
+				})
+			}
+			hubCfg.Providers[name] = rule
+		}
+	}
+	sessionHub := sessionhub.New(hubCfg)
+	factory.SetSessionHub(func(providerName string, headers http.Header) bool {
+		return sessionHub.Apply(headers, providerName) != nil
+	})
+
 	if result.Config.Metrics.Enabled {
 		factory.SetHooks(telemetry.NewPrometheusHooks())
 	}
@@ -368,8 +396,9 @@ func main() {
 
 	printPhase("Services")
 	application, err := app.New(context.Background(), app.Config{
-		AppConfig: result,
-		Factory:   factory,
+		AppConfig:  result,
+		Factory:    factory,
+		SessionHub: sessionHub,
 	})
 	if err != nil {
 		errStr := err.Error()
