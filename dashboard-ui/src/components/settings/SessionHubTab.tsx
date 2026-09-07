@@ -679,39 +679,32 @@ export function SessionHubTab(): JSX.Element {
               </div>
               <SectionHeader
                 title="Live Mappings"
-                subtitle={
-                  status?.storage_mode === "disk"
-                    ? "Active inbound-to-outbound session mappings. Stored on disk and survive restarts."
-                    : "Active inbound-to-outbound session mappings. These are stored in memory and reset on restart."
-                }
+                subtitle="Active inbound-to-outbound session mappings from each provider."
               />
             </div>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-                <span>Memory</span>
-                <button
-                  role="switch"
-                  aria-checked={status?.storage_mode === "disk"}
-                  onClick={() => mutations.setStorageMode.mutate(status?.storage_mode === "disk" ? "memory" : "disk")}
-                  disabled={mutations.setStorageMode.isPending}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                    status?.storage_mode === "disk" ? "bg-success" : "bg-muted"
-                  }`}
-                  title="Toggle mapping persistence"
-                >
-                  <span
-                    className={`inline-block h-4 w-4 rounded-full bg-background transition-transform ${
-                      status?.storage_mode === "disk" ? "translate-x-4" : "translate-x-0.5"
-                    }`}
-                  />
-                </button>
-                <span>Disk</span>
-              </div>
+            <div className="flex w-full flex-col items-stretch gap-2 md:w-auto md:items-end">
+              <ToggleField
+                label="Persist to disk"
+                description={
+                  status?.storage_mode === "disk"
+                    ? "Mappings are saved to disk and restored after restart."
+                    : "Mappings are kept in memory and reset on restart."
+                }
+                checked={status?.storage_mode === "disk"}
+                onCheckedChange={(checked) =>
+                  mutations.setStorageMode.mutate(checked ? "disk" : "memory")
+                }
+                disabled={mutations.setStorageMode.isPending}
+                size="sm"
+                aria-label="Toggle session mapping persistence"
+                className="w-full max-w-sm md:max-w-xs"
+              />
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => mutations.clearMappings.mutate()}
                 disabled={mutations.clearMappings.isPending}
+                className="self-start md:self-end"
               >
                 <Trash2Icon className="mr-1.5 h-3.5 w-3.5" />
                 Clear All
