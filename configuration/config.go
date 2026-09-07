@@ -1046,6 +1046,16 @@ func SessionHubRulesPath() string {
 	return filepath.Join("configs", "session-hub-rules.yaml")
 }
 
+// SessionHubMappingsPath returns the path where live session mappings are
+// persisted to disk when MappingStorage == "disk".
+func SessionHubMappingsPath() string {
+	customPath := strings.TrimSpace(os.Getenv("AURORA_CONFIG_PATH"))
+	if customPath != "" {
+		return filepath.Join(filepath.Dir(customPath), "session-hub-mappings.json")
+	}
+	return filepath.Join("configs", "session-hub-mappings.json")
+}
+
 func dashboardOverridePaths(customPath string) []string {
 	customPath = strings.TrimSpace(customPath)
 	if customPath != "" {

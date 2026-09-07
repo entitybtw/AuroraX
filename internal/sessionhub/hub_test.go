@@ -130,14 +130,14 @@ func TestHubPersistenceRoundTrip(t *testing.T) {
 			},
 		},
 	}
-	h := NewWithPersistence(path, cfg)
+	h := NewWithPersistence(path, path+".map", cfg)
 	h.SetProviderRule("acc2", ProviderRule{
 		Enabled: true,
 		Headers: []HeaderRule{{Name: "user-agent", Mode: HeaderModeStatic, Value: "opencode-cli/1.0"}},
 	})
 
 	// Load into a fresh hub from disk
-	h2 := NewWithPersistence(path, nil)
+	h2 := NewWithPersistence(path, path+".map", nil)
 	if _, ok := h2.Config().Providers["opencode-zen"]; !ok {
 		t.Fatal("persisted rule opencode-zen missing after reload")
 	}
@@ -147,3 +147,37 @@ func TestHubPersistenceRoundTrip(t *testing.T) {
 	}
 }
 
+func TestStoreMappingPersistence(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/mappings.json"
+
+	s := NewStore(WithPersistence(path))
+	if s.StorageMode() != "disk" {
+		t.Fatalf("expected disk storage, got %s", s.StorageMode())
+	}
+	s.GetOrCreate("acc1", "ses_in", "ses_", 28)
+
+	// Fresh store on same file restores mapping
+	s2 := NewStore(WithPersistence(path))
+	if got := s2.Get("acc1", "ses_in"); got == "" {
+		t.Fatal("mapping not restored from disk")
+	}
+}
+
+func TestStoreMemoryToggle(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/mappings.json"
+
+	s := NewStore(WithPersistence(path))
+	if s.StorageMode() != "disk" {
+		t.Fatalf("expected disk, got %s", s.StorageMode())
+	}
+	s.SetPersists(false)
+	if s.StorageMode() != "memory" {
+		t.Fatalf("expected memory after disable, got %s", s.StorageMode())
+	}
+	s.SetPersists(true)
+	if s.StorageMode() != "disk" {
+		t.Fatalf("expected disk after enable, got %s", s.StorageMode())
+	}
+}

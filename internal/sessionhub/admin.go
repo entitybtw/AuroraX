@@ -17,10 +17,29 @@ func RegisterSessionHubRoutes(g interface {
 
 	g.GET("/sessionhub/status", func(c *echo.Context) error {
 		stats := hub.Stats()
+		stats.StorageMode = hub.MappingStorage()
 		return c.JSON(200, map[string]interface{}{
 			"status": "ok",
 			"data":   stats,
 		})
+	})
+
+	g.PUT("/sessionhub/storage", func(c *echo.Context) error {
+		var req struct {
+			Mode string `json:"mode"`
+		}
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(400, map[string]interface{}{"status": "error", "error": "invalid JSON body"})
+		}
+		switch req.Mode {
+		case "memory", "disk":
+		default:
+			return c.JSON(400, map[string]interface{}{"status": "error", "error": "mode must be memory or disk"})
+		}
+		if err := hub.SetMappingStorage(req.Mode); err != nil {
+			return c.JSON(500, map[string]interface{}{"status": "error", "error": err.Error()})
+		}
+		return c.JSON(200, map[string]interface{}{"status": "ok", "data": hub.MappingStorage()})
 	})
 
 	g.GET("/sessionhub/providers", func(c *echo.Context) error {

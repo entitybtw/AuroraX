@@ -31,6 +31,7 @@ interface SessionHubStatus {
   by_provider: Record<string, number>;
   configured_providers: number;
   enabled_providers: number;
+  storage_mode: string;
 }
 
 interface HeaderRule {
@@ -125,7 +126,23 @@ function useSessionHubMutations() {
     onSuccess: invalidate,
   });
 
-  return { createProvider, deleteProvider, updateProvider, clearMappings, clearProviderMappings };
+  const setStorageMode = useMutation({
+    mutationFn: (mode: "memory" | "disk") =>
+      apiFetch("/admin/api/v1/sessionhub/storage", {
+        method: "PUT",
+        json: { mode },
+      }),
+    onSuccess: invalidate,
+  });
+
+  return {
+    createProvider,
+    deleteProvider,
+    updateProvider,
+    clearMappings,
+    clearProviderMappings,
+    setStorageMode,
+  };
 }
 
 // --- Components ---
@@ -662,10 +679,34 @@ export function SessionHubTab(): JSX.Element {
               </div>
               <SectionHeader
                 title="Live Mappings"
-                subtitle="Active inbound-to-outbound session mappings. These are stored in memory and reset on restart."
+                subtitle={
+                  status?.storage_mode === "disk"
+                    ? "Active inbound-to-outbound session mappings. Stored on disk and survive restarts."
+                    : "Active inbound-to-outbound session mappings. These are stored in memory and reset on restart."
+                }
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                <span>Memory</span>
+                <button
+                  role="switch"
+                  aria-checked={status?.storage_mode === "disk"}
+                  onClick={() => mutations.setStorageMode.mutate(status?.storage_mode === "disk" ? "memory" : "disk")}
+                  disabled={mutations.setStorageMode.isPending}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                    status?.storage_mode === "disk" ? "bg-success" : "bg-muted"
+                  }`}
+                  title="Toggle mapping persistence"
+                >
+                  <span
+                    className={`inline-block h-4 w-4 rounded-full bg-background transition-transform ${
+                      status?.storage_mode === "disk" ? "translate-x-4" : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
+                <span>Disk</span>
+              </div>
               <Button
                 variant="outline"
                 size="sm"
