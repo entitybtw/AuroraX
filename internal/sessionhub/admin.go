@@ -30,7 +30,7 @@ func RegisterSessionHubRoutes(g interface {
 			providers = append(providers, map[string]interface{}{
 				"name":    name,
 				"enabled": rule.Enabled,
-				"headers": len(rule.Headers),
+				"headers": rule.Headers,
 			})
 		}
 		sort.Slice(providers, func(i, j int) bool {
