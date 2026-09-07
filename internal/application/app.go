@@ -38,6 +38,7 @@ import (
 	"aurora/internal/providers/pool"
 	"aurora/internal/response_cache"
 	"aurora/internal/server"
+	"aurora/internal/sessionhub"
 	"aurora/internal/storage"
 	"aurora/internal/telemetry"
 	"aurora/internal/usage"
@@ -65,6 +66,7 @@ type App struct {
 	workflows         *workflow.Result
 	server            *server.Server
 	adminHandler      *admin.Handler
+	sessionHub        *sessionhub.Hub
 
 	// fallbackResolver is a swappable wrapper around the failover resolver so
 	// manual fallback rule changes apply at runtime without a restart.
@@ -526,6 +528,31 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 		}
 	} else {
 		slog.Info("admin API disabled")
+	}
+
+	// Initialize session hub if configured
+	if appCfg.SessionHub.Enabled {
+		hubCfg := &sessionhub.HubConfig{
+			Enabled:   true,
+			Providers: make(map[string]sessionhub.ProviderRule),
+		}
+		for name, rawRule := range appCfg.SessionHub.Providers {
+			rule := sessionhub.ProviderRule{Enabled: rawRule.Enabled}
+			for _, hr := range rawRule.Headers {
+				rule.Headers = append(rule.Headers, sessionhub.HeaderRule{
+					Name:   hr.Name,
+					Mode:   sessionhub.HeaderMode(hr.Mode),
+					Prefix: hr.Prefix,
+					Length: hr.Length,
+					Value:  hr.Value,
+					Values: hr.Values,
+				})
+			}
+			hubCfg.Providers[name] = rule
+		}
+		app.sessionHub = sessionhub.New(hubCfg)
+		serverCfg.SessionHub = app.sessionHub
+		slog.Info("session hub enabled", "providers", len(hubCfg.Providers))
 	}
 
 	if swaggerEnabled {

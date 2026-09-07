@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { SettingsIcon, ServerIcon, DatabaseIcon, GlobeIcon, BoxesIcon } from "lucide-react";
+import { SettingsIcon, ServerIcon, DatabaseIcon, GlobeIcon, BoxesIcon, KeyIcon } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { SettingsProvider } from "@/components/settings/SettingsContext";
 import { GeneralTab } from "@/components/settings/GeneralTab";
@@ -7,6 +7,7 @@ import { CachingTab } from "@/components/settings/CachingTab";
 import { NetworkingTab } from "@/components/settings/NetworkingTab";
 import { ProvidersTab } from "@/components/settings/ProvidersTab";
 import { InfrastructureTab } from "@/components/settings/InfrastructureTab";
+import { SessionHubTab } from "@/components/settings/SessionHubTab";
 import { EditionStatusChip } from "@/components/settings/EditionBadges";
 import { cn } from "@/lib/utils";
 import type { SettingsTab } from "@/components/settings/types";
@@ -17,6 +18,7 @@ const TABS: { id: SettingsTab; label: string; icon: React.ComponentType<{ classN
   { id: "infrastructure", label: "Infrastructure", icon: BoxesIcon },
   { id: "caching", label: "Caching", icon: DatabaseIcon },
   { id: "networking", label: "Networking", icon: GlobeIcon },
+  { id: "sessionhub", label: "Session Hub", icon: KeyIcon },
 ];
 
 function SettingsPageInner(): JSX.Element {
@@ -62,6 +64,7 @@ function SettingsPageInner(): JSX.Element {
       {activeTab === "networking" && <NetworkingTab />}
       {activeTab === "providers" && <ProvidersTab />}
       {activeTab === "infrastructure" && <InfrastructureTab />}
+      {activeTab === "sessionhub" && <SessionHubTab />}
     </div>
   );
 }

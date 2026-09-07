@@ -56,6 +56,7 @@ type Handler struct {
 	configuredProviders  []providers.SanitizedProviderConfig
 	providerOverrides    *ProviderOverrideStore
 	poolWeights          *PoolOverrideStore
+	sessionHub           interface{ Apply(map[string][]string, string) map[string]string }
 
 	mutationMu sync.Mutex
 	pricingMu  sync.Mutex
@@ -602,6 +603,19 @@ func WithPoolWeights(store ...*PoolOverrideStore) Option {
 func WithPools(reg *pool.Registry) Option {
 	return func(h *Handler) {
 		h.pools = reg
+	}
+}
+
+// SessionHubInterface is the minimal interface the admin API needs from the
+// session hub, avoiding a direct import of the sessionhub package.
+type SessionHubInterface interface {
+	Apply(headers map[string][]string, provider string) map[string]string
+}
+
+// WithSessionHub attaches a session hub to the admin API.
+func WithSessionHub(hub SessionHubInterface) Option {
+	return func(handler *Handler) {
+		handler.sessionHub = hub
 	}
 }
 
