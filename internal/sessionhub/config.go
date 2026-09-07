@@ -38,12 +38,12 @@ const (
 
 // HeaderRule defines transformation for a single header.
 type HeaderRule struct {
-	Name   string       `yaml:"name"    json:"name"`
-	Mode   HeaderMode   `yaml:"mode"    json:"mode"`
-	Prefix string       `yaml:"prefix"  json:"prefix,omitempty"`
-	Length int          `yaml:"length"  json:"length,omitempty"`
-	Value  string       `yaml:"value"   json:"value,omitempty"`
-	Values []string     `yaml:"values"  json:"values,omitempty"`
+	Name   string     `yaml:"name"    json:"name"`
+	Mode   HeaderMode `yaml:"mode"    json:"mode"`
+	Prefix string     `yaml:"prefix"  json:"prefix"`
+	Length int        `yaml:"length"  json:"length"`
+	Value  string     `yaml:"value"   json:"value"`
+	Values []string   `yaml:"values"  json:"values"`
 }
 
 // ProviderRule defines all header transformations for one provider.
