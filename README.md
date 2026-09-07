@@ -9,6 +9,10 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/entitybtw/aurora" alt="License" height="20"></a>
   <a href="https://github.com/entitybtw/aurora"><img src="https://img.shields.io/github/stars/entitybtw/aurora?style=social" alt="GitHub Stars" height="20"></a>
   <a href="https://github.com/entitybtw/aurora/fork"><img src="https://img.shields.io/github/forks/entitybtw/aurora?style=social" alt="GitHub Forks" height="20"></a>
+  <a href="https://hub.docker.com/r/entbtw/aurora"><img src="https://img.shields.io/docker/pulls/entbtw/aurora" alt="Docker Pulls" height="20"></a>
+  <a href="https://hub.docker.com/r/entbtw/aurora"><img src="https://img.shields.io/docker/stars/entbtw/aurora" alt="Docker Stars" height="20"></a>
+  <a href="https://hub.docker.com/r/entbtw/aurora"><img src="https://img.shields.io/docker/image-size/entbtw/aurora" alt="Docker Image Size" height="20"></a>
+  <a href="https://hub.docker.com/r/entbtw/aurora"><img src="https://img.shields.io/docker/v/entbtw/aurora?sort=semver" alt="Docker Version" height="20"></a>
 </p>
 
 <p align="center"><b>One API for every AI provider. Self-hosted. No vendor lock-in.</b></p>
