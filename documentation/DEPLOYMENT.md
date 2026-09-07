@@ -1,34 +1,33 @@
-# Deployment
+# Deploying Aurora (this fork)
 
-Aurora is a single binary that you run behind Docker, systemd, or bare. This fork adds persistent provider/pool state and a Session Hub, all of it managed from the dashboard and config files.
+Aurora is a single static Go binary, served inside a distroless Docker image. This fork is published as **`entbtw/aurora`** on Docker Hub. The dashboard UI and the Session Hub are compiled into the binary, so a fresh pull gives you everything.
 
-## Pre-built Docker image
+## Quick start (Docker Hub image)
 
 ```bash
 docker pull entbtw/aurora:latest
 ```
 
-Images are published for `linux/amd64`, `linux/arm64`, and `linux/arm/v7`.
-
-| Tag | Meaning |
-|-----|---------|
-| `entbtw/aurora:latest` | latest stable |
-| `entbtw/aurora:v1.0.0` | pinned full release |
-
-## Docker run (minimal)
+Minimal container (one-off, in-memory state):
 
 ```bash
-docker run -d --name aurora -p 7841:8080 \
+docker run -d --name aurora -p 8080:8080 \
   -e AURORA_MASTER_KEY="your-secure-key" \
-  -e AURORA_CONFIG_PATH="/app/configs/config.yaml" \
-  -v "$(pwd)/configs:/app/configs" \
-  -v "$(pwd)/data:/app/data" \
   entbtw/aurora:latest
 ```
 
-> **Networking note:** the gateway binds HTTP on the container port (Expose 8080). Map it to your host port as needed. For multi-IP outbound routing (per-provider `bind_ip`) run with `network_mode: host` so the outbound connections can bind the host's source addresses — see below.
+Open:
+- API base: `http://localhost:8080/v1`
+- Dashboard: `http://localhost:8080/admin/dashboard`
+- Health: `http://localhost:8080/health`
 
-## Docker Compose (host network, recommended for multi-IP)
+> The image **Exposes port 8080**. The container itself stores short-lived data under `/app/data` by default — mount volumes (below) for anything you want to keep.
+
+## Production with persistent config & state
+
+This fork keeps everything you manage in files under `configs/`, and runtime/DB state under a data dir. Mount both with volumes. Use `AURORA_CONFIG_PATH` to tell Aurora where the main config is; override files land next to it.
+
+Example `docker-compose.yml`:
 
 ```yaml
 services:
@@ -36,46 +35,90 @@ services:
     image: entbtw/aurora:latest
     container_name: aurora-gateway
     restart: unless-stopped
-    network_mode: host          # lets providers bind host source IPs
+    network_mode: host     # <-- required for per-provider bind_ip (multi-IP outbound)
     volumes:
       - ./aurora-data:/app/data
       - ./configs:/app/configs
     environment:
-      PORT: 7841                # host network => listens directly on this port
+      PORT: 7841           # host networking listens directly on this port
+      ADMIN_ENDPOINTS_ENABLED: "true"
+      ADMIN_UI_ENABLED: "true"
     env_file:
       - .env
 ```
 
-## Key environment variables
+```bash
+docker compose up -d
+```
+
+## Environment variables (common)
 
 | Env | Purpose |
 |-----|---------|
-| `AURORA_MASTER_KEY` | Master key for admin API + auth. **Required.** |
-| `ADMIN_ENDPOINTS_ENABLED` | Enable the `/admin/api/v1` API (`true`). |
-| `ADMIN_UI_ENABLED` | Serve the dashboard UI (`true`). |
-| `STORAGE_TYPE` | `sqlite` or `postgresql`. |
-| `SQLITE_PATH` | sqlite db path (default `data/aurora.db`). |
-| `AURORA_CONFIG_PATH` | Path to `config.yaml`; when set, runtime override files (`dashboard-overrides.yaml`, `session-hub-rules.yaml`, `session-hub-mappings.json`) are placed next to it. |
+| `AURORA_MASTER_KEY` | Master key for admin API + dashboard auth. **Required.** |
+| `AURORA_CONFIG_PATH` | Path to main config; overrides live next to it. |
+| `PORT` | HTTP listen port. (Useful with host networking.) |
+| `ADMIN_ENDPOINTS_ENABLED` | Enable `/admin/api/v1`. |
+| `ADMIN_UI_ENABLED` | Serve the dashboard UI. |
+| `STORAGE_TYPE` | `sqlite` (default) or `postgresql`. |
+| `SQLITE_PATH` | sqlite file (default `data/aurora.db`). |
+| `POSTGRES_URL` | PostgreSQL DSN when `STORAGE_TYPE=postgresql`. |
+| `REDIS_URL` | Optional, for model/response cache. |
+| `METRICS_ENABLED` | Expose Prometheus on `/metrics`. |
 
-## Where state lives
+Provider keys use per-type env vars (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `VLLM_API_KEY`, …) — see the README or `.env` examples.
 
-| File | Purpose |
-|------|---------|
-| `configs/config.yaml` | Main config (providers, pools, resilience…). |
-| `configs/dashboard-overrides.yaml` | Settings edited from the dashboard. |
-| `configs/provider-overrides.json` | Providers created via the UI. |
-| `configs/pool-overrides.json` | Pools created via the UI. |
-| `configs/fallback.json` | Manual fallback rules (optional). |
-| `configs/session-hub-rules.yaml` | Session Hub rules (edited in UI or API). |
-| `configs/session-hub-mappings.json` | Persisted session mappings when storage mode is `disk`. |
+## What lives where
 
-All of these are gitignored — they are runtime/operator state, not source.
+| Path | Contents |
+|------|----------|
+| `/app/configs/config.yaml` | Main config (providers, pools, resilience…). |
+| `/app/configs/dashboard-overrides.yaml` | Settings edited in the dashboard. |
+| `/app/configs/provider-overrides.json` | Providers created via the UI. |
+| `/app/configs/pool-overrides.json` | Pools created via the UI. |
+| `/app/configs/fallback.json` | Manual fallback rules (optional). |
+| `/app/configs/session-hub-rules.yaml` | Session Hub rules. |
+| `/app/configs/session-hub-mappings.json` | Persisted session mappings (storage mode = `disk`). |
+| `/app/data/` | SQLite DB, model list cache, pool counters, instance id. |
 
-## Completeness check after a fresh clone+deploy
+Mount `./configs` and `./data` (or custom dirs) so none of this is lost across container recreation.
 
-1. Gateway responds on its port.
-2. Dashboard loads at `/admin/dashboard`.
-3. Providers and pools appear and are routable.
-4. The Session Hub storage toggle reflects the mode you choose.
+## Multi-IP outbound (per-provider `bind_ip`)
 
-See `GETTING_STARTED.md` for a from-scratch local run and `SESSION_HUB.md` for configuration the session mapping engine.
+Providers can pin their outbound source IP with `bind_ip`. This requires Aurora to bind a specific local source address on the host — which only works with **`network_mode: host`** (the default bridge can't bind arbitrary host source IPs).
+
+```yaml
+# provider-overrides.json (or config.yaml)
+{
+  "name": "vllm-acc-1",
+  "type": "vllm",
+  "base_url": "https://opencode.ai/zen/v1",
+  "api_key": "sk-...",
+  "bind_ip": "203.0.113.10",     # residential/egress IP on the host
+  "pool_only": true,
+  "models": "mimo-v2.5-free"
+}
+```
+
+Pair with host networking so those IPs route correctly, and a pool that load-balances the accounts round-robin:
+
+```json
+{
+  "pools": {
+    "opencode-zen": {
+      "Members": ["vllm-acc-1", "vllm-acc-2", "vllm-acc-3"],
+      "Strategy": "round_robin",
+      "HealthAware": true
+    }
+  }
+}
+```
+
+## Sanity checks after deploy
+
+1. `curl http://localhost:8080/health` → healthy.
+2. Dashboard loads and shows your providers/pools.
+3. A chat to a model returns 200 (see GETTING_STARTED for the Python example).
+4. Session Hub tab loads; `GET /admin/api/v1/sessionhub/status` reports your `storage_mode`.
+
+If the Session Hub isn't transforming headers the way you expect, re-check the rule Name matches the provider/pool name and that storage mode matches your intent (see SESSION_HUB.md).

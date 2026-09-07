@@ -4,6 +4,8 @@ The Session Hub is a header-transformation engine used in API-integration setups
 
 It is built to be fast: the hot path is a single lock-free map read (microns). Configuration persists, and session mappings can live in memory or on disk (toggleable).
 
+> For a complete end-to-end walkthrough (accounts in a pool, each with its own stable client session), see [MULTI_ACCOUNT.md](MULTI_ACCOUNT.md).
+
 ## Concepts
 
 **Rules** bind a set of header transformations to a *target* — a provider name, a pool name, a fallback, or the wildcard `*`. A pool-bound rule automatically applies to every member provider because the rule index is pre-expanded at write time.
