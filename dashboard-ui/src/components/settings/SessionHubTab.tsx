@@ -224,7 +224,7 @@ export function SessionHubTab(): JSX.Element {
     setNewHeaders([...newHeaders, { name: "", mode: "passthrough", prefix: "", length: 0, value: "", values: [] }]);
   };
 
-  const updateHeaderRule = (index: number, field: keyof HeaderRule, value: string | number) => {
+  const updateHeaderRule = (index: number, field: keyof HeaderRule, value: string | number | string[]) => {
     const updated = [...newHeaders];
     const existing = updated[index];
     if (!existing) return;
@@ -362,49 +362,99 @@ export function SessionHubTab(): JSX.Element {
 
               <div className="mt-4">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Header Rules</div>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-3">
                   {newHeaders.map((hr, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <Input
-                        placeholder="Header name"
-                        value={hr.name}
-                        onChange={(e) => updateHeaderRule(idx, "name", e.target.value)}
-                        className="flex-1"
-                      />
-                      <select
-                        value={hr.mode}
-                        onChange={(e) => updateHeaderRule(idx, "mode", e.target.value)}
-                        className="border border-border/60 bg-surface px-3 py-2 text-[13px] text-foreground rounded"
-                      >
-                        <option value="map">Map (unique per provider)</option>
-                        <option value="generate">Generate (fresh each time)</option>
-                        <option value="passthrough">Passthrough</option>
-                        <option value="static">Static value</option>
-                        <option value="random_from_list">Random from list</option>
-                        <option value="remove">Remove</option>
-                      </select>
-                      {hr.mode === "static" && (
+                    <div key={idx} className="border border-border/40 bg-background/50 p-3 rounded">
+                      <div className="flex items-center gap-2 mb-2">
                         <Input
-                          placeholder="Static value"
-                          value={hr.value || ""}
-                          onChange={(e) => updateHeaderRule(idx, "value", e.target.value)}
+                          placeholder="Header name (e.g. x-opencode-session)"
+                          value={hr.name}
+                          onChange={(e) => updateHeaderRule(idx, "name", e.target.value)}
                           className="flex-1"
                         />
-                      )}
+                        <select
+                          value={hr.mode}
+                          onChange={(e) => updateHeaderRule(idx, "mode", e.target.value)}
+                          className="border border-border/60 bg-surface px-3 py-2 text-[13px] text-foreground rounded"
+                        >
+                          <option value="map">Map (unique per provider)</option>
+                          <option value="generate">Generate (fresh each time)</option>
+                          <option value="passthrough">Passthrough</option>
+                          <option value="static">Static value</option>
+                          <option value="random_from_list">Random from list</option>
+                          <option value="remove">Remove</option>
+                        </select>
+                        <button
+                          onClick={() => removeHeaderRule(idx)}
+                          className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          <Trash2Icon className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      {/* Mode-specific options */}
                       {(hr.mode === "map" || hr.mode === "generate") && (
-                        <Input
-                          placeholder="Prefix"
-                          value={hr.prefix || "ses_"}
-                          onChange={(e) => updateHeaderRule(idx, "prefix", e.target.value)}
-                          className="w-24"
-                        />
+                        <div className="flex items-center gap-2 text-[12px]">
+                          <div className="flex items-center gap-1">
+                            <span className="text-muted-foreground">Prefix:</span>
+                            <Input
+                              value={hr.prefix || "ses_"}
+                              onChange={(e) => updateHeaderRule(idx, "prefix", e.target.value)}
+                              className="w-20 h-7 text-[12px]"
+                            />
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-muted-foreground">Length:</span>
+                            <Input
+                              type="number"
+                              min={4}
+                              max={64}
+                              value={hr.length || 28}
+                              onChange={(e) => updateHeaderRule(idx, "length", parseInt(e.target.value) || 28)}
+                              className="w-16 h-7 text-[12px]"
+                            />
+                          </div>
+                          <span className="text-muted-foreground/60">
+                            → {hr.prefix || "ses_"}{"{"}{hr.length || 28}{"}"}alphanumeric
+                          </span>
+                        </div>
                       )}
-                      <button
-                        onClick={() => removeHeaderRule(idx)}
-                        className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        <Trash2Icon className="h-4 w-4" />
-                      </button>
+
+                      {hr.mode === "static" && (
+                        <div className="flex items-center gap-1 text-[12px]">
+                          <span className="text-muted-foreground">Value:</span>
+                          <Input
+                            placeholder="Fixed value to send"
+                            value={hr.value || ""}
+                            onChange={(e) => updateHeaderRule(idx, "value", e.target.value)}
+                            className="flex-1 h-7 text-[12px]"
+                          />
+                        </div>
+                      )}
+
+                      {hr.mode === "random_from_list" && (
+                        <div className="text-[12px]">
+                          <span className="text-muted-foreground">Values (comma-separated):</span>
+                          <Input
+                            placeholder="Mozilla/5.0..., upstream/1.0"
+                            value={(hr.values || []).join(", ")}
+                            onChange={(e) => updateHeaderRule(idx, "values", e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
+                            className="mt-1 h-7 text-[12px]"
+                          />
+                        </div>
+                      )}
+
+                      {hr.mode === "passthrough" && (
+                        <div className="text-[12px] text-muted-foreground/60">
+                          Original value from client is forwarded unchanged
+                        </div>
+                      )}
+
+                      {hr.mode === "remove" && (
+                        <div className="text-[12px] text-muted-foreground/60">
+                          Header will be stripped before sending upstream
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
