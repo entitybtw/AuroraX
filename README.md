@@ -28,6 +28,8 @@
 
 Dashboard-driven operations — no more `.env`-only workflows for the things you change most. Everything below is managed from the UI and **survives restarts**.
 
+> **Warning:** This fork contains custom features not present in the original [aurorallm/aurora](https://github.com/aurorallm/aurora). Some features are designed for advanced API integration workflows and require careful configuration. Use at your own discretion.
+
 - **Redesigned dashboard** — full **Catppuccin** theme, mobile-responsive, compact/touch-friendly layout, clean auth/logo/sidebar, shared `SearchInput` fix in audit logs & usage.
 - **Provider CRUD** — manage providers from the UI (base URL, API key, models, type). Per-provider `bind_ip`, `pool_only`, runtime enable/disable, live rename, duplicate protection. Status shows if a key is set **without exposing it**. OpenRouter list is now an **allowlist**; **vLLM** type added to the dashboard (was `.env`-only).
 - **Custom User-Agent** — set a custom `User-Agent` header per provider for upstream attribution (e.g. OpenRouter recommends this for credits).
@@ -36,6 +38,7 @@ Dashboard-driven operations — no more `.env`-only workflows for the things you
 - **Provider pools** — create/edit/delete with member selection and **weighted / round-robin** strategies; health-aware members, `pool_only` models, live registry rebuild.
 - **Response headers** — configurable `X-Actual-Provider` / `X-Actual-Model` / `X-Requested` / `X-Fallback-Chain`, per-header toggles, custom headers, success/error/always modes, emitted on `429`/`401`.
 - **Persistence** — state saved to `configs/provider-overrides.json`, `configs/pool-overrides.json`, `configs/fallback.json` (env-overridable); Docker volumes keep it across recreation.
+- **Session Hub** — header transformation engine with per-provider/pool session mapping, inbound→outbound unique ID generation, disk persistence with live toggle, and pool-aware binding via UI (see [Session Hub](#session-hub) below).
 
 ---
 
@@ -130,6 +133,77 @@ No SDK changes. No format changes. Just swap the `base_url`.
 - **Helm chart** — deploy on Kubernetes with pre-built Helm chart
 - **Docker Compose** — full infrastructure stack: Redis, PostgreSQL, Qdrant, Prometheus, Grafana
 - **Grafana dashboard** — pre-configured panels for request rate, errors, latency, in-flight requests, per-model breakdown
+
+### Session Hub
+
+Header transformation engine for API integration workflows where upstream services require unique client identifiers per account.
+
+- **Per-provider/pool binding** — attach transformation rules to specific providers, pools, fallbacks, or all targets (`*`)
+- **6 header modes** — `map` (stable inbound→outbound per provider), `generate` (fresh ID each request), `passthrough`, `static`, `random_from_list`, `remove`
+- **Pool-aware** — rules bound to a pool automatically apply to all member providers
+- **Inbound header forwarding** — client session headers are forwarded through the translation layer so `map` mode works even when the provider path drops arbitrary inbound headers
+- **Lock-free hot path** — `Apply()` is a single atomic map read; benchmarked at ~495 ns/op (negligible)
+- **Persistent or in-memory** — toggled live via API or dashboard (`PUT /admin/api/v1/sessionhub/storage {"mode":"disk"}`)
+- **Dashboard UI** — Settings → Session Hub: binding overview from live server targets (pools/providers), add rule by selecting target, live mapping viewer, storage toggle
+
+#### How it works
+
+1. Client sends request to Aurora (e.g. with `x-opencode-session: ses_abc123`)
+2. Gateway intercepts the inbound session header and stores it in request context
+3. Request is routed to a pool member (e.g. `opencode-zen` → `vllm-zen-backup`)
+4. Provider's outbound `headerSetter` fires: session hub applies rules for that provider/pool
+5. `map` mode: inbound `ses_abc123` → unique outbound `ses_xR4f8k2m...` per provider (stable, deduplicated)
+6. `generate` mode: fresh random `ses_...` per request (always unique)
+7. Additional headers (`x-opencode-client`, `user-agent`) are injected per rule
+8. Outbound request goes to upstream with transformed headers
+
+#### Config
+
+Rules are persisted in `configs/session-hub-rules.yaml` (gitignored). Live edits via API or dashboard are auto-saved.
+
+```yaml
+enabled: true
+mapping_storage: disk          # "memory" or "disk"
+providers:
+  opencode-zen:                # matches pool name or provider name
+    enabled: true
+    headers:
+      - name: x-opencode-session
+        mode: map              # stable inbound→outbound per provider
+        prefix: "ses_"
+        length: 28
+      - name: x-opencode-client
+        mode: static
+        value: cli
+      - name: user-agent
+        mode: static
+        value: "opencode/1.18.26 ai-sdk/openai/2.0.0 runtime/bun/1.0.0"
+```
+
+#### API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/admin/api/v1/sessionhub/status` | Stats + `storage_mode` |
+| `GET` | `/admin/api/v1/sessionhub/providers` | List bound rules |
+| `POST` | `/admin/api/v1/sessionhub/providers` | Create rule |
+| `PUT` | `/admin/api/v1/sessionhub/providers/:name` | Update rule |
+| `DELETE` | `/admin/api/v1/sessionhub/providers/:name` | Delete rule |
+| `GET` | `/admin/api/v1/sessionhub/mappings` | List live mappings |
+| `DELETE` | `/admin/api/v1/sessionhub/mappings` | Clear all mappings |
+| `PUT` | `/admin/api/v1/sessionhub/storage` | Toggle `memory`/`disk` |
+| `POST` | `/admin/api/v1/sessionhub/apply` | Test transform |
+
+#### Header modes
+
+| Mode | Behavior |
+|------|----------|
+| `map` | First request generates unique outbound value per provider; subsequent requests with same inbound reuse it |
+| `generate` | Fresh random value every request |
+| `passthrough` | Original value forwarded unchanged |
+| `static` | Fixed value (set `value:`) |
+| `random_from_list` | Random pick from `values:` list |
+| `remove` | Strip header entirely |
 
 ---
 
