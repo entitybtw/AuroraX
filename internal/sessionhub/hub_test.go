@@ -111,3 +111,39 @@ func TestHubApply_PoolBoundRuleAppliesToMember(t *testing.T) {
 		t.Fatalf("expected generated session, got %q", out)
 	}
 }
+
+func TestHubPersistenceRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/rules.yaml"
+
+	cfg := &HubConfig{
+		Enabled: true,
+		Providers: map[string]ProviderRule{
+			"opencode-zen": {
+				Enabled: true,
+				Headers: []HeaderRule{{
+					Name:   "x-opencode-session",
+					Mode:   HeaderModeMap,
+					Prefix: "ses_",
+					Length: 28,
+				}},
+			},
+		},
+	}
+	h := NewWithPersistence(path, cfg)
+	h.SetProviderRule("acc2", ProviderRule{
+		Enabled: true,
+		Headers: []HeaderRule{{Name: "user-agent", Mode: HeaderModeStatic, Value: "opencode-cli/1.0"}},
+	})
+
+	// Load into a fresh hub from disk
+	h2 := NewWithPersistence(path, nil)
+	if _, ok := h2.Config().Providers["opencode-zen"]; !ok {
+		t.Fatal("persisted rule opencode-zen missing after reload")
+	}
+	rule, ok := h2.Config().Providers["acc2"]
+	if !ok || len(rule.Headers) == 0 || rule.Headers[0].Value != "opencode-cli/1.0" {
+		t.Fatalf("persisted rule acc2 not correctly reloaded: %+v", h2.Config().Providers)
+	}
+}
+

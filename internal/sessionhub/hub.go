@@ -14,6 +14,9 @@ type Hub struct {
 	mu     sync.RWMutex
 	config *HubConfig
 	store  *Store
+	// savePath, when set, is a YAML file that the hub loads at startup and
+	// rewrites after every rule mutation so rules survive restarts.
+	savePath string
 	// providerPool maps a concrete provider instance name to the pools that
 	// contain it, so a rule bound to a pool applies to every member provider.
 	providerPool map[string][]string
@@ -24,11 +27,62 @@ func New(cfg *HubConfig) *Hub {
 	if cfg == nil {
 		cfg = &HubConfig{Providers: make(map[string]ProviderRule)}
 	}
+	if cfg.Providers == nil {
+		cfg.Providers = make(map[string]ProviderRule)
+	}
 	return &Hub{
 		config:       cfg,
 		store:        NewStore(),
+		savePath:     cfg.Path,
 		providerPool: make(map[string][]string),
 	}
+}
+
+// NewWithPersistence creates a hub, seeds it from the YAML file at path if it
+// exists (overriding compiled-in defaults with persisted rules), and configures
+// it to auto-save after every rule mutation.
+func NewWithPersistence(path string, cfg *HubConfig) *Hub {
+	loaded := cfg
+	if path != "" {
+		if persisted, err := LoadConfig(path); err == nil && persisted != nil {
+			// Merge: base config providers first, then persisted rules override
+			if loaded == nil {
+				loaded = &HubConfig{}
+			}
+			if loaded.Providers == nil {
+				loaded.Providers = make(map[string]ProviderRule)
+			}
+			for k, v := range persisted.Providers {
+				loaded.Providers[k] = v
+			}
+			loaded.Enabled = loaded.Enabled || persisted.Enabled
+			loaded.Path = path
+		}
+	}
+	h := New(loaded)
+	h.savePath = path
+	return h
+}
+
+// PersistPath returns the configured persistence file path.
+func (h *Hub) PersistPath() string {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.savePath
+}
+
+// save persists the current config to disk. No-op when no save path is set.
+func (h *Hub) save() error {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	if h.savePath == "" {
+		return nil
+	}
+	raw, err := h.config.MarshalYAML()
+	if err != nil {
+		return err
+	}
+	return atomicWrite(h.savePath, raw)
 }
 
 // Config returns the current config (read-only snapshot).
@@ -47,10 +101,15 @@ func (h *Hub) Store() *Store {
 func (h *Hub) Reload(cfg *HubConfig) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if cfg == nil {
+		return
+	}
 	if cfg.Providers == nil {
 		cfg.Providers = make(map[string]ProviderRule)
 	}
+	cfg.Path = h.savePath
 	h.config = cfg
+	h.save()
 }
 
 // GetProviderRule returns the rule for a specific provider.
@@ -64,15 +123,17 @@ func (h *Hub) GetProviderRule(provider string) (ProviderRule, bool) {
 // SetProviderRule upserts a rule for a provider.
 func (h *Hub) SetProviderRule(provider string, rule ProviderRule) {
 	h.mu.Lock()
-	defer h.mu.Unlock()
 	h.config.Providers[provider] = rule
+	h.mu.Unlock()
+	h.save()
 }
 
 // DeleteProviderRule removes a provider's rule.
 func (h *Hub) DeleteProviderRule(provider string) {
 	h.mu.Lock()
-	defer h.mu.Unlock()
 	delete(h.config.Providers, provider)
+	h.mu.Unlock()
+	h.save()
 }
 
 // Apply applies header transformations for the given provider.

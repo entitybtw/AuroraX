@@ -45,16 +45,22 @@ type HeaderRule struct {
 	Values []string   `yaml:"values"  json:"values"`
 }
 
-// ProviderRule defines all header transformations for one provider.
+// ProviderRule defines the header transformations bound to a single target
+// (provider | pool | fallback | "*" wildcard).
 type ProviderRule struct {
 	Enabled bool         `yaml:"enabled"  json:"enabled"`
 	Headers []HeaderRule `yaml:"headers"  json:"headers"`
 }
 
-// HubConfig is the root config for the session hub.
+// HubConfig is the root config for the session hub. Rules are keyed by a
+// target name that the rule is bound to (provider, pool, fallback, type, or
+// "*" for all).
 type HubConfig struct {
 	Enabled   bool                    `yaml:"enabled"   json:"enabled"`
 	Providers map[string]ProviderRule `yaml:"providers" json:"providers"`
+	// Path is the file this config is persisted to / loaded from. Not serialized
+	// into the YAML document body.
+	Path string `yaml:"-" json:"-"`
 }
 
 // defaultHeaderRules returns sensible defaults for known header names.
@@ -84,6 +90,11 @@ func ParseConfig(data []byte) (*HubConfig, error) {
 	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return nil, fmt.Errorf("sessionhub: parse config: %w", err)
 	}
+	normalizeConfig(cfg)
+	return cfg, nil
+}
+
+func normalizeConfig(cfg *HubConfig) {
 	if cfg.Providers == nil {
 		cfg.Providers = make(map[string]ProviderRule)
 	}
@@ -91,11 +102,16 @@ func ParseConfig(data []byte) (*HubConfig, error) {
 	// the default x-opencode-session mapping rule.
 	for name, rule := range cfg.Providers {
 		if len(rule.Headers) == 0 {
+			rule.Enabled = true
 			rule.Headers = defaultHeaderRules()
 			cfg.Providers[name] = rule
 		}
 	}
-	return cfg, nil
+}
+
+// MarshalYAML renders the config back to YAML bytes (for persistence).
+func (c *HubConfig) MarshalYAML() ([]byte, error) {
+	return yaml.Marshal(c)
 }
 
 // GenerateID produces a random alphanumeric string of the given length.

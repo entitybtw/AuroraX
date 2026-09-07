@@ -1036,6 +1036,16 @@ func DashboardOverridesPath() string {
 	return filepath.Join("configs", "dashboard-overrides.yaml")
 }
 
+// SessionHubRulesPath returns the path where runtime-edited session hub rules
+// are persisted so they survive restarts. Placed next to the overrides file.
+func SessionHubRulesPath() string {
+	customPath := strings.TrimSpace(os.Getenv("AURORA_CONFIG_PATH"))
+	if customPath != "" {
+		return filepath.Join(filepath.Dir(customPath), "session-hub-rules.yaml")
+	}
+	return filepath.Join("configs", "session-hub-rules.yaml")
+}
+
 func dashboardOverridePaths(customPath string) []string {
 	customPath = strings.TrimSpace(customPath)
 	if customPath != "" {
