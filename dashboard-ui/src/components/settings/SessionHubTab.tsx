@@ -43,7 +43,7 @@ interface MappingEntry {
 function useSessionHubStatus() {
   return useQuery({
     queryKey: ["sessionhub", "status"],
-    queryFn: () => apiFetch<SessionHubStatus>("/admin/api/v1/sessionhub/status"),
+    queryFn: () => apiFetch<{ status: string; data: SessionHubStatus }>("/admin/api/v1/sessionhub/status").then(r => r.data),
     refetchInterval: 5000,
   });
 }
@@ -51,14 +51,14 @@ function useSessionHubStatus() {
 function useSessionHubProviders() {
   return useQuery({
     queryKey: ["sessionhub", "providers"],
-    queryFn: () => apiFetch<ProviderRule[]>("/admin/api/v1/sessionhub/providers"),
+    queryFn: () => apiFetch<{ status: string; data: ProviderRule[] }>("/admin/api/v1/sessionhub/providers").then(r => r.data),
   });
 }
 
 function useSessionHubMappings() {
   return useQuery({
     queryKey: ["sessionhub", "mappings"],
-    queryFn: () => apiFetch<{ mappings: MappingEntry[]; total: number }>("/admin/api/v1/sessionhub/mappings"),
+    queryFn: () => apiFetch<{ status: string; data: { mappings: MappingEntry[]; total: number } }>("/admin/api/v1/sessionhub/mappings").then(r => r.data),
     refetchInterval: 5000,
   });
 }
