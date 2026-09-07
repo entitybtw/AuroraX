@@ -60,14 +60,14 @@ func NewCompatibleProvider(apiKey string, opts providers.ProviderOptions, cfg Co
 		BindIP:         opts.BindIP,
 	}
 	customUA := strings.TrimSpace(opts.UserAgent)
-	p.client = llmclient.New(clientCfg, func(req *http.Request) {
+	p.client = llmclient.New(clientCfg, providers.WrapHeaderSetterWithSessionHub(func(req *http.Request) {
 		if cfg.SetHeaders != nil {
 			cfg.SetHeaders(req, apiKey)
 		}
 		if customUA != "" {
 			req.Header.Set("User-Agent", customUA)
 		}
-	})
+	}, opts.ProviderName, opts.SessionHub))
 	return p
 }
 
@@ -83,11 +83,11 @@ func NewCompatibleProviderWithHTTPClient(apiKey string, httpClient *http.Client,
 	}
 	clientCfg := llmclient.DefaultConfig(cfg.ProviderName, cfg.BaseURL)
 	clientCfg.Hooks = hooks
-	p.client = llmclient.NewWithHTTPClient(httpClient, clientCfg, func(req *http.Request) {
+	p.client = llmclient.NewWithHTTPClient(httpClient, clientCfg, providers.WrapHeaderSetterWithSessionHub(func(req *http.Request) {
 		if cfg.SetHeaders != nil {
 			cfg.SetHeaders(req, apiKey)
 		}
-	})
+	}, cfg.ProviderName, nil))
 	return p
 }
 

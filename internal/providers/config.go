@@ -25,6 +25,10 @@ type ProviderConfig struct {
 	BaseURL    string
 	APIVersion string
 	Models     []string
+	// Name is the configured instance name (the provider map key). When the
+	// gateway routes to this provider, headers may be transformed per-name by
+	// the session hub.
+	Name string
 	// ModelMetadataOverrides holds operator-supplied metadata keyed by raw model
 	// ID (as it appears in the provider's /models response). The registry merges
 	// these onto remote-registry metadata after enrichment; non-zero fields here
@@ -449,7 +453,9 @@ func filterEmptyProviders(raw map[string]config.RawProviderConfig, discovery map
 func buildProviderConfigs(raw map[string]config.RawProviderConfig, global config.ResilienceConfig) map[string]ProviderConfig {
 	result := make(map[string]ProviderConfig, len(raw))
 	for name, r := range raw {
-		result[name] = buildProviderConfig(r, global)
+		pc := buildProviderConfig(r, global)
+		pc.Name = name
+		result[name] = pc
 	}
 	return result
 }

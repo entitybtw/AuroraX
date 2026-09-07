@@ -93,6 +93,11 @@ type Config struct {
 
 	// Factory provides the ProviderFactory used to construct provider instances.
 	Factory *providers.ProviderFactory
+
+	// SessionHub is an optional pre-built session hub instance. When provided,
+	// it is wired into providers and the admin API. When nil, the app builds
+	// its own from AppConfig.Config.SessionHub.
+	SessionHub *sessionhub.Hub
 }
 
 // New creates a new App with all dependencies initialized.
@@ -532,30 +537,39 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 
 	// Always initialize session hub when admin is available
 	if adminHandler != nil {
-		hubCfg := &sessionhub.HubConfig{
-			Enabled:   true,
-			Providers: make(map[string]sessionhub.ProviderRule),
-		}
-		// Load from config if present
-		if appCfg.SessionHub.Enabled {
-			for name, rawRule := range appCfg.SessionHub.Providers {
-				rule := sessionhub.ProviderRule{Enabled: rawRule.Enabled}
-				for _, hr := range rawRule.Headers {
-					rule.Headers = append(rule.Headers, sessionhub.HeaderRule{
-						Name:   hr.Name,
-						Mode:   sessionhub.HeaderMode(hr.Mode),
-						Prefix: hr.Prefix,
-						Length: hr.Length,
-						Value:  hr.Value,
-						Values: hr.Values,
-					})
-				}
-				hubCfg.Providers[name] = rule
+		app.sessionHub = cfg.SessionHub
+		if app.sessionHub == nil {
+			hubCfg := &sessionhub.HubConfig{
+				Enabled:   true,
+				Providers: make(map[string]sessionhub.ProviderRule),
 			}
+			// Load from config if present
+			if appCfg.SessionHub.Enabled {
+				for name, rawRule := range appCfg.SessionHub.Providers {
+					rule := sessionhub.ProviderRule{Enabled: rawRule.Enabled}
+					for _, hr := range rawRule.Headers {
+						rule.Headers = append(rule.Headers, sessionhub.HeaderRule{
+							Name:   hr.Name,
+							Mode:   sessionhub.HeaderMode(hr.Mode),
+							Prefix: hr.Prefix,
+							Length: hr.Length,
+							Value:  hr.Value,
+							Values: hr.Values,
+						})
+					}
+					hubCfg.Providers[name] = rule
+				}
+			}
+			app.sessionHub = sessionhub.New(hubCfg)
 		}
-		app.sessionHub = sessionhub.New(hubCfg)
+		if app.providers != nil && app.providers.Factory != nil {
+			hub := app.sessionHub
+			app.providers.Factory.SetSessionHub(func(providerName string, headers http.Header) bool {
+				return hub.Apply(headers, providerName) != nil
+			})
+		}
 		serverCfg.SessionHub = app.sessionHub
-		slog.Info("session hub initialized", "providers", len(hubCfg.Providers))
+		slog.Info("session hub initialized", "providers", len(app.sessionHub.Config().Providers))
 	}
 
 	if swaggerEnabled {
