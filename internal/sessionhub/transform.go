@@ -29,11 +29,11 @@ func Transform(headers http.Header, provider string, rule ProviderRule, store *S
 			if prefix == "" {
 				prefix = "ses_"
 			}
-			hexLen := hr.Length
-			if hexLen <= 0 {
-				hexLen = 16
+			length := hr.Length
+			if length <= 0 {
+				length = 28
 			}
-			outbound := store.GetOrCreate(provider, inbound, prefix, hexLen)
+			outbound := store.GetOrCreate(provider, inbound, prefix, length)
 			headers.Set(name, outbound)
 			result[name] = outbound
 
@@ -42,11 +42,11 @@ func Transform(headers http.Header, provider string, rule ProviderRule, store *S
 			if prefix == "" {
 				prefix = "ses_"
 			}
-			hexLen := hr.Length
-			if hexLen <= 0 {
-				hexLen = 16
+			length := hr.Length
+			if length <= 0 {
+				length = 28
 			}
-			outbound := GenerateValue(prefix, hexLen)
+			outbound := GenerateValue(prefix, length)
 			headers.Set(name, outbound)
 			result[name] = outbound
 

@@ -73,7 +73,7 @@ function useSessionHubMutations() {
     mutationFn: (data: { name: string; rule: ProviderRule }) =>
       apiFetch("/admin/api/v1/sessionhub/providers", {
         method: "POST",
-        body: JSON.stringify(data),
+        json: data,
       }),
     onSuccess: invalidate,
   });
@@ -90,7 +90,7 @@ function useSessionHubMutations() {
     mutationFn: ({ name, rule }: { name: string; rule: ProviderRule }) =>
       apiFetch(`/admin/api/v1/sessionhub/providers/${encodeURIComponent(name)}`, {
         method: "PUT",
-        body: JSON.stringify(rule),
+        json: rule,
       }),
     onSuccess: invalidate,
   });
@@ -199,7 +199,7 @@ export function SessionHubTab(): JSX.Element {
   const [newName, setNewName] = useState("");
   const [newEnabled, setNewEnabled] = useState(true);
   const [newHeaders, setNewHeaders] = useState<HeaderRule[]>([
-    { name: "x-opencode-session", mode: "map", prefix: "ses_", length: 32, value: "", values: [] },
+    { name: "x-opencode-session", mode: "map", prefix: "ses_", length: 28, value: "", values: [] },
   ]);
 
   const handleAdd = () => {
@@ -213,7 +213,7 @@ export function SessionHubTab(): JSX.Element {
         onSuccess: () => {
           setNewName("");
           setNewEnabled(true);
-          setNewHeaders([{ name: "x-opencode-session", mode: "map", prefix: "ses_", length: 32, value: "", values: [] }]);
+          setNewHeaders([{ name: "x-opencode-session", mode: "map", prefix: "ses_", length: 28, value: "", values: [] }]);
           setShowAdd(false);
         },
       }
