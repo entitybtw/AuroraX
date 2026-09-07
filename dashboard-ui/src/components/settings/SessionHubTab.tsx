@@ -4,8 +4,25 @@ import { Surface, SectionHeader } from "@/components/ui/surface";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ToggleField } from "@/components/ui/toggle-field";
-import { KeyIcon, RefreshCwIcon, PlusIcon, Trash2Icon, CheckCircleIcon, XCircleIcon, ZapIcon } from "lucide-react";
+import { KeyIcon, GlobeIcon, BoxesIcon, RefreshCwIcon, PlusIcon, Trash2Icon, CheckCircleIcon, XCircleIcon, ZapIcon } from "lucide-react";
 import { apiFetch } from "@/lib/api/client";
+import { usePools } from "@/lib/api/usePools";
+import { fetchProviderStatus } from "@/lib/api/providers";
+
+type TargetKind = "pool" | "provider" | "fallback" | "all";
+
+// --- API hooks ---
+
+function useServerProviders() {
+  return useQuery({
+    queryKey: ["provider-status"],
+    queryFn: async () => {
+      const res = await fetchProviderStatus();
+      return res;
+    },
+    staleTime: 10_000,
+  });
+}
 
 // --- Types ---
 
@@ -196,11 +213,26 @@ export function SessionHubTab(): JSX.Element {
   const mutations = useSessionHubMutations();
 
   const [showAdd, setShowAdd] = useState(false);
+  const [newTargetKind, setNewTargetKind] = useState<TargetKind>("pool");
+  const [newSelectedPool, setNewSelectedPool] = useState("");
+  const [newSelectedProvider, setNewSelectedProvider] = useState("");
   const [newName, setNewName] = useState("");
   const [newEnabled, setNewEnabled] = useState(true);
   const [newHeaders, setNewHeaders] = useState<HeaderRule[]>([
     { name: "x-opencode-session", mode: "map", prefix: "ses_", length: 28, value: "", values: [] },
   ]);
+
+  const poolQuery = usePools();
+  const provStatusQuery = useServerProviders();
+  const pools = poolQuery.data?.pools ?? [];
+  const serverProviders =
+    (provStatusQuery.data as { providers?: Array<{ name: string }> } | undefined)?.providers ?? [];
+  const boundTargets = providers ?? [];
+
+  // Auto-set the rule "Name" from the selected target so binding is unambiguous.
+  const applyTargetName = (name: string) => {
+    if (name) setNewName(name);
+  };
 
   const handleAdd = () => {
     if (!newName) return;
@@ -343,14 +375,150 @@ export function SessionHubTab(): JSX.Element {
             </div>
           )}
 
+          {/* Server target overview: shows which pools/providers have a rule bound */}
+          {(pools.length > 0 || serverProviders.length > 0) && (
+            <div className="mt-1">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                Binding overview
+              </div>
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+                {pools.map((p) => {
+                  const bound = boundTargets.some((b) => b.name === p.name);
+                  return (
+                    <button
+                      key={p.name}
+                      onClick={() => {
+                        if (bound) return;
+                        setShowAdd(true);
+                        setNewTargetKind("pool");
+                        setNewSelectedPool(p.name);
+                        setNewName(p.name);
+                      }}
+                      className={`flex items-center gap-2 border text-left px-3 py-2 rounded transition-colors ${
+                        bound
+                          ? "border-success/30 bg-success/10"
+                          : "border-border/40 bg-surface hover:bg-surface-hover/30"
+                      }`}
+                      title={bound ? `"${p.name}" already has a rule` : `Bind a rule to pool "${p.name}"`}
+                    >
+                      <BoxesIcon className="h-3.5 w-3.5 shrink-0 text-accent" />
+                      <span className="text-[13px] font-medium text-foreground truncate">{p.name}</span>
+                      <span className="ml-auto shrink-0">
+                        {bound ? (
+                          <CheckCircleIcon className="h-3.5 w-3.5 text-success" />
+                        ) : (
+                          <PlusIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+                {serverProviders.map((sp) => {
+                  const bound = boundTargets.some((b) => b.name === sp.name);
+                  return (
+                    <button
+                      key={sp.name}
+                      onClick={() => {
+                        if (bound) return;
+                        setShowAdd(true);
+                        setNewTargetKind("provider");
+                        setNewSelectedProvider(sp.name);
+                        setNewName(sp.name);
+                      }}
+                      className={`flex items-center gap-2 border text-left px-3 py-2 rounded transition-colors ${
+                        bound
+                          ? "border-success/30 bg-success/10"
+                          : "border-border/40 bg-surface hover:bg-surface-hover/30"
+                      }`}
+                      title={bound ? `"${sp.name}" already has a rule` : `Bind a rule to provider "${sp.name}"`}
+                    >
+                      <GlobeIcon className="h-3.5 w-3.5 shrink-0 text-accent" />
+                      <span className="text-[13px] font-medium text-foreground truncate">{sp.name}</span>
+                      <span className="ml-auto shrink-0">
+                        {bound ? (
+                          <CheckCircleIcon className="h-3.5 w-3.5 text-success" />
+                        ) : (
+                          <PlusIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Add form */}
           {showAdd && (
             <div className="border border-border/40 bg-surface p-4">
-              <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
                 <div>
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Name</div>
-                  <Input placeholder="opencode-zen" value={newName} onChange={(e) => setNewName(e.target.value)} />
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Apply to (target)</div>
+                  <select
+                    value={newTargetKind}
+                    onChange={(e) => {
+                      const k = e.target.value as TargetKind;
+                      setNewTargetKind(k);
+                      setNewName("");
+                    }}
+                    className="w-full border border-border/60 bg-surface px-3 py-2 text-[13px] text-foreground rounded"
+                  >
+                    <option value="pool">Pool</option>
+                    <option value="provider">Provider</option>
+                    <option value="fallback">Fallback</option>
+                    <option value="all">All (wildcard)</option>
+                  </select>
                 </div>
+
+                {newTargetKind === "pool" && (
+                  <div>
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Pool to attach rule to</div>
+                    <select
+                      value={newSelectedPool}
+                      onChange={(e) => {
+                        setNewSelectedPool(e.target.value);
+                        applyTargetName(e.target.value);
+                      }}
+                      className="w-full border border-border/60 bg-surface px-3 py-2 text-[13px] text-foreground rounded"
+                    >
+                      <option value="">Select a pool…</option>
+                      {pools.map((p) => (
+                        <option key={p.name} value={p.name}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {newTargetKind === "provider" && (
+                  <div>
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Provider to attach rule to</div>
+                    <select
+                      value={newSelectedProvider}
+                      onChange={(e) => {
+                        setNewSelectedProvider(e.target.value);
+                        applyTargetName(e.target.value);
+                      }}
+                      className="w-full border border-border/60 bg-surface px-3 py-2 text-[13px] text-foreground rounded"
+                    >
+                      <option value="">Select a provider…</option>
+                      {serverProviders.map((p) => (
+                        <option key={p.name} value={p.name}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {(newTargetKind === "fallback" || newTargetKind === "all") && (
+                  <div>
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Target key</div>
+                    <Input
+                      placeholder={newTargetKind === "all" ? "* (all providers)" : "fallback target name"}
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                    />
+                  </div>
+                )}
+
                 <div className="flex items-end">
                   <ToggleField
                     label="Enabled"
@@ -358,6 +526,13 @@ export function SessionHubTab(): JSX.Element {
                     onCheckedChange={setNewEnabled}
                   />
                 </div>
+              </div>
+
+              <div className="mt-2 text-[12px] text-muted-foreground/70">
+                {newName
+                  ? <>Rule will be bound to <span className="font-mono text-foreground">{newName}</span></>
+                  : "Select a pool/provider above to bind this rule."
+                }
               </div>
 
               <div className="mt-4">
