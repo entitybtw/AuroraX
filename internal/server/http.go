@@ -24,6 +24,7 @@ import (
 	"aurora/internal/core"
 	"aurora/internal/response_cache"
 	"aurora/internal/response_store"
+	"aurora/internal/sessionhub"
 	"aurora/internal/telemetry"
 	"aurora/internal/token_saver"
 	"aurora/internal/usage"
@@ -274,6 +275,10 @@ func New(provider core.RoutableProvider, cfg *Config) *Server {
 			return next(c)
 		}
 	})
+
+	// Snapshot inbound session-scoped headers before translation drops them so the
+	// session hub can map stable per-provider client identities.
+	e.Use(sessionhub.CaptureInboundHeadersMiddleware())
 
 	// Telemetry heartbeat request counter (skipped in bench mode — irrelevant at 10K req/s)
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
