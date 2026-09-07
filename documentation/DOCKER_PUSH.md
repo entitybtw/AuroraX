@@ -1,6 +1,15 @@
 # Building & publishing the Docker image
 
-The official published image for this fork is `entbtw/aurora` (multi-arch: `linux/amd64`, `linux/arm64`, `linux/arm/v7`). The `Dockerfile` is multi-stage: it builds the React dashboard, cross-compiles the Go binary, and copies it into a distroless runtime image.
+The official published image for this fork is **`entbtw/aurora`** on Docker Hub.
+
+**Current published tags:** `latest` and `v1.0.0` (linux/amd64). Pull it with:
+
+```bash
+docker pull entbtw/aurora:latest
+docker pull entbtw/aurora:v1.0.0
+```
+
+The `Dockerfile` is multi-stage: it builds the React dashboard, cross-compiles the Go binary, and copies it into a distroless runtime image. This document covers building and pushing your own builds.
 
 > Building multi-platform requires Docker **Buildx** (BuildKit). Enable it either via `docker buildx` (Docker 23+) or install the plugin (see below if `docker buildx` is unknown).
 

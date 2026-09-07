@@ -21,10 +21,24 @@
 
 ## Documentation
 
-- [Getting Started](documentation/GETTING_STARTED.md) — first run, build, config, basic usage
-- [Deployment](documentation/DEPLOYMENT.md) — Docker / Docker Compose, state files, multi-IP host networking
-- [Session Hub](documentation/SESSION_HUB.md) — header transformation & session mapping engine, API reference
-- [Docker image](documentation/DOCKER_PUSH.md) — build & publish `entbtw/aurora`, tags
+Full guides, written for this fork.
+
+| Guide | What it covers |
+|-------|----------------|
+| [Getting Started](documentation/GETTING_STARTED.md) | first run, build, config, basic usage, OpenAI-compatible client |
+| [Deployment](documentation/DEPLOYMENT.md) | Docker / Docker Compose, persistent state files, multi-IP host networking |
+| [Multi-account pools](documentation/MULTI_ACCOUNT.md) | end-to-end: load-balanced accounts with distinct, stable client identities |
+| [Session Hub](documentation/SESSION_HUB.md) | header transformation & session mapping engine, header modes, API reference, dashboard |
+| [Docker image](documentation/DOCKER_PUSH.md) | published image `entbtw/aurora`, tags, how to build & publish |
+
+**Quick deploy:**
+
+```bash
+docker pull entbtw/aurora:latest
+docker run -d --name aurora -p 8080:8080 -e AURORA_MASTER_KEY="your-secure-key" entbtw/aurora:latest
+```
+
+See [Deployment](documentation/DEPLOYMENT.md) for production (persistent config & state, `network_mode: host` for multi-IP).
 
 ---
 
@@ -128,7 +142,7 @@ No SDK changes. No format changes. Just swap the `base_url`.
 
 ### Developer Experience
 
-- **Single binary** — `npm install -g iaurora` or `docker pull aurorahq/aurora`
+- **Single binary** — `docker pull entbtw/aurora` (this fork) or run from source with Go
 - **CLI** — `aurora init`, `aurora models sync/diff/show`, `aurora update`, `aurora uninstall`
 - **CLI tools API** — admin REST endpoints for CLI configuration sync, gated separately
 - **Swagger docs** — `/swagger/index.html` (build-tag gated)
@@ -214,6 +228,13 @@ providers:
 ## Quick Start
 
 Start routing AI traffic in 60 seconds.
+
+> **Recommended — Docker (published image):**
+> ```bash
+> docker pull entbtw/aurora:latest
+> docker run -d --name aurora -p 8080:8080 -e AURORA_MASTER_KEY="your-secure-key" entbtw/aurora:latest
+> ```
+> Full examples below. For production (persistent state, multi-IP) see the [Deployment guide](documentation/DEPLOYMENT.md). The `npm` CLI (`iaurora`) is the upstream package and isn't republished by this fork — it can still drive a config but Docker is the blessed path.
 
 ### Option A — CLI (npm)
 
@@ -349,6 +370,11 @@ set AURORA_MASTER_KEY=your-secure-key ^
 
 ### Option C — Docker
 
+> Published image: **`entbtw/aurora`** · tags `latest`, `v1.0.0`.
+> ```bash
+> docker pull entbtw/aurora:latest
+> ```
+
 ```bash
 docker run -d --name aurora -p 8080:8080 \
   -e AURORA_MASTER_KEY="your-secure-key" \
@@ -370,8 +396,10 @@ docker run -d --name aurora -p 8080:8080 \
   -e METRICS_ENABLED=true \
   -e GUARDRAILS_ENABLED=true \
   -e TOKEN_SAVER_ENABLED=true \
-  aurorahq/aurora
+  entbtw/aurora:latest
 ```
+
+For production setups (persistent config/state, multi-IP host networking) see the [Deployment guide](documentation/DEPLOYMENT.md).
 
 ### Option D — Kubernetes (Helm)
 
@@ -445,7 +473,11 @@ curl http://localhost:8080/v1/rerank \
 
 Dashboard: `http://localhost:8080/admin/dashboard`
 
-**Upstream docs:** [aurorallm.online/docs](https://aurorallm.online/docs) · [npm](https://www.npmjs.com/package/iaurora) · [GitHub](https://github.com/aurorallm/aurora)
+**Docs (this fork):** [Getting Started](documentation/GETTING_STARTED.md) · [Deployment](documentation/DEPLOYMENT.md) · [Session Hub](documentation/SESSION_HUB.md) · [Docker image](documentation/DOCKER_PUSH.md)
+
+**Source:** [github.com/entitybtw/aurora](https://github.com/entitybtw/aurora) · **Image:** [hub.docker.com/r/entbtw/aurora](https://hub.docker.com/r/entbtw/aurora)
+
+Base project (upstream): [aurorallm/aurora](https://github.com/aurorallm/aurora) · [aurorallm.online/docs](https://aurorallm.online/docs)
 
 ---
 
