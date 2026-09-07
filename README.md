@@ -3,7 +3,7 @@
 </p>
 
 <h1 align="center">Aurora - The Fastest AI Gateway </h1>
-<h2 align="center">A fork of aurorallm/aurora — vibecoded with AI </h2>
+<h2 align="center">A fork focused on multi-IP setups & API integration</h2>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/entitybtw/aurora" alt="License" height="20"></a>
@@ -25,7 +25,7 @@
 
 Dashboard-driven operations — no more `.env`-only workflows for the things you change most. Everything below is managed from the UI and **persists across restarts**.
 
-> **Warning:** This fork contains custom features not present in the original [aurorallm/aurora](https://github.com/aurorallm/aurora). Some features are designed for advanced API integration workflows and require careful configuration. Use at your own discretion.
+> **Warning:** This fork contains custom features not present in the original [aurorallm/aurora](https://github.com/aurorallm/aurora). Some features (dashboard redesign, session hub, UI enhancements) were vibecoded and may contain rough edges. Designed for advanced API integration workflows — use at your own discretion.
 
 - **Redesigned dashboard** — full **Catppuccin** theme, mobile-responsive, compact/touch-friendly layout, clean auth/logo/sidebar, shared `SearchInput` fix in audit logs & usage.
 - **Provider CRUD** — manage providers from the UI (base URL, API key, models, type). Per-provider `bind_ip`, `pool_only`, runtime enable/disable, live rename, duplicate protection. Status shows if a key is set **without exposing it**. OpenRouter list is now an **allowlist**; **vLLM** type added to the dashboard (was `.env`-only).
