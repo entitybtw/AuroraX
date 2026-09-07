@@ -530,29 +530,32 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 		slog.Info("admin API disabled")
 	}
 
-	// Initialize session hub if configured
-	if appCfg.SessionHub.Enabled {
+	// Always initialize session hub when admin is available
+	if adminHandler != nil {
 		hubCfg := &sessionhub.HubConfig{
 			Enabled:   true,
 			Providers: make(map[string]sessionhub.ProviderRule),
 		}
-		for name, rawRule := range appCfg.SessionHub.Providers {
-			rule := sessionhub.ProviderRule{Enabled: rawRule.Enabled}
-			for _, hr := range rawRule.Headers {
-				rule.Headers = append(rule.Headers, sessionhub.HeaderRule{
-					Name:   hr.Name,
-					Mode:   sessionhub.HeaderMode(hr.Mode),
-					Prefix: hr.Prefix,
-					Length: hr.Length,
-					Value:  hr.Value,
-					Values: hr.Values,
-				})
+		// Load from config if present
+		if appCfg.SessionHub.Enabled {
+			for name, rawRule := range appCfg.SessionHub.Providers {
+				rule := sessionhub.ProviderRule{Enabled: rawRule.Enabled}
+				for _, hr := range rawRule.Headers {
+					rule.Headers = append(rule.Headers, sessionhub.HeaderRule{
+						Name:   hr.Name,
+						Mode:   sessionhub.HeaderMode(hr.Mode),
+						Prefix: hr.Prefix,
+						Length: hr.Length,
+						Value:  hr.Value,
+						Values: hr.Values,
+					})
+				}
+				hubCfg.Providers[name] = rule
 			}
-			hubCfg.Providers[name] = rule
 		}
 		app.sessionHub = sessionhub.New(hubCfg)
 		serverCfg.SessionHub = app.sessionHub
-		slog.Info("session hub enabled", "providers", len(hubCfg.Providers))
+		slog.Info("session hub initialized", "providers", len(hubCfg.Providers))
 	}
 
 	if swaggerEnabled {
