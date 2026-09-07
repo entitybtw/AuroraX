@@ -143,14 +143,11 @@ No SDK changes. No format changes. Just swap the `base_url`.
 ### Developer Experience
 
 - **Single binary** — `docker pull entbtw/aurora` (this fork) or run from source with Go
-- **CLI** — `aurora init`, `aurora models sync/diff/show`, `aurora update`, `aurora uninstall`
+- **CLI** — run from source, or drive via config files + the dashboard
 - **CLI tools API** — admin REST endpoints for CLI configuration sync, gated separately
 - **Swagger docs** — `/swagger/index.html` (build-tag gated)
 - **Config profiles** — pre-built configs for local, local-power, and team deployments
 - **3-layer config** — code defaults → config.yaml → env vars (env vars win)
-- **Helm chart** — deploy on Kubernetes with pre-built Helm chart
-- **Docker Compose** — full infrastructure stack: Redis, PostgreSQL, Qdrant, Prometheus, Grafana
-- **Grafana dashboard** — pre-configured panels for request rate, errors, latency, in-flight requests, per-model breakdown
 
 ### Session Hub
 
@@ -234,58 +231,11 @@ Start routing AI traffic in 60 seconds.
 > docker pull entbtw/aurora:latest
 > docker run -d --name aurora -p 8080:8080 -e AURORA_MASTER_KEY="your-secure-key" entbtw/aurora:latest
 > ```
-> Full examples below. For production (persistent state, multi-IP) see the [Deployment guide](documentation/DEPLOYMENT.md). The `npm` CLI (`iaurora`) is the upstream package and isn't republished by this fork — it can still drive a config but Docker is the blessed path.
+> Full examples below. For production (persistent state, multi-IP) see the [Deployment guide](documentation/DEPLOYMENT.md).
 
-### Option A — CLI (npm)
+The quickest way to configure providers from scratch is the dashboard: **http://localhost:8080/admin/dashboard → Providers → Add provider**. For env-var driven setups:
 
-```bash
-npm install -g iaurora
-mkdir my-gateway && cd my-gateway
-aurora init        # creates config.yaml, .env, data/
-```
-
-Set your provider keys in `.env`:
-
-```env
-# ── REQUIRED ──────────────────────────────────────────────
-AURORA_MASTER_KEY="your-secure-key"
-
-# ── PROVIDER API KEYS (at least one) ─────────────────────
-OPENAI_API_KEY="sk-..."
-ANTHROPIC_API_KEY="sk-ant-..."
-GEMINI_API_KEY="..."
-GROQ_API_KEY="gsk_..."
-DEEPSEEK_API_KEY="..."
-OPENROUTER_API_KEY="..."
-XAI_API_KEY="..."
-ZAI_API_KEY="..."
-MINIMAX_API_KEY="..."
-AZURE_API_KEY="..."
-ORACLE_API_KEY="..."
-OLLAMA_API_KEY="..."
-VLLM_API_KEY="..."
-JINA_API_KEY="..."
-
-# ── OPTIONAL FEATURE TOGGLES (set true to enable) ────────
-LOGGING_ENABLED=true                  # Audit logging to storage
-METRICS_ENABLED=true                  # Prometheus /metrics endpoint
-GUARDRAILS_ENABLED=true               # Content safety filters
-TOKEN_SAVER_ENABLED=true              # Output compression to cut token use
-
-# ── PRODUCTION STORAGE ───────────────────────────────────
-# STORAGE_TYPE=postgresql
-# POSTGRES_URL=postgres://user:pass@localhost:5432/aurora
-
-# ── REDIS CACHE (model cache + response cache) ──────────
-# REDIS_URL=redis://localhost:6379
-# RESPONSE_CACHE_SIMPLE_ENABLED=true
-```
-
-```bash
-aurora
-```
-
-### Option B — inline env vars (no `.env` needed)
+### Option A — inline env vars
 
 <details>
 <summary>Linux / macOS</summary>
@@ -368,7 +318,7 @@ set AURORA_MASTER_KEY=your-secure-key ^
 ```
 </details>
 
-### Option C — Docker
+### Option B — Docker
 
 > Published image: **`entbtw/aurora`** · tags `latest`, `v1.0.0`.
 > ```bash
@@ -400,42 +350,6 @@ docker run -d --name aurora -p 8080:8080 \
 ```
 
 For production setups (persistent config/state, multi-IP host networking) see the [Deployment guide](documentation/DEPLOYMENT.md).
-
-### Option D — Kubernetes (Helm)
-
-```bash
-# Quick dev — Groq, no Redis, no auth
-helm install aurora ./helm \
-  --namespace aurora --create-namespace \
-  --set image.repository=aurorahq/aurora \
-  --set image.tag=latest \
-  --set providers.groq.apiKey="gsk_your_key_here" \
-  --set providers.groq.enabled=true \
-  --set redis.enabled=false \
-  --set auth.masterKey=""
-```
-
-```bash
-# Production — multiple providers, auth, Redis
-helm upgrade --install aurora ./helm \
-  --namespace aurora --create-namespace \
-  --set image.repository=aurorahq/aurora \
-  --set image.tag=latest \
-  --set auth.masterKey="your-secure-key" \
-  --set providers.openai.apiKey="sk-..." \
-  --set providers.openai.enabled=true \
-  --set providers.anthropic.apiKey="sk-ant-..." \
-  --set providers.anthropic.enabled=true \
-  --set providers.gemini.apiKey="..." \
-  --set providers.gemini.enabled=true \
-  --set providers.groq.apiKey="gsk_..." \
-  --set providers.groq.enabled=true \
-  --set providers.deepseek.apiKey="..." \
-  --set providers.deepseek.enabled=true \
-  --set redis.enabled=true
-```
-
-**Full Helm docs:** [helm/README.md](./helm/README.md)
 
 ### Test your gateway
 
@@ -824,14 +738,12 @@ export AURORA_CONFIG_PATH=configs/editions/oss.team.example.yaml
 
 ## CLI Reference
 
-Installed via `npm install -g iaurora`.
+Run the built binary directly (from source: `go build -o aurora ./apps/aurora`, then `./aurora`). The npm `iaurora` wrapper is the upstream package and isn't republished by this fork.
 
 | Command | Description |
 |---------|-------------|
 | `aurora` | Start the gateway server (default port 8080) |
 | `aurora init` | Scaffold `config.yaml`, `.env`, `data/` in current directory |
-| `aurora update` | Self-update via `npm install -g iaurora@latest` |
-| `aurora uninstall` | Remove via `npm uninstall -g iaurora` |
 | `aurora models sync` | Download upstream model registry to local file |
 | `aurora models diff` | Show pricing diff between upstream and local snapshot |
 | `aurora models show` | Print effective pricing for a model after merging overrides |
@@ -851,9 +763,7 @@ aurora/
 ├── configs/           # Configuration profiles and examples
 ├── documentation/     # Markdown docs (Getting Started, Deployment, Session Hub, Docker)
 ├── docs-assets/       # Images, models.json, assets
-├── helm/              # Kubernetes Helm charts
 ├── monitoring/        # Prometheus + Grafana configs
-├── npm/               # npm CLI wrapper
 ├── bench-results/     # Benchmark data
 ├── release/           # Release scripts
 └── scripts/           # Build and utility scripts
