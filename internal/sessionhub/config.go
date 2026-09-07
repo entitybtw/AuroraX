@@ -58,9 +58,15 @@ type ProviderRule struct {
 type HubConfig struct {
 	Enabled   bool                    `yaml:"enabled"   json:"enabled"`
 	Providers map[string]ProviderRule `yaml:"providers" json:"providers"`
+	// MappingStorage controls where live inbound->outbound mappings live:
+	// "memory" (reset on restart) or "disk" (persisted to MappingsPath).
+	MappingStorage string `yaml:"mapping_storage" json:"mapping_storage"`
 	// Path is the file this config is persisted to / loaded from. Not serialized
 	// into the YAML document body.
 	Path string `yaml:"-" json:"-"`
+	// MappingsPath is the file live session mappings are persisted to when
+	// MappingStorage == "disk". Not serialized into the YAML document body.
+	MappingsPath string `yaml:"-" json:"-"`
 }
 
 // defaultHeaderRules returns sensible defaults for known header names.
@@ -141,20 +147,49 @@ type SessionEntry struct {
 	CreatedAt     time.Time `json:"created_at"`
 }
 
-// Store is a thread-safe in-memory session mapping store.
+// Store is a thread-safe session mapping store. When configured with a
+// persistence path, mappings are written to disk on change and restored on
+// start, so outbound identities survive restarts.
 type Store struct {
 	mu      sync.RWMutex
 	entries map[string]*SessionEntry // key = provider + "|" + inbound_value
 	byOut   map[string]*SessionEntry // key = provider + "|" + outbound_value
 	order   []string                 // insertion order for listing
+
+	persistPath string
+	persistOn   bool
+}
+
+// StoreOption configures a Store.
+type StoreOption func(*Store)
+
+// WithPersistence enables on-disk persistence at the given path. The store
+// loads any existing mappings on start and writes on every mutation.
+func WithPersistence(path string) StoreOption {
+	return func(s *Store) {
+		if path == "" {
+			return
+		}
+		s.persistPath = path
+		s.persistOn = true
+	}
 }
 
 // NewStore creates an empty store.
-func NewStore() *Store {
-	return &Store{
+func NewStore(opts ...StoreOption) *Store {
+	s := &Store{
 		entries: make(map[string]*SessionEntry),
 		byOut:   make(map[string]*SessionEntry),
 	}
+	for _, o := range opts {
+		if o != nil {
+			o(s)
+		}
+	}
+	if s.persistOn {
+		s.loadLocked()
+	}
+	return s
 }
 
 func storeKey(provider, inbound string) string { return provider + "|" + inbound }
@@ -174,10 +209,11 @@ func (s *Store) Get(provider, inbound string) string {
 // GetOrCreate returns the existing outbound value or creates a new one.
 func (s *Store) GetOrCreate(provider, inbound, prefix string, length int) string {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	key := storeKey(provider, inbound)
 	if e, ok := s.entries[key]; ok {
-		return e.OutboundValue
+		v := e.OutboundValue
+		s.mu.Unlock()
+		return v
 	}
 	out := GenerateValue(prefix, length)
 	e := &SessionEntry{
@@ -189,13 +225,14 @@ func (s *Store) GetOrCreate(provider, inbound, prefix string, length int) string
 	s.entries[key] = e
 	s.byOut[outKey(provider, out)] = e
 	s.order = append(s.order, key)
+	s.persistLocked()
+	s.mu.Unlock()
 	return out
 }
 
 // Set manually registers a mapping.
 func (s *Store) Set(provider, inbound, outbound string) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	key := storeKey(provider, inbound)
 	e := &SessionEntry{
 		InboundValue:  inbound,
@@ -206,29 +243,59 @@ func (s *Store) Set(provider, inbound, outbound string) {
 	s.entries[key] = e
 	s.byOut[outKey(provider, outbound)] = e
 	s.order = append(s.order, key)
+	s.persistLocked()
+	s.mu.Unlock()
 }
 
 // Delete removes a mapping.
 func (s *Store) Delete(provider, inbound string) bool {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	key := storeKey(provider, inbound)
 	e, ok := s.entries[key]
 	if !ok {
+		s.mu.Unlock()
 		return false
 	}
 	delete(s.entries, key)
 	delete(s.byOut, outKey(provider, e.OutboundValue))
+	s.persistLocked()
+	s.mu.Unlock()
 	return true
 }
 
 // Clear removes all mappings.
 func (s *Store) Clear() {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.entries = make(map[string]*SessionEntry)
 	s.byOut = make(map[string]*SessionEntry)
 	s.order = nil
+	s.persistLocked()
+	s.mu.Unlock()
+}
+
+// StorageMode returns the current persistence mode: "disk" when enabled.
+func (s *Store) StorageMode() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.persistOn {
+		return "disk"
+	}
+	return "memory"
+}
+
+// SetPersists enables or disables on-disk writes. Enabling immediately flushes
+// the current in-memory snapshot so no mappings are lost on the transition.
+func (s *Store) SetPersists(on bool) {
+	s.mu.Lock()
+	if on == s.persistOn {
+		s.mu.Unlock()
+		return
+	}
+	s.persistOn = on
+	if on {
+		s.persistLocked()
+	}
+	s.mu.Unlock()
 }
 
 // List returns all entries.
@@ -254,4 +321,43 @@ func (s *Store) Stats() (total int, byProvider map[string]int) {
 		byProvider[e.Provider]++
 	}
 	return
+}
+
+// persistLocked writes the store to disk. Caller must hold s.mu.
+func (s *Store) persistLocked() {
+	if !s.persistOn || s.persistPath == "" {
+		return
+	}
+	list := make([]*SessionEntry, 0, len(s.order))
+	for _, key := range s.order {
+		if e, ok := s.entries[key]; ok {
+			list = append(list, e)
+		}
+	}
+	if err := writeSessionsJSON(s.persistPath, list); err != nil {
+		return // non-fatal; best-effort persistence
+	}
+}
+
+// loadLocked restores persisted entries from disk. Only called at construction.
+func (s *Store) loadLocked() {
+	if s.persistPath == "" {
+		return
+	}
+	list, err := readSessionsJSON(s.persistPath)
+	if err != nil {
+		return
+	}
+	for _, e := range list {
+		if e == nil || e.Provider == "" || e.InboundValue == "" || e.OutboundValue == "" {
+			continue
+		}
+		key := storeKey(e.Provider, e.InboundValue)
+		if _, exists := s.entries[key]; exists {
+			continue
+		}
+		s.entries[key] = e
+		s.byOut[outKey(e.Provider, e.OutboundValue)] = e
+		s.order = append(s.order, key)
+	}
 }

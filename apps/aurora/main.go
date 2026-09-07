@@ -368,7 +368,7 @@ func main() {
 			hubCfg.Providers[name] = rule
 		}
 	}
-	sessionHub := sessionhub.NewWithPersistence(hubFile, hubCfg)
+	sessionHub := sessionhub.NewWithPersistence(hubFile, config.SessionHubMappingsPath(), hubCfg)
 	factory.SetSessionHub(func(providerName string, headers http.Header) bool {
 		return sessionHub.Apply(headers, providerName) != nil
 	})
