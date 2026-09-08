@@ -355,6 +355,24 @@ docker run -d --name aurora -p 8080:8080 \
 
 For production setups (persistent config/state, multi-IP host networking) see the [Deployment guide](documentation/DEPLOYMENT.md).
 
+### Verify it's alive
+
+After starting, confirm the gateway is up and the dashboard loads:
+
+```bash
+# Health check
+curl -s http://localhost:8080/health
+
+# Dashboard
+open http://localhost:8080/admin/dashboard
+
+# Session Hub status (should show storage_mode: disk or memory)
+curl -s http://localhost:8080/admin/api/v1/sessionhub/status \
+  -H "Authorization: Bearer your-master-key"
+```
+
+If health returns `{"status":"ok"}` — the gateway is running. Now add a provider via the dashboard or env vars, then test a model call:
+
 ### Test your gateway
 
 ```bash
