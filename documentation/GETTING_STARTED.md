@@ -45,6 +45,18 @@ docker build -t aurora:local .
 docker run -d --name aurora -p 8080:8080 -e AURORA_MASTER_KEY="your-secure-key" aurora:local
 ```
 
+## Validate it's working
+
+```bash
+curl -s http://localhost:8080/health
+# → {"status":"ok"}
+
+open http://localhost:8080/admin/dashboard
+# Dashboard loads → gateway is alive
+```
+
+From here, add providers and test — see below.
+
 ## Use the API
 
 The gateway is OpenAI-compatible, so the standard `openai` SDK works:
