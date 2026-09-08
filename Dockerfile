@@ -4,7 +4,7 @@ FROM --platform=$BUILDPLATFORM node:22-alpine3.23 AS ui-builder
 WORKDIR /app
 
 COPY dashboard-ui ./dashboard-ui
-RUN cd dashboard-ui && corepack enable && pnpm install --no-frozen-lockfile && pnpm build
+RUN --network=host cd dashboard-ui && corepack enable && pnpm install --no-frozen-lockfile && pnpm build
 
 # Go build stage — run on the build host's native arch for speed, cross-compile for target
 FROM --platform=$BUILDPLATFORM golang:1.26.4-alpine3.23 AS builder
@@ -18,11 +18,11 @@ WORKDIR /app
 # Install ca-certificates for HTTPS requests.
 # Do not pin the apk revision here: Alpine rotates package revisions
 # within a release branch, which breaks Docker builds over time.
-RUN apk add --no-cache ca-certificates
+RUN --network=host apk add --no-cache ca-certificates
 
 # Download dependencies first for better layer caching
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --network=host go mod download
 
 # Copy source and cross-compile for the target platform
 COPY . .
