@@ -2,10 +2,11 @@
 
 The official published image for this fork is **`entbtw/aurora`** on Docker Hub.
 
-**Current published tags:** `latest`, `v1.0.1`, and `v1.0.0` (linux/amd64). Pull it with:
+**Current published tags:** `latest`, `v1.0.3`, `v1.0.1`, and `v1.0.0` (linux/amd64). Pull it with:
 
 ```bash
 docker pull entbtw/aurora:latest
+docker pull entbtw/aurora:v1.0.3
 docker pull entbtw/aurora:v1.0.1
 docker pull entbtw/aurora:v1.0.0
 ```
@@ -43,8 +44,8 @@ Use your Docker Hub username and an **access token** (Account Settings → Secur
 ```bash
 docker buildx build --platform linux/amd64 \
   -t entbtw/aurora:latest \
-  -t entbtw/aurora:v1.0.0 \
-  --build-arg VERSION=1.0.0 \
+  -t entbtw/aurora:v1.0.3 \
+  --build-arg VERSION=1.0.3 \
   --build-arg COMMIT=$(git rev-parse --short HEAD) \
   --build-arg DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
   --progress=plain \
