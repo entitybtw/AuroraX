@@ -2,11 +2,11 @@
 
 The official published image for this fork is **`entbtw/aurora`** on Docker Hub.
 
-**Current published tags:** `latest`, `v1.0.3`, `v1.0.2`, `v1.0.1`, and `v1.0.0` (linux/amd64). Pull it with:
+**Current published tags:** `latest`, `v1.0.4`, `v1.0.3`, `v1.0.2`, `v1.0.1`, and `v1.0.0` (linux/amd64). Pull it with:
 
 ```bash
 docker pull entbtw/aurora:latest
-docker pull entbtw/aurora:v1.0.3
+docker pull entbtw/aurora:v1.0.4
 ```
 
 The `Dockerfile` is multi-stage: it builds the React dashboard, cross-compiles the Go binary, and copies it into a distroless runtime image. This document covers building and pushing your own builds.

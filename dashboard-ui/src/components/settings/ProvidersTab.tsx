@@ -3,11 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { RuntimeStatusBadge, useSettings, StatusChip } from "./SettingsContext";
-import { ServerIcon, RefreshCwIcon, PlusIcon, Edit3Icon, Trash2Icon, SaveIcon, XIcon } from "lucide-react";
+import { ServerIcon, RefreshCwIcon, PlusIcon, Edit3Icon, Trash2Icon, SaveIcon, XIcon, CheckIcon, SquareIcon, CheckSquareIcon, MinusIcon } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchProviderStatus, createProvider, updateProvider, deleteProvider, setProviderEnabled, type ProviderFormData, type AutoFetchFilter, type ProviderStatusResponse } from "@/lib/api/providers";
 import { withBasePath } from "@/lib/basepath";
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 
 // filterToText renders an AutoFetchFilter into the simple comma-separated form
 // the provider form edits. Only `contains` conditions are representable; a
@@ -132,9 +132,6 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
     setSaving(true);
     setError(null);
     try {
-      // Strip the form-only text field and convert it into the API's structured
-      // filter. Advanced filters (regex/price) set outside the UI are preserved
-      // when the text field is empty.
       const { autofetch_filter_text, ...rest } = form;
       const text = (autofetch_filter_text ?? "").trim();
       const payload = {
@@ -279,6 +276,8 @@ export function ProvidersTab(): JSX.Element {
   const [modalOpen, setModalOpen] = useState<"add" | "edit" | null>(null);
   const [editingProvider, setEditingProvider] = useState<ProviderFormData & { originalName: string; apiKeySet?: boolean } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkConfirm, setBulkConfirm] = useState<"enable" | "disable" | "auto-fetch-on" | "auto-fetch-off" | "delete" | null>(null);
 
   const deleteMutation = useMutation({
     mutationFn: (name: string) => deleteProvider(name),
@@ -314,8 +313,61 @@ export function ProvidersTab(): JSX.Element {
     },
   });
 
+  const bulkMutation = useMutation({
+    mutationFn: async ({ names, action, value }: { names: string[]; action: string; value?: boolean }) => {
+      for (const name of names) {
+        if (action === "enable") {
+          await updateProvider(name, { enabled: true });
+        } else if (action === "disable") {
+          await updateProvider(name, { enabled: false });
+        } else if (action === "auto-fetch-on") {
+          await updateProvider(name, { auto_fetch_models: true });
+        } else if (action === "auto-fetch-off") {
+          await updateProvider(name, { auto_fetch_models: false });
+        } else if (action === "delete") {
+          await deleteProvider(name);
+        }
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["provider-status"] });
+      setSelected(new Set());
+      setBulkConfirm(null);
+    },
+  });
+
   const providers = providerStatus?.providers ?? [];
   const summary = providerStatus?.summary;
+
+  const allSelected = providers.length > 0 && providers.every((p) => selected.has(p.name));
+  const someSelected = providers.some((p) => selected.has(p.name)) && !allSelected;
+
+  const toggleSelectAll = useCallback(() => {
+    if (allSelected) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(providers.map((p) => p.name)));
+    }
+  }, [allSelected, providers]);
+
+  const toggleSelect = useCallback((name: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) {
+        next.delete(name);
+      } else {
+        next.add(name);
+      }
+      return next;
+    });
+  }, []);
+
+  const selectedProviders = useMemo(() => providers.filter((p) => selected.has(p.name)), [providers, selected]);
+
+  const handleBulkAction = () => {
+    if (!bulkConfirm || selected.size === 0) return;
+    bulkMutation.mutate({ names: Array.from(selected), action: bulkConfirm });
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -367,14 +419,84 @@ export function ProvidersTab(): JSX.Element {
             <Button onClick={() => { setEditingProvider(null); setModalOpen("add"); }}>
               <PlusIcon className="mr-1.5 h-4 w-4" /> Add Provider
             </Button>
+            <Button variant="outline" onClick={() => refetch()} disabled={isLoading}>
+              <RefreshCwIcon className={`mr-1.5 h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
           </div>
+
+          {/* Bulk actions toolbar */}
+          {selected.size > 0 && (
+            <div className="flex items-center gap-3 border border-accent/30 bg-accent/5 px-4 py-2.5">
+              <span className="text-[12px] font-medium text-accent">{selected.size} selected</span>
+              <div className="flex items-center gap-1.5 ml-2">
+                <Button size="sm" variant="outline" onClick={() => setBulkConfirm("enable")} className="text-[11px] h-7">
+                  <CheckIcon className="mr-1 h-3 w-3" /> Enable
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setBulkConfirm("disable")} className="text-[11px] h-7">
+                  <MinusIcon className="mr-1 h-3 w-3" /> Disable
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setBulkConfirm("auto-fetch-on")} className="text-[11px] h-7">
+                  Auto-fetch On
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setBulkConfirm("auto-fetch-off")} className="text-[11px] h-7">
+                  Auto-fetch Off
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setBulkConfirm("delete")} className="text-[11px] h-7 text-destructive hover:bg-destructive/10">
+                  <Trash2Icon className="mr-1 h-3 w-3" /> Delete
+                </Button>
+              </div>
+              <div className="ml-auto">
+                <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} className="text-[11px] h-7">
+                  Clear
+                </Button>
+              </div>
+            </div>
+          )}
 
           {providers.length > 0 ? (
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              {/* Select-all header */}
+              <div className="col-span-full flex items-center gap-2 px-1">
+                <button
+                  onClick={toggleSelectAll}
+                  className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {allSelected ? (
+                    <CheckSquareIcon className="h-4 w-4 text-accent" />
+                  ) : someSelected ? (
+                    <div className="h-4 w-4 border-2 border-accent bg-accent/20 flex items-center justify-center"><MinusIcon className="h-2.5 w-2.5 text-accent" /></div>
+                  ) : (
+                    <SquareIcon className="h-4 w-4" />
+                  )}
+                  {allSelected ? "Deselect all" : someSelected ? `Select all (${providers.length})` : `Select all (${providers.length})`}
+                </button>
+              </div>
+
               {providers.map((provider) => (
-                <div key={provider.name} className={`border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30 ${provider.config?.enabled === false ? "opacity-60" : ""}`}>
+                <div
+                  key={provider.name}
+                  className={`border bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30 ${
+                    selected.has(provider.name)
+                      ? "border-accent/50 bg-accent/5"
+                      : provider.config?.enabled === false
+                        ? "border-border/40 opacity-60"
+                        : "border-border/40"
+                  }`}
+                >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
+                      <button
+                        onClick={() => toggleSelect(provider.name)}
+                        className="shrink-0 p-0.5 hover:bg-border/20 transition-colors"
+                        title={selected.has(provider.name) ? "Deselect" : "Select"}
+                      >
+                        {selected.has(provider.name) ? (
+                          <CheckSquareIcon className="h-4 w-4 text-accent" />
+                        ) : (
+                          <SquareIcon className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </button>
                       <ProviderMark provider={provider} />
                       <div className="flex min-w-0 flex-col gap-1">
                         <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -383,6 +505,9 @@ export function ProvidersTab(): JSX.Element {
                           {provider.config?.enabled === false && <Pill tone="muted">disabled</Pill>}
                           {provider.config?.pool_only && <Pill tone="accent">pool-only</Pill>}
                           {provider.config?.auto_fetch_models === false && <Pill tone="muted">no auto-fetch</Pill>}
+                          {provider.config?.auto_fetch_models !== false && filterToText(provider.config?.autofetch_filter) && (
+                            <Pill tone="accent">filter: {filterToText(provider.config?.autofetch_filter)}</Pill>
+                          )}
                           {provider.config?.user_agent && <Pill tone="accent">custom UA</Pill>}
                         </div>
                         <span className="text-[11px] text-muted-foreground">{provider.type || provider.config?.type || "custom"}</span>
@@ -435,13 +560,6 @@ export function ProvidersTab(): JSX.Element {
               <div className="mt-2 text-[14px] font-medium text-foreground">Passthrough providers: {(runtimeSettings.client.enabled_passthrough_providers as string[])?.join(", ") || "None"}</div>
             </div>
           )}
-
-          <div className="flex items-center gap-3 mt-2 border-t border-border/50 pt-4">
-            <Button onClick={() => refetch()} disabled={isLoading}>
-              <RefreshCwIcon className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-              {isLoading ? "Refreshing..." : "Refresh Provider Health"}
-            </Button>
-          </div>
         </div>
       </Surface>
 
@@ -466,6 +584,32 @@ export function ProvidersTab(): JSX.Element {
               <Button variant="outline" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
             </div>
             {deleteMutation.isError && <div className="mt-3 text-[13px] font-medium text-destructive">{deleteMutation.error?.message}</div>}
+          </div>
+        </div>
+      )}
+
+      {bulkConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setBulkConfirm(null)}>
+          <div className="w-full max-w-sm border border-border/60 bg-surface p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-[15px] tracking-tight text-foreground mb-2">Bulk Action</h3>
+            <p className="text-[13px] text-foreground/80 mb-4">
+              {bulkConfirm === "enable" && <>Enable <strong>{selected.size}</strong> selected provider{selected.size !== 1 ? "s" : ""}?</>}
+              {bulkConfirm === "disable" && <>Disable <strong>{selected.size}</strong> selected provider{selected.size !== 1 ? "s" : ""}?</>}
+              {bulkConfirm === "auto-fetch-on" && <>Turn on auto-fetch for <strong>{selected.size}</strong> provider{selected.size !== 1 ? "s" : ""}?</>}
+              {bulkConfirm === "auto-fetch-off" && <>Turn off auto-fetch for <strong>{selected.size}</strong> provider{selected.size !== 1 ? "s" : ""}?</>}
+              {bulkConfirm === "delete" && <>Delete <strong>{selected.size}</strong> selected provider{selected.size !== 1 ? "s" : ""}? This cannot be undone.</>}
+            </p>
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={handleBulkAction}
+                disabled={bulkMutation.isPending}
+                className={bulkConfirm === "delete" ? "bg-destructive hover:bg-destructive/90" : ""}
+              >
+                {bulkMutation.isPending ? "Processing..." : "Confirm"}
+              </Button>
+              <Button variant="outline" onClick={() => setBulkConfirm(null)}>Cancel</Button>
+            </div>
+            {bulkMutation.isError && <div className="mt-3 text-[13px] font-medium text-destructive">{bulkMutation.error?.message}</div>}
           </div>
         </div>
       )}
