@@ -139,7 +139,7 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
       const text = (autofetch_filter_text ?? "").trim();
       const payload = {
         ...rest,
-        autofetch_filter: text === "" ? (initial?.autofetch_filter ?? null) : textToFilter(text),
+        autofetch_filter: textToFilter(text),
       };
       if (mode === "add") {
         await createProvider(payload);
