@@ -301,6 +301,7 @@ type SessionHubHeaderRule struct {
 	Name string `yaml:"name"`
 
 	// Mode defines the transformation mode:
+	//   - "map_or_generate": (default/recommended) map if present, generate if absent
 	//   - "generate": create a new random value
 	//   - "map": map inbound value to unique outbound per provider
 	//   - "passthrough": pass original value unchanged
