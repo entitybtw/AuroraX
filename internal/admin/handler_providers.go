@@ -47,16 +47,19 @@ func (h *Handler) buildProviderStatusResponse() providerStatusResponse {
 	if h.providerOverrides != nil {
 		for _, override := range h.providerOverrides.list() {
 			cfg := providers.SanitizedProviderConfig{
-				Name:       override.Name,
-				Type:       override.Type,
-				BaseURL:    override.BaseURL,
-				APIVersion: override.APIVersion,
-				Models:     parseOverrideModels(override.Models),
-				BindIP:     strings.TrimSpace(override.BindIP),
-				Enabled:    override.IsEnabled(),
-				APIKey:     strings.TrimSpace(override.APIKey),
-				APIKeySet:  strings.TrimSpace(override.APIKey) != "",
-				PoolOnly:   override.PoolOnly != nil && *override.PoolOnly,
+				Name:            override.Name,
+				Type:            override.Type,
+				BaseURL:         override.BaseURL,
+				APIVersion:      override.APIVersion,
+				Models:          parseOverrideModels(override.Models),
+				BindIP:          strings.TrimSpace(override.BindIP),
+				Enabled:         override.IsEnabled(),
+				APIKey:          strings.TrimSpace(override.APIKey),
+				APIKeySet:       strings.TrimSpace(override.APIKey) != "",
+				PoolOnly:        override.PoolOnly != nil && *override.PoolOnly,
+				UserAgent:       strings.TrimSpace(override.UserAgent),
+				AutoFetchModels: override.AutoFetchModels == nil || *override.AutoFetchModels,
+				AutoFetchFilter: override.AutoFetchFilter,
 			}
 			configuredByName[override.Name] = cfg
 			if _, inSet := nameSet[override.Name]; !inSet {
