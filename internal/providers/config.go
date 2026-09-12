@@ -46,6 +46,10 @@ type ProviderConfig struct {
 	// available models. When nil or true, models are fetched automatically.
 	// When explicitly false, only explicitly configured models are used.
 	AutoFetchModels *bool
+	// AutoFetchFilter narrows the models discovered from the upstream /models
+	// response. Filtered-out models are never registered and cannot be routed
+	// to. Zero value means no filtering.
+	AutoFetchFilter config.AutoFetchFilter
 }
 
 // resolveProviders applies env var overrides to the raw YAML provider map, filters
@@ -475,6 +479,7 @@ func buildProviderConfig(raw config.RawProviderConfig, global config.ResilienceC
 		PoolOnly:               raw.PoolOnly,
 		UserAgent:              strings.TrimSpace(raw.UserAgent),
 		AutoFetchModels:        raw.AutoFetchModels,
+		AutoFetchFilter:        raw.AutoFetchFilter,
 	}
 
 	if raw.Resilience == nil {

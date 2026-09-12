@@ -60,6 +60,80 @@ type LoadResult struct {
 	RawPools     map[string]RawPoolConfig
 }
 
+// AutoFetchFilter declares operator-supplied conditions that filter the model
+// list discovered from a provider's /models endpoint. When present, only the
+// models satisfying the conditions are registered and routable; everything else
+// is discarded before it reaches the registry.
+//
+// A filter is a small rule system: a list of conditions combined with `mode`
+// (`all` = AND, default; `any` = OR). Each condition may combine a name match
+// (substring or regex) with price ceilings, so operators can express things like
+// "only free models" (`max_price: 0`) or "only ids containing free".
+type AutoFetchFilter struct {
+	// Mode combines the conditions: "all" (AND, default) or "any" (OR).
+	Mode string `yaml:"mode,omitempty" json:"mode,omitempty"`
+	// Conditions is the list of matchers to apply to each discovered model.
+	Conditions []AutoFetchFilterCondition `yaml:"conditions,omitempty" json:"conditions,omitempty"`
+}
+
+// AutoFetchFilterCondition is a single condition inside an AutoFetchFilter.
+// All set fields within one condition must hold (a condition is internally an
+// AND); multiple conditions combine according to the filter's Mode.
+type AutoFetchFilterCondition struct {
+	// Contains keeps only models whose ID contains this substring
+	// (case-insensitive).
+	Contains string `yaml:"contains,omitempty" json:"contains,omitempty"`
+	// NotContains drops models whose ID contains this substring
+	// (case-insensitive).
+	NotContains string `yaml:"not_contains,omitempty" json:"not_contains,omitempty"`
+	// Regex keeps only models whose ID matches this Go regular expression.
+	Regex string `yaml:"regex,omitempty" json:"regex,omitempty"`
+	// MaxPrice keeps only models whose input AND output price per million
+	// tokens are at or below this value. Set to 0 to require free models.
+	MaxPrice *float64 `yaml:"max_price,omitempty" json:"max_price,omitempty"`
+	// MaxPromptPrice keeps only models whose input (prompt) price per million
+	// tokens is at or below this value.
+	MaxPromptPrice *float64 `yaml:"max_prompt_price,omitempty" json:"max_prompt_price,omitempty"`
+	// MaxCompletionPrice keeps only models whose output (completion) price per
+	// million tokens is at or below this value.
+	MaxCompletionPrice *float64 `yaml:"max_completion_price,omitempty" json:"max_completion_price,omitempty"`
+}
+
+// IsZero reports whether the filter carries no effective configuration, so
+// callers can treat an omitted block and an empty block identically.
+func (f AutoFetchFilter) IsZero() bool {
+	return strings.TrimSpace(f.Mode) == "" && len(f.Conditions) == 0
+}
+
+// IsZero reports whether the condition carries no effective configuration.
+func (c AutoFetchFilterCondition) IsZero() bool {
+	return c.String() == ""
+}
+
+// String renders the condition's set fields for error messages.
+func (c AutoFetchFilterCondition) String() string {
+	parts := make([]string, 0, 6)
+	if c.Contains != "" {
+		parts = append(parts, "contains="+c.Contains)
+	}
+	if c.NotContains != "" {
+		parts = append(parts, "not_contains="+c.NotContains)
+	}
+	if c.Regex != "" {
+		parts = append(parts, "regex="+c.Regex)
+	}
+	if c.MaxPrice != nil {
+		parts = append(parts, "max_price="+strconv.FormatFloat(*c.MaxPrice, 'f', -1, 64))
+	}
+	if c.MaxPromptPrice != nil {
+		parts = append(parts, "max_prompt_price="+strconv.FormatFloat(*c.MaxPromptPrice, 'f', -1, 64))
+	}
+	if c.MaxCompletionPrice != nil {
+		parts = append(parts, "max_completion_price="+strconv.FormatFloat(*c.MaxCompletionPrice, 'f', -1, 64))
+	}
+	return strings.Join(parts, " ")
+}
+
 // RawProviderConfig is the YAML-sourced provider configuration before env var
 // overrides, credential filtering, or resilience merging. Exported so the
 // providers package can resolve it into a fully-configured ProviderConfig.
@@ -86,6 +160,10 @@ type RawProviderConfig struct {
 	// periodic refresh. When false, only explicitly configured models (in the
 	// models: list) are used. Default: true (auto-fetch enabled).
 	AutoFetchModels *bool `yaml:"auto_fetch_models"`
+	// AutoFetchFilter optionally narrows the discovered model list to the
+	// models matching the declared conditions. Filtered-out models are not
+	// registered and cannot be routed to. Nil/empty means no filtering.
+	AutoFetchFilter AutoFetchFilter `yaml:"autofetch_filter,omitempty"`
 }
 
 // RawPoolConfig is the YAML-sourced provider pool definition. Pools group
@@ -115,6 +193,10 @@ type RawPoolConfig struct {
 	// available models for pool members. When set, it overrides individual
 	// provider auto_fetch_models settings for model discovery through this pool.
 	AutoFetchModels *bool `yaml:"auto_fetch_models"`
+	// AutoFetchFilter, when set, overrides individual provider
+	// autofetch_filter settings for every member of this pool. Nil/empty
+	// leaves each member's own filter in effect.
+	AutoFetchFilter *AutoFetchFilter `yaml:"autofetch_filter,omitempty"`
 }
 
 // RawResilienceConfig holds optional per-provider resilience overrides from YAML.

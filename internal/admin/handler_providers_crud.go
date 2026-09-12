@@ -38,6 +38,9 @@ type ProviderOverride struct {
 	// AutoFetchModels controls whether the gateway calls /models to discover models.
 	// A nil pointer means enabled (auto-fetch on).
 	AutoFetchModels *bool `json:"auto_fetch_models,omitempty"`
+	// AutoFetchFilter narrows discovered models to those matching the declared
+	// conditions. Filtered-out models are not registered and are not routable.
+	AutoFetchFilter *config.AutoFetchFilter `json:"autofetch_filter,omitempty"`
 }
 
 // IsEnabled reports whether the override is active. Legacy overrides that
@@ -155,6 +158,7 @@ func (s *ProviderOverrideStore) RawConfigs() map[string]config.RawProviderConfig
 			PoolOnly:        override.PoolOnly != nil && *override.PoolOnly,
 			UserAgent:       strings.TrimSpace(override.UserAgent),
 			AutoFetchModels: override.AutoFetchModels,
+			AutoFetchFilter: autoFetchFilterValue(override.AutoFetchFilter),
 		}
 	}
 	return out
@@ -177,28 +181,30 @@ func (s *ProviderOverrideStore) DisabledNames() []string {
 }
 
 type providerCreateRequest struct {
-	Name            string `json:"name"`
-	Type            string `json:"type"`
-	BaseURL         string `json:"base_url"`
-	APIVersion      string `json:"api_version"`
-	APIKey          string `json:"api_key"`
-	Models          string `json:"models"`
-	Enabled         *bool  `json:"enabled"`
-	PoolOnly        *bool  `json:"pool_only"`
-	UserAgent       string `json:"user_agent"`
-	AutoFetchModels *bool  `json:"auto_fetch_models"`
+	Name            string                  `json:"name"`
+	Type            string                  `json:"type"`
+	BaseURL         string                  `json:"base_url"`
+	APIVersion      string                  `json:"api_version"`
+	APIKey          string                  `json:"api_key"`
+	Models          string                  `json:"models"`
+	Enabled         *bool                   `json:"enabled"`
+	PoolOnly        *bool                   `json:"pool_only"`
+	UserAgent       string                  `json:"user_agent"`
+	AutoFetchModels *bool                   `json:"auto_fetch_models"`
+	AutoFetchFilter *config.AutoFetchFilter `json:"autofetch_filter"`
 }
 
 type providerUpdateRequest struct {
-	BaseURL         *string `json:"base_url"`
-	APIVersion      *string `json:"api_version"`
-	APIKey          *string `json:"api_key"`
-	Models          *string `json:"models"`
-	BindIP          *string `json:"bind_ip"`
-	Enabled         *bool   `json:"enabled"`
-	PoolOnly        *bool   `json:"pool_only"`
-	UserAgent       *string `json:"user_agent"`
-	AutoFetchModels *bool   `json:"auto_fetch_models"`
+	BaseURL         *string                 `json:"base_url"`
+	APIVersion      *string                 `json:"api_version"`
+	APIKey          *string                 `json:"api_key"`
+	Models          *string                 `json:"models"`
+	BindIP          *string                 `json:"bind_ip"`
+	Enabled         *bool                   `json:"enabled"`
+	PoolOnly        *bool                   `json:"pool_only"`
+	UserAgent       *string                 `json:"user_agent"`
+	AutoFetchModels *bool                   `json:"auto_fetch_models"`
+	AutoFetchFilter *config.AutoFetchFilter `json:"autofetch_filter"`
 	// NewName renames the provider (both UI-created and static providers).
 	NewName *string `json:"new_name"`
 }
@@ -271,6 +277,7 @@ func (h *Handler) CreateProvider(c *echo.Context) error {
 		APIVersion:      strings.TrimSpace(req.APIVersion),
 		APIKey:          strings.TrimSpace(req.APIKey),
 		Models:          strings.TrimSpace(req.Models),
+		AutoFetchFilter: cloneAutoFetchFilter(req.AutoFetchFilter),
 		Enabled:         boolPtrOrDefault(req.Enabled, true),
 		PoolOnly:        req.PoolOnly,
 		UserAgent:       strings.TrimSpace(req.UserAgent),
@@ -357,6 +364,9 @@ func (h *Handler) UpdateProvider(c *echo.Context) error {
 	}
 	if req.AutoFetchModels != nil {
 		updated.AutoFetchModels = boolPtr(*req.AutoFetchModels)
+	}
+	if req.AutoFetchFilter != nil {
+		updated.AutoFetchFilter = cloneAutoFetchFilter(req.AutoFetchFilter)
 	}
 
 	// Rename support: the caller may supply a new_name. The new override is
@@ -490,4 +500,42 @@ func boolPtrOrDefault(v *bool, fallback bool) *bool {
 		return boolPtr(fallback)
 	}
 	return boolPtr(*v)
+}
+
+// cloneAutoFetchFilter returns a defensive copy of a filter so stored overrides
+// never alias caller-owned slices or pointers.
+func cloneAutoFetchFilter(in *config.AutoFetchFilter) *config.AutoFetchFilter {
+	if in == nil {
+		return nil
+	}
+	out := *in
+	if len(in.Conditions) > 0 {
+		out.Conditions = make([]config.AutoFetchFilterCondition, len(in.Conditions))
+		for i, condition := range in.Conditions {
+			cloned := condition
+			if condition.MaxPrice != nil {
+				v := *condition.MaxPrice
+				cloned.MaxPrice = &v
+			}
+			if condition.MaxPromptPrice != nil {
+				v := *condition.MaxPromptPrice
+				cloned.MaxPromptPrice = &v
+			}
+			if condition.MaxCompletionPrice != nil {
+				v := *condition.MaxCompletionPrice
+				cloned.MaxCompletionPrice = &v
+			}
+			out.Conditions[i] = cloned
+		}
+	}
+	return &out
+}
+
+// autoFetchFilterValue dereferences an optional filter into the value form used
+// by RawProviderConfig.
+func autoFetchFilterValue(in *config.AutoFetchFilter) config.AutoFetchFilter {
+	if in == nil {
+		return config.AutoFetchFilter{}
+	}
+	return *in
 }

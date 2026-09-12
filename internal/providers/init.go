@@ -100,6 +100,7 @@ func Init(ctx context.Context, result *config.LoadResult, factory *ProviderFacto
 	// Apply pool-level auto_fetch_models overrides AFTER registry creation
 	// but BEFORE model discovery starts.
 	applyPoolAutoFetchOverrides(registry, result.RawPools)
+	applyPoolAutoFetchFilterOverrides(registry, result.RawPools)
 
 	count, err := initializeProviders(ctx, providerMap, factory, registry)
 	if err != nil {
@@ -319,6 +320,13 @@ func initializeProviders(ctx context.Context, providerMap map[string]ProviderCon
 		}
 		if pCfg.AutoFetchModels != nil && !*pCfg.AutoFetchModels {
 			registry.SetProviderAutoFetchModels(name, false)
+		}
+		if !pCfg.AutoFetchFilter.IsZero() {
+			if err := registry.SetProviderAutoFetchFilter(name, pCfg.AutoFetchFilter); err != nil {
+				slog.Error("invalid autofetch_filter ignored",
+					"name", name,
+					"error", err)
+			}
 		}
 		count++
 		slog.Debug("provider registered", "name", name, "type", pCfg.Type)
