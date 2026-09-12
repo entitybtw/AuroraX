@@ -56,6 +56,7 @@ Dashboard-driven operations — no more `.env`-only workflows for the things you
 - **Provider CRUD** — manage providers from the UI (base URL, API key, models, type). Per-provider `bind_ip`, `pool_only`, runtime enable/disable, live rename, duplicate protection. Status shows if a key is set **without exposing it**. OpenRouter list is now an **allowlist**; **vLLM** type added to the dashboard (was `.env`-only).
 - **Custom User-Agent** — set a custom `User-Agent` header per provider for upstream attribution (e.g. OpenRouter recommends this for credits).
 - **Auto-fetch models toggle** — disable automatic `/models` discovery per provider to use only explicitly configured model lists.
+- **Auto-fetch model filter** — narrow automatic discovery with per-provider conditions (substring / regex on the model ID, price ceilings). Keep only matching models; everything else is dropped and cannot be routed to.
 - **Fallback chains** — edit rules in the UI, applied at **runtime**; callable by name, exposed in `/v1/models`, order preserved on toggle/edit/delete.
 - **Provider pools** — create/edit/delete with member selection and **weighted / round-robin** strategies; health-aware members, `pool_only` models, live registry rebuild.
 - **Response headers** — configurable `X-Actual-Provider` / `X-Actual-Model` / `X-Requested` / `X-Fallback-Chain`, per-header toggles, custom headers, success/error/always modes, emitted on `429`/`401`.
@@ -88,6 +89,7 @@ No SDK changes. No format changes. Just swap the `base_url`.
 - **14 provider types** — OpenAI, Anthropic, Gemini, Groq, DeepSeek, OpenRouter, xAI, Z.ai, MiniMax, Azure OpenAI, Oracle, Ollama, vLLM, Jina
 - **Auto-discovery** — set an API key as an env var, restart, provider + all its models appear automatically
 - **Auto-fetch toggle** — disable per-provider model auto-discovery to use only explicitly configured model lists
+- **Auto-fetch filter** — restrict discovery to models matching declared conditions (e.g. `contains: free`, `max_price: 0`); filtered models are never registered
 - **Custom User-Agent** — set a custom `User-Agent` header per provider for upstream attribution or branding
 - **Provider pools** — group multiple keys/endpoints, load-balance with round-robin or weighted distribution, health-aware failover
 - **Model aliases** — rename/remap any model to a custom identifier across the entire gateway
@@ -326,7 +328,7 @@ set AURORA_MASTER_KEY=your-secure-key ^
 
 ### Option B — Docker
 
-> Published image: **`entbtw/aurora`** · tags `latest`, `v1.0.0`.
+> Published image: **`entbtw/aurora`** · tags `latest`, `v1.0.3`.
 > ```bash
 > docker pull entbtw/aurora:latest
 > ```
@@ -471,7 +473,56 @@ providers:
     models:
       - gpt-4o
       - gpt-4o-mini
+    # Optional: narrow auto-discovered models to those matching these conditions.
+    # Filtered-out models are not registered and cannot be routed to.
+    autofetch_filter:
+      mode: all            # all (AND, default) | any (OR)
+      conditions:
+        - contains: "free"     # keep only IDs containing this substring
 ```
+
+#### Auto-fetch filter
+
+`autofetch_filter` narrows the model list discovered from a provider's `/models`
+endpoint. Models that do not match the conditions are **dropped before
+registration** — they never appear in `/v1/models` and cannot be called.
+
+```yaml
+providers:
+  openrouter:
+    type: openrouter
+    api_key: "${OPENROUTER_API_KEY}"
+    autofetch_filter:
+      mode: all
+      conditions:
+        - contains: "free"          # substring match on the model ID
+        - not_contains: "preview"   # drop these
+        # - regex: "^[a-z]+/.*:free$"
+        # - max_price: 0            # free models only (input + output)
+        # - max_prompt_price: 0
+        # - max_completion_price: 0
+```
+
+Common recipes:
+
+| Goal | Filter |
+|------|--------|
+| Only OpenRouter free tier | `conditions: [{contains: ":free"}]` |
+| Only zero-price models | `conditions: [{max_price: 0}]` |
+| Any of several families | `mode: any` + one `contains` per family |
+
+Notes:
+
+- Substring conditions are case-insensitive. Conditions inside a single entry are
+  ANDed; entries combine according to `mode`.
+- Price conditions require pricing metadata. A model **without** pricing is
+  rejected rather than assumed free — `max_price: 0` can never silently expose a
+  paid model.
+- Pools can override member filters with a pool-level `autofetch_filter`.
+- Invalid configuration (bad regex, unknown mode, empty condition) is reported in
+  the logs with the provider name and leaves that provider unfiltered.
+- The same setting is available in the dashboard: **Providers → Edit → Auto-fetch
+  filter** (comma-separated substrings, e.g. `free, flash`).
 
 Multiple instances of the same provider (underscores become hyphens in the provider name):
 
