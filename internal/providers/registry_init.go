@@ -34,6 +34,7 @@ func (r *ModelRegistry) initialize(ctx context.Context) error {
 	providers, providerTypes, providerNames := r.snapshotProviders()
 	configuredProviderModels, configuredProviderModelsMode := r.snapshotConfiguredProviderModels()
 	autoFetchModels := r.snapshotProviderAutoFetchModels()
+	autoFetchFilters := r.snapshotProviderAutoFetchFilters()
 
 	fetched := r.fetchAllProviderModels(
 		ctx,
@@ -43,6 +44,7 @@ func (r *ModelRegistry) initialize(ctx context.Context) error {
 		configuredProviderModels,
 		configuredProviderModelsMode,
 		autoFetchModels,
+		autoFetchFilters,
 	)
 
 	if fetched.totalModels == 0 {
@@ -94,6 +96,7 @@ func (r *ModelRegistry) fetchAllProviderModels(
 	configuredProviderModels map[string][]string,
 	configuredProviderModelsMode config.ConfiguredProviderModelsMode,
 	autoFetchModels map[string]bool,
+	autoFetchFilters map[string]*compiledAutoFetchFilter,
 ) fetchedInventory {
 	out := fetchedInventory{
 		models:           make(map[string]*ModelInfo),
@@ -172,6 +175,12 @@ func (r *ModelRegistry) fetchAllProviderModels(
 			}
 			continue
 		}
+
+		// Narrow the discovered catalog to the operator's declared conditions.
+		// This runs before the empty check so a provider whose entire catalog
+		// is filtered away is treated as "returned no models" rather than
+		// registering models the operator explicitly excluded.
+		resp, _ = applyAutoFetchFilter(providerName, autoFetchFilters[providerName], resp)
 
 		if len(resp.Data) == 0 {
 			err := errors.New("provider returned empty model list")

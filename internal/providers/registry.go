@@ -58,6 +58,12 @@ type ModelRegistry struct {
 	// Missing entries default to true (auto-fetch enabled).
 	providerAutoFetchModels map[string]bool
 
+	// providerAutoFetchFilters holds the compiled auto-fetch filter for each
+	// provider, keyed by provider name. Missing entries mean no filtering.
+	// Filters are compiled once at registration so the fetch hot path only
+	// does matching, never regex compilation.
+	providerAutoFetchFilters map[string]*compiledAutoFetchFilter
+
 	// userOverridesPath, when non-empty, points at a YAML file of per-field
 	// metadata overrides applied on top of the model list every time the list
 	// is loaded or refreshed. Operator values win per-field. See
@@ -275,6 +281,34 @@ func (r *ModelRegistry) SetProviderAutoFetchModels(providerName string, autoFetc
 		r.providerAutoFetchModels = make(map[string]bool)
 	}
 	r.providerAutoFetchModels[providerName] = autoFetch
+}
+
+// SetProviderAutoFetchFilter records the auto-fetch filter for a provider
+// instance. The raw filter is validated and compiled here so misconfiguration
+// is reported with the provider name, and the fetch path stays allocation-free.
+// An empty filter clears any previously set filter for that provider.
+func (r *ModelRegistry) SetProviderAutoFetchFilter(providerName string, raw config.AutoFetchFilter) error {
+	providerName = strings.TrimSpace(providerName)
+	if providerName == "" {
+		return nil
+	}
+
+	compiled, err := compileAutoFetchFilter(providerName, raw)
+	if err != nil {
+		return err
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if compiled == nil {
+		delete(r.providerAutoFetchFilters, providerName)
+		return nil
+	}
+	if r.providerAutoFetchFilters == nil {
+		r.providerAutoFetchFilters = make(map[string]*compiledAutoFetchFilter)
+	}
+	r.providerAutoFetchFilters[providerName] = compiled
+	return nil
 }
 
 // RegisterProviderWithNameAndType adds a provider with a configured provider instance name and type.

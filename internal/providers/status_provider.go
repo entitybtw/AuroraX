@@ -4,6 +4,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"aurora/configuration"
 )
 
 // SanitizedRetryConfig exposes effective retry settings without secrets.
@@ -42,6 +44,7 @@ type SanitizedProviderConfig struct {
 	PoolOnly        bool                      `json:"pool_only,omitempty"`
 	UserAgent       string                    `json:"user_agent,omitempty"`
 	AutoFetchModels bool                      `json:"auto_fetch_models"`
+	AutoFetchFilter *config.AutoFetchFilter   `json:"autofetch_filter,omitempty"`
 	Resilience      SanitizedResilienceConfig `json:"resilience"`
 }
 
@@ -109,6 +112,7 @@ func SanitizeProviderConfigs(configs map[string]ProviderConfig) []SanitizedProvi
 			PoolOnly:        cfg.PoolOnly,
 			UserAgent:       strings.TrimSpace(cfg.UserAgent),
 			AutoFetchModels: cfg.AutoFetchModels == nil || *cfg.AutoFetchModels,
+			AutoFetchFilter: sanitizedAutoFetchFilter(cfg.AutoFetchFilter),
 			Resilience: SanitizedResilienceConfig{
 				Retry: SanitizedRetryConfig{
 					MaxRetries:     cfg.Resilience.Retry.MaxRetries,
@@ -135,4 +139,15 @@ func timePtrUTC(t time.Time) *time.Time {
 	}
 	value := t.UTC()
 	return &value
+}
+
+// sanitizedAutoFetchFilter converts a value filter into an optional pointer so
+// an unset filter is omitted from the admin JSON payload instead of rendering
+// as an empty object.
+func sanitizedAutoFetchFilter(in config.AutoFetchFilter) *config.AutoFetchFilter {
+	if in.IsZero() {
+		return nil
+	}
+	out := in
+	return &out
 }
