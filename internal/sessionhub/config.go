@@ -78,7 +78,7 @@ func defaultHeaderRules() []HeaderRule {
 	return []HeaderRule{
 		{
 			Name:   "x-",
-			Mode:   HeaderModeMap,
+			Mode:   HeaderModeMapOrGenerate,
 			Prefix: "ses_",
 			Length: 32,
 		},
