@@ -236,7 +236,7 @@ export function SessionHubTab(): JSX.Element {
   const [newName, setNewName] = useState("");
   const [newEnabled, setNewEnabled] = useState(true);
   const [newHeaders, setNewHeaders] = useState<HeaderRule[]>([
-    { name: "x-opencode-session", mode: "map", prefix: "ses_", length: 28, value: "", values: [] },
+    { name: "x-opencode-session", mode: "map_or_generate", prefix: "ses_", length: 28, value: "", values: [] },
   ]);
 
   const poolQuery = usePools();
@@ -262,7 +262,7 @@ export function SessionHubTab(): JSX.Element {
         onSuccess: () => {
           setNewName("");
           setNewEnabled(true);
-          setNewHeaders([{ name: "x-opencode-session", mode: "map", prefix: "ses_", length: 28, value: "", values: [] }]);
+          setNewHeaders([{ name: "x-opencode-session", mode: "map_or_generate", prefix: "ses_", length: 28, value: "", values: [] }]);
           setShowAdd(false);
         },
       }
@@ -569,8 +569,8 @@ export function SessionHubTab(): JSX.Element {
                           onChange={(e) => updateHeaderRule(idx, "mode", e.target.value)}
                           className="border border-border/60 bg-surface px-3 py-2 text-[13px] text-foreground rounded"
                         >
+                          <option value="map_or_generate">Map or Generate (Recommended)</option>
                           <option value="map">Map (unique per provider)</option>
-                          <option value="map_or_generate">Map or Generate (map if present, generate if absent)</option>
                           <option value="generate">Generate (fresh each time)</option>
                           <option value="passthrough">Passthrough</option>
                           <option value="static">Static value</option>
