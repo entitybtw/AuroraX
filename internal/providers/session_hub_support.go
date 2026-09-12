@@ -10,8 +10,8 @@ import (
 // WrapHeaderSetterWithSessionHub wraps an existing headerSetter so session hub
 // transformations are applied to the outbound request. Before transforming,
 // any relevant inbound session headers forwarded on the request context are
-// copied onto the outbound request so "map" mode can resolve a stable
-// per-provider value rather than only generating fresh ones.
+// copied onto the outbound request so "map" / "map_or_generate" mode can
+// resolve a stable per-provider value rather than only generating fresh ones.
 func WrapHeaderSetterWithSessionHub(original func(req *http.Request), providerName string, sessionHub SessionHubTransformer) func(req *http.Request) {
 	if sessionHub == nil {
 		return original
