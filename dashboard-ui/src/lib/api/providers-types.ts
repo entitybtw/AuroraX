@@ -33,6 +33,20 @@ export const SanitizedResilienceConfigSchema = z.object({
   circuit_breaker: SanitizedCircuitBreakerConfigSchema.default({}),
 });
 
+export const AutoFetchFilterConditionSchema = z.object({
+  contains: z.string().optional(),
+  not_contains: z.string().optional(),
+  regex: z.string().optional(),
+  max_price: z.number().optional(),
+  max_prompt_price: z.number().optional(),
+  max_completion_price: z.number().optional(),
+});
+
+export const AutoFetchFilterSchema = z.object({
+  mode: z.enum(["all", "any"]).optional(),
+  conditions: z.array(AutoFetchFilterConditionSchema).optional(),
+});
+
 export const SanitizedProviderConfigSchema = z.object({
   name: z.string(),
   type: z.string(),
@@ -46,6 +60,7 @@ export const SanitizedProviderConfigSchema = z.object({
   pool_only: z.boolean().optional(),
   user_agent: z.string().optional(),
   auto_fetch_models: z.boolean().optional(),
+  autofetch_filter: AutoFetchFilterSchema.nullable().optional(),
   resilience: SanitizedResilienceConfigSchema.optional(),
 });
 export type SanitizedProviderConfig = z.infer<typeof SanitizedProviderConfigSchema>;

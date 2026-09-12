@@ -50,6 +50,29 @@ func applyPoolAutoFetchOverrides(registry *ModelRegistry, rawPools map[string]co
 	}
 }
 
+// applyPoolAutoFetchFilterOverrides applies pool-level autofetch_filter settings
+// to the registry. When a pool declares a filter, it replaces each member's own
+// filter so all members of the pool expose the same view of the upstream catalog.
+func applyPoolAutoFetchFilterOverrides(registry *ModelRegistry, rawPools map[string]config.RawPoolConfig) {
+	for poolName, raw := range rawPools {
+		if raw.AutoFetchFilter == nil || raw.AutoFetchFilter.IsZero() {
+			continue
+		}
+		for _, memberName := range raw.Members {
+			memberName = strings.TrimSpace(memberName)
+			if memberName == "" {
+				continue
+			}
+			if err := registry.SetProviderAutoFetchFilter(memberName, *raw.AutoFetchFilter); err != nil {
+				slog.Error("invalid pool autofetch_filter ignored",
+					"pool", poolName,
+					"member", memberName,
+					"error", err)
+			}
+		}
+	}
+}
+
 // providerTypeCapabilities maps a provider's type string to the pool
 // capabilities it supports. This is used at pool build time to annotate
 // pool members so that the router can filter by capability during dispatch.
