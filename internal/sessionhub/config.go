@@ -108,8 +108,13 @@ func normalizeConfig(cfg *HubConfig) {
 	if cfg.Providers == nil {
 		cfg.Providers = make(map[string]ProviderRule)
 	}
-	// Apply defaults: for any provider without explicit headers, add
-	// the default x-opencode-session mapping rule.
+}
+
+// applyDefaults injects sensible default header rules for any provider
+// that has an empty Headers slice. Called only for fresh (non-persisted)
+// configs so loaded-on-disk rules are never silently mutated.
+func applyDefaults(cfg *HubConfig) {
+	normalizeConfig(cfg)
 	for name, rule := range cfg.Providers {
 		if len(rule.Headers) == 0 {
 			rule.Enabled = true
