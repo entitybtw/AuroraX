@@ -189,7 +189,7 @@ providers:
     enabled: true
     headers:
       - name: x-opencode-session
-        mode: map              # stable inbound→outbound per provider
+        mode: map_or_generate  # recommended: map when present, generate when absent
         prefix: "ses_"
         length: 28
       - name: x-opencode-client
@@ -219,7 +219,7 @@ providers:
 | Mode | Behavior |
 |------|----------|
 | `map` | First request generates unique outbound value per provider; subsequent requests with same inbound reuse it |
-| `map_or_generate` | Like `map` but falls back to `generate` when the inbound header is absent — ideal for OpenCode CLI clients |
+| `map_or_generate` | **(default)** Like `map` but falls back to `generate` when the inbound header is absent — ideal for OpenCode CLI clients |
 | `generate` | Fresh random value every request |
 | `passthrough` | Original value forwarded unchanged |
 | `static` | Fixed value (set `value:`) |

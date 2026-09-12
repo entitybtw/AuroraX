@@ -78,7 +78,7 @@ func defaultHeaderRules() []HeaderRule {
 	return []HeaderRule{
 		{
 			Name:   "x-opencode-session",
-			Mode:   HeaderModeMap,
+			Mode:   HeaderModeMapOrGenerate,
 			Prefix: "ses_",
 			Length: 32,
 		},
