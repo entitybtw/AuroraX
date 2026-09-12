@@ -272,6 +272,19 @@ func (r *ModelRegistry) snapshotConfiguredProviderModels() (map[string][]string,
 	return out, mode
 }
 
+func (r *ModelRegistry) snapshotProviderAutoFetchFilters() map[string]*compiledAutoFetchFilter {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if len(r.providerAutoFetchFilters) == 0 {
+		return nil
+	}
+	out := make(map[string]*compiledAutoFetchFilter, len(r.providerAutoFetchFilters))
+	for provider, filter := range r.providerAutoFetchFilters {
+		out[provider] = filter
+	}
+	return out
+}
+
 func (r *ModelRegistry) snapshotProviderAutoFetchModels() map[string]bool {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

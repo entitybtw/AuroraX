@@ -5,9 +5,32 @@ import { Switch } from "@/components/ui/switch";
 import { RuntimeStatusBadge, useSettings, StatusChip } from "./SettingsContext";
 import { ServerIcon, RefreshCwIcon, PlusIcon, Edit3Icon, Trash2Icon, SaveIcon, XIcon } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchProviderStatus, createProvider, updateProvider, deleteProvider, setProviderEnabled, type ProviderFormData, type ProviderStatusResponse } from "@/lib/api/providers";
+import { fetchProviderStatus, createProvider, updateProvider, deleteProvider, setProviderEnabled, type ProviderFormData, type AutoFetchFilter, type ProviderStatusResponse } from "@/lib/api/providers";
 import { withBasePath } from "@/lib/basepath";
 import { useState } from "react";
+
+// filterToText renders an AutoFetchFilter into the simple comma-separated form
+// the provider form edits. Only `contains` conditions are representable; a
+// filter using regex or price rules is left untouched on save (see
+// textToFilter's guard) so the UI never silently drops advanced conditions.
+function filterToText(filter?: AutoFetchFilter | null): string {
+  if (!filter?.conditions?.length) return "";
+  return filter.conditions
+    .map((condition) => condition.contains ?? "")
+    .filter((value) => value !== "")
+    .join(", ");
+}
+
+// textToFilter parses the comma-separated text back into a filter. An empty
+// string clears the filter (returns null).
+function textToFilter(text: string): AutoFetchFilter | null {
+  const values = text
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => value !== "");
+  if (values.length === 0) return null;
+  return { mode: "all", conditions: values.map((value) => ({ contains: value })) };
+}
 
 const PROVIDER_LOGOS: Record<string, string> = {
   alicode: "alicode.png",
@@ -109,14 +132,23 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
     setSaving(true);
     setError(null);
     try {
+      // Strip the form-only text field and convert it into the API's structured
+      // filter. Advanced filters (regex/price) set outside the UI are preserved
+      // when the text field is empty.
+      const { autofetch_filter_text, ...rest } = form;
+      const text = (autofetch_filter_text ?? "").trim();
+      const payload = {
+        ...rest,
+        autofetch_filter: text === "" ? (initial?.autofetch_filter ?? null) : textToFilter(text),
+      };
       if (mode === "add") {
-        await createProvider(form);
+        await createProvider(payload);
       } else {
         const originalName = initial?.originalName ?? form.name;
         if (originalName && form.name !== originalName) {
-          await updateProvider(originalName, { ...form, new_name: form.name });
+          await updateProvider(originalName, { ...payload, new_name: form.name });
         } else {
-          await updateProvider(originalName, form);
+          await updateProvider(originalName, payload);
         }
       }
       onSaved();
@@ -201,6 +233,12 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
               onCheckedChange={(v) => setForm({ ...form, auto_fetch_models: v })}
               aria-label="Auto-fetch models"
             />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Auto-fetch filter</label>
+            <Input type="text" placeholder="free, flash" value={form.autofetch_filter_text ?? ""}
+              onChange={(e) => setForm({ ...form, autofetch_filter_text: e.target.value })} />
+            <div className="text-[11px] text-muted-foreground">Comma-separated substrings. Only models whose ID contains every value are kept; everything else is dropped and cannot be routed to. Leave empty to keep all discovered models.</div>
           </div>
           <div className="flex items-center justify-between gap-3 border border-border/40 bg-background/30 px-3 py-2.5">
             <div className="flex flex-col gap-1 pr-2">
@@ -359,7 +397,7 @@ export function ProvidersTab(): JSX.Element {
                         aria-label={`Toggle provider ${provider.name}`}
                         title={`${provider.config?.enabled === false ? "Enable" : "Disable"} ${provider.name}`}
                       />
-                      <button onClick={() => { setEditingProvider({ name: provider.name, originalName: provider.name, type: provider.config?.type || provider.type || "", base_url: provider.config?.base_url || "", api_version: provider.config?.api_version || "", api_key: provider.config?.api_key || "",                          models: provider.config?.models?.join(", ") || "", bind_ip: provider.config?.bind_ip || "", pool_only: provider.config?.pool_only ?? false, user_agent: provider.config?.user_agent || "", auto_fetch_models: provider.config?.auto_fetch_models ?? true, apiKeySet: provider.config?.api_key_set ?? false }); setModalOpen("edit"); }} className="p-1.5 hover:bg-border/20 transition-colors" title="Edit provider">
+                      <button onClick={() => { setEditingProvider({ name: provider.name, originalName: provider.name, type: provider.config?.type || provider.type || "", base_url: provider.config?.base_url || "", api_version: provider.config?.api_version || "", api_key: provider.config?.api_key || "",                          models: provider.config?.models?.join(", ") || "", bind_ip: provider.config?.bind_ip || "", pool_only: provider.config?.pool_only ?? false, user_agent: provider.config?.user_agent || "", auto_fetch_models: provider.config?.auto_fetch_models ?? true, autofetch_filter_text: filterToText(provider.config?.autofetch_filter), apiKeySet: provider.config?.api_key_set ?? false }); setModalOpen("edit"); }} className="p-1.5 hover:bg-border/20 transition-colors" title="Edit provider">
                         <Edit3Icon className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
                       <button onClick={() => setDeleteConfirm(provider.name)} className="p-1.5 hover:bg-destructive/10 transition-colors" title="Delete provider">
