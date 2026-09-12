@@ -181,3 +181,79 @@ func TestStoreMemoryToggle(t *testing.T) {
 		t.Fatalf("expected disk after enable, got %s", s.StorageMode())
 	}
 }
+
+func TestHubApply_MapOrGenerate_WithSession(t *testing.T) {
+	cfg := &HubConfig{
+		Enabled: true,
+		Providers: map[string]ProviderRule{
+			"acc1": {
+				Enabled: true,
+				Headers: []HeaderRule{{
+					Name:   "x-opencode-session",
+					Mode:   HeaderModeMapOrGenerate,
+					Prefix: "ses_",
+					Length: 28,
+				}},
+			},
+		},
+	}
+	h := New(cfg)
+
+	inbound := "ses_client_existing"
+	re := regexp.MustCompile(`^ses_[A-Za-z0-9]{28}$`)
+
+	hd := http.Header{}
+	hd.Set("x-opencode-session", inbound)
+	res := h.Apply(hd, "acc1")
+	if res == nil {
+		t.Fatal("expected a mapping for acc1")
+	}
+	out := hd.Get("x-opencode-session")
+	if !re.MatchString(out) {
+		t.Fatalf("outbound not alphanumeric 28: got %q", out)
+	}
+
+	hd2 := http.Header{}
+	hd2.Set("x-opencode-session", inbound)
+	h.Apply(hd2, "acc1")
+	if got := hd2.Get("x-opencode-session"); got != out {
+		t.Fatalf("stable mapping expected: first %q then %q", out, got)
+	}
+}
+
+func TestHubApply_MapOrGenerate_WithoutSession(t *testing.T) {
+	cfg := &HubConfig{
+		Enabled: true,
+		Providers: map[string]ProviderRule{
+			"acc1": {
+				Enabled: true,
+				Headers: []HeaderRule{{
+					Name:   "x-opencode-session",
+					Mode:   HeaderModeMapOrGenerate,
+					Prefix: "ses_",
+					Length: 28,
+				}},
+			},
+		},
+	}
+	h := New(cfg)
+
+	re := regexp.MustCompile(`^ses_[A-Za-z0-9]{28}$`)
+
+	hd := http.Header{}
+	res := h.Apply(hd, "acc1")
+	if res == nil {
+		t.Fatal("expected a generated value for acc1")
+	}
+	out := hd.Get("x-opencode-session")
+	if !re.MatchString(out) {
+		t.Fatalf("generated value not alphanumeric 28: got %q", out)
+	}
+
+	hd2 := http.Header{}
+	h.Apply(hd2, "acc1")
+	out2 := hd2.Get("x-opencode-session")
+	if out == out2 {
+		t.Fatalf("generate mode should produce fresh values, got same %q twice", out)
+	}
+}

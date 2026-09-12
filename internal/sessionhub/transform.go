@@ -37,6 +37,24 @@ func Transform(headers http.Header, provider string, rule ProviderRule, store *S
 			headers.Set(name, outbound)
 			result[name] = outbound
 
+		case HeaderModeMapOrGenerate:
+			prefix := hr.Prefix
+			if prefix == "" {
+				prefix = "ses_"
+			}
+			length := hr.Length
+			if length <= 0 {
+				length = 28
+			}
+			var outbound string
+			if inbound != "" {
+				outbound = store.GetOrCreate(provider, inbound, prefix, length)
+			} else {
+				outbound = GenerateValue(prefix, length)
+			}
+			headers.Set(name, outbound)
+			result[name] = outbound
+
 		case HeaderModeGenerate:
 			prefix := hr.Prefix
 			if prefix == "" {

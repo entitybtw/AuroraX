@@ -330,7 +330,8 @@ func ValidateRule(name string, rule ProviderRule) error {
 		}
 		switch hr.Mode {
 		case HeaderModeGenerate, HeaderModePassthrough, HeaderModeStatic,
-			HeaderModeRandomFromList, HeaderModeRemove, HeaderModeMap:
+			HeaderModeRandomFromList, HeaderModeRemove, HeaderModeMap,
+			HeaderModeMapOrGenerate:
 			// ok
 		case "":
 			return fmt.Errorf("provider %q, header %q: mode is required", name, hr.Name)

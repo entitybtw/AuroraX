@@ -33,6 +33,10 @@ const (
 	// HeaderModeMap maps the inbound value to a stored unique outbound value
 	// (auto-generates on first encounter, reuses thereafter).
 	HeaderModeMap HeaderMode = "map"
+	// HeaderModeMapOrGenerate is like "map" but falls back to "generate" when
+	// the inbound header is absent — useful for clients like the OpenCode CLI
+	// that only sometimes send a session header.
+	HeaderModeMapOrGenerate HeaderMode = "map_or_generate"
 )
 
 // HeaderRule defines transformation for a single header.

@@ -17,6 +17,7 @@ It is built to be fast: the hot path is a single lock-free map read (microns). C
 | Mode | Behavior |
 |------|----------|
 | `map` | Request1 → generate a unique outbound value per provider, remember it. Later requests with the same inbound reuse the stored value. |
+| `map_or_generate` | Like `map`, but when the inbound header is absent a fresh value is generated instead of being skipped. Ideal for clients like the OpenCode CLI that only sometimes send a session header. |
 | `generate` | Fresh random value on every request. |
 | `passthrough` | Forward the original value unchanged. |
 | `static` | Fixed value (config via `value`). |

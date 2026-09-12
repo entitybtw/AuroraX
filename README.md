@@ -158,7 +158,7 @@ No SDK changes. No format changes. Just swap the `base_url`.
 Header transformation engine for API integration workflows where upstream services require unique client identifiers per account.
 
 - **Per-provider/pool binding** — attach transformation rules to specific providers, pools, fallbacks, or all targets (`*`)
-- **6 header modes** — `map` (stable inbound→outbound per provider), `generate` (fresh ID each request), `passthrough`, `static`, `random_from_list`, `remove`
+- **7 header modes** — `map` (stable inbound→outbound per provider), `map_or_generate` (map when present, generate fresh when absent), `generate` (fresh ID each request), `passthrough`, `static`, `random_from_list`, `remove`
 - **Pool-aware** — rules bound to a pool automatically apply to all member providers
 - **Inbound header forwarding** — client session headers are forwarded through the translation layer so `map` mode works even when the provider path drops arbitrary inbound headers
 - **Lock-free hot path** — `Apply()` is a single atomic map read; benchmarked at ~495 ns/op (negligible)
@@ -172,8 +172,9 @@ Header transformation engine for API integration workflows where upstream servic
 3. Request is routed to a pool member (e.g. `opencode-zen` → `vllm-zen-backup`)
 4. Provider's outbound `headerSetter` fires: session hub applies rules for that provider/pool
 5. `map` mode: inbound `ses_abc123` → unique outbound `ses_xR4f8k2m...` per provider (stable, deduplicated)
-6. `generate` mode: fresh random `ses_...` per request (always unique)
-7. Additional headers (`x-opencode-client`, `user-agent`) are injected per rule
+6. `map_or_generate` mode: same as `map` when inbound is present; generates fresh `ses_...` when absent (for OpenCode CLI sessions)
+7. `generate` mode: fresh random `ses_...` per request (always unique)
+8. Additional headers (`x-opencode-client`, `user-agent`) are injected per rule
 8. Outbound request goes to upstream with transformed headers
 
 #### Config
@@ -218,6 +219,7 @@ providers:
 | Mode | Behavior |
 |------|----------|
 | `map` | First request generates unique outbound value per provider; subsequent requests with same inbound reuse it |
+| `map_or_generate` | Like `map` but falls back to `generate` when the inbound header is absent — ideal for OpenCode CLI clients |
 | `generate` | Fresh random value every request |
 | `passthrough` | Original value forwarded unchanged |
 | `static` | Fixed value (set `value:`) |

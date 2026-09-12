@@ -570,6 +570,7 @@ export function SessionHubTab(): JSX.Element {
                           className="border border-border/60 bg-surface px-3 py-2 text-[13px] text-foreground rounded"
                         >
                           <option value="map">Map (unique per provider)</option>
+                          <option value="map_or_generate">Map or Generate (map if present, generate if absent)</option>
                           <option value="generate">Generate (fresh each time)</option>
                           <option value="passthrough">Passthrough</option>
                           <option value="static">Static value</option>
@@ -585,7 +586,7 @@ export function SessionHubTab(): JSX.Element {
                       </div>
 
                       {/* Mode-specific options */}
-                      {(hr.mode === "map" || hr.mode === "generate") && (
+                      {(hr.mode === "map" || hr.mode === "generate" || hr.mode === "map_or_generate") && (
                         <div className="flex items-center gap-2 text-[12px]">
                           <div className="flex items-center gap-1">
                             <span className="text-muted-foreground">Prefix:</span>
