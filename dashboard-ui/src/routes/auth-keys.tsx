@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { PlusIcon, CopyIcon, CheckIcon, ShieldAlertIcon, BarChart3Icon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { PlusIcon, CopyIcon, CheckIcon, ShieldAlertIcon, BarChart3Icon, ChevronLeftIcon, ChevronRightIcon, Trash2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -236,6 +236,7 @@ export function AuthKeysPage(): JSX.Element {
                           onClick={() => bulk.toggle(key.id)}
                         />
                       </Td>
+                      <Td>
                         <div className="flex flex-col gap-1">
                           <span className="font-semibold text-[14px] text-foreground">{key.name}</span>
                           {key.description && <span className="text-[12px] text-muted-foreground max-w-[200px] truncate" title={key.description}>{key.description}</span>}
