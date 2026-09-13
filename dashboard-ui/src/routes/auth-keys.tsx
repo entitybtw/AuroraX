@@ -96,6 +96,7 @@ export function AuthKeysPage(): JSX.Element {
   const totalPages = Math.max(1, Math.ceil(keys.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const paginatedKeys = keys.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const allIds = useMemo(() => paginatedKeys.map((k) => k.id), [paginatedKeys]);
   React.useEffect(() => { setPage(1); }, [keys.length]);
   const providerOptions = uniqueSorted([
     ...(providerStatus?.providers || []).map((provider) => provider.name),
@@ -205,7 +206,7 @@ export function AuthKeysPage(): JSX.Element {
                     <SelectCheckbox
                       checked={bulk.allSelected(paginatedKeys.map((k) => k.id))}
                       indeterminate={bulk.someSelected(paginatedKeys.map((k) => k.id))}
-                      onClick={() => bulk.toggleAll(paginatedKeys.map((k) => k.id))}
+                      onClick={(e: React.MouseEvent) => e.shiftKey ? null : bulk.toggleAll(allIds)}
                     />
                   </Th>
                   <Th>Name & Description</Th>
@@ -233,7 +234,7 @@ export function AuthKeysPage(): JSX.Element {
                       <Td>
                         <SelectCheckbox
                           checked={bulk.isSelected(key.id)}
-                          onClick={() => bulk.toggle(key.id)}
+                          onClick={(e: React.MouseEvent) => e.shiftKey ? bulk.rangeSelect(key.id, allIds) : bulk.toggle(key.id)}
                         />
                       </Td>
                       <Td>

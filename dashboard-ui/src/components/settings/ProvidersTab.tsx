@@ -7,7 +7,7 @@ import { ServerIcon, RefreshCwIcon, PlusIcon, Edit3Icon, Trash2Icon, SaveIcon, X
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchProviderStatus, createProvider, updateProvider, deleteProvider, setProviderEnabled, type ProviderFormData, type AutoFetchFilter, type ProviderStatusResponse } from "@/lib/api/providers";
 import { withBasePath } from "@/lib/basepath";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 
 // filterToText renders an AutoFetchFilter into the simple comma-separated form
 // the provider form edits. Only `contains` conditions are representable; a
@@ -400,15 +400,35 @@ export function ProvidersTab(): JSX.Element {
   const allSelected = providers.length > 0 && providers.every((p) => selected.has(p.name));
   const someSelected = providers.some((p) => selected.has(p.name)) && !allSelected;
 
-  const toggleSelectAll = useCallback(() => {
+  const allIds = useMemo(() => providers.map((p) => p.name), [providers]);
+  const lastClickedRef = useRef<string | null>(null);
+
+  const toggleSelectAll = useCallback((_e?: React.MouseEvent) => {
     if (allSelected) {
       setSelected(new Set());
     } else {
       setSelected(new Set(providers.map((p) => p.name)));
     }
+    lastClickedRef.current = null;
   }, [allSelected, providers]);
 
-  const toggleSelect = useCallback((name: string) => {
+  const toggleSelect = useCallback((name: string, e?: React.MouseEvent) => {
+    if (e?.shiftKey && lastClickedRef.current !== null && lastClickedRef.current !== name) {
+      const fromIdx = allIds.indexOf(lastClickedRef.current);
+      const toIdx = allIds.indexOf(name);
+      if (fromIdx !== -1 && toIdx !== -1) {
+        const start = Math.min(fromIdx, toIdx);
+        const end = Math.max(fromIdx, toIdx);
+        const range = allIds.slice(start, end + 1);
+        setSelected((prev) => {
+          const next = new Set(prev);
+          for (const rid of range) next.add(rid);
+          return next;
+        });
+        lastClickedRef.current = name;
+        return;
+      }
+    }
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(name)) {
@@ -418,7 +438,8 @@ export function ProvidersTab(): JSX.Element {
       }
       return next;
     });
-  }, []);
+    lastClickedRef.current = name;
+  }, [allIds]);
 
 
   const handleBulkAction = () => {
@@ -527,7 +548,7 @@ export function ProvidersTab(): JSX.Element {
               {/* Select-all header */}
               <div className="col-span-full flex items-center gap-2 px-1">
                 <button
-                  onClick={toggleSelectAll}
+                  onClick={(e: React.MouseEvent) => toggleSelectAll(e)}
                   className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {allSelected ? (
@@ -555,7 +576,7 @@ export function ProvidersTab(): JSX.Element {
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                       <button
-                        onClick={() => toggleSelect(provider.name)}
+                        onClick={(e: React.MouseEvent) => toggleSelect(provider.name, e)}
                         className="shrink-0 p-0.5 hover:bg-border/20 transition-colors"
                         title={selected.has(provider.name) ? "Deselect" : "Select"}
                       >

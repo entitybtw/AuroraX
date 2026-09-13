@@ -364,13 +364,14 @@ function PoolSelector({
   bulk: ReturnType<typeof useBulkSelection<string>>;
 }) {
   const poolNames = pools.map((p) => p.name);
+  const allIds = poolNames;
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-1 overflow-x-auto border border-border/40 bg-surface p-1">
         <SelectCheckbox
           checked={bulk.allSelected(poolNames)}
           indeterminate={bulk.someSelected(poolNames)}
-          onClick={() => bulk.toggleAll(poolNames)}
+          onClick={(e: React.MouseEvent) => e.shiftKey ? null : bulk.toggleAll(allIds)}
           title="Select all pools"
         />
       {pools.map((pool, i) => {
@@ -394,7 +395,7 @@ function PoolSelector({
             >
               <SelectCheckbox
                 checked={bulk.isSelected(pool.name)}
-                onClick={() => bulk.toggle(pool.name)}
+                onClick={(e: React.MouseEvent) => e.shiftKey ? bulk.rangeSelect(pool.name, allIds) : bulk.toggle(pool.name)}
               />
             </span>
             <span

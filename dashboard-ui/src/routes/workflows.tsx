@@ -323,7 +323,7 @@ export function WorkflowsPage(): JSX.Element {
             <SelectCheckbox
               checked={bulkDeactivatableIds.length > 0 && bulk.allSelected(bulkDeactivatableIds)}
               indeterminate={bulk.someSelected(bulkDeactivatableIds)}
-              onClick={() => bulk.toggleAll(bulkDeactivatableIds)}
+              onClick={(e: React.MouseEvent) => e.shiftKey ? null : bulk.toggleAll(bulkDeactivatableIds)}
               title="Select all"
             />
             <span className="text-xs text-muted-foreground">Select all</span>
@@ -344,7 +344,7 @@ export function WorkflowsPage(): JSX.Element {
                         {canBulkDeactivate && (
                           <SelectCheckbox
                             checked={bulk.isSelected(w.id)}
-                            onClick={() => bulk.toggle(w.id)}
+                            onClick={(e: React.MouseEvent) => e.shiftKey ? bulk.rangeSelect(w.id, bulkDeactivatableIds) : bulk.toggle(w.id)}
                             title={`Select ${w.name || getScopeLabel(w)}`}
                           />
                         )}
