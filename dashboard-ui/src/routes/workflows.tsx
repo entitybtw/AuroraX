@@ -429,7 +429,7 @@ export function WorkflowsPage(): JSX.Element {
       )}
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="sm:max-w-[200vh] w-full max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-y-auto">
           <form onSubmit={handleSubmit}>
             <DialogHeader>
               <DialogTitle>{formMode === "edit" ? "Edit Workflow" : "Create Workflow"}</DialogTitle>

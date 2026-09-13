@@ -384,7 +384,7 @@ export function GuardrailsPage(): JSX.Element {
       )}
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-4xl sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-full sm:max-w-4xl max-h-[85vh] overflow-y-auto">
           <form onSubmit={handleSubmit}>
             <DialogHeader>
               <DialogTitle>{formMode === "edit" ? "Edit Guardrail" : "Create Guardrail"}</DialogTitle>
