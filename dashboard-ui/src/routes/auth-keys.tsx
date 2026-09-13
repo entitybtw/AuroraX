@@ -201,11 +201,11 @@ export function AuthKeysPage(): JSX.Element {
             <DataTable>
               <thead className="bg-surface-hover/30 backdrop-blur-sm">
                 <tr>
-                  <Th className="w-10">
+                   <Th className="w-10">
                     <SelectCheckbox
                       checked={bulk.allSelected(paginatedKeys.map((k) => k.id))}
                       indeterminate={bulk.someSelected(paginatedKeys.map((k) => k.id))}
-                      onCheckedChange={() => bulk.toggleAll(paginatedKeys.map((k) => k.id))}
+                      onClick={() => bulk.toggleAll(paginatedKeys.map((k) => k.id))}
                     />
                   </Th>
                   <Th>Name & Description</Th>
@@ -233,7 +233,7 @@ export function AuthKeysPage(): JSX.Element {
                       <Td>
                         <SelectCheckbox
                           checked={bulk.isSelected(key.id)}
-                          onCheckedChange={() => bulk.toggle(key.id)}
+                          onClick={() => bulk.toggle(key.id)}
                         />
                       </Td>
                         <div className="flex flex-col gap-1">
@@ -298,17 +298,13 @@ export function AuthKeysPage(): JSX.Element {
             </DataTable>
           </TableWrap>
           <BulkActionsBar
-            selectedCount={bulk.selectedCount}
+            count={bulk.selectedCount}
             onClear={bulk.clear}
-            actions={[
-              {
-                label: "Deactivate",
-                variant: "destructive" as const,
-                onClick: bulkDeactivate,
-                disabled: deactivateMutation.isPending,
-              },
-            ]}
-          />
+          >
+            <Button size="sm" variant="outline" onClick={bulkDeactivate} disabled={deactivateMutation.isPending} className="text-[11px] h-7 shrink-0 text-destructive hover:bg-destructive/10">
+              <Trash2Icon className="mr-1 h-3 w-3" /> Deactivate
+            </Button>
+          </BulkActionsBar>
           {totalPages > 1 && (
             <div className="flex items-center justify-between border-t border-border/40 px-4 py-3">
               <span className="text-[12px] text-muted-foreground">
