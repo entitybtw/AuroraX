@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ToggleField } from "@/components/ui/toggle-field";
 import {
   Dialog,
@@ -67,6 +68,9 @@ export function PoolsPage(): JSX.Element {
   const [error, setError] = React.useState("");
   const [notice, setNotice] = React.useState("");
   const bulk = useBulkSelection<string>();
+  const [bulkEditField, setBulkEditField] = React.useState<"strategy" | "health_aware" | "user_agent" | "auto_fetch_models" | null>(null);
+  const [bulkEditValue, setBulkEditValue] = React.useState("");
+  const [bulkEditSaving, setBulkEditSaving] = React.useState(false);
 
   const poolList = pools.data?.pools ?? [];
   const selected = poolList[selectedIdx] ?? null;
@@ -185,6 +189,41 @@ export function PoolsPage(): JSX.Element {
     }
   }
 
+  async function handleBulkEdit(): Promise<void> {
+    if (!bulkEditField || bulk.selectedCount === 0) return;
+    setBulkEditSaving(true);
+    try {
+      setError("");
+      for (const name of bulk.selected) {
+        const pool = poolList.find((p) => p.name === name);
+        if (!pool) continue;
+        const payload: PoolConfigPayload = {
+          name: pool.name,
+          members: pool.members.map((m) => m.provider_name),
+          strategy: pool.strategy as PoolConfigPayload["strategy"],
+          health_aware: pool.health_aware,
+          auto_fetch_models: pool.auto_fetch_models ?? true,
+          ...(pool.user_agent ? { user_agent: pool.user_agent } : {}),
+          ...(pool.strategy === "weighted" ? { weights: Object.fromEntries(pool.members.map((m) => [m.provider_name, m.weight])) } : {}),
+        };
+        if (bulkEditField === "strategy") payload.strategy = bulkEditValue as PoolConfigPayload["strategy"];
+        else if (bulkEditField === "health_aware") payload.health_aware = bulkEditValue === "true";
+        else if (bulkEditField === "user_agent") payload.user_agent = bulkEditValue;
+        else if (bulkEditField === "auto_fetch_models") payload.auto_fetch_models = bulkEditValue === "true";
+        await updatePool(name, payload);
+      }
+      bulk.clear();
+      setBulkEditField(null);
+      setBulkEditValue("");
+      setNotice(`Updated ${bulk.selectedCount} pool${bulk.selectedCount !== 1 ? "s" : ""}.`);
+      await pools.refetch();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to update pools.");
+    } finally {
+      setBulkEditSaving(false);
+    }
+  }
+
   if (pools.isLoading && !pools.data) return <LoadingState />;
   if (pools.error) return <ErrorState message={pools.error.message} />;
 
@@ -219,11 +258,58 @@ export function PoolsPage(): JSX.Element {
             bulk={bulk}
           />
           <BulkActionsBar count={bulk.selectedCount} onClear={bulk.clear}>
-            <Button size="sm" variant="destructive" onClick={() => void bulkDelete()}>
-              <Trash2 className="h-3.5 w-3.5" />
-              Delete
+            <Button size="sm" variant="outline" onClick={() => { setBulkEditField("strategy"); setBulkEditValue("round_robin"); }} className="text-[11px] h-7 shrink-0">
+              Set Strategy
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => { setBulkEditField("health_aware"); setBulkEditValue("true"); }} className="text-[11px] h-7 shrink-0">
+              Health-aware On
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => { setBulkEditField("health_aware"); setBulkEditValue("false"); }} className="text-[11px] h-7 shrink-0">
+              Health-aware Off
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => { setBulkEditField("auto_fetch_models"); setBulkEditValue("true"); }} className="text-[11px] h-7 shrink-0">
+              Auto-fetch On
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => { setBulkEditField("auto_fetch_models"); setBulkEditValue("false"); }} className="text-[11px] h-7 shrink-0">
+              Auto-fetch Off
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => { setBulkEditField("user_agent"); setBulkEditValue(""); }} className="text-[11px] h-7 shrink-0">
+              Set User Agent
+            </Button>
+            <Button size="sm" variant="destructive" onClick={() => void bulkDelete()} className="text-[11px] h-7 shrink-0">
+              <Trash2 className="mr-1 h-3 w-3" /> Delete
             </Button>
           </BulkActionsBar>
+
+          {bulkEditField && (
+            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setBulkEditField(null)}>
+              <div className="w-full sm:max-w-md border border-border/60 bg-surface p-4 sm:p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                <h3 className="font-semibold text-[15px] tracking-tight text-foreground mb-1">
+                  {bulkEditField === "strategy" && "Set Strategy"}
+                  {bulkEditField === "health_aware" && (bulkEditValue === "true" ? "Enable Health-aware" : "Disable Health-aware")}
+                  {bulkEditField === "user_agent" && "Set User Agent"}
+                  {bulkEditField === "auto_fetch_models" && (bulkEditValue === "true" ? "Enable Auto-fetch" : "Disable Auto-fetch")}
+                </h3>
+                <p className="text-[12px] text-muted-foreground mb-4">
+                  Applied to <strong>{bulk.selectedCount}</strong> selected pool{bulk.selectedCount !== 1 ? "s" : ""}.
+                </p>
+                {bulkEditField === "strategy" ? (
+                  <select className="field-input w-full" value={bulkEditValue} onChange={(e) => setBulkEditValue(e.target.value)}>
+                    <option value="round_robin">Round Robin</option>
+                    <option value="weighted">Weighted</option>
+                  </select>
+                ) : bulkEditField !== "health_aware" && bulkEditField !== "auto_fetch_models" ? (
+                  <Input type="text" placeholder={bulkEditField === "user_agent" ? "my-app/1.0" : ""} value={bulkEditValue} onChange={(e) => setBulkEditValue(e.target.value)} autoFocus />
+                ) : null}
+                <div className="flex items-center gap-3 mt-4">
+                  <Button onClick={handleBulkEdit} disabled={bulkEditSaving}>
+                    {bulkEditSaving ? "Applying..." : "Apply to All"}
+                  </Button>
+                  <Button variant="outline" onClick={() => setBulkEditField(null)}>Cancel</Button>
+                </div>
+              </div>
+            </div>
+          )}
           {selected && (
             <PoolView pool={selected} onEdit={openEdit} onDelete={remove} />
           )}
