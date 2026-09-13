@@ -8,6 +8,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { DocsCollapsible } from "@/components/ui/docs-collapsible";
 import { DataTable, TableWrap, Td, Th } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
+import { SelectCheckbox, BulkActionsBar } from "@/components/ui/bulk-selection";
+import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import { useAuthKeys, useAuthKeyStats } from "@/lib/api/useAuthKeys";
 import type {
   AuthKey,
@@ -85,6 +87,8 @@ export function AuthKeysPage(): JSX.Element {
   // Form State
   const [formData, setFormData] = useState<AuthKeyFormState>(defaultAuthKeyForm);
 
+  const bulk = useBulkSelection<string>();
+
   const [deactivateId, setDeactivateId] = useState<string | null>(null);
   const [statsKey, setStatsKey] = useState<AuthKey | null>(null);
   const [page, setPage] = useState(1);
@@ -138,6 +142,14 @@ export function AuthKeysPage(): JSX.Element {
     });
   };
 
+  const bulkDeactivate = async () => {
+    const ids = bulk.selectedKeys;
+    for (const id of ids) {
+      await deactivateMutation.mutateAsync(id);
+    }
+    bulk.clear();
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -189,6 +201,13 @@ export function AuthKeysPage(): JSX.Element {
             <DataTable>
               <thead className="bg-surface-hover/30 backdrop-blur-sm">
                 <tr>
+                  <Th className="w-10">
+                    <SelectCheckbox
+                      checked={bulk.allSelected(paginatedKeys.map((k) => k.id))}
+                      indeterminate={bulk.someSelected(paginatedKeys.map((k) => k.id))}
+                      onCheckedChange={() => bulk.toggleAll(paginatedKeys.map((k) => k.id))}
+                    />
+                  </Th>
                   <Th>Name & Description</Th>
                   <Th>User Path</Th>
 				  <Th>Routing</Th>
@@ -212,6 +231,11 @@ export function AuthKeysPage(): JSX.Element {
                   return (
                     <tr key={key.id} className="hover:bg-surface-hover/40 transition-colors border-b border-border/40 last:border-0">
                       <Td>
+                        <SelectCheckbox
+                          checked={bulk.isSelected(key.id)}
+                          onCheckedChange={() => bulk.toggle(key.id)}
+                        />
+                      </Td>
                         <div className="flex flex-col gap-1">
                           <span className="font-semibold text-[14px] text-foreground">{key.name}</span>
                           {key.description && <span className="text-[12px] text-muted-foreground max-w-[200px] truncate" title={key.description}>{key.description}</span>}
@@ -273,6 +297,18 @@ export function AuthKeysPage(): JSX.Element {
               </tbody>
             </DataTable>
           </TableWrap>
+          <BulkActionsBar
+            selectedCount={bulk.selectedCount}
+            onClear={bulk.clear}
+            actions={[
+              {
+                label: "Deactivate",
+                variant: "destructive" as const,
+                onClick: bulkDeactivate,
+                disabled: deactivateMutation.isPending,
+              },
+            ]}
+          />
           {totalPages > 1 && (
             <div className="flex items-center justify-between border-t border-border/40 px-4 py-3">
               <span className="text-[12px] text-muted-foreground">
