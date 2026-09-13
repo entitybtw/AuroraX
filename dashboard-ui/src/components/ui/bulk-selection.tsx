@@ -4,7 +4,7 @@ import { SquareIcon, CheckSquareIcon, MinusIcon } from "lucide-react";
 export function SelectCheckbox({ checked, indeterminate, onClick, title }: {
   checked: boolean;
   indeterminate?: boolean;
-  onClick: () => void;
+  onClick: (e: React.MouseEvent) => void;
   title?: string;
 }) {
   return (

@@ -611,6 +611,7 @@ export function ModelsPage(): JSX.Element {
     () => filteredRows.filter((row) => !row.isAlias).map((row) => row.displayName),
     [filteredRows],
   );
+  const allIds = React.useMemo(() => nonAliasIds, [nonAliasIds]);
   const groups = React.useMemo(() => buildGroups(filteredRows, overrides.data ?? []), [filteredRows, overrides.data]);
   const countText = filter ? `${filteredRows.length} / ${rows.length}` : String(rows.length);
   const modelOptions = React.useMemo(() => allModels.map(modelDisplayName).filter(Boolean), [allModels]);
@@ -888,7 +889,7 @@ export function ModelsPage(): JSX.Element {
           <DataTable>
             <thead>
               <tr>
-                <Th className="w-10"><SelectCheckbox checked={bulk.allSelected(nonAliasIds)} indeterminate={bulk.someSelected(nonAliasIds)} onClick={() => bulk.toggleAll(nonAliasIds)} title="Select all" /></Th>
+                <Th className="w-10"><SelectCheckbox checked={bulk.allSelected(nonAliasIds)} indeterminate={bulk.someSelected(nonAliasIds)} onClick={(e: React.MouseEvent) => e.shiftKey ? null : bulk.toggleAll(allIds)} title="Select all" /></Th>
                 <Th>Model</Th>
                 <Th className="hidden md:table-cell">Modes</Th>
                 <Th className="hidden lg:table-cell">Input $/MTok</Th>
@@ -936,7 +937,7 @@ export function ModelsPage(): JSX.Element {
                   const tags = row.isAlias ? [] : Array.isArray(metadata(row.model).tags) ? (metadata(row.model).tags as string[]) : [];
                   return (
                     <tr key={row.key} className={cn("hover:bg-surface-hover/40", row.isAlias && "bg-accent/5")}>
-                      {!row.isAlias ? <Td><SelectCheckbox checked={bulk.isSelected(row.displayName)} onClick={() => bulk.toggle(row.displayName)} title={bulk.isSelected(row.displayName) ? "Deselect" : "Select"} /></Td> : <Td className="w-10" />}
+                      {!row.isAlias ? <Td><SelectCheckbox checked={bulk.isSelected(row.displayName)} onClick={(e: React.MouseEvent) => e.shiftKey ? bulk.rangeSelect(row.displayName, allIds) : bulk.toggle(row.displayName)} title={bulk.isSelected(row.displayName) ? "Deselect" : "Select"} /></Td> : <Td className="w-10" />}
                       <Td>
                         <div className="space-y-2">
                           <div className="flex flex-wrap items-center gap-2">

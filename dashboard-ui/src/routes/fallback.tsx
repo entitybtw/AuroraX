@@ -251,7 +251,7 @@ export function FallbackPage(): JSX.Element {
             <SelectCheckbox
               checked={bulk.allSelected(allIndices)}
               indeterminate={bulk.someSelected(allIndices)}
-              onClick={() => bulk.toggleAll(allIndices)}
+              onClick={(e: React.MouseEvent) => e.shiftKey ? null : bulk.toggleAll(allIndices)}
               title="Select all"
             />
             <span className="text-xs text-muted-foreground">Select all</span>
@@ -270,7 +270,7 @@ export function FallbackPage(): JSX.Element {
                   <div className="flex items-center gap-1 shrink-0">
                     <SelectCheckbox
                       checked={bulk.isSelected(idx)}
-                      onClick={() => bulk.toggle(idx)}
+                      onClick={(e: React.MouseEvent) => e.shiftKey ? bulk.rangeSelect(idx, allIndices) : bulk.toggle(idx)}
                       title={`Select rule for ${rule.source}`}
                     />
                     <Switch
