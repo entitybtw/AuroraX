@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { PlusIcon, PencilIcon, Trash2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -51,6 +51,8 @@ export function GuardrailsPage(): JSX.Element {
       (g.summary && g.summary.toLowerCase().includes(q))
     );
   });
+
+  const allIds = useMemo(() => filteredGuardrails.map((g) => g.name), [filteredGuardrails]);
 
   const handleOpenForm = (g?: Guardrail) => {
     if (g) {
@@ -328,7 +330,7 @@ export function GuardrailsPage(): JSX.Element {
                     <SelectCheckbox
                       checked={bulk.allSelected(filteredGuardrails.map(g => g.name))}
                       indeterminate={bulk.someSelected(filteredGuardrails.map(g => g.name))}
-                      onClick={() => bulk.toggleAll(filteredGuardrails.map(g => g.name))}
+                      onClick={(e: React.MouseEvent) => e.shiftKey ? null : bulk.toggleAll(allIds)}
                     />
                   </Th>
                   <Th>Name</Th>
@@ -347,7 +349,7 @@ export function GuardrailsPage(): JSX.Element {
                       <Td>
                         <SelectCheckbox
                           checked={bulk.isSelected(g.name)}
-                          onClick={() => bulk.toggle(g.name)}
+                          onClick={(e: React.MouseEvent) => e.shiftKey ? bulk.rangeSelect(g.name, allIds) : bulk.toggle(g.name)}
                         />
                       </Td>
                       <Td className="font-mono font-medium">{g.name}</Td>
