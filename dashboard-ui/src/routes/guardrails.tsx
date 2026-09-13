@@ -8,6 +8,8 @@ import { DataTable, TableWrap, Td, Th } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/components/ui/search-input";
 import { useGuardrails } from "@/lib/api/useGuardrails";
+import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
+import { SelectCheckbox, BulkActionsBar } from "@/components/ui/bulk-selection";
 import { useDashboardConfig } from "@/lib/api/useDashboardConfig";
 import { flagOn } from "@/lib/api/dashboard-config";
 import type { UpsertGuardrailInput, Guardrail, GuardrailTypeField } from "@/lib/api/guardrails-types";
@@ -19,6 +21,8 @@ export function GuardrailsPage(): JSX.Element {
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [filter, setFilter] = useState("");
+
+  const bulk = useBulkSelection<string>();
 
   // Form State
   const [formData, setFormData] = useState<UpsertGuardrailInput>({
@@ -102,6 +106,13 @@ export function GuardrailsPage(): JSX.Element {
         setFormOpen(false);
       },
     });
+  };
+
+  const bulkDelete = async () => {
+    for (const name of bulk.selected) {
+      await deleteMutation.mutateAsync(name);
+    }
+    bulk.clear();
   };
 
   const activeTypeDef = types.find(t => t.type === formData.type);
@@ -303,10 +314,23 @@ export function GuardrailsPage(): JSX.Element {
         </Surface>
       ) : (
         <Surface>
+          <BulkActionsBar count={bulk.selectedCount} onClear={bulk.clear}>
+            <Button variant="destructive" size="sm" onClick={bulkDelete} disabled={deleteMutation.isPending}>
+              <Trash2Icon className="mr-1.5 h-3.5 w-3.5" />
+              Delete
+            </Button>
+          </BulkActionsBar>
           <TableWrap>
             <DataTable>
               <thead>
                 <tr>
+                  <Th className="w-8">
+                    <SelectCheckbox
+                      checked={bulk.allSelected(filteredGuardrails.map(g => g.name))}
+                      indeterminate={bulk.someSelected(filteredGuardrails.map(g => g.name))}
+                      onClick={() => bulk.toggleAll(filteredGuardrails.map(g => g.name))}
+                    />
+                  </Th>
                   <Th>Name</Th>
                   <Th>Type</Th>
                   <Th>Direction</Th>
@@ -320,6 +344,12 @@ export function GuardrailsPage(): JSX.Element {
                   const typeDef = types.find(t => t.type === g.type);
                   return (
                     <tr key={g.name}>
+                      <Td>
+                        <SelectCheckbox
+                          checked={bulk.isSelected(g.name)}
+                          onClick={() => bulk.toggle(g.name)}
+                        />
+                      </Td>
                       <Td className="font-mono font-medium">{g.name}</Td>
                       <Td>
                         <span className="inline-flex items-center  bg-surface px-2.5 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-inset ring-border">

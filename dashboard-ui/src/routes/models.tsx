@@ -56,6 +56,8 @@ import {
   useUpsertModelPricing,
 } from "@/lib/api/useModelManagement";
 import { cn } from "@/lib/utils";
+import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
+import { SelectCheckbox, BulkActionsBar } from "@/components/ui/bulk-selection";
 
 interface DisplayRow {
   key: string;
@@ -568,6 +570,7 @@ export function ModelsPage(): JSX.Element {
   const [pricingForm, setPricingForm] = React.useState<PricingFormState | null>(null);
   const [notice, setNotice] = React.useState("");
   const [localError, setLocalError] = React.useState("");
+  const bulk = useBulkSelection<string>();
 
   const models = useModels();
   const aliases = useAliases();
@@ -603,6 +606,10 @@ export function ModelsPage(): JSX.Element {
   const filteredRows = React.useMemo(
     () => filteredByCategory.filter((row) => matchesFilter(row, filter)),
     [filteredByCategory, filter],
+  );
+  const nonAliasIds = React.useMemo(
+    () => filteredRows.filter((row) => !row.isAlias).map((row) => row.displayName),
+    [filteredRows],
   );
   const groups = React.useMemo(() => buildGroups(filteredRows, overrides.data ?? []), [filteredRows, overrides.data]);
   const countText = filter ? `${filteredRows.length} / ${rows.length}` : String(rows.length);
@@ -774,6 +781,27 @@ export function ModelsPage(): JSX.Element {
     }
   }
 
+  async function bulkDeleteAliases(): Promise<void> {
+    setLocalError("");
+    const selectedModels = Array.from(bulk.selected);
+    const aliasesToDelete = filteredRows.filter(
+      (r) => r.isAlias && r.alias && selectedModels.some((name) => aliasTargetLabel(r.alias!) === name),
+    );
+    let deleted = 0;
+    for (const row of aliasesToDelete) {
+      if (row.alias) {
+        try {
+          await removeAlias.mutateAsync(row.alias.name);
+          deleted++;
+        } catch (err) {
+          setLocalError(err instanceof Error ? err.message : "Unable to delete alias.");
+        }
+      }
+    }
+    bulk.clear();
+    if (deleted > 0) setNotice(`Deleted ${deleted} alias${deleted === 1 ? "" : "es"}.`);
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -845,10 +873,22 @@ export function ModelsPage(): JSX.Element {
           {filter ? "Clear the search field or try filtering by provider, owner, alias, or model ID." : "Configure providers and refresh runtime models to populate this inventory."}
         </EmptyState>
       ) : (
+        <>
+        {bulk.selectedCount > 0 ? (
+          <BulkActionsBar count={bulk.selectedCount} onClear={bulk.clear}>
+            <Button size="sm" variant="outline" onClick={() => { const first = Array.from(bulk.selected)[0]; if (first) openAliasCreateForModel(first); }} className="text-[11px] h-7 shrink-0">
+              <Plus className="mr-1 h-3 w-3" /> Create Alias
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => void bulkDeleteAliases()} className="text-[11px] h-7 shrink-0 text-destructive hover:bg-destructive/10">
+              <Trash2 className="mr-1 h-3 w-3" /> Delete
+            </Button>
+          </BulkActionsBar>
+        ) : null}
         <TableWrap>
           <DataTable>
             <thead>
               <tr>
+                <Th className="w-10"><SelectCheckbox checked={bulk.allSelected(nonAliasIds)} indeterminate={bulk.someSelected(nonAliasIds)} onClick={() => bulk.toggleAll(nonAliasIds)} title="Select all" /></Th>
                 <Th>Model</Th>
                 <Th className="hidden md:table-cell">Modes</Th>
                 <Th className="hidden lg:table-cell">Input $/MTok</Th>
@@ -861,7 +901,7 @@ export function ModelsPage(): JSX.Element {
             {groups.map((group) => (
               <tbody key={group.key}>
                 <tr className="bg-surface-hover/30 backdrop-blur-sm border-t border-border/40 first:border-t-0">
-                  <Td colSpan={7}>
+                  <Td colSpan={8}>
                     <div className="flex flex-wrap items-center justify-between gap-3 py-1">
                       <div>
                         <div className="font-mono text-[14px] font-bold tracking-tight text-foreground">
@@ -896,6 +936,7 @@ export function ModelsPage(): JSX.Element {
                   const tags = row.isAlias ? [] : Array.isArray(metadata(row.model).tags) ? (metadata(row.model).tags as string[]) : [];
                   return (
                     <tr key={row.key} className={cn("hover:bg-surface-hover/40", row.isAlias && "bg-accent/5")}>
+                      {!row.isAlias ? <Td><SelectCheckbox checked={bulk.isSelected(row.displayName)} onClick={() => bulk.toggle(row.displayName)} title={bulk.isSelected(row.displayName) ? "Deselect" : "Select"} /></Td> : <Td className="w-10" />}
                       <Td>
                         <div className="space-y-2">
                           <div className="flex flex-wrap items-center gap-2">
@@ -1052,6 +1093,7 @@ export function ModelsPage(): JSX.Element {
             ))}
           </DataTable>
         </TableWrap>
+        </>
       )}
 
       <AliasDialog
