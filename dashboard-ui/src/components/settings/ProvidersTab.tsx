@@ -7,7 +7,7 @@ import { ServerIcon, RefreshCwIcon, PlusIcon, Edit3Icon, Trash2Icon, SaveIcon, X
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchProviderStatus, createProvider, updateProvider, deleteProvider, setProviderEnabled, type ProviderFormData, type AutoFetchFilter, type ProviderStatusResponse } from "@/lib/api/providers";
 import { withBasePath } from "@/lib/basepath";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useCallback } from "react";
 
 // filterToText renders an AutoFetchFilter into the simple comma-separated form
 // the provider form edits. Only `contains` conditions are representable; a
@@ -330,7 +330,7 @@ export function ProvidersTab(): JSX.Element {
   });
 
   const bulkMutation = useMutation({
-    mutationFn: async ({ names, action, value }: { names: string[]; action: string; value?: boolean }) => {
+    mutationFn: async ({ names, action }: { names: string[]; action: string }) => {
       for (const name of names) {
         if (action === "enable") {
           await updateProvider(name, { enabled: true });
@@ -378,7 +378,6 @@ export function ProvidersTab(): JSX.Element {
     });
   }, []);
 
-  const selectedProviders = useMemo(() => providers.filter((p) => selected.has(p.name)), [providers, selected]);
 
   const handleBulkAction = () => {
     if (!bulkConfirm || selected.size === 0) return;
