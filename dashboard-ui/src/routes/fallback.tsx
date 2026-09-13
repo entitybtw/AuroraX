@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/dialog";
 import { EmptyState, Pill, Surface } from "@/components/ui/surface";
 import { Switch } from "@/components/ui/switch";
+import { SelectCheckbox, BulkActionsBar } from "@/components/ui/bulk-selection";
+import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import {
   fetchFallback,
   updateFallback,
@@ -49,6 +51,7 @@ export function FallbackPage(): JSX.Element {
   const [formSource, setFormSource] = React.useState("");
   const [formTargets, setFormTargets] = React.useState<string[]>([]);
   const [saving, setSaving] = React.useState(false);
+  const bulk = useBulkSelection<number>();
 
   const models = useModels();
   const modelOptions = React.useMemo(() => (models.data ?? []).map(modelDisplayName).filter(Boolean), [models.data]);
@@ -155,6 +158,68 @@ export function FallbackPage(): JSX.Element {
     }
   };
 
+  const bulkEnable = async () => {
+    const indices = Array.from(bulk.selected);
+    setSaving(true);
+    try {
+      setError("");
+      const next = [...rules];
+      for (const idx of indices) {
+        if (next[idx]) next[idx] = { ...next[idx], enabled: true };
+      }
+      const updated = await updateFallback(next);
+      setRules(updated);
+      setNotice(`Enabled ${indices.length} rule(s).`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to enable rules.");
+    } finally {
+      setSaving(false);
+      bulk.clear();
+    }
+  };
+
+  const bulkDisable = async () => {
+    const indices = Array.from(bulk.selected);
+    setSaving(true);
+    try {
+      setError("");
+      const next = [...rules];
+      for (const idx of indices) {
+        if (next[idx]) next[idx] = { ...next[idx], enabled: false };
+      }
+      const updated = await updateFallback(next);
+      setRules(updated);
+      setNotice(`Disabled ${indices.length} rule(s).`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to disable rules.");
+    } finally {
+      setSaving(false);
+      bulk.clear();
+    }
+  };
+
+  const bulkDelete = async () => {
+    const indices = Array.from(bulk.selected).sort((a, b) => b - a);
+    setSaving(true);
+    try {
+      setError("");
+      let next = [...rules];
+      for (const idx of indices) {
+        next = next.filter((_, i) => i !== idx);
+      }
+      const updated = await updateFallback(next);
+      setRules(updated);
+      setNotice(`Deleted ${indices.length} rule(s).`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to delete rules.");
+    } finally {
+      setSaving(false);
+      bulk.clear();
+    }
+  };
+
+  const allIndices = rules.map((_, idx) => idx);
+
   return (
     <div className="flex flex-col gap-4 md:gap-6">
       <PageHeader
@@ -166,6 +231,14 @@ export function FallbackPage(): JSX.Element {
       {error ? <Banner tone="warning">{error}</Banner> : null}
       {notice ? <Banner tone="success">{notice}</Banner> : null}
 
+      {bulk.selectedCount > 0 && (
+        <BulkActionsBar count={bulk.selectedCount} onClear={bulk.clear}>
+          <Button size="sm" variant="secondary" onClick={() => void bulkEnable()}>Enable</Button>
+          <Button size="sm" variant="secondary" onClick={() => void bulkDisable()}>Disable</Button>
+          <Button size="sm" variant="destructive" onClick={() => void bulkDelete()}><Trash2 className="h-3 w-3" /> Delete</Button>
+        </BulkActionsBar>
+      )}
+
       {loading ? (
         <Surface className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> Loading rules…
@@ -173,48 +246,64 @@ export function FallbackPage(): JSX.Element {
       ) : rules.length === 0 ? (
         <EmptyState title="No fallback rules" description="Add a rule to configure fallback routing." action={<Button onClick={openCreate}><Plus className="h-4 w-4" /> Add Rule</Button>} />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {rules.map((rule, idx) => (
-            <Surface key={`${rule.source}-${idx}`} className={`p-4 flex flex-col gap-3 ${rule.enabled === false ? "opacity-60" : ""}`}>
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-mono text-sm font-semibold text-foreground truncate">{rule.source}</h3>
-                    <Pill tone="accent">chain</Pill>
-                    {rule.enabled === false && <Pill tone="muted">disabled</Pill>}
+        <>
+          <div className="flex items-center gap-2">
+            <SelectCheckbox
+              checked={bulk.allSelected(allIndices)}
+              indeterminate={bulk.someSelected(allIndices)}
+              onClick={() => bulk.toggleAll(allIndices)}
+              title="Select all"
+            />
+            <span className="text-xs text-muted-foreground">Select all</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {rules.map((rule, idx) => (
+              <Surface key={`${rule.source}-${idx}`} className={`p-4 flex flex-col gap-3 ${rule.enabled === false ? "opacity-60" : ""}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-mono text-sm font-semibold text-foreground truncate">{rule.source}</h3>
+                      <Pill tone="accent">chain</Pill>
+                      {rule.enabled === false && <Pill tone="muted">disabled</Pill>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <SelectCheckbox
+                      checked={bulk.isSelected(idx)}
+                      onClick={() => bulk.toggle(idx)}
+                      title={`Select rule for ${rule.source}`}
+                    />
+                    <Switch
+                      checked={rule.enabled !== false}
+                      size="sm"
+                      disabled={saving}
+                      onCheckedChange={() => void toggleRule(idx)}
+                      aria-label={`Toggle rule for ${rule.source}`}
+                      title={rule.enabled === false ? "Enable rule" : "Disable rule"}
+                    />
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(idx)} title="Edit rule"><Edit3 className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => void deleteRule(idx)} title="Delete rule"><Trash2 className="h-4 w-4 text-destructive" /></Button>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <Switch
-                    checked={rule.enabled !== false}
-                    size="sm"
-                    disabled={saving}
-                    onCheckedChange={() => void toggleRule(idx)}
-                    aria-label={`Toggle rule for ${rule.source}`}
-                    title={rule.enabled === false ? "Enable rule" : "Disable rule"}
-                  />
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(idx)} title="Edit rule"><Edit3 className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" onClick={() => void deleteRule(idx)} title="Delete rule"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                <div className="border border-border/60 bg-background/40 p-3">
+                  <div className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground mb-2">Target Chain</div>
+                  <div className="flex flex-col">
+                    {rule.targets.map((target, tIdx) => (
+                      <React.Fragment key={`${target}-${tIdx}`}>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground w-5 text-right shrink-0">{tIdx + 1}.</span>
+                          <span className="font-mono text-sm text-foreground truncate">{target}</span>
+                          <Pill tone={tIdx === 0 ? "success" : "muted"} className="ml-auto shrink-0">{tIdx === 0 ? "primary" : `fallback ${tIdx}`}</Pill>
+                        </div>
+                        {tIdx < rule.targets.length - 1 && <div className="flex items-center justify-center py-0.5"><ArrowDown className="h-3 w-3 text-muted-foreground" /></div>}
+                      </React.Fragment>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <div className="border border-border/60 bg-background/40 p-3">
-                <div className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground mb-2">Target Chain</div>
-                <div className="flex flex-col">
-                  {rule.targets.map((target, tIdx) => (
-                    <React.Fragment key={`${target}-${tIdx}`}>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground w-5 text-right shrink-0">{tIdx + 1}.</span>
-                        <span className="font-mono text-sm text-foreground truncate">{target}</span>
-                        <Pill tone={tIdx === 0 ? "success" : "muted"} className="ml-auto shrink-0">{tIdx === 0 ? "primary" : `fallback ${tIdx}`}</Pill>
-                      </div>
-                      {tIdx < rule.targets.length - 1 && <div className="flex items-center justify-center py-0.5"><ArrowDown className="h-3 w-3 text-muted-foreground" /></div>}
-                    </React.Fragment>
-                  ))}
-                </div>
-              </div>
-            </Surface>
-          ))}
-        </div>
+              </Surface>
+            ))}
+          </div>
+        </>
       )}
 
       <EditDialog

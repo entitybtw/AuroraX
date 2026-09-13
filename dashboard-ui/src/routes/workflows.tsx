@@ -13,12 +13,15 @@ import { flagOn } from "@/lib/api/dashboard-config";
 import { useProviderStatus } from "@/lib/api/useProviders";
 import type { UpsertWorkflowInput, Workflow, WorkflowGuardrailStep } from "@/lib/api/workflows-types";
 import { WorkflowChart } from "@/components/workflows/WorkflowChart";
+import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
+import { SelectCheckbox, BulkActionsBar } from "@/components/ui/bulk-selection";
 
 export function WorkflowsPage(): JSX.Element {
   const { data: config } = useDashboardConfig();
   const { data: workflows = [], isLoading, upsertMutation, deactivateMutation } = useWorkflows();
   const { data: guardrails = [] } = useGuardrails();
   const { data: providersInfo } = useProviderStatus();
+  const bulk = useBulkSelection<string>();
 
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
@@ -57,6 +60,32 @@ export function WorkflowsPage(): JSX.Element {
       );
     });
   }, [workflows, filter]);
+
+  const bulkDeactivatableIds = useMemo(() => {
+    const globalCount = workflows.filter(x => !x.scope_provider && !x.scope_model && !x.scope_user_path).length;
+    return filteredWorkflows
+      .filter((w) => {
+        if (w.name === 'default-global') return false;
+        const isGlobal = !w.scope_provider && !w.scope_model && !w.scope_user_path;
+        if (isGlobal && globalCount <= 1) return false;
+        return true;
+      })
+      .map((w) => w.id);
+  }, [filteredWorkflows, workflows]);
+
+  const bulkDeactivate = async () => {
+    const ids = bulk.selected;
+    for (const id of ids) {
+      const w = workflows.find((wf) => wf.id === id);
+      if (!w) continue;
+      if (w.name === 'default-global') continue;
+      const globalCount = workflows.filter(x => !x.scope_provider && !x.scope_model && !x.scope_user_path).length;
+      const isGlobal = !w.scope_provider && !w.scope_model && !w.scope_user_path;
+      if (isGlobal && globalCount <= 1) continue;
+      await deactivateMutation.mutateAsync(id);
+    }
+    bulk.clear();
+  };
 
   // Derived providers/models lists
   const providerNames = useMemo(() => {
@@ -277,91 +306,125 @@ export function WorkflowsPage(): JSX.Element {
           />
         </Surface>
       ) : (
-        <div className="grid grid-cols-1 gap-4">
-          {filteredWorkflows.map((w) => {
-            const isGlobal = !w.scope_provider && !w.scope_model && !w.scope_user_path;
-            const globalCount = workflows.filter(x => !x.scope_provider && !x.scope_model && !x.scope_user_path).length;
-            const isOnlyGlobal = isGlobal && globalCount <= 1;
+        <div className="flex flex-col gap-3">
+          <BulkActionsBar count={bulk.selectedCount} onClear={bulk.clear}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/20"
+              disabled={deactivateMutation.isPending}
+              onClick={bulkDeactivate}
+            >
+              Deactivate
+            </Button>
+          </BulkActionsBar>
 
-            return (
-              <Surface key={w.id} className="p-0 flex flex-col h-full overflow-hidden">
-                <div className="p-5 flex flex-col gap-4 flex-1">
-                  <div className="flex justify-between items-start">
-                    <div className="flex flex-col gap-1.5">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                        <span className={`w-1.5 h-1.5  ${isGlobal ? 'bg-accent' : w.scope_user_path ? 'bg-info' : 'bg-success'}`}></span>
-                        {isGlobal ? "Global scope" : w.scope_user_path ? "User path scope" : "Provider/model scope"}
-                      </span>
-                      <h3 className="font-display text-xl font-normal tracking-tight text-foreground">{w.name || getScopeLabel(w)}</h3>
-                    </div>
-                  </div>
+          <div className="flex items-center gap-2 px-1">
+            <SelectCheckbox
+              checked={bulkDeactivatableIds.length > 0 && bulk.allSelected(bulkDeactivatableIds)}
+              indeterminate={bulk.someSelected(bulkDeactivatableIds)}
+              onClick={() => bulk.toggleAll(bulkDeactivatableIds)}
+              title="Select all"
+            />
+            <span className="text-xs text-muted-foreground">Select all</span>
+          </div>
 
-                  {w.description && (
-                    <p className="text-sm text-muted-foreground leading-relaxed">{w.description}</p>
-                  )}
+          <div className="grid grid-cols-1 gap-4">
+            {filteredWorkflows.map((w) => {
+              const isGlobal = !w.scope_provider && !w.scope_model && !w.scope_user_path;
+              const globalCount = workflows.filter(x => !x.scope_provider && !x.scope_model && !x.scope_user_path).length;
+              const isOnlyGlobal = isGlobal && globalCount <= 1;
+              const canBulkDeactivate = w.name !== 'default-global' && !(isGlobal && globalCount <= 1);
 
-                  <div className="my-4 py-4  border bg-muted/10 overflow-hidden shadow-inner">
-                    <WorkflowChart workflow={w} />
-                  </div>
-
-                  <div className="flex flex-col gap-2 mt-auto pt-2">
-                    <div className="flex flex-wrap gap-1.5">
-                      {w.features.caching && <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold ring-1 ring-inset bg-success/10 text-success ring-success/30">Caching</span>}
-                      {w.features.guardrails && <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold ring-1 ring-inset bg-accent/10 text-accent ring-accent/20">Guardrails</span>}
-                      {w.features.failover && <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold ring-1 ring-inset bg-warning/10 text-warning ring-warning/30">Failover</span>}
-                      {w.features.rate_limit && <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold ring-1 ring-inset bg-surface-hover/50 text-muted-foreground ring-border/30">Rate Limits</span>}
-                      {w.features.audit && <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold ring-1 ring-inset bg-surface-hover/50 text-muted-foreground ring-border/30">Audit</span>}
-                      {w.features.usage_tracking && <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold ring-1 ring-inset bg-surface-hover/50 text-muted-foreground ring-border/30">Usage</span>}
-                    </div>
-                  </div>
-
-                  {w.features.guardrails && w.guardrails.length > 0 && (
-                    <div className="flex flex-col gap-2 rounded-md bg-muted p-3">
+              return (
+                <Surface key={w.id} className="p-0 flex flex-col h-full overflow-hidden">
+                  <div className="p-5 flex flex-col gap-4 flex-1">
+                    <div className="flex justify-between items-start">
                       <div className="flex items-center gap-2">
-                        <ShieldIcon className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">Guardrails ({w.guardrails.length} steps)</span>
-                      </div>
-                      <div className="flex flex-col gap-1 pl-6">
-                        {w.guardrails.map((step, idx) => (
-                          <div key={idx} className="flex items-center gap-2 text-xs">
-                            <span className="font-mono">{step.ref}</span>
-                            <span className="text-muted-foreground ml-auto">step {step.step}</span>
-                          </div>
-                        ))}
+                        {canBulkDeactivate && (
+                          <SelectCheckbox
+                            checked={bulk.isSelected(w.id)}
+                            onClick={() => bulk.toggle(w.id)}
+                            title={`Select ${w.name || getScopeLabel(w)}`}
+                          />
+                        )}
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                            <span className={`w-1.5 h-1.5  ${isGlobal ? 'bg-accent' : w.scope_user_path ? 'bg-info' : 'bg-success'}`}></span>
+                            {isGlobal ? "Global scope" : w.scope_user_path ? "User path scope" : "Provider/model scope"}
+                          </span>
+                          <h3 className="font-display text-xl font-normal tracking-tight text-foreground">{w.name || getScopeLabel(w)}</h3>
+                        </div>
                       </div>
                     </div>
-                  )}
-                </div>
 
-                <div className="bg-surface-hover/30 p-4 border-t border-border/40 flex items-center justify-between mt-auto">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/20"
-                      size="sm"
-                      disabled={deactivateMutation.isPending || isOnlyGlobal || w.name === 'default-global'}
-                      onClick={() => deactivateMutation.mutate(w.id)}
-                      title={isOnlyGlobal ? "The last active global workflow cannot be deactivated to prevent routing failures." : w.name === 'default-global' ? "Managed default workflow cannot be deactivated." : "Deactivate workflow"}
-                    >
-                      Deactivate
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => setDetailWorkflow(w)} className="bg-surface/50">
-                      <EyeIcon className="mr-2 h-4 w-4" />
-                      View
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => handleOpenForm(w)} className="bg-surface/50">
-                      <PencilIcon className="mr-2 h-4 w-4" />
-                      Edit
-                    </Button>
+                    {w.description && (
+                      <p className="text-sm text-muted-foreground leading-relaxed">{w.description}</p>
+                    )}
+
+                    <div className="my-4 py-4  border bg-muted/10 overflow-hidden shadow-inner">
+                      <WorkflowChart workflow={w} />
+                    </div>
+
+                    <div className="flex flex-col gap-2 mt-auto pt-2">
+                      <div className="flex flex-wrap gap-1.5">
+                        {w.features.caching && <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold ring-1 ring-inset bg-success/10 text-success ring-success/30">Caching</span>}
+                        {w.features.guardrails && <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold ring-1 ring-inset bg-accent/10 text-accent ring-accent/20">Guardrails</span>}
+                        {w.features.failover && <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold ring-1 ring-inset bg-warning/10 text-warning ring-warning/30">Failover</span>}
+                        {w.features.rate_limit && <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold ring-1 ring-inset bg-surface-hover/50 text-muted-foreground ring-border/30">Rate Limits</span>}
+                        {w.features.audit && <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold ring-1 ring-inset bg-surface-hover/50 text-muted-foreground ring-border/30">Audit</span>}
+                        {w.features.usage_tracking && <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold ring-1 ring-inset bg-surface-hover/50 text-muted-foreground ring-border/30">Usage</span>}
+                      </div>
+                    </div>
+
+                    {w.features.guardrails && w.guardrails.length > 0 && (
+                      <div className="flex flex-col gap-2 rounded-md bg-muted p-3">
+                        <div className="flex items-center gap-2">
+                          <ShieldIcon className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm font-medium">Guardrails ({w.guardrails.length} steps)</span>
+                        </div>
+                        <div className="flex flex-col gap-1 pl-6">
+                          {w.guardrails.map((step, idx) => (
+                            <div key={idx} className="flex items-center gap-2 text-xs">
+                              <span className="font-mono">{step.ref}</span>
+                              <span className="text-muted-foreground ml-auto">step {step.step}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex flex-col items-end gap-0.5 text-[11px] text-muted-foreground font-mono">
-                    <span className="font-semibold uppercase tracking-wider">v{w.version}</span>
-                    <span className="opacity-70">hash: {w.workflow_hash ? w.workflow_hash.substring(0, 8) : "â€”"}</span>
+
+                  <div className="bg-surface-hover/30 p-4 border-t border-border/40 flex items-center justify-between mt-auto">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/20"
+                        size="sm"
+                        disabled={deactivateMutation.isPending || isOnlyGlobal || w.name === 'default-global'}
+                        onClick={() => deactivateMutation.mutate(w.id)}
+                        title={isOnlyGlobal ? "The last active global workflow cannot be deactivated to prevent routing failures." : w.name === 'default-global' ? "Managed default workflow cannot be deactivated." : "Deactivate workflow"}
+                      >
+                        Deactivate
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => setDetailWorkflow(w)} className="bg-surface/50">
+                        <EyeIcon className="mr-2 h-4 w-4" />
+                        View
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => handleOpenForm(w)} className="bg-surface/50">
+                        <PencilIcon className="mr-2 h-4 w-4" />
+                        Edit
+                      </Button>
+                    </div>
+                    <div className="flex flex-col items-end gap-0.5 text-[11px] text-muted-foreground font-mono">
+                      <span className="font-semibold uppercase tracking-wider">v{w.version}</span>
+                      <span className="opacity-70">hash: {w.workflow_hash ? w.workflow_hash.substring(0, 8) : "â€”"}</span>
+                    </div>
                   </div>
-                </div>
-              </Surface>
-            );
-          })}
+                </Surface>
+              );
+            })}
+          </div>
         </div>
       )}
 
