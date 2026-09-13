@@ -143,7 +143,7 @@ export function AuthKeysPage(): JSX.Element {
   };
 
   const bulkDeactivate = async () => {
-    const ids = bulk.selectedKeys;
+    const ids = bulk.selected;
     for (const id of ids) {
       await deactivateMutation.mutateAsync(id);
     }

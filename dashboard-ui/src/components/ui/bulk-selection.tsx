@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { CheckIcon, SquareIcon, CheckSquareIcon, MinusIcon, Trash2Icon } from "lucide-react";
+import { SquareIcon, CheckSquareIcon, MinusIcon } from "lucide-react";
 
 export function SelectCheckbox({ checked, indeterminate, onClick, title }: {
   checked: boolean;
