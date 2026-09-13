@@ -15,7 +15,7 @@ import (
 )
 
 // ErrRegistryNotInitialized is returned when the router is used before the registry has any models.
-var ErrRegistryNotInitialized = fmt.Errorf("model registry has no models: ensure Initialize() or LoadFromCache() is called before using the router")
+var ErrRegistryNotInitialized = fmt.Errorf("gateway is starting up: models are being loaded, please retry in a few seconds")
 
 // Router routes requests to the appropriate provider based on the model lookup.
 // It uses a dynamic model-to-provider mapping that is populated at startup
