@@ -24,13 +24,13 @@ function filterToText(filter?: AutoFetchFilter | null): string {
 }
 
 // textToFilter parses the comma-separated text back into a filter. An empty
-// string clears the filter (returns null).
-function textToFilter(text: string): AutoFetchFilter | null {
+// string returns an empty filter object (not null) so the backend clears it.
+function textToFilter(text: string): AutoFetchFilter {
   const values = text
     .split(",")
     .map((value) => value.trim())
     .filter((value) => value !== "");
-  if (values.length === 0) return null;
+  if (values.length === 0) return { mode: "all", conditions: [] };
   return { mode: "all", conditions: values.map((value) => ({ contains: value })) };
 }
 
@@ -381,7 +381,7 @@ export function ProvidersTab(): JSX.Element {
         else if (bulkEditField === "user_agent") patch.user_agent = bulkEditValue;
         else if (bulkEditField === "autofetch_filter") {
           const text = bulkEditValue.trim();
-          patch.autofetch_filter = text === "" ? null : { mode: "all", conditions: text.split(",").map((v) => ({ contains: v.trim() })).filter((c) => c.contains) };
+          patch.autofetch_filter = { mode: "all", conditions: text === "" ? [] : text.split(",").map((v) => ({ contains: v.trim() })).filter((c) => c.contains) };
         }
         await updateProvider(name, patch);
       }
