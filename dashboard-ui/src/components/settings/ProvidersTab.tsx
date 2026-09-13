@@ -129,6 +129,7 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
   const [form, setForm] = useState<ProviderFormData>(initial ?? { name: "", type: "", base_url: "", api_version: "", api_key: "", models: "", bind_ip: "", pool_only: false, user_agent: "", auto_fetch_models: true });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const handleSave = async () => {
     setSaving(true);
@@ -176,8 +177,8 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
   const providerTypes = ["openai", "anthropic", "gemini", "azure", "deepseek", "groq", "minimax", "ollama", "vllm", "openrouter", "oracle", "xai", "zai", "reranker", "custom"];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-lg  border border-border/60 bg-surface p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full sm:max-w-lg max-h-[90vh] overflow-y-auto border border-border/60 bg-surface sm:p-6 p-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-[15px] tracking-tight text-foreground">{mode === "add" ? "Add Provider" : "Edit Provider"}</h3>
           <button onClick={onClose} className="p-1 hover:bg-border/20 transition-colors"><XIcon className="h-4 w-4 text-muted-foreground" /></button>
@@ -223,22 +224,11 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
               onChange={(e) => setForm({ ...form, models: e.target.value })} />
             <div className="text-[11px] text-muted-foreground">Comma separated model IDs</div>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Bind IP</label>
-            <Input type="text" placeholder="203.0.113.10" value={form.bind_ip ?? ""}
-              onChange={(e) => setForm({ ...form, bind_ip: e.target.value })} />
-            <div className="text-[11px] text-muted-foreground">Optional local outbound IP for upstream requests (use when the provider rate-limits per source IP)</div>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">User Agent</label>
-            <Input type="text" placeholder="my-app/1.0" value={form.user_agent ?? ""}
-              onChange={(e) => setForm({ ...form, user_agent: e.target.value })} />
-            <div className="text-[11px] text-muted-foreground">Custom User-Agent header sent to the upstream provider</div>
-          </div>
+
           <div className="flex items-center justify-between gap-3 border border-border/40 bg-background/30 px-3 py-2.5">
             <div className="flex flex-col gap-1 pr-2">
               <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Auto-fetch models</label>
-              <div className="text-[11px] text-muted-foreground">Automatically discover available models via the provider's /models endpoint. Disable to use only explicitly configured models.</div>
+              <div className="text-[11px] text-muted-foreground">Automatically discover available models via the provider's /models endpoint.</div>
             </div>
             <Switch
               checked={form.auto_fetch_models ?? true}
@@ -251,20 +241,46 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
             <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Auto-fetch filter</label>
             <Input type="text" placeholder="free, flash" value={form.autofetch_filter_text ?? ""}
               onChange={(e) => setForm({ ...form, autofetch_filter_text: e.target.value })} />
-            <div className="text-[11px] text-muted-foreground">Comma-separated substrings. Only models whose ID contains every value are kept; everything else is dropped and cannot be routed to. Leave empty to keep all discovered models.</div>
+            <div className="text-[11px] text-muted-foreground">Comma-separated substrings. Only models whose ID contains every value are kept.</div>
           </div>
-          <div className="flex items-center justify-between gap-3 border border-border/40 bg-background/30 px-3 py-2.5">
-            <div className="flex flex-col gap-1 pr-2">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Pool only</label>
-              <div className="text-[11px] text-muted-foreground">Hide this provider's models from the model list; reachable only through a pool that lists it as a member.</div>
+
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-accent hover:text-accent-hover transition-colors py-1"
+          >
+            <span className={`transform transition-transform ${showAdvanced ? "rotate-90" : ""}`}>&#9654;</span>
+            {showAdvanced ? "Hide" : "Show"} Advanced Options
+          </button>
+
+          {showAdvanced && (
+            <div className="flex flex-col gap-3 border border-border/30 bg-background/20 p-3">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Bind IP</label>
+                <Input type="text" placeholder="203.0.113.10" value={form.bind_ip ?? ""}
+                  onChange={(e) => setForm({ ...form, bind_ip: e.target.value })} />
+                <div className="text-[11px] text-muted-foreground">Optional local outbound IP for upstream requests (use when the provider rate-limits per source IP)</div>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">User Agent</label>
+                <Input type="text" placeholder="my-app/1.0" value={form.user_agent ?? ""}
+                  onChange={(e) => setForm({ ...form, user_agent: e.target.value })} />
+                <div className="text-[11px] text-muted-foreground">Custom User-Agent header sent to the upstream provider</div>
+              </div>
+              <div className="flex items-center justify-between gap-3 border border-border/40 bg-background/30 px-3 py-2.5">
+                <div className="flex flex-col gap-1 pr-2">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Pool only</label>
+                  <div className="text-[11px] text-muted-foreground">Hide from model list; reachable only through a pool.</div>
+                </div>
+                <Switch
+                  checked={form.pool_only ?? false}
+                  size="sm"
+                  onCheckedChange={(v) => setForm({ ...form, pool_only: v })}
+                  aria-label="Pool only"
+                />
+              </div>
             </div>
-            <Switch
-              checked={form.pool_only ?? false}
-              size="sm"
-              onCheckedChange={(v) => setForm({ ...form, pool_only: v })}
-              aria-label="Pool only"
-            />
-          </div>
+          )}
         </div>
         {error && <div className="mt-3 text-[13px] font-medium text-destructive">{error}</div>}
         <div className="flex items-center gap-3 mt-4 pt-3 border-t border-border/50">
@@ -442,28 +458,30 @@ export function ProvidersTab(): JSX.Element {
 
           {/* Bulk actions toolbar */}
           {selected.size > 0 && (
-            <div className="flex items-center gap-3 border border-accent/30 bg-accent/5 px-4 py-2.5">
-              <span className="text-[12px] font-medium text-accent">{selected.size} selected</span>
-              <div className="flex items-center gap-1.5 ml-2">
-                <Button size="sm" variant="outline" onClick={() => setBulkConfirm("enable")} className="text-[11px] h-7">
+            <div className="border border-accent/30 bg-accent/5 px-3 sm:px-4 py-2.5">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-[12px] font-medium text-accent">{selected.size} selected</span>
+                <div className="ml-auto">
+                  <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} className="text-[11px] h-7">
+                    Clear
+                  </Button>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mb-1">
+                <Button size="sm" variant="outline" onClick={() => setBulkConfirm("enable")} className="text-[11px] h-7 shrink-0">
                   <CheckIcon className="mr-1 h-3 w-3" /> Enable
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setBulkConfirm("disable")} className="text-[11px] h-7">
+                <Button size="sm" variant="outline" onClick={() => setBulkConfirm("disable")} className="text-[11px] h-7 shrink-0">
                   <MinusIcon className="mr-1 h-3 w-3" /> Disable
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setBulkConfirm("auto-fetch-on")} className="text-[11px] h-7">
+                <Button size="sm" variant="outline" onClick={() => setBulkConfirm("auto-fetch-on")} className="text-[11px] h-7 shrink-0">
                   Auto-fetch On
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setBulkConfirm("auto-fetch-off")} className="text-[11px] h-7">
+                <Button size="sm" variant="outline" onClick={() => setBulkConfirm("auto-fetch-off")} className="text-[11px] h-7 shrink-0">
                   Auto-fetch Off
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setBulkConfirm("delete")} className="text-[11px] h-7 text-destructive hover:bg-destructive/10">
+                <Button size="sm" variant="outline" onClick={() => setBulkConfirm("delete")} className="text-[11px] h-7 shrink-0 text-destructive hover:bg-destructive/10">
                   <Trash2Icon className="mr-1 h-3 w-3" /> Delete
-                </Button>
-              </div>
-              <div className="ml-auto">
-                <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} className="text-[11px] h-7">
-                  Clear
                 </Button>
               </div>
             </div>
@@ -491,7 +509,7 @@ export function ProvidersTab(): JSX.Element {
               {providers.map((provider) => (
                 <div
                   key={provider.name}
-                  className={`border bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30 ${
+                  className={`border bg-surface p-3 sm:p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30 ${
                     selected.has(provider.name)
                       ? "border-accent/50 bg-accent/5"
                       : provider.config?.enabled === false
@@ -499,8 +517,8 @@ export function ProvidersTab(): JSX.Element {
                         : "border-border/40"
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                       <button
                         onClick={() => toggleSelect(provider.name)}
                         className="shrink-0 p-0.5 hover:bg-border/20 transition-colors"
@@ -514,8 +532,8 @@ export function ProvidersTab(): JSX.Element {
                       </button>
                       <ProviderMark provider={provider} />
                       <div className="flex min-w-0 flex-col gap-1">
-                        <div className="flex min-w-0 flex-wrap items-center gap-2">
-                          <span className="truncate text-[14px] font-semibold text-foreground">{provider.name}</span>
+                        <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
+                          <span className="truncate text-[13px] sm:text-[14px] font-semibold text-foreground">{provider.name}</span>
                           <ConfigSourceBadge source={provider.config_source} />
                           {provider.config?.enabled === false && <Pill tone="muted">disabled</Pill>}
                           {provider.config?.pool_only && <Pill tone="accent">pool-only</Pill>}
@@ -524,11 +542,12 @@ export function ProvidersTab(): JSX.Element {
                             <Pill tone="accent">filter: {filterToText(provider.config?.autofetch_filter)}</Pill>
                           )}
                           {provider.config?.user_agent && <Pill tone="accent">custom UA</Pill>}
+                          {provider.config?.bind_ip && <Pill tone="muted">bind: {provider.config.bind_ip}</Pill>}
                         </div>
                         <span className="text-[11px] text-muted-foreground">{provider.type || provider.config?.type || "custom"}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
                       <Switch
                         checked={provider.config?.enabled !== false}
                         size="sm"
@@ -537,7 +556,7 @@ export function ProvidersTab(): JSX.Element {
                         aria-label={`Toggle provider ${provider.name}`}
                         title={`${provider.config?.enabled === false ? "Enable" : "Disable"} ${provider.name}`}
                       />
-                      <button onClick={() => { setEditingProvider({ name: provider.name, originalName: provider.name, type: provider.config?.type || provider.type || "", base_url: provider.config?.base_url || "", api_version: provider.config?.api_version || "", api_key: provider.config?.api_key || "",                          models: provider.config?.models?.join(", ") || "", bind_ip: provider.config?.bind_ip || "", pool_only: provider.config?.pool_only ?? false, user_agent: provider.config?.user_agent || "", auto_fetch_models: provider.config?.auto_fetch_models ?? true, autofetch_filter_text: filterToText(provider.config?.autofetch_filter), apiKeySet: provider.config?.api_key_set ?? false }); setModalOpen("edit"); }} className="p-1.5 hover:bg-border/20 transition-colors" title="Edit provider">
+                      <button onClick={() => { setEditingProvider({ name: provider.name, originalName: provider.name, type: provider.config?.type || provider.type || "", base_url: provider.config?.base_url || "", api_version: provider.config?.api_version || "", api_key: provider.config?.api_key || "", models: provider.config?.models?.join(", ") || "", bind_ip: provider.config?.bind_ip || "", pool_only: provider.config?.pool_only ?? false, user_agent: provider.config?.user_agent || "", auto_fetch_models: provider.config?.auto_fetch_models ?? true, autofetch_filter_text: filterToText(provider.config?.autofetch_filter), apiKeySet: provider.config?.api_key_set ?? false }); setModalOpen("edit"); }} className="p-1.5 hover:bg-border/20 transition-colors" title="Edit provider">
                         <Edit3Icon className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
                       <button onClick={() => setDeleteConfirm(provider.name)} className="p-1.5 hover:bg-destructive/10 transition-colors" title="Delete provider">
@@ -545,21 +564,21 @@ export function ProvidersTab(): JSX.Element {
                       </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 text-[12px] text-muted-foreground">
+                  <div className="flex items-center gap-3 text-[11px] sm:text-[12px] text-muted-foreground">
                     <StatusChip enabled={provider.status === "healthy"} />
                     <span className="font-mono">{provider.runtime?.discovered_model_count ?? 0} models</span>
                   </div>
                   {provider.config?.base_url && (
-                    <div className="text-[11px] text-muted-foreground font-mono truncate" title={provider.config.base_url}>
+                    <div className="text-[10px] sm:text-[11px] text-muted-foreground font-mono truncate" title={provider.config.base_url}>
                       {provider.config.base_url}
                     </div>
                   )}
                   {provider.config?.models && provider.config.models.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1">
-                      {provider.config.models.slice(0, 5).map((m) => (
-                        <span key={m} className="inline-flex items-center border border-border/30 bg-background/30 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">{m}</span>
+                      {provider.config.models.slice(0, 3).map((m) => (
+                        <span key={m} className="inline-flex items-center border border-border/30 bg-background/30 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-medium text-muted-foreground">{m}</span>
                       ))}
-                      {provider.config.models.length > 5 && <span className="text-[10px] text-muted-foreground self-center">+{provider.config.models.length - 5} more</span>}
+                      {provider.config.models.length > 3 && <span className="text-[9px] sm:text-[10px] text-muted-foreground self-center">+{provider.config.models.length - 3} more</span>}
                     </div>
                   )}
                 </div>
@@ -588,8 +607,8 @@ export function ProvidersTab(): JSX.Element {
       )}
 
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setDeleteConfirm(null)}>
-          <div className="w-full max-w-sm  border border-border/60 bg-surface p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setDeleteConfirm(null)}>
+          <div className="w-full sm:max-w-sm border border-border/60 bg-surface p-4 sm:p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-semibold text-[15px] tracking-tight text-foreground mb-2">Delete Provider</h3>
             <p className="text-[13px] text-foreground/80 mb-4">Are you sure you want to delete provider <strong>{deleteConfirm}</strong>? This will remove any UI-created overrides for this provider.</p>
             <div className="flex items-center gap-3">
@@ -604,8 +623,8 @@ export function ProvidersTab(): JSX.Element {
       )}
 
       {bulkConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setBulkConfirm(null)}>
-          <div className="w-full max-w-sm border border-border/60 bg-surface p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setBulkConfirm(null)}>
+          <div className="w-full sm:max-w-sm border border-border/60 bg-surface p-4 sm:p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-semibold text-[15px] tracking-tight text-foreground mb-2">Bulk Action</h3>
             <p className="text-[13px] text-foreground/80 mb-4">
               {bulkConfirm === "enable" && <>Enable <strong>{selected.size}</strong> selected provider{selected.size !== 1 ? "s" : ""}?</>}
