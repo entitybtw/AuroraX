@@ -39,6 +39,8 @@ import {
 import type { PoolOptions } from "@/lib/api/pools-types";
 import { cn } from "@/lib/utils";
 import { formatRequests } from "@/lib/format/numbers";
+import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
+import { SelectCheckbox, BulkActionsBar } from "@/components/ui/bulk-selection";
 
 interface MemberForm {
   name: string;
@@ -64,6 +66,7 @@ export function PoolsPage(): JSX.Element {
   const [options, setOptions] = React.useState<PoolOptions>({ providers: [] });
   const [error, setError] = React.useState("");
   const [notice, setNotice] = React.useState("");
+  const bulk = useBulkSelection<string>();
 
   const poolList = pools.data?.pools ?? [];
   const selected = poolList[selectedIdx] ?? null;
@@ -164,6 +167,24 @@ export function PoolsPage(): JSX.Element {
     }
   }
 
+  async function bulkDelete(): Promise<void> {
+    const names = Array.from(bulk.selected);
+    if (names.length === 0) return;
+    if (!window.confirm(`Delete ${names.length} pool${names.length !== 1 ? "s" : ""}? Traffic routed through them will fall back to direct provider/model routing.`))
+      return;
+    try {
+      setError("");
+      for (const name of names) {
+        await deletePool(name);
+      }
+      bulk.clear();
+      setNotice(`${names.length} pool${names.length !== 1 ? "s" : ""} deleted.`);
+      await pools.refetch();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to delete pools.");
+    }
+  }
+
   if (pools.isLoading && !pools.data) return <LoadingState />;
   if (pools.error) return <ErrorState message={pools.error.message} />;
 
@@ -195,7 +216,14 @@ export function PoolsPage(): JSX.Element {
             selectedIdx={selectedIdx}
             onSelect={setSelectedIdx}
             onCreate={openCreate}
+            bulk={bulk}
           />
+          <BulkActionsBar count={bulk.selectedCount} onClear={bulk.clear}>
+            <Button size="sm" variant="destructive" onClick={() => void bulkDelete()}>
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete
+            </Button>
+          </BulkActionsBar>
           {selected && (
             <PoolView pool={selected} onEdit={openEdit} onDelete={remove} />
           )}
@@ -241,14 +269,24 @@ function PoolSelector({
   selectedIdx,
   onSelect,
   onCreate,
+  bulk,
 }: {
   pools: PoolSnapshot[];
   selectedIdx: number;
   onSelect: (i: number) => void;
   onCreate: () => void;
+  bulk: ReturnType<typeof useBulkSelection<string>>;
 }) {
+  const poolNames = pools.map((p) => p.name);
   return (
-    <div className="flex gap-1 overflow-x-auto border border-border/40 bg-surface p-1">
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-1 overflow-x-auto border border-border/40 bg-surface p-1">
+        <SelectCheckbox
+          checked={bulk.allSelected(poolNames)}
+          indeterminate={bulk.someSelected(poolNames)}
+          onClick={() => bulk.toggleAll(poolNames)}
+          title="Select all pools"
+        />
       {pools.map((pool, i) => {
         const isActive = selectedIdx === i;
         const allHealthy = pool.members.every((m) => m.healthy);
@@ -264,6 +302,15 @@ function PoolSelector({
                 : "text-muted-foreground hover:bg-surface-hover/60 hover:text-foreground",
             )}
           >
+            <span
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center"
+            >
+              <SelectCheckbox
+                checked={bulk.isSelected(pool.name)}
+                onClick={() => bulk.toggle(pool.name)}
+              />
+            </span>
             <span
               className={cn(
                 "h-1.5 w-1.5 transition-colors",
@@ -295,6 +342,7 @@ function PoolSelector({
         <Plus className="h-3.5 w-3.5" />
         New
       </button>
+    </div>
     </div>
   );
 }
