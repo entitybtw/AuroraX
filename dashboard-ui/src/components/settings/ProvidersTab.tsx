@@ -310,6 +310,9 @@ export function ProvidersTab(): JSX.Element {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkConfirm, setBulkConfirm] = useState<"enable" | "disable" | "auto-fetch-on" | "auto-fetch-off" | "delete" | null>(null);
+  const [bulkEditField, setBulkEditField] = useState<"bind_ip" | "user_agent" | "autofetch_filter" | null>(null);
+  const [bulkEditValue, setBulkEditValue] = useState("");
+  const [bulkEditSaving, setBulkEditSaving] = useState(false);
 
   const deleteMutation = useMutation({
     mutationFn: (name: string) => deleteProvider(name),
@@ -367,6 +370,29 @@ export function ProvidersTab(): JSX.Element {
       setBulkConfirm(null);
     },
   });
+
+  const handleBulkEdit = async () => {
+    if (!bulkEditField || selected.size === 0) return;
+    setBulkEditSaving(true);
+    try {
+      for (const name of selected) {
+        const patch: Record<string, any> = {};
+        if (bulkEditField === "bind_ip") patch.bind_ip = bulkEditValue;
+        else if (bulkEditField === "user_agent") patch.user_agent = bulkEditValue;
+        else if (bulkEditField === "autofetch_filter") {
+          const text = bulkEditValue.trim();
+          patch.autofetch_filter = text === "" ? null : { mode: "all", conditions: text.split(",").map((v) => ({ contains: v.trim() })).filter((c) => c.contains) };
+        }
+        await updateProvider(name, patch);
+      }
+      queryClient.invalidateQueries({ queryKey: ["provider-status"] });
+      setSelected(new Set());
+      setBulkEditField(null);
+      setBulkEditValue("");
+    } finally {
+      setBulkEditSaving(false);
+    }
+  };
 
   const providers = providerStatus?.providers ?? [];
   const summary = providerStatus?.summary;
@@ -479,6 +505,15 @@ export function ProvidersTab(): JSX.Element {
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => setBulkConfirm("auto-fetch-off")} className="text-[11px] h-7 shrink-0">
                   Auto-fetch Off
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => { setBulkEditField("bind_ip"); setBulkEditValue(""); }} className="text-[11px] h-7 shrink-0">
+                  Set Bind IP
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => { setBulkEditField("user_agent"); setBulkEditValue(""); }} className="text-[11px] h-7 shrink-0">
+                  Set User Agent
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => { setBulkEditField("autofetch_filter"); setBulkEditValue(""); }} className="text-[11px] h-7 shrink-0">
+                  Set Filter
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => setBulkConfirm("delete")} className="text-[11px] h-7 shrink-0 text-destructive hover:bg-destructive/10">
                   <Trash2Icon className="mr-1 h-3 w-3" /> Delete
@@ -644,6 +679,35 @@ export function ProvidersTab(): JSX.Element {
               <Button variant="outline" onClick={() => setBulkConfirm(null)}>Cancel</Button>
             </div>
             {bulkMutation.isError && <div className="mt-3 text-[13px] font-medium text-destructive">{bulkMutation.error?.message}</div>}
+          </div>
+        </div>
+      )}
+
+      {bulkEditField && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setBulkEditField(null)}>
+          <div className="w-full sm:max-w-md border border-border/60 bg-surface p-4 sm:p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-[15px] tracking-tight text-foreground mb-1">
+              {bulkEditField === "bind_ip" && "Set Bind IP"}
+              {bulkEditField === "user_agent" && "Set User Agent"}
+              {bulkEditField === "autofetch_filter" && "Set Auto-fetch Filter"}
+            </h3>
+            <p className="text-[12px] text-muted-foreground mb-4">
+              Applied to <strong>{selected.size}</strong> selected provider{selected.size !== 1 ? "s" : ""}.
+              {bulkEditField === "autofetch_filter" ? " Comma-separated substrings. Leave empty to clear." : " Leave empty to clear."}
+            </p>
+            <Input
+              type="text"
+              placeholder={bulkEditField === "bind_ip" ? "203.0.113.10" : bulkEditField === "user_agent" ? "my-app/1.0" : "free, flash"}
+              value={bulkEditValue}
+              onChange={(e) => setBulkEditValue(e.target.value)}
+              autoFocus
+            />
+            <div className="flex items-center gap-3 mt-4">
+              <Button onClick={handleBulkEdit} disabled={bulkEditSaving}>
+                {bulkEditSaving ? "Applying..." : "Apply to All"}
+              </Button>
+              <Button variant="outline" onClick={() => setBulkEditField(null)}>Cancel</Button>
+            </div>
           </div>
         </div>
       )}
