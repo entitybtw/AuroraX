@@ -402,6 +402,8 @@ function buildRows(models: ModelInventoryItem[], aliases: AliasView[], aliasesAv
 function matchesFilter(row: DisplayRow, filter: string): boolean {
   const needle = filter.trim().toLowerCase();
   if (!needle) return true;
+  const m = metadata(row.model);
+  const tags = Array.isArray(m.tags) ? (m.tags as string[]) : [];
   const fields = [
     row.displayName,
     row.secondaryName,
@@ -409,10 +411,11 @@ function matchesFilter(row: DisplayRow, filter: string): boolean {
     row.providerType,
     row.model.model?.id,
     row.model.model?.owned_by,
-    metadata(row.model).display_name,
-    metadata(row.model).description,
+    m.display_name,
+    m.description,
     row.alias?.description,
     row.alias ? aliasTargetLabel(row.alias) : "",
+    ...tags,
   ];
   return fields.some((field) => String(field ?? "").toLowerCase().includes(needle));
 }
@@ -890,6 +893,7 @@ export function ModelsPage(): JSX.Element {
                   const owner = String(m.owned_by ?? row.model.model?.owned_by ?? "");
                   const display = typeof m.display_name === "string" ? m.display_name : "";
                   const modes = modelModes(row.model).split(", ").filter((mode) => mode && mode !== "-");
+                  const tags = row.isAlias ? [] : Array.isArray(metadata(row.model).tags) ? (metadata(row.model).tags as string[]) : [];
                   return (
                     <tr key={row.key} className={cn("hover:bg-surface-hover/40", row.isAlias && "bg-accent/5")}>
                       <Td>
@@ -948,6 +952,15 @@ export function ModelsPage(): JSX.Element {
                                   {modalities}
                                 </span>
                               ) : null}
+                              {tags.length > 0 ? tags.slice(0, 5).map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="rounded-md border border-purple-500/25 bg-purple-500/10 px-1.5 py-0.5 font-mono text-[10px] text-purple-400"
+                                >
+                                  {tag}
+                                </span>
+                              )) : null}
+                              {tags.length > 5 ? <span className="text-[10px] text-muted-foreground">+{tags.length - 5}</span> : null}
                             </div>
                           ) : null}
                           {row.isAlias ? (
