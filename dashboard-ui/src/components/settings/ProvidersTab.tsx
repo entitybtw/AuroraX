@@ -138,22 +138,9 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
       const { autofetch_filter_text, ...rest } = form;
       const text = (autofetch_filter_text ?? "").trim();
       const parsed = textToFilter(text);
-      // When the text field is empty but the initial filter had non-contains
-      // conditions (regex, price) that the UI cannot represent, preserve the
-      // original filter so editing via the dashboard does not silently drop
-      // advanced conditions.
-      let filterPayload = parsed;
-      if (parsed === null && initial?.autofetch_filter?.conditions?.length) {
-        const hasAdvanced = initial.autofetch_filter.conditions.some(
-          (c) => !c.contains || c.contains === ""
-        );
-        if (hasAdvanced) {
-          filterPayload = initial.autofetch_filter;
-        }
-      }
       const payload = {
         ...rest,
-        autofetch_filter: filterPayload,
+        autofetch_filter: parsed,
       };
       if (mode === "add") {
         await createProvider(payload);
@@ -239,9 +226,22 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Auto-fetch filter</label>
-            <Input type="text" placeholder="free, flash" value={form.autofetch_filter_text ?? ""}
-              onChange={(e) => setForm({ ...form, autofetch_filter_text: e.target.value })} />
-            <div className="text-[11px] text-muted-foreground">Comma-separated substrings. Only models whose ID contains every value are kept.</div>
+            <div className="relative">
+              <Input type="text" placeholder="free, flash  (empty = keep all)" value={form.autofetch_filter_text ?? ""}
+                onChange={(e) => setForm({ ...form, autofetch_filter_text: e.target.value })}
+                className="pr-8" />
+              {(form.autofetch_filter_text ?? "") !== "" && (
+                <button type="button" onClick={() => setForm({ ...form, autofetch_filter_text: "" })}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 hover:bg-border/30 rounded transition-colors"
+                  title="Clear filter">
+                  <XIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              )}
+            </div>
+            <div className="text-[11px] text-muted-foreground">Comma-separated substrings. Only models whose ID contains every value are kept. Leave empty to keep all.</div>
+            {initial?.autofetch_filter && (form.autofetch_filter_text ?? "") === "" && (
+              <div className="text-[11px] text-warning">Warning: This provider has an advanced filter set. Clearing the text will remove it.</div>
+            )}
           </div>
 
           <button
@@ -695,13 +695,23 @@ export function ProvidersTab(): JSX.Element {
               Applied to <strong>{selected.size}</strong> selected provider{selected.size !== 1 ? "s" : ""}.
               {bulkEditField === "autofetch_filter" ? " Comma-separated substrings. Leave empty to clear." : " Leave empty to clear."}
             </p>
-            <Input
-              type="text"
-              placeholder={bulkEditField === "bind_ip" ? "203.0.113.10" : bulkEditField === "user_agent" ? "my-app/1.0" : "free, flash"}
-              value={bulkEditValue}
-              onChange={(e) => setBulkEditValue(e.target.value)}
-              autoFocus
-            />
+            <div className="relative">
+              <Input
+                type="text"
+                placeholder={bulkEditField === "bind_ip" ? "203.0.113.10" : bulkEditField === "user_agent" ? "my-app/1.0" : "free, flash  (empty = clear)"}
+                value={bulkEditValue}
+                onChange={(e) => setBulkEditValue(e.target.value)}
+                autoFocus
+                className="pr-8"
+              />
+              {bulkEditValue !== "" && (
+                <button type="button" onClick={() => setBulkEditValue("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 hover:bg-border/30 rounded transition-colors"
+                  title="Clear">
+                  <XIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              )}
+            </div>
             <div className="flex items-center gap-3 mt-4">
               <Button onClick={handleBulkEdit} disabled={bulkEditSaving}>
                 {bulkEditSaving ? "Applying..." : "Apply to All"}
