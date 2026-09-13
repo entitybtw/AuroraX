@@ -1161,7 +1161,7 @@ function AliasDialog({
 }): JSX.Element {
   return (
     <Dialog open={Boolean(form)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl max-sm:mx-4">
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
         {form ? (
           <>
             <DialogHeader>
@@ -1227,7 +1227,7 @@ function OverrideDialog({
 }): JSX.Element {
   return (
     <Dialog open={Boolean(form)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl max-sm:mx-4">
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
         {form ? (
           <>
             <DialogHeader>
@@ -1292,7 +1292,7 @@ function PricingDialog({
   const override = form?.view.override_pricing;
   return (
     <Dialog open={Boolean(form)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl max-sm:mx-4">
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
         {form ? (
           <>
             <DialogHeader>

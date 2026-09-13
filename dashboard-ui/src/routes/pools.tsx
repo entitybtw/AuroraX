@@ -660,7 +660,7 @@ function PoolDialog({
 
   return (
     <Dialog open={Boolean(form)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl w-full">
+      <DialogContent className="sm:max-w-2xl w-full max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{form.mode === "edit" ? "Edit pool" : "Create pool"}</DialogTitle>
           <DialogDescription>
