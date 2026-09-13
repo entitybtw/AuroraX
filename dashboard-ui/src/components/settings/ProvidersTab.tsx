@@ -11,14 +11,16 @@ import { useState, useMemo, useCallback } from "react";
 
 // filterToText renders an AutoFetchFilter into the simple comma-separated form
 // the provider form edits. Only `contains` conditions are representable; a
-// filter using regex or price rules is left untouched on save (see
-// textToFilter's guard) so the UI never silently drops advanced conditions.
+// filter using regex or price rules shows a generic label.
 function filterToText(filter?: AutoFetchFilter | null): string {
   if (!filter?.conditions?.length) return "";
-  return filter.conditions
+  const contains = filter.conditions
     .map((condition) => condition.contains ?? "")
-    .filter((value) => value !== "")
-    .join(", ");
+    .filter((value) => value !== "");
+  const advanced = filter.conditions.some((c) => !c.contains || c.contains === "");
+  if (contains.length === 0 && advanced) return "advanced filter";
+  const base = contains.join(", ");
+  return advanced ? `${base}, ...` : base;
 }
 
 // textToFilter parses the comma-separated text back into a filter. An empty
@@ -134,9 +136,23 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
     try {
       const { autofetch_filter_text, ...rest } = form;
       const text = (autofetch_filter_text ?? "").trim();
+      const parsed = textToFilter(text);
+      // When the text field is empty but the initial filter had non-contains
+      // conditions (regex, price) that the UI cannot represent, preserve the
+      // original filter so editing via the dashboard does not silently drop
+      // advanced conditions.
+      let filterPayload = parsed;
+      if (parsed === null && initial?.autofetch_filter?.conditions?.length) {
+        const hasAdvanced = initial.autofetch_filter.conditions.some(
+          (c) => !c.contains || c.contains === ""
+        );
+        if (hasAdvanced) {
+          filterPayload = initial.autofetch_filter;
+        }
+      }
       const payload = {
         ...rest,
-        autofetch_filter: textToFilter(text),
+        autofetch_filter: filterPayload,
       };
       if (mode === "add") {
         await createProvider(payload);
