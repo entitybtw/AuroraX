@@ -72,11 +72,11 @@ export function CombosPage(): JSX.Element {
             </Button>
           </BulkActionsBar>
           <TableWrap><DataTable><thead><tr>
-            <Th className="w-10"><SelectCheckbox checked={bulk.allSelected(comboIds)} indeterminate={bulk.someSelected(comboIds)} onClick={() => bulk.toggleAll(comboIds)} title="Select all" /></Th>
+            <Th className="w-10"><SelectCheckbox checked={bulk.allSelected(comboIds)} indeterminate={bulk.someSelected(comboIds)} onClick={(e: React.MouseEvent) => e.shiftKey ? null : bulk.toggleAll(comboIds)} title="Select all" /></Th>
             <Th>Name</Th><Th>Source</Th><Th>Status</Th><Th>Chain</Th><Th>Validation</Th><Th className="text-right">Actions</Th>
           </tr></thead><tbody>{combos.map((view) => (
             <tr key={view.combo.id || view.combo.name}>
-              <Td><SelectCheckbox checked={bulk.isSelected(view.combo.name)} onClick={() => bulk.toggle(view.combo.name)} title={bulk.isSelected(view.combo.name) ? "Deselect" : "Select"} /></Td>
+              <Td><SelectCheckbox checked={bulk.isSelected(view.combo.name)} onClick={(e: React.MouseEvent) => e.shiftKey ? bulk.rangeSelect(view.combo.name, comboIds) : bulk.toggle(view.combo.name)} title={bulk.isSelected(view.combo.name) ? "Deselect" : "Select"} /></Td>
               <Td><div className="font-mono text-sm font-medium">{view.combo.name}</div><div className="text-xs text-muted-foreground">{view.combo.description}</div></Td>
               <Td><Pill tone={view.readonly ? "muted" : "accent"}>{view.combo.source}</Pill></Td>
               <Td><Pill tone={view.combo.enabled ? "success" : "warning"}>{view.combo.enabled ? "Enabled" : "Disabled"}</Pill></Td>
