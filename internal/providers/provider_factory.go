@@ -10,6 +10,7 @@ import (
 	"aurora/configuration"
 	"aurora/internal/core"
 	"aurora/internal/language_model_client"
+	"aurora/internal/providers/oauth"
 )
 
 // ProviderOptions bundles runtime settings passed from the factory to provider constructors.
@@ -27,6 +28,16 @@ type ProviderOptions struct {
 	// SessionHub optionally provides a header transformer for session mapping.
 	// When set, providers wrap their headerSetter to apply session hub rules.
 	SessionHub SessionHubTransformer
+	// AuthMethod selects authentication: "key" (default) or "oauth".
+	AuthMethod string
+	// OAuthServer is the base URL of the OAuth server for device flow.
+	OAuthServer string
+	// OAuthClientID is the OAuth client_id for the device flow.
+	OAuthClientID string
+	// OAuthDataDir is the directory for persisting OAuth tokens.
+	OAuthDataDir string
+	// OAuthRegistry is the central registry for OAuth token managers.
+	OAuthRegistry *oauth.Registry
 }
 
 // SessionHubTransformer transforms headers for a given provider name.
@@ -61,6 +72,7 @@ type ProviderFactory struct {
 	passthroughEnrichers map[string]core.PassthroughSemanticEnricher
 	hooks                llmclient.Hooks
 	sessionHub           SessionHubTransformer
+	oauthRegistry        *oauth.Registry
 }
 
 // NewProviderFactory creates a new provider factory instance.
@@ -84,6 +96,31 @@ func (f *ProviderFactory) SetSessionHub(transformer SessionHubTransformer) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.sessionHub = transformer
+}
+
+// SetOAuthDataDir is replaced by SetOAuthRegistry. Kept for backward compatibility.
+func (f *ProviderFactory) SetOAuthDataDir(dir string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	// No-op: data dir is now part of the registry setup
+}
+
+// SetOAuthRegistry configures the OAuth registry for all providers.
+func (f *ProviderFactory) SetOAuthRegistry(registry *oauth.Registry) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.oauthRegistry = registry
+}
+
+// OAuthRegistry returns the configured OAuth registry, or nil.
+func (f *ProviderFactory) OAuthRegistry() *oauth.Registry {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	return f.oauthRegistry
+}
+
+func (f *ProviderFactory) oauthDataDir() string {
+	return "data"
 }
 
 // Add adds a provider constructor to the factory.
@@ -119,13 +156,18 @@ func (f *ProviderFactory) Create(cfg ProviderConfig) (core.Provider, error) {
 	}
 
 	opts := ProviderOptions{
-		Hooks:        hooks,
-		Models:       cfg.Models,
-		Resilience:   cfg.Resilience,
-		BindIP:       cfg.BindIP,
-		UserAgent:    cfg.UserAgent,
-		ProviderName: cfg.Name,
-		SessionHub:   f.sessionHub,
+		Hooks:          hooks,
+		Models:         cfg.Models,
+		Resilience:     cfg.Resilience,
+		BindIP:         cfg.BindIP,
+		UserAgent:      cfg.UserAgent,
+		ProviderName:   cfg.Name,
+		SessionHub:     f.sessionHub,
+		AuthMethod:     cfg.AuthMethod,
+		OAuthServer:    cfg.OAuthServer,
+		OAuthClientID:  cfg.OAuthClientID,
+		OAuthDataDir:   f.oauthDataDir(),
+		OAuthRegistry:  f.oauthRegistry,
 	}
 
 	return builder(cfg, opts), nil

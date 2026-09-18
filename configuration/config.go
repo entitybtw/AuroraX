@@ -164,6 +164,16 @@ type RawProviderConfig struct {
 	// models matching the declared conditions. Filtered-out models are not
 	// registered and cannot be routed to. Nil/empty means no filtering.
 	AutoFetchFilter AutoFetchFilter `yaml:"autofetch_filter,omitempty"`
+	// AuthMethod selects the authentication mechanism for upstream requests.
+	// "key" (default) uses the static api_key. "oauth" uses the RFC 8628
+	// device authorization grant to obtain and refresh bearer tokens.
+	AuthMethod string `yaml:"auth_method,omitempty"`
+	// OAuthServer is the base URL of the OAuth authorization server.
+	// Defaults to "https://example.com/console" for free tier.
+	OAuthServer string `yaml:"oauth_server,omitempty"`
+	// OAuthClientID is the OAuth client_id used in the device flow.
+	// Defaults to "opencode-cli" for free tier.
+	OAuthClientID string `yaml:"oauth_client_id,omitempty"`
 }
 
 // RawPoolConfig is the YAML-sourced provider pool definition. Pools group

@@ -573,6 +573,16 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 		}
 		serverCfg.SessionHub = app.sessionHub
 		slog.Info("session hub initialized", "providers", len(app.sessionHub.Config().Providers))
+
+		// Initialize OAuth device flow handler
+		if cfg.Factory != nil {
+			oauthReg := cfg.Factory.OAuthRegistry()
+			if oauthReg != nil {
+				oauthHandler := admin.NewOAuthHandler(oauthReg)
+				serverCfg.OAuthHandler = oauthHandler
+				slog.Info("oauth device flow enabled", "providers", oauthReg.Len())
+			}
+		}
 	}
 
 	if swaggerEnabled {
