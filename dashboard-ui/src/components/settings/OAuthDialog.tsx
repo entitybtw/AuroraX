@@ -46,6 +46,7 @@ export function OAuthDialog({
   } | null>(null);
   const [unlinking, setUnlinking] = useState(false);
   const [alreadyLinked, setAlreadyLinked] = useState(false);
+  const [checkingStatus, setCheckingStatus] = useState(true);
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
 
@@ -55,13 +56,17 @@ export function OAuthDialog({
     return `https://example.com${verificationUri}`;
   }, [verificationUri]);
 
-  // Check if account is already linked when dialog opens
+  // On dialog open: check status first, then decide whether to start a new flow.
   useEffect(() => {
     if (!open) return;
+    let cancelled = false;
+    setCheckingStatus(true);
+
     const checkStatus = async () => {
       try {
         const { fetchOAuthStatus } = await import("@/lib/api/oauth");
         const status = await fetchOAuthStatus(providerName);
+        if (cancelled) return;
         if (status.has_token && !status.expired) {
           setAlreadyLinked(true);
           setAccountInfo({
@@ -69,15 +74,24 @@ export function OAuthDialog({
             account_id: status.account_id ?? undefined,
             expires_at: status.expires_at ?? undefined,
           });
+          setStep("success");
         } else {
           setAlreadyLinked(false);
           setAccountInfo(null);
         }
       } catch {
-        setAlreadyLinked(false);
+        if (!cancelled) {
+          setAlreadyLinked(false);
+          setAccountInfo(null);
+        }
+      } finally {
+        if (!cancelled) setCheckingStatus(false);
       }
     };
     checkStatus();
+    return () => {
+      cancelled = true;
+    };
   }, [open, providerName]);
 
   // Copy to clipboard helper
@@ -193,11 +207,10 @@ export function OAuthDialog({
     };
   }, []);
 
-  // Reset when dialog opens
+  // Reset when dialog opens; auto-start a device flow only after the status
+  // check completes and the account is NOT already linked.
   useEffect(() => {
-    if (open && step === "idle") {
-      handleStart();
-    } else if (!open) {
+    if (!open) {
       // Cleanup on close
       if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
       setStep("idle");
@@ -206,8 +219,14 @@ export function OAuthDialog({
       setError("");
       setPolling(false);
       setAccountInfo(null);
+      setAlreadyLinked(false);
+      setCheckingStatus(true);
+      return;
     }
-  }, [open]);
+    if (!checkingStatus && !alreadyLinked && step === "idle") {
+      handleStart();
+    }
+  }, [open, checkingStatus, alreadyLinked]);
 
   // Time remaining calculation
   const timeRemaining = step === "polling"
@@ -252,29 +271,39 @@ export function OAuthDialog({
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {step === "polling" && (
+            {checkingStatus && (
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
             )}
-            {step === "success" && (
+            {!checkingStatus && step === "polling" && (
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            )}
+            {!checkingStatus && step === "success" && alreadyLinked && (
+              <Link className="h-5 w-5 text-success" />
+            )}
+            {!checkingStatus && step === "success" && !alreadyLinked && (
               <CheckCircle className="h-5 w-5 text-success" />
             )}
-            {step === "error" && (
+            {!checkingStatus && step === "error" && (
               <AlertCircle className="h-5 w-5 text-destructive" />
             )}
-            {step === "waiting" && (
+            {!checkingStatus && step === "waiting" && (
               <WifiOff className="h-5 w-5 text-muted-foreground" />
             )}
-            {step === "success" ? "Authorized!" : alreadyLinked ? "Account Linked" : "Link upstream Account"}
+            {checkingStatus
+              ? "Checking status..."
+              : step === "success"
+                ? alreadyLinked
+                  ? "Account Linked"
+                  : "Authorized!"
+                : "Link upstream Account"}
           </DialogTitle>
           <DialogDescription>
-            {alreadyLinked && step === "idle" && (
-              <>
-                <Link className="mr-1.5 h-4 w-4 text-primary" />
-                Account already linked to upstream.
-              </>
+            {checkingStatus && "Checking OAuth status for this provider..."}
+            {!checkingStatus && step === "success" && alreadyLinked && (
+              "This provider is already linked to an upstream account."
             )}
-            {step === "waiting" && "Starting device authorization flow..."}
-            {step === "polling" && (
+            {!checkingStatus && step === "waiting" && "Starting device authorization flow..."}
+            {!checkingStatus && step === "polling" && (
               <>
                 Authorize in browser, then wait for confirmation.
                 <br />
@@ -283,8 +312,8 @@ export function OAuthDialog({
                 <span className="text-xs text-muted-foreground">remaining</span>
               </>
             )}
-            {step === "success" && "Your upstream account is now linked."}
-            {step === "error" && error}
+            {!checkingStatus && step === "success" && !alreadyLinked && "Your upstream account is now linked."}
+            {!checkingStatus && step === "error" && error}
           </DialogDescription>
         </DialogHeader>
 
@@ -352,22 +381,22 @@ export function OAuthDialog({
           </Surface>
         )}
 
-        {step === "success" && accountInfo && (
+        {step === "success" && (
           <Surface variant="subtle" className="p-4">
             <div className="grid gap-2 text-sm">
-              {accountInfo.email && (
+              {accountInfo?.email && (
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">Email:</span>
                   <span className="font-medium">{accountInfo.email}</span>
                 </div>
               )}
-              {accountInfo.account_id && (
+              {accountInfo?.account_id && (
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">Account ID:</span>
                   <CodeBlock className="text-xs">{accountInfo.account_id}</CodeBlock>
                 </div>
               )}
-              {accountInfo.expires_at && (
+              {accountInfo?.expires_at && (
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">Token expires:</span>
                   <span>
@@ -381,9 +410,18 @@ export function OAuthDialog({
               <Button
                 variant="outline"
                 size="sm"
+                onClick={handleStart}
+                className="flex-1"
+              >
+                <Link2 className="mr-1.5 h-3.5 w-3.5" />
+                Relink Account
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={handleUnlink}
                 disabled={unlinking}
-                className="flex-1"
+                className="flex-1 text-destructive hover:bg-destructive/10"
               >
                 {unlinking ? (
                   <>
@@ -393,10 +431,12 @@ export function OAuthDialog({
                 ) : (
                   <>
                     <Unlink2 className="mr-1.5 h-3.5 w-3.5" />
-                    Unlink Account
+                    Unlink
                   </>
                 )}
               </Button>
+            </div>
+            <div className="flex justify-end mt-2">
               <Button
                 variant="ghost"
                 size="sm"
@@ -418,12 +458,6 @@ export function OAuthDialog({
         )}
 
         <DialogFooter className="gap-2">
-          {alreadyLinked && step === "idle" && (
-            <Button variant="outline" onClick={handleStart} className="flex-1">
-              <Link2 className="mr-1.5 h-3.5 w-3.5" />
-              Relink Account
-            </Button>
-          )}
           {step === "polling" && (
             <Button variant="secondary" onClick={() => onOpenChange(false)}>
               Cancel
@@ -432,11 +466,6 @@ export function OAuthDialog({
           {step === "error" && (
             <Button variant="default" onClick={handleStart}>
               Try Again
-            </Button>
-          )}
-          {step === "success" && (
-            <Button variant="default" onClick={() => onOpenChange(false)}>
-              Done
             </Button>
           )}
         </DialogFooter>
