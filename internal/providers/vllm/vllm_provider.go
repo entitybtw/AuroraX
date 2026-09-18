@@ -130,16 +130,31 @@ func setHeaders(req *http.Request, apiKey string) {
 func makeSetHeaders(oauthMgr *oauth.Manager) func(req *http.Request, apiKey string) {
 	return func(req *http.Request, apiKey string) {
 		// OAuth takes precedence when configured and token is available
-		if oauthMgr != nil && oauthMgr.HasToken() {
-			if err := oauthMgr.EnsureFreshToken(); err != nil {
-				// Log but don't fail — the token might still be valid
-				// Use the token as-is; it will fail with 401 if truly expired
+		if oauthMgr != nil {
+			hasToken := oauthMgr.HasToken()
+			token := oauthMgr.GetAccessToken()
+			log.Printf("oauth: provider hasToken=%v tokenLen=%d", hasToken, len(token))
+			if hasToken {
+				if err := oauthMgr.EnsureFreshToken(); err != nil {
+					// Log but don't fail — the token might still be valid
+					log.Printf("oauth: EnsureFreshToken error: %v", err)
+				}
+				if tok := oauthMgr.GetAccessToken(); tok != "" {
+					req.Header.Set("Authorization", "Bearer "+tok)
+					log.Printf("oauth: set Authorization header with token (len=%d)", len(tok))
+				} else {
+					log.Printf("oauth: GetAccessToken returned empty")
+				}
+			} else {
+				log.Printf("oauth: HasToken returned false")
 			}
-			if tok := oauthMgr.GetAccessToken(); tok != "" {
-				req.Header.Set("Authorization", "Bearer "+tok)
+		} else {
+			log.Printf("oauth: oauthMgr is nil, using apiKey")
+		}
+		if oauthMgr == nil || !oauthMgr.HasToken() {
+			if apiKey != "" {
+				req.Header.Set("Authorization", "Bearer "+apiKey)
 			}
-		} else if apiKey != "" {
-			req.Header.Set("Authorization", "Bearer "+apiKey)
 		}
 		if requestID := core.GetRequestID(req.Context()); requestID != "" {
 			req.Header.Set("X-Request-Id", requestID)
