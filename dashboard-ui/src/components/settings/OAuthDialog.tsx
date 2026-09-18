@@ -17,11 +17,10 @@ import {
   ToggleField,
   Surface,
   Pill,
-  codeBlock,
+  CodeBlock,
 } from "@/components/ui/surface";
 import { Loader2, CheckCircle, AlertCircle, Copy, ExternalLink, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CodeBlock } from "@/components/ui/surface";
 
 interface OAuthDialogProps {
   providerName: string;
@@ -235,7 +234,7 @@ export function OAuthDialog({
               <div>
                 <Label className="text-xs text-muted-foreground">User Code</Label>
                 <div className="flex items-center gap-2 mt-1">
-                  <codeBlock className="flex-1 text-lg font-mono tracking-widest">
+                  <CodeBlock className="flex-1 text-lg font-mono tracking-widest">
                     {userCode}
                   </CodeBlock>
                   <Button
@@ -305,7 +304,7 @@ export function OAuthDialog({
               {accountInfo.account_id && (
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">Account ID:</span>
-                  <codeBlock className="text-xs">{accountInfo.account_id}</CodeBlock>
+                  <CodeBlock className="text-xs">{accountInfo.account_id}</CodeBlock>
                 </div>
               )}
               {accountInfo.expires_at && (
