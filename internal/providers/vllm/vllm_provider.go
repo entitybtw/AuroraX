@@ -39,6 +39,24 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 	baseURL := providers.ResolveBaseURL(cfg.BaseURL, defaultBaseURL)
 	rootBaseURL := passthroughBaseURL(baseURL)
 
+	// Auto-detect OpenCode zen: if base URL is opencode.ai/zen/v1 and API key starts with sk-,
+	// auto-enable OAuth for free-tier access (sk- keys don't work for free tier)
+	if opts.AuthMethod == "" && strings.HasPrefix(strings.TrimSpace(cfg.APIKey), "sk-") {
+		if strings.Contains(baseURL, "opencode.ai/zen/v1") {
+			opts.AuthMethod = "oauth"
+		}
+	}
+
+	// Set OAuth defaults for OpenCode zen
+	if opts.AuthMethod == "oauth" {
+		if opts.OAuthServer == "" {
+			opts.OAuthServer = oauth.DefaultServer
+		}
+		if opts.OAuthClientID == "" {
+			opts.OAuthClientID = oauth.DefaultClientID
+		}
+	}
+
 	// Set up OAuth token manager if auth_method is "oauth"
 	var oauthMgr *oauth.Manager
 	if opts.AuthMethod == "oauth" {
