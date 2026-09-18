@@ -15,6 +15,9 @@
   <a href="https://hub.docker.com/r/entbtw/aurora"><img src="https://img.shields.io/docker/v/entbtw/aurora?sort=semver" alt="Docker Version" height="20"></a>
 </p>
 
+> [!WARNING]
+> **Disclaimer:** This project is a research proof-of-concept. Some features (OAuth device flow, session hub header mapping) interact with third-party APIs in ways that may violate their Terms of Service. The author is not responsible for any account suspensions, bans, or other consequences that may result from using these features. Use at your own risk.
+
 <p align="center"><b>One API for every AI provider. Self-hosted. No vendor lock-in.</b></p>
 
 <p align="center">14 provider types &bull; OpenAI &amp; Anthropic compatible &bull; Go &bull; Apache 2.0  &bull; Built for raw speed </p>
