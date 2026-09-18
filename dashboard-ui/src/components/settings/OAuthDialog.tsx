@@ -14,7 +14,7 @@ import {
   Pill,
   CodeBlock,
 } from "@/components/ui/surface";
-import { Loader2, CheckCircle, AlertCircle, Copy, ExternalLink, WifiOff } from "lucide-react";
+import { Loader2, CheckCircle, AlertCircle, Copy, ExternalLink, WifiOff, Link, Link2, Unlink2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface OAuthDialogProps {
@@ -44,6 +44,7 @@ export function OAuthDialog({
     account_id: string | undefined;
     expires_at: string | undefined;
   } | null>(null);
+  const [unlinking, setUnlinking] = useState(false);
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
 
@@ -60,6 +61,23 @@ export function OAuthDialog({
       // Could add toast here
     } catch (e) {
       console.error(`Failed to copy ${label}:`, e);
+    }
+  };
+
+  const handleUnlink = async () => {
+    setUnlinking(true);
+    try {
+      const { clearOAuthToken } = await import("@/lib/api/oauth");
+      await clearOAuthToken(providerName);
+      setStep("idle");
+      setAccountInfo(null);
+      onComplete?.();
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Failed to unlink account";
+      setError(message);
+      setStep("error");
+    } finally {
+      setUnlinking(false);
     }
   };
 
@@ -319,6 +337,34 @@ export function OAuthDialog({
                 </div>
               )}
               <Pill tone="success">Free tier enabled</Pill>
+            </div>
+            <div className="flex items-center gap-2 mt-3 pt-3 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleUnlink}
+                disabled={unlinking}
+                className="flex-1"
+              >
+                {unlinking ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    Unlinking...
+                  </>
+                ) : (
+                  <>
+                    <Unlink2 className="mr-1.5 h-3.5 w-3.5" />
+                    Unlink Account
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onOpenChange(false)}
+              >
+                Done
+              </Button>
             </div>
           </Surface>
         )}
