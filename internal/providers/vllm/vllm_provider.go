@@ -39,6 +39,24 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 	baseURL := providers.ResolveBaseURL(cfg.BaseURL, defaultBaseURL)
 	rootBaseURL := passthroughBaseURL(baseURL)
 
+	// Auto-detect upstream zen: if base URL is /zen/v1 and API key starts with sk-,
+	// auto-enable for access (sk- keys don't work for )
+	if opts.AuthMethod == "" && strings.HasPrefix(strings.TrimSpace(cfg.APIKey), "sk-") {
+		if strings.Contains(baseURL, "/zen/v1") {
+			opts.AuthMethod = ""
+		}
+	}
+
+	// Set defaults for upstream zen
+	if opts.AuthMethod == "" {
+		if opts.== "" {
+			opts.= .DefaultServer
+		}
+		if opts.== "" {
+			opts.= .DefaultClientID
+		}
+	}
+
 	// Set up token manager if auth_method is ""
 	var *.Manager
 	if opts.AuthMethod == "" {
