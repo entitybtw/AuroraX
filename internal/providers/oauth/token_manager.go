@@ -54,13 +54,14 @@ type StoredToken struct {
 
 // Manager manages OAuth tokens for a single provider.
 type Manager struct {
-	mu           sync.RWMutex
-	token        *StoredToken
-	server       string
-	clientID     string
-	dataDir      string
-	providerName string
-	httpClient   *http.Client
+	mu                sync.RWMutex
+	token             *StoredToken
+	server            string
+	clientID          string
+	dataDir           string
+	providerName      string
+	httpClient        *http.Client
+	tokenFileModTime  time.Time
 }
 
 // NewManager creates a new OAuth token manager.
@@ -86,26 +87,57 @@ func NewManager(server, clientID, dataDir, providerName string) *Manager {
 }
 
 // GetAccessToken returns a valid access token. Returns empty string if none stored.
+// Checks if token file has been modified externally and reloads if needed.
 func (m *Manager) GetAccessToken() string {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.tryReloadToken() {
+		// Token was reloaded
+	}
 	if m.token == nil {
 		return ""
 	}
 	return m.token.AccessToken
 }
 
+// tryReloadToken checks if token file was modified and reloads if needed.
+// Returns true if token was reloaded.
+func (m *Manager) tryReloadToken() bool {
+	path := m.tokenFilePath()
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	if !info.ModTime().After(m.tokenFileModTime) {
+		return false
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	var t StoredToken
+	if err := json.Unmarshal(data, &t); err != nil {
+		return false
+	}
+	m.token = &t
+	m.tokenFileModTime = info.ModTime()
+	return true
+}
+
 // HasToken reports whether a token is stored.
 func (m *Manager) HasToken() bool {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.tryReloadToken()
 	return m.token != nil && m.token.AccessToken != ""
 }
 
 // TokenInfo returns a copy of the stored token metadata.
 func (m *Manager) TokenInfo() *StoredToken {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.tryReloadToken()
 	if m.token == nil {
 		return nil
 	}
@@ -321,6 +353,9 @@ func (m *Manager) loadToken() {
 		return
 	}
 	m.token = &t
+	if info, err := os.Stat(path); err == nil {
+		m.tokenFileModTime = info.ModTime()
+	}
 }
 
 func (m *Manager) saveToken() error {
@@ -331,7 +366,13 @@ func (m *Manager) saveToken() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(m.tokenFilePath(), data, 0o600)
+	if err := os.WriteFile(m.tokenFilePath(), data, 0o600); err != nil {
+		return err
+	}
+	if info, err := os.Stat(m.tokenFilePath()); err == nil {
+		m.tokenFileModTime = info.ModTime()
+	}
+	return nil
 }
 
 func (m *Manager) removeTokenFile() error {
