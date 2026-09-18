@@ -10,6 +10,7 @@ import (
 	"aurora/configuration"
 	"aurora/internal/core"
 	"aurora/internal/language_model_client"
+	"aurora/internal/providers/"
 )
 
 // ProviderOptions bundles runtime settings passed from the factory to provider constructors.
@@ -27,6 +28,16 @@ type ProviderOptions struct {
 	// SessionHub optionally provides a header transformer for session mapping.
 	// When set, providers wrap their headerSetter to apply session hub rules.
 	SessionHub SessionHubTransformer
+	// AuthMethod selects authentication: "key" (default) or "".
+	AuthMethod string
+	// is the base URL of the server for device flow.
+	string
+	// is the client_id for the device flow.
+	string
+	// is the directory for persisting tokens.
+	string
+	// is the central registry for token managers.
+	*.Registry
 }
 
 // SessionHubTransformer transforms headers for a given provider name.
@@ -61,6 +72,7 @@ type ProviderFactory struct {
 	passthroughEnrichers map[string]core.PassthroughSemanticEnricher
 	hooks                llmclient.Hooks
 	sessionHub           SessionHubTransformer
+	*.Registry
 }
 
 // NewProviderFactory creates a new provider factory instance.
@@ -84,6 +96,31 @@ func (f *ProviderFactory) SetSessionHub(transformer SessionHubTransformer) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.sessionHub = transformer
+}
+
+// Setis replaced by Set. Kept for backward compatibility.
+func (f *ProviderFactory) Set(dir string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	// No-op: data dir is now part of the registry setup
+}
+
+// Setconfigures the registry for all providers.
+func (f *ProviderFactory) Set(registry *.Registry) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.= registry
+}
+
+// returns the configured registry, or nil.
+func (f *ProviderFactory) () *.Registry {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	return f.
+}
+
+func (f *ProviderFactory) () string {
+	return "data"
 }
 
 // Add adds a provider constructor to the factory.
@@ -119,13 +156,18 @@ func (f *ProviderFactory) Create(cfg ProviderConfig) (core.Provider, error) {
 	}
 
 	opts := ProviderOptions{
-		Hooks:        hooks,
-		Models:       cfg.Models,
-		Resilience:   cfg.Resilience,
-		BindIP:       cfg.BindIP,
-		UserAgent:    cfg.UserAgent,
-		ProviderName: cfg.Name,
-		SessionHub:   f.sessionHub,
+		Hooks:          hooks,
+		Models:         cfg.Models,
+		Resilience:     cfg.Resilience,
+		BindIP:         cfg.BindIP,
+		UserAgent:      cfg.UserAgent,
+		ProviderName:   cfg.Name,
+		SessionHub:     f.sessionHub,
+		AuthMethod:     cfg.AuthMethod,
+		:    cfg.,
+		:  cfg.,
+		:   f.(),
+		:  f.,
 	}
 
 	return builder(cfg, opts), nil

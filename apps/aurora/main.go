@@ -31,6 +31,7 @@ import (
 	"aurora/internal/providers/groq"
 	"aurora/internal/providers/minimax"
 	"aurora/internal/providers/ollama"
+	"aurora/internal/providers/"
 	"aurora/internal/providers/openai"
 	"aurora/internal/providers/openrouter"
 	"aurora/internal/providers/oracle"
@@ -344,6 +345,10 @@ func main() {
 	configureSwaggerDocs(result.Config.Server.BasePath)
 
 	factory := providers.NewProviderFactory()
+
+	// Set up registry for device flow providers (e.g. )
+	:= .NewRegistry()
+	factory.Set()
 
 	// Initialize session hub and attach to factory before provider creation.
 	// Rules added at runtime are persisted to this file and reload on restart.

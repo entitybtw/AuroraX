@@ -50,6 +50,12 @@ type ProviderConfig struct {
 	// response. Filtered-out models are never registered and cannot be routed
 	// to. Zero value means no filtering.
 	AutoFetchFilter config.AutoFetchFilter
+	// AuthMethod selects the authentication mechanism: "key" (default) or "".
+	AuthMethod string
+	// is the base URL of the authorization server.
+	string
+	// is the client_id for the device flow.
+	string
 }
 
 // resolveProviders applies env var overrides to the raw YAML provider map, filters
@@ -480,6 +486,9 @@ func buildProviderConfig(raw config.RawProviderConfig, global config.ResilienceC
 		UserAgent:              strings.TrimSpace(raw.UserAgent),
 		AutoFetchModels:        raw.AutoFetchModels,
 		AutoFetchFilter:        raw.AutoFetchFilter,
+		AuthMethod:             strings.TrimSpace(raw.AuthMethod),
+		:            strings.TrimSpace(raw.),
+		:          strings.TrimSpace(raw.),
 	}
 
 	if raw.Resilience == nil {

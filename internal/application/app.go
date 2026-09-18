@@ -573,6 +573,16 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 		}
 		serverCfg.SessionHub = app.sessionHub
 		slog.Info("session hub initialized", "providers", len(app.sessionHub.Config().Providers))
+
+		// Initialize device flow handler
+		if cfg.Factory != nil {
+			:= cfg.Factory.()
+			if != nil {
+				:= admin.New()
+				serverCfg.= 
+				slog.Info("device flow enabled", "providers", .Len())
+			}
+		}
 	}
 
 	if swaggerEnabled {
