@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
   Dialog,
@@ -11,8 +9,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import {
   Surface,
   Pill,
@@ -224,7 +220,7 @@ export function OAuthDialog({
           <Surface variant="subtle" className="p-4">
             <div className="grid gap-3 text-sm">
               <div>
-                <Label className="text-xs text-muted-foreground">User Code</Label>
+                <label className="text-xs text-muted-foreground block mb-1">User Code</label>
                 <div className="flex items-center gap-2 mt-1">
                   <CodeBlock className="flex-1 text-lg font-mono tracking-widest">
                     {userCode}
@@ -241,7 +237,7 @@ export function OAuthDialog({
               </div>
 
               <div>
-                <Label className="text-xs text-muted-foreground">Verification URL</Label>
+                <label className="text-xs text-muted-foreground block mb-1">Verification URL</label>
                 <div className="flex items-center gap-2 mt-1">
                   <Input
                     readOnly
