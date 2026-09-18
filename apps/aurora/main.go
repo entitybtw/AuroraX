@@ -32,6 +32,7 @@ import (
 	"aurora/internal/providers/minimax"
 	"aurora/internal/providers/ollama"
 	"aurora/internal/providers/oauth"
+	opencodeprovider "aurora/internal/providers/opencode"
 	"aurora/internal/providers/openai"
 	"aurora/internal/providers/openrouter"
 	"aurora/internal/providers/oracle"
@@ -398,6 +399,7 @@ func main() {
 	factory.Add(minimax.Registration)
 	factory.Add(ollama.Registration)
 	factory.Add(vllm.Registration)
+	factory.Add(opencodeprovider.Registration)
 	factory.Add(xai.Registration)
 	factory.Add(zai.Registration)
 
