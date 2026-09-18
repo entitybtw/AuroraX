@@ -40,14 +40,13 @@ export function OAuthDialog({
   const [userCode, setUserCode] = useState("");
   const [verificationUri, setVerificationUri] = useState("");
   const [expiresIn, setExpiresIn] = useState(0);
-  const [interval, setInterval] = useState(5);
-  const [interval, setInterval] = useState(5);
+  const [pollInterval, setPollInterval] = useState(5);
   const [error, setError] = useState("");
   const [polling, setPolling] = useState(false);
   const [accountInfo, setAccountInfo] = useState<{
-    email?: string;
-    account_id?: string;
-    expires_at?: string;
+    email: string | undefined;
+    account_id: string | undefined;
+    expires_at: string | undefined;
   } | null>(null);
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
@@ -80,7 +79,7 @@ export function OAuthDialog({
       setUserCode(res.user_code);
       setVerificationUri(res.verification_uri_complete);
       setExpiresIn(res.expires_in);
-      setInterval(res.interval);
+      setPollInterval(res.interval);
       startTimeRef.current = Date.now();
       setStep("polling");
       startPolling();
@@ -135,17 +134,17 @@ export function OAuthDialog({
         }
 
         // Continue polling
-        pollTimerRef.current = setTimeout(poll, interval * 1000);
+        pollTimerRef.current = setTimeout(poll, pollInterval * 1000);
       } catch (e: unknown) {
         const message = e instanceof Error ? e.message : "Polling error";
         // Don't error out on transient errors, just retry
         console.error("OAuth poll error:", message);
-        pollTimerRef.current = setTimeout(poll, interval * 1000);
+        pollTimerRef.current = setTimeout(poll, pollInterval * 1000);
       }
     };
 
     await poll();
-  }, [step, polling, providerName, interval, expiresIn]);
+  }, [step, polling, providerName, pollInterval, expiresIn]);
 
   // Cleanup on unmount or step change
   useEffect(() => {
@@ -162,7 +161,6 @@ export function OAuthDialog({
       // Cleanup on close
       if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
       setStep("idle");
-      setDeviceCode("");
       setUserCode("");
       setVerificationUri("");
       setError("");
@@ -281,7 +279,7 @@ export function OAuthDialog({
               />
             </div>
             <p className="text-xs text-muted-foreground text-center mt-1">
-              Auto-polling every {interval}s • Expires in {formatTime(timeRemaining)}
+              Auto-polling every {pollInterval}s • Expires in {formatTime(timeRemaining)}
             </p>
           </Surface>
         )}
