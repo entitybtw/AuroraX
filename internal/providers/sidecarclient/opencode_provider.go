@@ -7,11 +7,9 @@ package opencode
 import (
 	"context"
 	"io"
-	"net/http"
 	"strings"
 
 	"aurora/internal/core"
-	llmclient "aurora/internal/language_model_client"
 	"aurora/internal/providers"
 	"aurora/internal/providers/oauth"
 	"aurora/internal/providers/vllm"
