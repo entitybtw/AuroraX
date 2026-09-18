@@ -14,7 +14,6 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
-  ToggleField,
   Surface,
   Pill,
   CodeBlock,
@@ -38,10 +37,10 @@ export function OAuthDialog({
   const [step, setStep] = useState<"idle" | "waiting" | "polling" | "success" | "error">(
     "idle"
   );
-  const [deviceCode, setDeviceCode] = useState("");
   const [userCode, setUserCode] = useState("");
   const [verificationUri, setVerificationUri] = useState("");
   const [expiresIn, setExpiresIn] = useState(0);
+  const [interval, setInterval] = useState(5);
   const [interval, setInterval] = useState(5);
   const [error, setError] = useState("");
   const [polling, setPolling] = useState(false);
@@ -77,7 +76,7 @@ export function OAuthDialog({
       // Dynamic import to avoid SSR issues
       const { startOAuthDeviceFlow } = await import("@/lib/api/oauth");
       const res = await startOAuthDeviceFlow(providerName);
-      setDeviceCode(res.device_code);
+      // Backend doesn't return device_code, but starts background polling
       setUserCode(res.user_code);
       setVerificationUri(res.verification_uri_complete);
       setExpiresIn(res.expires_in);
@@ -92,40 +91,35 @@ export function OAuthDialog({
     }
   };
 
-  // Poll for token
+  // Poll for token using status endpoint (backend handles device_code internally)
   const startPolling = useCallback(async () => {
     if (polling) return;
     setPolling(true);
 
     const poll = async () => {
-      if (!deviceCode || step !== "polling") {
+      if (step !== "polling") {
         setPolling(false);
         return;
       }
 
       try {
-        const { pollOAuthToken } = await import("@/lib/api/oauth");
-        const res = await pollOAuthToken(providerName, deviceCode, interval, expiresIn);
+        const { fetchOAuthStatus } = await import("@/lib/api/oauth");
+        const status = await fetchOAuthStatus(providerName);
 
-        if (res.status === "authorized") {
+        if (status.has_token && !status.expired) {
           setStep("success");
-          if (res.access_token) {
-            // Fetch account info
-            const { fetchOAuthStatus } = await import("@/lib/api/oauth");
-            const status = await fetchOAuthStatus(providerName);
-            setAccountInfo({
-              email: status.email,
-              account_id: status.account_id,
-              expires_at: status.expires_at,
-            });
-          }
+          setAccountInfo({
+            email: status.email ?? undefined,
+            account_id: status.account_id ?? undefined,
+            expires_at: status.expires_at ?? undefined,
+          });
           setPolling(false);
           onComplete?.();
           return;
         }
 
-        if (res.status === "error") {
-          setError(res.error || "Authorization failed");
+        if (status.expired) {
+          setError("Token expired. Please start a new authorization.");
           setStep("error");
           setPolling(false);
           return;
@@ -151,7 +145,7 @@ export function OAuthDialog({
     };
 
     await poll();
-  }, [deviceCode, step, polling, providerName, interval, expiresIn]);
+  }, [step, polling, providerName, interval, expiresIn]);
 
   // Cleanup on unmount or step change
   useEffect(() => {
