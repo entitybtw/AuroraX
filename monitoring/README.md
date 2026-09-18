@@ -1,6 +1,6 @@
 # Monitoring & Observability
 
-Aurora Gateway ships with built-in Prometheus metrics and optional telemetry exports
+AuroraX Gateway ships with built-in Prometheus metrics and optional telemetry exports
 for external observability platforms. This directory contains Grafana dashboard
 provisioning config; the root `prometheus.yml` provides the Prometheus scrape config.
 
@@ -95,7 +95,7 @@ Grafana is available at `http://localhost:3000` (default: admin / admin).
 
 ## Observability Exports (Enterprise only)
 
-Aurora Gateway can periodically export telemetry snapshots to external platforms.
+AuroraX Gateway can periodically export telemetry snapshots to external platforms.
 This feature is **not available in the OSS build** — enabling it returns an error:
 
 ```

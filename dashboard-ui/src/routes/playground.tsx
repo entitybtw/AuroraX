@@ -343,7 +343,7 @@ export function PlaygroundPage(): JSX.Element {
 
   // Embeddings state
   const [embQuery, setEmbQuery] = useState("");
-  const [embInputs, setEmbInputs] = useState("Hello from Aurora");
+  const [embInputs, setEmbInputs] = useState("Hello from AuroraX");
   const [embExpectedLine, setEmbExpectedLine] = useState<number | null>(null);
   // Rerank state
   const [rerankQuery, setRerankQuery] = useState("");

@@ -2,7 +2,7 @@
   <img src="docs-assets/assets/aurora-logo-animated.svg" width="96" height="96" alt="Aurora Logo">
 </p>
 
-<h1 align="center">Aurora - The Fastest AI Gateway </h1>
+<h1 align="center">AuroraX - The Fastest AI Gateway </h1>
 <h2 align="center">A fork focused on multi-IP setups & API integration</h2>
 
 <p align="center">
@@ -23,7 +23,7 @@
 <p align="center">14 provider types &bull; OpenAI &amp; Anthropic compatible &bull; Go &bull; Apache 2.0  &bull; Built for raw speed </p>
 
 <a href="docs-assets/assets/dashboard-overview.png">
-  <img src="docs-assets/assets/dashboard-overview.png" alt="Aurora admin dashboard showing provider stats and usage metrics" width="100%">
+  <img src="docs-assets/assets/dashboard-overview.png" alt="AuroraX admin dashboard showing provider stats and usage metrics" width="100%">
 </a>
 
 ## Documentation
@@ -68,17 +68,17 @@ Dashboard-driven operations — no more `.env`-only workflows for the things you
 
 ---
 
-## What Aurora Does
+## What AuroraX Does
 
-Aurora sits between your app and LLM providers. Your app sends requests using the standard OpenAI or Anthropic SDK — Aurora routes them to whichever provider you've configured. One format handles everything — you dont need to worry about provider-specific formats.
+AuroraX sits between your app and LLM providers. Your app sends requests using the standard OpenAI or Anthropic SDK — Aurora routes them to whichever provider you've configured. One format handles everything — you dont need to worry about provider-specific formats.
 
 
 ```python
 # Before: hardcoded provider
 client = OpenAI(base_url="https://api.openai.com/v1", api_key="sk-...")
 
-# After: Aurora Gateway
-client = OpenAI(base_url="http://localhost:8080/v1", api_key="your-aurora-key")
+# After: AuroraX Gateway
+client = OpenAI(base_url="http://localhost:8080/v1", api_key="your-aurorax-key")
 ```
 
 No SDK changes. No format changes. Just swap the `base_url`.
@@ -172,7 +172,7 @@ Header transformation engine for API integration workflows where upstream servic
 
 #### How it works
 
-1. Client sends request to Aurora (e.g. with `x-opencode-session: ses_abc123`)
+1. Client sends request to AuroraX (e.g. with `x-opencode-session: ses_abc123`)
 2. Gateway intercepts the inbound session header and stores it in request context
 3. Request is routed to a pool member (e.g. `opencode-zen` → `vllm-zen-backup`)
 4. Provider's outbound `headerSetter` fires: session hub applies rules for that provider/pool
@@ -239,7 +239,7 @@ providers:
 
 ## free tier — Known Limitations
 
-Aurora supports routing through the free tier API (`opencode.ai/zen/v1`) using `vLLM` provider type with multi-IP rotation and session hub header mapping.
+AuroraX supports routing through the free tier API (`opencode.ai/zen/v1`) using `vLLM` provider type with multi-IP rotation and session hub header mapping.
 
 ### What works
 
@@ -270,10 +270,10 @@ The server verifies the Bearer token is an **OAuth access token** obtained throu
 
 ### Workaround
 
-Use **OpenRouter free-tier** models instead — they work without restrictions through Aurora:
+Use **OpenRouter free-tier** models instead — they work without restrictions through AuroraX:
 
 ```bash
-# These work through Aurora without any auth tricks
+# These work through AuroraX without any auth tricks
 openrouter/nvidia/nemotron-3-ultra:free
 openrouter/google/gemma-4-31b-it:free
 openrouter/nvidia/nemotron-3.5-lightning:free
