@@ -197,9 +197,13 @@ providers:
       - name: x-opencode-client
         mode: static
         value: cli
-      - name: user-agent
+      - name: x-opencode-request
+        mode: generate
+        prefix: "msg_"
+        length: 28
+      - name: x-opencode-project
         mode: static
-        value: "opencode/1.18.26 ai-sdk/openai/2.0.0 runtime/bun/1.0.0"
+        value: global
 ```
 
 #### API
@@ -227,6 +231,51 @@ providers:
 | `static` | Fixed value (set `value:`) |
 | `random_from_list` | Random pick from `values:` list |
 | `remove` | Strip header entirely |
+
+---
+
+## free tier — Known Limitations
+
+Aurora supports routing through the free tier API (`opencode.ai/zen/v1`) using `vLLM` provider type with multi-IP rotation and session hub header mapping.
+
+### What works
+
+- **Paid models** (if your free tier account has credits) — full API compatibility
+- **Pool rotation** — round-robin across multiple free tier API keys with distinct source IPs
+- **Session hub** — generates and forwards all required `x-opencode-*` headers: `x-opencode-session` (mapped), `x-opencode-client` (static: `cli`), `x-opencode-request` (generated per request), `x-opencode-project` (static: `global`)
+- **User-Agent** — matches the real the CLI format: `opencode/<version>`
+
+### What doesn't work (server-side limitation)
+
+**Free-tier models return `FreeTierError`** — upstream's free tier API checks server-side whether the request originates from the actual the CLI application. This is **not** a header check — it is an authentication method check:
+
+| Auth method | Free tier | Paid tier |
+|-------------|-----------|-----------|
+| OAuth token (from `opencode auth login opencode` device flow) | Allowed | Allowed (with credits) |
+| API key (`sk-...` from free-tier dashboard) | **Blocked** (`FreeTierError`) | Allowed (with credits) |
+
+The server verifies the Bearer token is an **OAuth access token** obtained through the device flow (`client_id: opencode-cli`, issuer `example.com`), not a dashboard API key. No combination of headers (User-Agent, x-opencode-client, x-opencode-session, referer, etc.) can bypass this check.
+
+**Affected models:** `deepseek-v4-flash-free`, `muse-spark-1.3-contributor-free`, `muse-spark-1.2-contributor-free`, `mimo-v2.5-free`, `ling-3.0-flash-fin-free`, `nemotron-3-ultra-free`, `nemotron-3.5-lightning-free`
+
+### What was fixed in v1.1.2
+
+- **Session hub capture expanded** — `isCaptureHeader` now captures all `x-opencode-*` headers (was limited to `x-*session*` only)
+- **Header forwarding expanded** — `isSessionScopedHeader` now forwards `x-opencode-request` and `x-opencode-project` (were being dropped)
+- **New session hub rules** — `x-opencode-client` (static: `cli`), `x-opencode-request` (generated: `msg_` prefix), `x-opencode-project` (static: `global`) alongside existing `x-opencode-session`
+- **User-Agent corrected** — pool `UserAgent` changed from `opencode-cli/1.18.31` to `opencode/1.18.31` to match the real upstream client format
+
+### Workaround
+
+Use **OpenRouter free-tier** models instead — they work without restrictions through Aurora:
+
+```bash
+# These work through Aurora without any auth tricks
+openrouter/nvidia/nemotron-3-ultra:free
+openrouter/google/gemma-4-31b-it:free
+openrouter/nvidia/nemotron-3.5-lightning:free
+# ... and 13 more
+```
 
 ---
 
@@ -328,7 +377,7 @@ set AURORA_MASTER_KEY=your-secure-key ^
 
 ### Option B — Docker
 
-> Published image: **`entbtw/aurora`** · tags `latest`, `v1.0.3`.
+> Published image: **`entbtw/aurora`** · tags `latest`, `v1.1.2`.
 > ```bash
 > docker pull entbtw/aurora:latest
 > ```
