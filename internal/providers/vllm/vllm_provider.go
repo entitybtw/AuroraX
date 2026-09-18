@@ -10,6 +10,7 @@ import (
 	"aurora/internal/core"
 	"aurora/internal/language_model_client"
 	"aurora/internal/providers"
+	"aurora/internal/providers/"
 	"aurora/internal/providers/openai"
 )
 
@@ -30,17 +31,34 @@ var Registration = providers.Registration{
 type Provider struct {
 	compatible *openai.CompatibleProvider
 	rootClient *llmclient.Client
+	*.Manager
 }
 
 // New creates a new vLLM provider.
 func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Provider {
 	baseURL := providers.ResolveBaseURL(cfg.BaseURL, defaultBaseURL)
 	rootBaseURL := passthroughBaseURL(baseURL)
+
+	// Set up token manager if auth_method is ""
+	var *.Manager
+	if opts.AuthMethod == "" {
+		= .NewManager(
+			opts.,
+			opts.,
+			opts.,
+			opts.ProviderName,
+		)
+		// Register with the central registry so admin API can access it
+		if opts.!= nil {
+			opts..Register(opts.ProviderName, )
+		}
+	}
+
 	return &Provider{
 		compatible: openai.NewCompatibleProvider(cfg.APIKey, opts, openai.CompatibleProviderConfig{
 			ProviderName: "vllm",
 			BaseURL:      baseURL,
-			SetHeaders:   setHeaders,
+			SetHeaders:   makeSetHeaders(),
 		}),
 		rootClient: llmclient.New(llmclient.Config{
 			ProviderName:   "vllm",
@@ -50,8 +68,9 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 			CircuitBreaker: opts.Resilience.CircuitBreaker,
 			BindIP:         opts.BindIP,
 		}, func(req *http.Request) {
-			setHeaders(req, cfg.APIKey)
+			makeSetHeaders()(req, cfg.APIKey)
 		}),
+		: ,
 	}
 }
 
@@ -73,6 +92,11 @@ func NewWithHTTPClient(apiKey string, baseURL string, httpClient *http.Client, h
 	}
 }
 
+// returns the token manager, or nil if is not configured.
+func (p *Provider) () *.Manager {
+	return p.
+}
+
 // SetBaseURL allows configuring a custom base URL for the provider.
 func (p *Provider) SetBaseURL(url string) {
 	p.compatible.SetBaseURL(url)
@@ -80,11 +104,28 @@ func (p *Provider) SetBaseURL(url string) {
 }
 
 func setHeaders(req *http.Request, apiKey string) {
-	if apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+apiKey)
-	}
-	if requestID := core.GetRequestID(req.Context()); requestID != "" {
-		req.Header.Set("X-Request-Id", requestID)
+	makeSetHeaders(nil)(req, apiKey)
+}
+
+// makeSetHeaders returns a header setter that uses tokens when available,
+// falling back to the static API key.
+func makeSetHeaders(*.Manager) func(req *http.Request, apiKey string) {
+	return func(req *http.Request, apiKey string) {
+		// takes precedence when configured and token is available
+		if != nil && .HasToken() {
+			if err := .EnsureFreshToken(); err != nil {
+				// Log but don't fail — the token might still be valid
+				// Use the token as-is; it will fail with 401 if truly expired
+			}
+			if tok := .GetAccessToken(); tok != "" {
+				req.Header.Set("Authorization", "Bearer "+tok)
+			}
+		} else if apiKey != "" {
+			req.Header.Set("Authorization", "Bearer "+apiKey)
+		}
+		if requestID := core.GetRequestID(req.Context()); requestID != "" {
+			req.Header.Set("X-Request-Id", requestID)
+		}
 	}
 }
 
