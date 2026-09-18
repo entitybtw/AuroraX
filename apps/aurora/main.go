@@ -350,6 +350,11 @@ func main() {
 	:= .NewRegistry()
 	factory.Set()
 
+	// Merge provider overrides (from configs/provider-overrides.json) into the
+	// loaded config BEFORE providers are initialized, so auth_method / 
+	// fields and any runtime edits take effect from the first start.
+	mergeProviderOverridesIntoConfig(result)
+
 	// Initialize session hub and attach to factory before provider creation.
 	// Rules added at runtime are persisted to this file and reload on restart.
 	hubFile := config.SessionHubRulesPath()
@@ -459,4 +464,80 @@ func main() {
 	}
 
 	slog.Info("aurora stopped", "uptime", time.Since(started))
+}
+
+// mergeProviderOverridesIntoConfig loads the JSON provider overrides file and
+// merges it into the loaded config's RawProviders map. This ensures fields like
+// auth_method, , and take effect from the first
+// start (not only after runtime refresh via the admin API).
+func mergeProviderOverridesIntoConfig(result *config.LoadResult) {
+	if result == nil || result.RawProviders == nil {
+		return
+	}
+	overridesPath := "configs/provider-overrides.json"
+	if v := os.Getenv("AURORA_PROVIDER_OVERRIDES_PATH"); v != "" {
+		overridesPath = v
+	}
+	data, err := os.ReadFile(overridesPath)
+	if err != nil {
+		return // no overrides file — fine
+	}
+	type rawOverride struct {
+		Name          string                    `json:"name"`
+		Type          string                    `json:"type"`
+		BaseURL       string                    `json:"base_url"`
+		APIVersion    string                    `json:"api_version"`
+		APIKey        string                    `json:"api_key"`
+		Models        string                    `json:"models"`
+		BindIP        string                    `json:"bind_ip"`
+		PoolOnly      bool                      `json:"pool_only"`
+		UserAgent     string                    `json:"user_agent"`
+		AutoFetch     *bool                     `json:"auto_fetch_models"`
+		AuthMethod    string                    `json:"auth_method"`
+		string                    `json:""`
+		string                    `json:""`
+	}
+	var overrides []rawOverride
+	if err := json.Unmarshal(data, &overrides); err != nil {
+		slog.Warn("failed to parse provider overrides for startup merge", "error", err)
+		return
+	}
+	merged := 0
+	for _, o := range overrides {
+		name := strings.TrimSpace(o.Name)
+		if name == "" {
+			continue
+		}
+		existing, exists := result.RawProviders[name]
+		if !exists {
+			// Create a new entry if it only exists in overrides
+			existing = config.RawProviderConfig{
+				Type:       strings.TrimSpace(o.Type),
+				APIKey:     strings.TrimSpace(o.APIKey),
+				BaseURL:    strings.TrimSpace(o.BaseURL),
+				APIVersion: strings.TrimSpace(o.APIVersion),
+			}
+		}
+		// Merge fields from overrides into the config
+		if o.AuthMethod != "" {
+			existing.AuthMethod = o.AuthMethod
+		}
+		if o.!= "" {
+			existing.= o.
+		}
+		if o.!= "" {
+			existing.= o.
+		}
+		if o.BindIP != "" {
+			existing.BindIP = o.BindIP
+		}
+		if o.UserAgent != "" {
+			existing.UserAgent = o.UserAgent
+		}
+		result.RawProviders[name] = existing
+		merged++
+	}
+	if merged > 0 {
+		slog.Info("provider overrides merged into startup config", "count", merged)
+	}
 }
