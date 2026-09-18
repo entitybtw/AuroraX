@@ -1,13 +1,14 @@
-import { Surface, SectionHeader, Pill } from "@/components/ui/surface";
+import { Surface, SectionHeader, Pill, codeBlock } from "@/components/ui/surface";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { RuntimeStatusBadge, useSettings, StatusChip } from "./SettingsContext";
-import { ServerIcon, RefreshCwIcon, PlusIcon, Edit3Icon, Trash2Icon, SaveIcon, XIcon, CheckIcon, SquareIcon, CheckSquareIcon, MinusIcon } from "lucide-react";
+import { ServerIcon, RefreshCwIcon, PlusIcon, Edit3Icon, Trash2Icon, SaveIcon, XIcon, CheckIcon, SquareIcon, CheckSquareIcon, MinusIcon, LinkIcon, WifiIcon, KeyIcon } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchProviderStatus, createProvider, updateProvider, deleteProvider, setProviderEnabled, type ProviderFormData, type AutoFetchFilter, type ProviderStatusResponse } from "@/lib/api/providers";
 import { withBasePath } from "@/lib/basepath";
 import { useState, useCallback, useMemo, useRef } from "react";
+import { OAuthDialog } from "./OAuthDialog";
 
 // filterToText renders an AutoFetchFilter into the simple comma-separated form
 // the provider form edits. Only `contains` conditions are representable; a
@@ -313,6 +314,7 @@ export function ProvidersTab(): JSX.Element {
   const [bulkEditField, setBulkEditField] = useState<"bind_ip" | "user_agent" | "autofetch_filter" | null>(null);
   const [bulkEditValue, setBulkEditValue] = useState("");
   const [bulkEditSaving, setBulkEditSaving] = useState(false);
+  const [oauthDialogProvider, setOAuthDialogProvider] = useState<string | null>(null);
 
   const deleteMutation = useMutation({
     mutationFn: (name: string) => deleteProvider(name),
@@ -396,6 +398,12 @@ export function ProvidersTab(): JSX.Element {
 
   const providers = providerStatus?.providers ?? [];
   const summary = providerStatus?.summary;
+
+  // Check if a provider is an OpenCode zen provider (vllm type with opencode.ai/zen/v1 base URL)
+  const isOpencodeZenProvider = (provider: any) => {
+    const baseUrl = provider.config?.base_url || "";
+    return provider.type === "vllm" && baseUrl.includes("opencode.ai/zen/v1");
+  };
 
   const allSelected = providers.length > 0 && providers.every((p) => selected.has(p.name));
   const someSelected = providers.some((p) => selected.has(p.name)) && !allSelected;
@@ -615,6 +623,16 @@ export function ProvidersTab(): JSX.Element {
                       <button onClick={() => { setEditingProvider({ name: provider.name, originalName: provider.name, type: provider.config?.type || provider.type || "", base_url: provider.config?.base_url || "", api_version: provider.config?.api_version || "", api_key: provider.config?.api_key || "", models: provider.config?.models?.join(", ") || "", bind_ip: provider.config?.bind_ip || "", pool_only: provider.config?.pool_only ?? false, user_agent: provider.config?.user_agent || "", auto_fetch_models: provider.config?.auto_fetch_models ?? true, autofetch_filter_text: filterToText(provider.config?.autofetch_filter), apiKeySet: provider.config?.api_key_set ?? false }); setModalOpen("edit"); }} className="p-1.5 hover:bg-border/20 transition-colors" title="Edit provider">
                         <Edit3Icon className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
+                      {isOpencodeZenProvider(provider) && (
+                        <button
+                          onClick={() => setOAuthDialogProvider(provider.name)}
+                          className="p-1.5 hover:bg-accent/10 transition-colors text-accent"
+                          title="Link OpenCode account (OAuth)"
+                          aria-label={`Link OpenCode account for ${provider.name}`}
+                        >
+                          <KeyIcon className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                       <button onClick={() => setDeleteConfirm(provider.name)} className="p-1.5 hover:bg-destructive/10 transition-colors" title="Delete provider">
                         <Trash2Icon className="h-3.5 w-3.5 text-destructive/70" />
                       </button>
@@ -702,6 +720,19 @@ export function ProvidersTab(): JSX.Element {
             {bulkMutation.isError && <div className="mt-3 text-[13px] font-medium text-destructive">{bulkMutation.error?.message}</div>}
           </div>
         </div>
+      )}
+
+      {oauthDialogProvider && (
+        <OAuthDialog
+          providerName={oauthDialogProvider}
+          open={!!oauthDialogProvider}
+          onOpenChange={(open) => {
+            if (!open) setOAuthDialogProvider(null);
+          }}
+          onComplete={() => {
+            queryClient.invalidateQueries({ queryKey: ["provider-status"] });
+          }}
+        />
       )}
 
       {bulkEditField && (
