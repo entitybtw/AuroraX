@@ -26,7 +26,7 @@ const (
 	envEnvironment  = "ENV"
 )
 
-const defaultServiceName = "aurora"
+const defaultServiceName = "aurorax"
 
 func configureLogging(w io.Writer, isTTY bool) error {
 	level, err := parseLogLevel(os.Getenv(envLogLevel))
@@ -105,7 +105,7 @@ func initTerminal() {
 }
 
 func printLogoWithVersion() {
-	fmt.Print(AuroraLogo)
+	fmt.Print(AuroraXLogo)
 	bi := version.Current()
 	if isColoredTerm {
 		commit := bi.Commit
@@ -132,7 +132,7 @@ func printStartupSummary(started time.Time, addr string, features map[string]str
 	elapsed := time.Since(started).Round(time.Millisecond).String()
 
 	if isColoredTerm {
-		fmt.Fprintf(os.Stderr, "\n  \033[38;5;106m●\033[0m \033[1mAurora Gateway %s\033[0m  —  \033[38;5;243mready in %s\033[0m\n", version.Version, elapsed)
+		fmt.Fprintf(os.Stderr, "\n  \033[38;5;106m●\033[0m \033[1mAuroraX Gateway %s\033[0m  —  \033[38;5;243mready in %s\033[0m\n", version.Version, elapsed)
 		fmt.Fprintf(os.Stderr, "  %s\n", summaryLine)
 		fmt.Fprintf(os.Stderr, "  \033[38;5;243mListening on\033[0m    \033[38;5;39mhttp://0.0.0.0%s\033[0m\n", addr)
 		fmt.Fprintf(os.Stderr, "  \033[38;5;243mDashboard\033[0m      \033[38;5;39mhttp://localhost%s/admin/dashboard\033[0m\n", addr)
@@ -144,7 +144,7 @@ func printStartupSummary(started time.Time, addr string, features map[string]str
 		}
 		fmt.Fprintf(os.Stderr, "  %s\n\n", summaryLine)
 	} else {
-		fmt.Fprintf(os.Stderr, "\n  * Aurora Gateway %s -- ready in %s\n", version.Version, elapsed)
+		fmt.Fprintf(os.Stderr, "\n  * AuroraX Gateway %s -- ready in %s\n", version.Version, elapsed)
 		fmt.Fprintf(os.Stderr, "  Listening on  http://0.0.0.0%s\n", addr)
 		fmt.Fprintf(os.Stderr, "  Dashboard     http://localhost%s/admin/dashboard\n", addr)
 		if len(features) > 0 {

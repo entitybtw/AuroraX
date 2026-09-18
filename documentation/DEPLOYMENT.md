@@ -1,4 +1,4 @@
-# Deploying Aurora (this fork)
+# Deploying AuroraX (this fork)
 
 Aurora is a single static Go binary, served inside a distroless Docker image. This fork is published as **`entbtw/aurora`** on Docker Hub. The dashboard UI and the Session Hub are compiled into the binary, so a fresh pull gives you everything.
 

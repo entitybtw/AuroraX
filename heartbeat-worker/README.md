@@ -1,6 +1,6 @@
-# Aurora Heartbeat & Database API Worker
+# AuroraX Heartbeat & Database API Worker
 
-Anonymous telemetry ingestion and database query API for Aurora Gateway.
+Anonymous telemetry ingestion and database query API for AuroraX Gateway.
 
 https://aurora-heartbeat.cortexx.workers.dev/
 

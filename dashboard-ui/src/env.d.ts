@@ -1,4 +1,4 @@
-// Vite/Vitest type augmentation for the Aurora UI workspace.
+// Vite/Vitest type augmentation for the AuroraX UI workspace.
 /// <reference types="vite/client" />
 /// <reference types="vitest" />
 /// <reference types="react" />

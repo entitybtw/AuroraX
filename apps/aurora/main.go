@@ -183,8 +183,8 @@ func startApplication(application lifecycleApp, addr string) error {
 }
 
 func printHelp(w io.Writer) {
-	fmt.Fprint(w, AuroraLogo)
-	fmt.Fprintln(w, "Aurora AI Gateway — one API for every LLM provider")
+	fmt.Fprint(w, AuroraXLogo)
+	fmt.Fprintln(w, "AuroraX AI Gateway — one API for every LLM provider")
 	fmt.Fprintln(w, "Self-hosted, open-source. Version:", version.Version)
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "USAGE")
@@ -208,7 +208,7 @@ func printHelp(w io.Writer) {
 	fmt.Fprintln(w, "  aurora models show   Print effective pricing for a model")
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "CONFIGURATION")
-	fmt.Fprintln(w, "  Aurora loads: code defaults -> YAML config -> env vars (env vars win).")
+	fmt.Fprintln(w, "  AuroraX loads: code defaults -> YAML config -> env vars (env vars win).")
 	fmt.Fprintln(w, "  Run `aurora init` to generate config.yaml and .env automatically.")
 	fmt.Fprintln(w, "  Set AURORA_CONFIG_PATH to point to your config YAML path.")
 	fmt.Fprintln(w, "")
@@ -463,7 +463,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	slog.Info("aurora stopped", "uptime", time.Since(started))
+	slog.Info("auroraX stopped", "uptime", time.Since(started))
 }
 
 // mergeProviderOverridesIntoConfig loads the JSON provider overrides file and

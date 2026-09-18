@@ -3,7 +3,7 @@
   "version": "1.0.4",
   "private": true,
   "type": "module",
-  "description": "Aurora admin dashboard — Vite + React 19 + TypeScript SPA. Built output is embedded into the Go binary via internal/admin/dashboard/dist.",
+  "description": "AuroraX admin dashboard — Vite + React 19 + TypeScript SPA. Built output is embedded into the Go binary via internal/admin/dashboard/dist.",
   "engines": {
     "node": ">=22"
   },

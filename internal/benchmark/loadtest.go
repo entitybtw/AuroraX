@@ -122,7 +122,7 @@ func RunLoadTestSuite(ctx context.Context, baseCfg LoadTestConfig, concurrencyLe
 func (s *LoadTestSuite) PrintReport(w io.Writer) {
 	_, _ = fmt.Fprintf(w, "\n")
 	_, _ = fmt.Fprintf(w, "╔══════════════════════════════════════════════════════════════════════════════════════════════════════╗\n")
-	_, _ = fmt.Fprintf(w, "║                          Aurora Gateway — Full Load Test Report                                    ║\n")
+	_, _ = fmt.Fprintf(w, "║                          AuroraX Gateway — Full Load Test Report                                    ║\n")
 	_, _ = fmt.Fprintf(w, "╚══════════════════════════════════════════════════════════════════════════════════════════════════════╝\n")
 	_, _ = fmt.Fprintf(w, "\n")
 

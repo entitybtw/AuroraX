@@ -1,4 +1,4 @@
-# Aurora Gateway — Prometheus Scrape Configuration
+# AuroraX Gateway — Prometheus Scrape Configuration
 #
 # Enable metrics in the gateway by setting METRICS_ENABLED=true
 # or by uncommenting/adding the metrics block in your config YAML:
@@ -33,7 +33,7 @@ global:
 
 scrape_configs:
   # ---------------------------------------------------------------
-  # Aurora Gateway — the primary target
+  # AuroraX Gateway — the primary target
   # ---------------------------------------------------------------
   - job_name: 'aurora'
     metrics_path: /metrics

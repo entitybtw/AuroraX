@@ -318,7 +318,7 @@ function CLIToolsGuideSection(): JSX.Element {
       setError("Preview this exact CLI configuration before applying it on the gateway host.");
       return;
     }
-    if (!window.confirm("Apply this Aurora CLI config on the gateway host?")) return;
+    if (!window.confirm("Apply this AuroraX CLI config on the gateway host?")) return;
     try {
       setBusy(true);
       setError("");
@@ -346,7 +346,7 @@ function CLIToolsGuideSection(): JSX.Element {
     <Surface className="min-w-0 overflow-hidden p-5 xl:col-span-2">
       <SectionHeader
         title="CLI tools configurator"
-        subtitle="Generate and optionally apply Aurora Gateway configuration for developer CLI clients."
+        subtitle="Generate and optionally apply AuroraX Gateway configuration for developer CLI clients."
         className="mb-4"
       />
       <div className="mb-4 flex justify-end">

@@ -30,7 +30,7 @@ func CheckForUpdate(ctx context.Context) (string, bool) {
 		return "", false
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "aurora-cli")
+	req.Header.Set("User-Agent auroraX-cli")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -74,7 +74,7 @@ func CheckForUpdatePlain() (string, bool) {
 		return "", false
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "aurora-cli")
+	req.Header.Set("User-Agent auroraX-cli")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
