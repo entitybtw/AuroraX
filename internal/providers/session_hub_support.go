@@ -39,10 +39,12 @@ func WrapHeaderSetterWithSessionHub(original func(req *http.Request), providerNa
 // credentials and envelope metadata are excluded to avoid leaking secrets.
 func isSessionScopedHeader(name string) bool {
 	switch name {
-	case "X-", "X-Session-Id", "X-Session", "X-Session-Token",
-		"X-Conversation-Id", "X-":
+	case "X-", "X-", "X-",
+		"X-",
+		"X-Session-Id", "X-Session", "X-Session-Token",
+		"X-Conversation-Id":
 		return true
 	}
 	l := strings.ToLower(name)
-	return strings.Contains(l, "session") && strings.HasPrefix(l, "x-")
+	return strings.HasPrefix(l, "x-") || (strings.Contains(l, "session") && strings.HasPrefix(l, "x-"))
 }
