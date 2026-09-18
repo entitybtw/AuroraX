@@ -35,6 +35,7 @@ import (
 	"aurora/internal/model_overrides"
 
 	"aurora/internal/providers"
+	"aurora/internal/providers/"
 	"aurora/internal/providers/pool"
 	"aurora/internal/response_cache"
 	"aurora/internal/server"
@@ -509,6 +510,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 			app.guardrails.Service,
 			app.providerOverrides,
 			app.poolOverrides,
+			(cfg.Factory),
 			app,
 			app,
 			app,
@@ -994,6 +996,15 @@ func (a *App) logStartupInfo() {
 
 // initAdmin creates the admin API handler and optionally the dashboard handler.
 // Returns nil dashboard handler if uiEnabled is false.
+// safely returns the registry from the factory,
+// or nil when the factory is unavailable.
+func (factory *providers.ProviderFactory) *.Registry {
+	if factory == nil {
+		return nil
+	}
+	return factory.()
+}
+
 func initAdmin(
 	auditLogger auditlog.LoggerInterface,
 	auditStorage, usageStorage storage.Storage,
@@ -1011,6 +1022,7 @@ func initAdmin(
 	guardrailService *guardrails.Service,
 	providerOverrides *admin.ProviderOverrideStore,
 	poolOverrides *admin.PoolOverrideStore,
+	*.Registry,
 	runtimeRefresher admin.RuntimeRefresher,
 	fallbackReloader admin.FallbackReloader,
 	settingsManager admin.DashboardSettingsManager,
@@ -1080,6 +1092,7 @@ func initAdmin(
 		admin.WithDashboardSettingsManager(settingsManager),
 		admin.WithProviderOverrides(providerOverrides),
 		admin.WithPoolWeights(poolOverrides),
+		admin.With(),
 		admin.WithDashboardRuntimeConfig(runtimeConfig),
 	)
 

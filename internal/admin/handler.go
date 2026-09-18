@@ -24,6 +24,7 @@ import (
 	"aurora/internal/model_combinations"
 	"aurora/internal/model_overrides"
 	"aurora/internal/providers"
+	"aurora/internal/providers/"
 	"aurora/internal/providers/pool"
 	"aurora/internal/response_cache"
 	"aurora/internal/usage"
@@ -56,6 +57,7 @@ type Handler struct {
 	configuredProviders  []providers.SanitizedProviderConfig
 	providerOverrides    *ProviderOverrideStore
 	poolWeights          *PoolOverrideStore
+	*.Registry
 	sessionHub           interface{ Apply(map[string][]string, string) map[string]string }
 
 	mutationMu sync.Mutex
@@ -352,6 +354,14 @@ type providerStatusItemResponse struct {
 	Config       providers.SanitizedProviderConfig `json:"config"`
 	Runtime      providers.ProviderRuntimeSnapshot `json:"runtime"`
 	ConfigSource string                            `json:"config_source,omitempty"`
+	*provider`json:",omitempty"`
+}
+
+type providerstruct {
+	HasToken bool   `json:"has_token"`
+	Expired  bool   `json:"expired"`
+	Email    string `json:"email,omitempty"`
+	AccountID string `json:"account_id,omitempty"`
 }
 
 type providerStatusResponse struct {
@@ -603,6 +613,14 @@ func WithPoolWeights(store ...*PoolOverrideStore) Option {
 func WithPools(reg *pool.Registry) Option {
 	return func(h *Handler) {
 		h.pools = reg
+	}
+}
+
+// Withattaches the manager registry so the admin API can
+// expose token status (linked account) for providers.
+func With(reg *.Registry) Option {
+	return func(h *Handler) {
+		h.= reg
 	}
 }
 
