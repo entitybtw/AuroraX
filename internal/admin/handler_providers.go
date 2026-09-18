@@ -88,6 +88,21 @@ func (h *Handler) buildProviderStatusResponse() providerStatusResponse {
 				item.ConfigSource = ConfigSourceUI
 			}
 		}
+		// Attach status if this provider has an manager.
+		if h.!= nil {
+			if mgr := h..Get(name); mgr != nil {
+				if info := mgr.TokenInfo(); info != nil {
+					item.= &provider{
+						HasToken:  info.AccessToken != "",
+						Expired:   time.Now().After(info.ExpiresAt),
+						Email:     info.Email,
+						AccountID: info.AccountID,
+					}
+				} else {
+					item.= &provider{HasToken: false}
+				}
+			}
+		}
 		// Administratively disabled providers are listed but excluded from the
 		// health rollups.
 		if _, isDisabled := disabledNames[name]; isDisabled {
