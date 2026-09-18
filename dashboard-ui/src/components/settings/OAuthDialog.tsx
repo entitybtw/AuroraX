@@ -14,7 +14,7 @@ import {
   Pill,
   CodeBlock,
 } from "@/components/ui/surface";
-import { Loader2, CheckCircle, AlertCircle, Copy, ExternalLink, WifiOff, Link, Link2, Unlink2, AlertTriangle } from "lucide-react";
+import { Loader2, CheckCircle, AlertCircle, Copy, ExternalLink, WifiOff, Unlink2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface OAuthDialogProps {
