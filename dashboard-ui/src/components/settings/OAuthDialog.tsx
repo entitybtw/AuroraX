@@ -49,6 +49,7 @@ export function OAuthDialog({
   const [checkingStatus, setCheckingStatus] = useState(true);
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
+  const stepRef = useRef<"idle" | "waiting" | "polling" | "success" | "error">("idle");
 
   // Format verification URI for display (add https://opencode.ai if relative)
   const fullVerificationUri = useCallback(() => {
@@ -135,6 +136,7 @@ export function OAuthDialog({
       setExpiresIn(res.expires_in);
       setPollInterval(res.interval);
       startTimeRef.current = Date.now();
+      stepRef.current = "polling";
       setStep("polling");
       startPolling();
     } catch (e: unknown) {
@@ -146,11 +148,13 @@ export function OAuthDialog({
 
   // Poll for token using status endpoint (backend handles device_code internally)
   const startPolling = useCallback(async () => {
-    if (polling) return;
     setPolling(true);
+    // Track the step via a local flag that isn't captured from a stale closure.
+    let active = true;
+    stepRef.current = "polling";
 
     const poll = async () => {
-      if (step !== "polling") {
+      if (!active || stepRef.current !== "polling") {
         setPolling(false);
         return;
       }
@@ -160,6 +164,8 @@ export function OAuthDialog({
         const status = await fetchOAuthStatus(providerName);
 
         if (status.has_token && !status.expired) {
+          active = false;
+          stepRef.current = "success";
           setStep("success");
           setAccountInfo({
             email: status.email ?? undefined,
@@ -172,6 +178,8 @@ export function OAuthDialog({
         }
 
         if (status.expired) {
+          active = false;
+          stepRef.current = "error";
           setError("Token expired. Please start a new authorization.");
           setStep("error");
           setPolling(false);
@@ -181,6 +189,8 @@ export function OAuthDialog({
         // Check expiry
         const elapsed = (Date.now() - startTimeRef.current) / 1000;
         if (elapsed >= expiresIn) {
+          active = false;
+          stepRef.current = "error";
           setError("Authorization timed out. Please try again.");
           setStep("error");
           setPolling(false);
@@ -193,12 +203,16 @@ export function OAuthDialog({
         const message = e instanceof Error ? e.message : "Polling error";
         // Don't error out on transient errors, just retry
         console.error("OAuth poll error:", message);
+        if (!active || stepRef.current !== "polling") {
+          setPolling(false);
+          return;
+        }
         pollTimerRef.current = setTimeout(poll, pollInterval * 1000);
       }
     };
 
     await poll();
-  }, [step, polling, providerName, pollInterval, expiresIn]);
+  }, [providerName, pollInterval, expiresIn, onComplete]);
 
   // Cleanup on unmount or step change
   useEffect(() => {
@@ -213,6 +227,7 @@ export function OAuthDialog({
     if (!open) {
       // Cleanup on close
       if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+      stepRef.current = "idle";
       setStep("idle");
       setUserCode("");
       setVerificationUri("");
@@ -227,6 +242,11 @@ export function OAuthDialog({
       handleStart();
     }
   }, [open, checkingStatus, alreadyLinked]);
+
+  // Keep stepRef in sync with the step state.
+  useEffect(() => {
+    stepRef.current = step;
+  }, [step]);
 
   // Time remaining calculation
   const timeRemaining = step === "polling"
