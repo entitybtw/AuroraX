@@ -24,6 +24,7 @@ import (
 	"aurora/internal/model_combinations"
 	"aurora/internal/model_overrides"
 	"aurora/internal/providers"
+	"aurora/internal/providers/oauth"
 	"aurora/internal/providers/pool"
 	"aurora/internal/response_cache"
 	"aurora/internal/usage"
@@ -56,6 +57,7 @@ type Handler struct {
 	configuredProviders  []providers.SanitizedProviderConfig
 	providerOverrides    *ProviderOverrideStore
 	poolWeights          *PoolOverrideStore
+	oauthRegistry        *oauth.Registry
 	sessionHub           interface{ Apply(map[string][]string, string) map[string]string }
 
 	mutationMu sync.Mutex
@@ -352,6 +354,14 @@ type providerStatusItemResponse struct {
 	Config       providers.SanitizedProviderConfig `json:"config"`
 	Runtime      providers.ProviderRuntimeSnapshot `json:"runtime"`
 	ConfigSource string                            `json:"config_source,omitempty"`
+	OAuthStatus  *providerOAuthStatus              `json:"oauth_status,omitempty"`
+}
+
+type providerOAuthStatus struct {
+	HasToken bool   `json:"has_token"`
+	Expired  bool   `json:"expired"`
+	Email    string `json:"email,omitempty"`
+	AccountID string `json:"account_id,omitempty"`
 }
 
 type providerStatusResponse struct {
@@ -603,6 +613,14 @@ func WithPoolWeights(store ...*PoolOverrideStore) Option {
 func WithPools(reg *pool.Registry) Option {
 	return func(h *Handler) {
 		h.pools = reg
+	}
+}
+
+// WithOAuthRegistry attaches the OAuth manager registry so the admin API can
+// expose OAuth token status (linked account) for providers.
+func WithOAuthRegistry(reg *oauth.Registry) Option {
+	return func(h *Handler) {
+		h.oauthRegistry = reg
 	}
 }
 
