@@ -41,6 +41,12 @@ type ProviderOverride struct {
 	// AutoFetchFilter narrows discovered models to those matching the declared
 	// conditions. Filtered-out models are not registered and are not routable.
 	AutoFetchFilter *config.AutoFetchFilter `json:"autofetch_filter,omitempty"`
+	// AuthMethod selects the authentication mechanism: "key" (default) or "".
+	AuthMethod string `json:"auth_method,omitempty"`
+	// is the base URL of the authorization server.
+	string `json:",omitempty"`
+	// is the client_id for the device flow.
+	string `json:",omitempty"`
 }
 
 // IsEnabled reports whether the override is active. Legacy overrides that
@@ -159,6 +165,9 @@ func (s *ProviderOverrideStore) RawConfigs() map[string]config.RawProviderConfig
 			UserAgent:       strings.TrimSpace(override.UserAgent),
 			AutoFetchModels: override.AutoFetchModels,
 			AutoFetchFilter: autoFetchFilterValue(override.AutoFetchFilter),
+			AuthMethod:      strings.TrimSpace(override.AuthMethod),
+			:     strings.TrimSpace(override.),
+			:   strings.TrimSpace(override.),
 		}
 	}
 	return out
