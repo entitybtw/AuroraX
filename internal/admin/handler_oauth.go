@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -71,17 +72,17 @@ func (h *OAuthHandler) StartDeviceFlow(c *echo.Context) error {
 }
 
 func (h *OAuthHandler) backgroundPoll(providerName string, mgr *oauth.Manager, deviceCode string, interval time.Duration, expiresAt time.Time) {
-	slog.Info("oauth: background polling started", "provider", providerName)
+	log.Printf("oauth: background polling started provider=%s", providerName)
 	token, err := mgr.PollForToken(deviceCode, interval, expiresAt)
 	if err != nil {
-		slog.Warn("oauth: background polling failed", "provider", providerName, "error", err)
+		log.Printf("oauth: background polling failed provider=%s error=%v", providerName, err)
 		return
 	}
 	if err := mgr.SaveTokenFromResponse(token); err != nil {
-		slog.Error("oauth: failed to save token", "provider", providerName, "error", err)
+		log.Printf("oauth: failed to save token provider=%s error=%v", providerName, err)
 		return
 	}
-	slog.Info("oauth: background polling succeeded, token saved", "provider", providerName)
+	log.Printf("oauth: background polling succeeded, token saved provider=%s", providerName)
 }
 
 // PollTokenRequest is the request body for manual polling.
