@@ -83,6 +83,13 @@ export type ProviderRuntimeSnapshot = z.infer<typeof ProviderRuntimeSnapshotSche
 
 export type ProviderStatusKind = "healthy" | "degraded" | "unhealthy" | "disabled";
 
+export const ProviderOAuthStatusSchema = z.object({
+  has_token: z.boolean(),
+  expired: z.boolean(),
+  email: z.string().optional(),
+  account_id: z.string().optional(),
+});
+
 export const ProviderStatusItemSchema = z.object({
   name: z.string(),
   type: z.string(),
@@ -93,6 +100,7 @@ export const ProviderStatusItemSchema = z.object({
   config: SanitizedProviderConfigSchema,
   runtime: ProviderRuntimeSnapshotSchema,
   config_source: z.string().optional(),
+  oauth_status: ProviderOAuthStatusSchema.optional(),
 });
 export type ProviderStatusItem = z.infer<typeof ProviderStatusItemSchema>;
 

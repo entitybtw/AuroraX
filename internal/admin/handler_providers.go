@@ -88,6 +88,21 @@ func (h *Handler) buildProviderStatusResponse() providerStatusResponse {
 				item.ConfigSource = ConfigSourceUI
 			}
 		}
+		// Attach OAuth status if this provider has an OAuth manager.
+		if h.oauthRegistry != nil {
+			if mgr := h.oauthRegistry.Get(name); mgr != nil {
+				if info := mgr.TokenInfo(); info != nil {
+					item.OAuthStatus = &providerOAuthStatus{
+						HasToken:  info.AccessToken != "",
+						Expired:   time.Now().After(info.ExpiresAt),
+						Email:     info.Email,
+						AccountID: info.AccountID,
+					}
+				} else {
+					item.OAuthStatus = &providerOAuthStatus{HasToken: false}
+				}
+			}
+		}
 		// Administratively disabled providers are listed but excluded from the
 		// health rollups.
 		if _, isDisabled := disabledNames[name]; isDisabled {

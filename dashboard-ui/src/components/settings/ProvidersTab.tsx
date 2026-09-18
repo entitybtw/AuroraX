@@ -607,6 +607,9 @@ export function ProvidersTab(): JSX.Element {
                           )}
                           {provider.config?.user_agent && <Pill tone="accent">custom UA</Pill>}
                           {provider.config?.bind_ip && <Pill tone="muted">bind: {provider.config.bind_ip}</Pill>}
+                          {isOpencodeZenProvider(provider) && provider.oauth_status?.has_token && !provider.oauth_status?.expired && (
+                            <Pill tone="success">linked</Pill>
+                          )}
                         </div>
                         <span className="text-[11px] text-muted-foreground">{provider.type || provider.config?.type || "custom"}</span>
                       </div>
