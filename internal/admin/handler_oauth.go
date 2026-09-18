@@ -2,6 +2,7 @@ package admin
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v5"
@@ -27,11 +28,6 @@ func (h *OAuthHandler) RegisterOAuthRoutes(g RouteRegistrar) {
 	g.DELETE("/oauth/:provider/token", h.ClearToken)
 }
 
-// StartDeviceFlowRequest is the request body for starting a device flow.
-type StartDeviceFlowRequest struct {
-	CallbackURL string `json:"callback_url,omitempty"`
-}
-
 // StartDeviceFlowResponse is the response from starting a device flow.
 type StartDeviceFlowResponse struct {
 	UserCode                string `json:"user_code"`
@@ -42,8 +38,8 @@ type StartDeviceFlowResponse struct {
 
 // StartDeviceFlow initiates the OAuth 2.0 device authorization grant.
 // POST /admin/api/v1/oauth/:provider/start
-func (h *OAuthHandler) StartDeviceFlow(c echo.Context) error {
-	providerName := c.PathParam("provider")
+func (h *OAuthHandler) StartDeviceFlow(c *echo.Context) error {
+	providerName := strings.TrimSpace(c.Param("provider"))
 	if providerName == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "provider name is required"})
 	}
@@ -73,15 +69,12 @@ func (h *OAuthHandler) StartDeviceFlow(c echo.Context) error {
 	})
 }
 
-// backgroundPoll polls the token endpoint until the user authorizes or the code expires.
-func (h *OAuthHandler) backgroundPoll(providerName string, mgr *oauth.Manager, deviceCode string, interval time.Duration, expiresAt time.Time) {
+func (h *OAuthHandler) backgroundPoll(_ string, mgr *oauth.Manager, deviceCode string, interval time.Duration, expiresAt time.Time) {
 	token, err := mgr.PollForToken(deviceCode, interval, expiresAt)
 	if err != nil {
 		return
 	}
-	if err := mgr.SaveTokenFromResponse(token); err != nil {
-		return
-	}
+	_ = mgr.SaveTokenFromResponse(token)
 }
 
 // PollTokenRequest is the request body for manual polling.
@@ -98,10 +91,10 @@ type PollTokenResponse struct {
 	Error       string `json:"error,omitempty"`
 }
 
-// PollToken manually polls the token endpoint once.
+// PollToken polls the token endpoint once.
 // POST /admin/api/v1/oauth/:provider/poll
-func (h *OAuthHandler) PollToken(c echo.Context) error {
-	providerName := c.PathParam("provider")
+func (h *OAuthHandler) PollToken(c *echo.Context) error {
+	providerName := strings.TrimSpace(c.Param("provider"))
 	if providerName == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "provider name is required"})
 	}
@@ -158,17 +151,17 @@ func (h *OAuthHandler) PollToken(c echo.Context) error {
 
 // TokenStatusResponse shows the current token state.
 type TokenStatusResponse struct {
-	HasToken   bool      `json:"has_token"`
-	Expired    bool      `json:"expired"`
-	ExpiresAt  time.Time `json:"expires_at,omitempty"`
-	Email      string    `json:"email,omitempty"`
-	Server     string    `json:"server,omitempty"`
+	HasToken  bool      `json:"has_token"`
+	Expired   bool      `json:"expired"`
+	ExpiresAt time.Time `json:"expires_at,omitempty"`
+	Email     string    `json:"email,omitempty"`
+	Server    string    `json:"server,omitempty"`
 }
 
 // TokenStatus returns the current OAuth token status for a provider.
 // GET /admin/api/v1/oauth/:provider/status
-func (h *OAuthHandler) TokenStatus(c echo.Context) error {
-	providerName := c.PathParam("provider")
+func (h *OAuthHandler) TokenStatus(c *echo.Context) error {
+	providerName := strings.TrimSpace(c.Param("provider"))
 	if providerName == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "provider name is required"})
 	}
@@ -198,8 +191,8 @@ func (h *OAuthHandler) TokenStatus(c echo.Context) error {
 
 // ClearToken deletes the stored OAuth token for a provider.
 // DELETE /admin/api/v1/oauth/:provider/token
-func (h *OAuthHandler) ClearToken(c echo.Context) error {
-	providerName := c.PathParam("provider")
+func (h *OAuthHandler) ClearToken(c *echo.Context) error {
+	providerName := strings.TrimSpace(c.Param("provider"))
 	if providerName == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "provider name is required"})
 	}
