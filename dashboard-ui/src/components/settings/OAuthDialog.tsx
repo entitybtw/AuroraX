@@ -170,6 +170,19 @@ export function OAuthDialog({
     ? Math.max(0, expiresIn - Math.floor((Date.now() - startTimeRef.current) / 1000))
     : expiresIn;
 
+  // Live countdown that updates every second for smooth display
+  const [displayTime, setDisplayTime] = useState(timeRemaining);
+  useEffect(() => {
+    if (step !== "polling") {
+      setDisplayTime(expiresIn);
+      return;
+    }
+    const timer = setInterval(() => {
+      setDisplayTime((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [step, expiresIn]);
+
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
@@ -208,7 +221,9 @@ export function OAuthDialog({
               <>
                 Authorize in browser, then wait for confirmation.
                 <br />
-                Time remaining: <strong>{formatTime(timeRemaining)}</strong>
+                <span className="font-mono text-lg text-primary">{formatTime(displayTime)}</span>
+                {" "}
+                <span className="text-xs text-muted-foreground">remaining</span>
               </>
             )}
             {step === "success" && "Your OpenCode account is now linked."}
