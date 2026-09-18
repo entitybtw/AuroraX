@@ -130,16 +130,31 @@ func setHeaders(req *http.Request, apiKey string) {
 func makeSetHeaders(*.Manager) func(req *http.Request, apiKey string) {
 	return func(req *http.Request, apiKey string) {
 		// takes precedence when configured and token is available
-		if != nil && .HasToken() {
-			if err := .EnsureFreshToken(); err != nil {
-				// Log but don't fail — the token might still be valid
-				// Use the token as-is; it will fail with 401 if truly expired
+		if != nil {
+			hasToken := .HasToken()
+			token := .GetAccessToken()
+			log.Printf(": provider hasToken=%v tokenLen=%d", hasToken, len(token))
+			if hasToken {
+				if err := .EnsureFreshToken(); err != nil {
+					// Log but don't fail — the token might still be valid
+					log.Printf(": EnsureFreshToken error: %v", err)
+				}
+				if tok := .GetAccessToken(); tok != "" {
+					req.Header.Set("Authorization", "Bearer "+tok)
+					log.Printf(": set Authorization header with token (len=%d)", len(tok))
+				} else {
+					log.Printf(": GetAccessToken returned empty")
+				}
+			} else {
+				log.Printf(": HasToken returned false")
 			}
-			if tok := .GetAccessToken(); tok != "" {
-				req.Header.Set("Authorization", "Bearer "+tok)
+		} else {
+			log.Printf(": is nil, using apiKey")
+		}
+		if == nil || !.HasToken() {
+			if apiKey != "" {
+				req.Header.Set("Authorization", "Bearer "+apiKey)
 			}
-		} else if apiKey != "" {
-			req.Header.Set("Authorization", "Bearer "+apiKey)
 		}
 		if requestID := core.GetRequestID(req.Context()); requestID != "" {
 			req.Header.Set("X-Request-Id", requestID)
