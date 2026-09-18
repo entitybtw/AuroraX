@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/surface";
 import { Loader2, CheckCircle, AlertCircle, Copy, ExternalLink, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CodeBlock } from "@/components/ui/surface";
 
 interface OAuthDialogProps {
   providerName: string;
@@ -236,7 +237,7 @@ export function OAuthDialog({
                 <div className="flex items-center gap-2 mt-1">
                   <codeBlock className="flex-1 text-lg font-mono tracking-widest">
                     {userCode}
-                  </codeBlock>
+                  </CodeBlock>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -304,7 +305,7 @@ export function OAuthDialog({
               {accountInfo.account_id && (
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">Account ID:</span>
-                  <codeBlock className="text-xs">{accountInfo.account_id}</codeBlock>
+                  <codeBlock className="text-xs">{accountInfo.account_id}</CodeBlock>
                 </div>
               )}
               {accountInfo.expires_at && (
@@ -321,7 +322,7 @@ export function OAuthDialog({
         )}
 
         {step === "error" && (
-          <Surface variant="destructive" className="p-4 border-destructive/30">
+          <Surface variant="elevated" className="p-4 border-destructive/30">
             <p className="text-destructive">{error}</p>
             <p className="text-xs text-muted-foreground mt-1">
               The device code may have expired. Try starting a new authorization.
