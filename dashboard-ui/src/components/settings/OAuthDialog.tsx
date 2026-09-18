@@ -45,6 +45,7 @@ export function OAuthDialog({
     expires_at: string | undefined;
   } | null>(null);
   const [unlinking, setUnlinking] = useState(false);
+  const [alreadyLinked, setAlreadyLinked] = useState(false);
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
 
@@ -53,6 +54,31 @@ export function OAuthDialog({
     if (verificationUri.startsWith("http")) return verificationUri;
     return `https://opencode.ai${verificationUri}`;
   }, [verificationUri]);
+
+  // Check if account is already linked when dialog opens
+  useEffect(() => {
+    if (!open) return;
+    const checkStatus = async () => {
+      try {
+        const { fetchOAuthStatus } = await import("@/lib/api/oauth");
+        const status = await fetchOAuthStatus(providerName);
+        if (status.has_token && !status.expired) {
+          setAlreadyLinked(true);
+          setAccountInfo({
+            email: status.email ?? undefined,
+            account_id: status.account_id ?? undefined,
+            expires_at: status.expires_at ?? undefined,
+          });
+        } else {
+          setAlreadyLinked(false);
+          setAccountInfo(null);
+        }
+      } catch {
+        setAlreadyLinked(false);
+      }
+    };
+    checkStatus();
+  }, [open, providerName]);
 
   // Copy to clipboard helper
   const copyToClipboard = async (text: string, label: string) => {
@@ -238,9 +264,15 @@ export function OAuthDialog({
             {step === "waiting" && (
               <WifiOff className="h-5 w-5 text-muted-foreground" />
             )}
-            {step === "success" ? "Authorized!" : "Link OpenCode Account"}
+            {step === "success" ? "Authorized!" : alreadyLinked ? "Account Linked" : "Link OpenCode Account"}
           </DialogTitle>
           <DialogDescription>
+            {alreadyLinked && step === "idle" && (
+              <>
+                <Link className="mr-1.5 h-4 w-4 text-primary" />
+                Account already linked to OpenCode.
+              </>
+            )}
             {step === "waiting" && "Starting device authorization flow..."}
             {step === "polling" && (
               <>
@@ -386,6 +418,12 @@ export function OAuthDialog({
         )}
 
         <DialogFooter className="gap-2">
+          {alreadyLinked && step === "idle" && (
+            <Button variant="outline" onClick={handleStart} className="flex-1">
+              <Link2 className="mr-1.5 h-3.5 w-3.5" />
+              Relink Account
+            </Button>
+          )}
           {step === "polling" && (
             <Button variant="secondary" onClick={() => onOpenChange(false)}>
               Cancel
