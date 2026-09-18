@@ -189,16 +189,23 @@ export function OAuthDialog({
     : expiresIn;
 
   // Live countdown that updates every second for smooth display
-  const [displayTime, setDisplayTime] = useState(timeRemaining);
+  const [displayTime, setDisplayTime] = useState(expiresIn);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
-    if (step !== "polling") {
+    if (step === "polling") {
+      startTimeRef.current = Date.now();
       setDisplayTime(expiresIn);
-      return;
+      intervalRef.current = setInterval(() => {
+        setDisplayTime((prev) => Math.max(0, prev - 1));
+      }, 1000);
+    } else {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      setDisplayTime(expiresIn);
     }
-    const timer = setInterval(() => {
-      setDisplayTime((prev) => Math.max(0, prev - 1));
-    }, 1000);
-    return () => clearInterval(timer);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
   }, [step, expiresIn]);
 
   const formatTime = (seconds: number) => {
