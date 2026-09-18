@@ -4,6 +4,7 @@ package vllm
 import (
 	"context"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 
