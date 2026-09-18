@@ -71,7 +71,7 @@ func (d *WebhookDispatcher) sendWithRetry(url string, body []byte) {
 			return
 		}
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("User-Agent", "Aurora-Budget-Webhook/1.0")
+		req.Header.Set("User-Agent", "AuroraX-Budget-Webhook/1.0")
 
 		resp, err := d.client.Do(req)
 		if err != nil {

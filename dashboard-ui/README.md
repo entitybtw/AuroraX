@@ -1,12 +1,12 @@
-# Aurora Admin Dashboard — React (Vite + TypeScript)
+# AuroraX Admin Dashboard — React (Vite + TypeScript)
 
-This workspace is the new admin dashboard for the Aurora gateway, replacing
+This workspace is the new admin dashboard for the AuroraX gateway, replacing
 the legacy Go-template + Alpine.js dashboard at
 `internal/admin/dashboard/`. Both implementations stay compiled into the Go
 binary that serves
 `/admin/dashboard`.
 
-This dashboard is built for Aurora OSS. UI components must not imply that another edition can be enabled from this source tree. Restricted sections may be displayed as unavailable only when the backend reports them that way; do not add client-side switches that unlock runtime behavior.
+This dashboard is built for AuroraX OSS. UI components must not imply that another edition can be enabled from this source tree. Restricted sections may be displayed as unavailable only when the backend reports them that way; do not add client-side switches that unlock runtime behavior.
 
 ## Stack
 

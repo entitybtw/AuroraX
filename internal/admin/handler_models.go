@@ -225,7 +225,7 @@ func (h *Handler) AuthMe(c *echo.Context) error {
 				return c.JSON(http.StatusOK, map[string]any{
 					"user": map[string]any{
 						"id":           "admin",
-						"email":        "admin@aurora.local",
+						"email":        "admin@aurorax.local",
 						"display_name": "Admin",
 						"status":       "active",
 						"provider":     "master_key",

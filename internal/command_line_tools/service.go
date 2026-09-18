@@ -134,7 +134,7 @@ func toolDefinitions(applyEnabled bool, home string) []toolDefinition {
 		},
 		{
 			Tool: Tool{ID: "opencode", Name: "OpenCode", Description: "OpenCode AI terminal assistant provider configuration.", ConfigPath: filepath.Join(home, ".config", "opencode", "opencode.json"), CanApply: canApplyToHome, ConfigType: "custom", Color: "#E87040", DocsURL: "https://opencode.ai/docs/configuration", Notes: []string{"Config path: ~/.config/opencode/opencode.json", "Adds Aurora as a multi-model provider.", "Select multiple models below — they'll all be available via the aurora/ prefix in OpenCode."}, ModelFields: []ModelField{
-				{Key: "OPENCODE_MODEL", Label: "Models", Description: "Select model(s) to make available in OpenCode under the Aurora provider.", Multi: true},
+				{Key: "OPENCODE_MODEL", Label: "Models", Description: "Select model(s) to make available in OpenCode under the AuroraX provider.", Multi: true},
 			}},
 			Snippet: opencodeSnippets,
 		},
@@ -167,7 +167,7 @@ func toolDefinitions(applyEnabled bool, home string) []toolDefinition {
 			Snippet: ampSnippets,
 		},
 		{
-			Tool:    Tool{ID: "qwen", Name: "Qwen Code", Description: "Alibaba Qwen Code CLI using Aurora as an OpenAI-compatible endpoint.", CanApply: false, ConfigType: "guide", Color: "#10B981", DefaultCommand: "qwen", DocsURL: "https://qwenlm.github.io/qwen-code-docs/en/users/configuration/model-providers/", Notes: []string{"Config path: Linux/macOS ~/.qwen/settings.json • Windows %USERPROFILE%\\.qwen\\settings.json", "Qwen Code can use any Aurora model through the OpenAI-compatible provider."}, ModelFields: singleModelFields("QWEN_MODEL", "Qwen model", "Model name used in Qwen Code settings.")},
+			Tool:    Tool{ID: "qwen", Name: "Qwen Code", Description: "Alibaba Qwen Code CLI using AuroraX as an OpenAI-compatible endpoint.", CanApply: false, ConfigType: "guide", Color: "#10B981", DefaultCommand: "qwen", DocsURL: "https://qwenlm.github.io/qwen-code-docs/en/users/configuration/model-providers/", Notes: []string{"Config path: Linux/macOS ~/.qwen/settings.json • Windows %USERPROFILE%\\.qwen\\settings.json", "Qwen Code can use any Aurora model through the OpenAI-compatible provider."}, ModelFields: singleModelFields("QWEN_MODEL", "Qwen model", "Model name used in Qwen Code settings.")},
 			Snippet: qwenSnippets,
 		},
 		{
@@ -175,7 +175,7 @@ func toolDefinitions(applyEnabled bool, home string) []toolDefinition {
 			Snippet: deepseekTUISnippets,
 		},
 		{
-			Tool:    Tool{ID: "jcode", Name: "jcode", Description: "High-performance Rust-based coding agent harness.", CanApply: false, ConfigType: "guide", Color: "#FF6B35", DocsURL: "https://github.com/1jehuang/jcode", Notes: []string{"Configure Aurora as an OpenAI-compatible provider."}, ModelFields: singleModelFields("JCODE_MODEL", "jcode model", "Model used in jcode provider config.")},
+			Tool:    Tool{ID: "jcode", Name: "jcode", Description: "High-performance Rust-based coding agent harness.", CanApply: false, ConfigType: "guide", Color: "#FF6B35", DocsURL: "https://github.com/1jehuang/jcode", Notes: []string{"Configure AuroraX as an OpenAI-compatible provider."}, ModelFields: singleModelFields("JCODE_MODEL", "jcode model", "Model used in jcode provider config.")},
 			Snippet: jcodeSnippets,
 		},
 		{
@@ -258,9 +258,9 @@ func opencodeSnippets(req PreviewRequest) map[string]string {
 	}
 	cfg := map[string]any{
 		"provider": map[string]any{
-			"aurora": map[string]any{
+			"aurorax": map[string]any{
 				"npm": "@ai-sdk/openai-compatible",
-				"name": "Aurora Gateway",
+				"name": "AuroraX Gateway",
 				"options": map[string]string{
 					"baseURL": baseV1(req),
 					"apiKey":  req.APIKey,
@@ -302,7 +302,7 @@ func openClawSnippets(req PreviewRequest) map[string]string {
 		},
 		"models": map[string]any{
 			"providers": map[string]any{
-				"aurora": map[string]any{
+				"aurorax": map[string]any{
 					"baseUrl": baseV1(req),
 					"apiKey":  req.APIKey,
 					"api":     "openai-completions",
@@ -343,7 +343,7 @@ func deepseekTUISnippets(req PreviewRequest) map[string]string {
 
 func jcodeSnippets(req PreviewRequest) map[string]string {
 	model := modelForField(req, "JCODE_MODEL")
-	cfg := map[string]any{"providers": map[string]any{"aurora": map[string]string{"type": "openai-compatible", "base_url": baseV1(req), "api_key": req.APIKey}}, "model": model}
+	cfg := map[string]any{"providers": map[string]any{"aurorax": map[string]string{"type": "openai-compatible", "base_url": baseV1(req), "api_key": req.APIKey}}, "model": model}
 	return map[string]string{"config": jsonBlock(cfg)}
 }
 
