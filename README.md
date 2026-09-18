@@ -197,9 +197,13 @@ providers:
       - name: x-
         mode: static
         value: cli
-      - name: user-agent
+      - name: x-
+        mode: generate
+        prefix: "msg_"
+        length: 28
+      - name: x-
         mode: static
-        value: "/1.18.26 ai-sdk/openai/2.0.0 runtime/bun/1.0.0"
+        value: global
 ```
 
 #### API
@@ -227,6 +231,51 @@ providers:
 | `static` | Fixed value (set `value:`) |
 | `random_from_list` | Random pick from `values:` list |
 | `remove` | Strip header entirely |
+
+---
+
+## — Known Limitations
+
+Aurora supports routing through the API (`/zen/v1`) using `vLLM` provider type with multi-IP rotation and session hub header mapping.
+
+### What works
+
+- **Paid models** (if your account has credits) — full API compatibility
+- **Pool rotation** — round-robin across multiple API keys with distinct source IPs
+- **Session hub** — generates and forwards all required `x-*` headers: `x-` (mapped), `x-` (static: `cli`), `x-` (generated per request), `x-` (static: `global`)
+- **User-Agent** — matches the real the CLI format: `/<version>`
+
+### What doesn't work (server-side limitation)
+
+**models return ``** — upstream's API checks server-side whether the request originates from the actual the CLI application. This is **not** a header check — it is an authentication method check:
+
+| Auth method | | Paid tier |
+|-------------|-----------|-----------|
+| token (from `auth login ` device flow) | Allowed | Allowed (with credits) |
+| API key (`sk-...` from dashboard) | **Blocked** (``) | Allowed (with credits) |
+
+The server verifies the Bearer token is an **access token** obtained through the device flow (`client_id: `, issuer `example.com`), not a dashboard API key. No combination of headers (User-Agent, x-, x-, referer, etc.) can this check.
+
+**Affected models:** `deepseek-v4-flash-free`, `muse-spark-1.3-contributor-free`, `muse-spark-1.2-contributor-free`, `mimo-v2.5-free`, `ling-3.0-flash-fin-free`, `nemotron-3-ultra-free`, `nemotron-3.5-lightning-free`
+
+### What was fixed in v1.1.2
+
+- **Session hub capture expanded** — `isCaptureHeader` now captures all `x-*` headers (was limited to `x-*session*` only)
+- **Header forwarding expanded** — `isSessionScopedHeader` now forwards `x-` and `x-` (were being dropped)
+- **New session hub rules** — `x-` (static: `cli`), `x-` (generated: `msg_` prefix), `x-` (static: `global`) alongside existing `x-`
+- **User-Agent corrected** — pool `UserAgent` changed from `/1.18.31` to `/1.18.31` to match the real upstream client format
+
+### Workaround
+
+Use **OpenRouter ** models instead — they work without restrictions through Aurora:
+
+```bash
+# These work through Aurora without any auth tricks
+openrouter/nvidia/nemotron-3-ultra:free
+openrouter/google/gemma-4-31b-it:free
+openrouter/nvidia/nemotron-3.5-lightning:free
+# ... and 13 more
+```
 
 ---
 
@@ -328,7 +377,7 @@ set AURORA_MASTER_KEY=your-secure-key ^
 
 ### Option B — Docker
 
-> Published image: **`entbtw/aurora`** · tags `latest`, `v1.0.3`.
+> Published image: **`entbtw/aurora`** · tags `latest`, `v1.1.2`.
 > ```bash
 > docker pull entbtw/aurora:latest
 > ```
