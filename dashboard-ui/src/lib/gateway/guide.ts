@@ -97,7 +97,7 @@ export function buildPlaygroundRequestBody(input: {
   if (systemPrompt) {
     messages.push({ role: "system", content: systemPrompt });
   }
-  messages.push({ role: "user", content: userPrompt || "Hello from Aurora." });
+  messages.push({ role: "user", content: userPrompt || "Hello from AuroraX." });
   return {
     model: input.model,
     messages,

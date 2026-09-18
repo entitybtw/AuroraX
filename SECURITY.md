@@ -2,7 +2,7 @@
 
   ## Reporting a Vulnerability
 
-  The Aurora team takes security issues seriously. We appreciate your efforts to responsibly
+  The AuroraX team takes security issues seriously. We appreciate your efforts to responsibly
    disclose any vulnerabilities you find.
 
   **Please do NOT report security vulnerabilities through public GitHub issues.**
@@ -42,7 +42,7 @@
 
   ## Security Considerations
 
-  Aurora is an AI gateway that routes requests to multiple LLM providers. When deploying
+  AuroraX is an AI gateway that routes requests to multiple LLM providers. When deploying
   Aurora, keep the following in mind:
 
   - **API Key Management**: Aurora handles provider API keys. Ensure keys are stored
@@ -80,10 +80,10 @@
 
   The following are **in scope** for security reports:
 
-  - The Aurora Gateway (core, internal packages, apps)
-  - The Aurora Dashboard UI
+  - The AuroraX Gateway (core, internal packages, apps)
+  - The AuroraX Dashboard UI
   - The Aurora Docker image (`aurorahq/aurora`)
-  - The Aurora CLI tools
+  - The AuroraX CLI tools
 
   The following are **out of scope**:
 

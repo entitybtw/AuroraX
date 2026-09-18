@@ -1,4 +1,4 @@
-# Aurora Gateway — Docker Compose
+# AuroraX Gateway — Docker Compose
 #
 # Infrastructure services for local development and team deployments.
 # The Aurora app image is available via --profile app.
@@ -11,7 +11,7 @@
 
 services:
   # ===========================================================================
-  # Aurora Gateway (requires --profile app)
+  # AuroraX Gateway (requires --profile app)
   # ===========================================================================
   aurora:
     profile: [app]

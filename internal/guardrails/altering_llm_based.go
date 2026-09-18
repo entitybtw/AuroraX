@@ -162,7 +162,7 @@ OUTPUT:
 [|---|](PERSON_1) and [|---|](PERSON_2) work at the office.
 
 INPUT:
-Contact us at team.auroragate@gmail.com for help.
+Contact us at team.auroraxgate@gmail.com for help.
 OUTPUT:
 Contact us at [|---|](EMAIL_1) (or [|---|](EMAIL_2)) for help.
 

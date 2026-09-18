@@ -158,7 +158,7 @@ export function Sidebar({
           <SidebarLogo />
         </span>
         <div className="min-w-0 flex-1">
-          <h1 className="font-display text-lg font-bold tracking-tight text-foreground whitespace-nowrap overflow-hidden">Aurora</h1>
+          <h1 className="font-display text-lg font-bold tracking-tight text-foreground whitespace-nowrap overflow-hidden">AuroraX</h1>
         </div>
         <button onClick={onCloseMobile} className="md:hidden p-2 -mr-1 text-muted-foreground hover:text-foreground active:scale-95 transition-all rounded-lg hover:bg-surface-hover" aria-label="Close menu">
           <X className="h-5 w-5" />
