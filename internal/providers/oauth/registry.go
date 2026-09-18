@@ -47,6 +47,17 @@ func (r *Registry) All() []string {
 	return names
 }
 
+// AllManagers returns a snapshot of all registered managers keyed by provider name.
+func (r *Registry) AllManagers() map[string]*Manager {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make(map[string]*Manager, len(r.managers))
+	for name, mgr := range r.managers {
+		out[name] = mgr
+	}
+	return out
+}
+
 // Len returns the number of registered managers.
 func (r *Registry) Len() int {
 	r.mu.RLock()

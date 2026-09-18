@@ -22,6 +22,7 @@ func NewOAuthHandler(registry *oauth.Registry) *OAuthHandler {
 
 // RegisterOAuthRoutes mounts the OAuth admin API routes.
 func (h *OAuthHandler) RegisterOAuthRoutes(g RouteRegistrar) {
+	g.GET("/oauth/providers", h.AllProvidersStatus)
 	g.POST("/oauth/:provider/start", h.StartDeviceFlow)
 	g.POST("/oauth/:provider/poll", h.PollToken)
 	g.GET("/oauth/:provider/status", h.TokenStatus)
@@ -151,11 +152,22 @@ func (h *OAuthHandler) PollToken(c *echo.Context) error {
 
 // TokenStatusResponse shows the current token state.
 type TokenStatusResponse struct {
-	HasToken  bool      `json:"has_token"`
-	Expired   bool      `json:"expired"`
-	ExpiresAt time.Time `json:"expires_at,omitempty"`
-	Email     string    `json:"email,omitempty"`
-	Server    string    `json:"server,omitempty"`
+	HasToken    bool      `json:"has_token"`
+	Expired     bool      `json:"expired"`
+	ExpiresAt   time.Time `json:"expires_at,omitempty"`
+	Email       string    `json:"email,omitempty"`
+	AccountID   string    `json:"account_id,omitempty"`
+	Server      string    `json:"server,omitempty"`
+	ProviderName string  `json:"provider_name,omitempty"`
+}
+
+// OAuthProviderStatus is a single provider's OAuth status for bulk listing.
+type OAuthProviderStatus struct {
+	Name      string `json:"name"`
+	HasToken  bool   `json:"has_token"`
+	Expired   bool   `json:"expired"`
+	Email     string `json:"email,omitempty"`
+	AccountID string `json:"account_id,omitempty"`
 }
 
 // TokenStatus returns the current OAuth token status for a provider.
@@ -181,11 +193,13 @@ func (h *OAuthHandler) TokenStatus(c *echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, TokenStatusResponse{
-		HasToken:  true,
-		Expired:   time.Now().After(info.ExpiresAt),
-		ExpiresAt: info.ExpiresAt,
-		Email:     info.Email,
-		Server:    info.Server,
+		HasToken:    true,
+		Expired:     time.Now().After(info.ExpiresAt),
+		ExpiresAt:   info.ExpiresAt,
+		Email:       info.Email,
+		AccountID:   info.AccountID,
+		Server:      info.Server,
+		ProviderName: providerName,
 	})
 }
 
@@ -211,4 +225,29 @@ func (h *OAuthHandler) ClearToken(c *echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"status": "cleared"})
+}
+
+// AllProvidersStatus returns OAuth status for all registered providers.
+// GET /admin/api/v1/oauth/providers
+func (h *OAuthHandler) AllProvidersStatus(c *echo.Context) error {
+	if h.registry == nil {
+		return c.JSON(http.StatusOK, []OAuthProviderStatus{})
+	}
+	all := h.registry.AllManagers()
+	result := make([]OAuthProviderStatus, 0, len(all))
+	for name, mgr := range all {
+		info := mgr.TokenInfo()
+		if info == nil {
+			result = append(result, OAuthProviderStatus{Name: name, HasToken: false})
+			continue
+		}
+		result = append(result, OAuthProviderStatus{
+			Name:      name,
+			HasToken:  true,
+			Expired:   time.Now().After(info.ExpiresAt),
+			Email:     info.Email,
+			AccountID: info.AccountID,
+		})
+	}
+	return c.JSON(http.StatusOK, result)
 }
