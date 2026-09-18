@@ -38,7 +38,6 @@ export function OAuthDialog({
   const [expiresIn, setExpiresIn] = useState(0);
   const [pollInterval, setPollInterval] = useState(5);
   const [error, setError] = useState("");
-  const [polling, setPolling] = useState(false);
   const [accountInfo, setAccountInfo] = useState<{
     email: string | undefined;
     account_id: string | undefined;
@@ -148,14 +147,12 @@ export function OAuthDialog({
 
   // Poll for token using status endpoint (backend handles device_code internally)
   const startPolling = useCallback(async () => {
-    setPolling(true);
     // Track the step via a local flag that isn't captured from a stale closure.
     let active = true;
     stepRef.current = "polling";
 
     const poll = async () => {
       if (!active || stepRef.current !== "polling") {
-        setPolling(false);
         return;
       }
 
@@ -172,7 +169,6 @@ export function OAuthDialog({
             account_id: status.account_id ?? undefined,
             expires_at: status.expires_at ?? undefined,
           });
-          setPolling(false);
           onComplete?.();
           return;
         }
@@ -182,7 +178,6 @@ export function OAuthDialog({
           stepRef.current = "error";
           setError("Token expired. Please start a new authorization.");
           setStep("error");
-          setPolling(false);
           return;
         }
 
@@ -193,7 +188,6 @@ export function OAuthDialog({
           stepRef.current = "error";
           setError("Authorization timed out. Please try again.");
           setStep("error");
-          setPolling(false);
           return;
         }
 
@@ -204,7 +198,6 @@ export function OAuthDialog({
         // Don't error out on transient errors, just retry
         console.error("OAuth poll error:", message);
         if (!active || stepRef.current !== "polling") {
-          setPolling(false);
           return;
         }
         pollTimerRef.current = setTimeout(poll, pollInterval * 1000);
@@ -232,7 +225,6 @@ export function OAuthDialog({
       setUserCode("");
       setVerificationUri("");
       setError("");
-      setPolling(false);
       setAccountInfo(null);
       setAlreadyLinked(false);
       setCheckingStatus(true);
