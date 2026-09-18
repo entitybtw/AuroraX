@@ -1,4 +1,4 @@
-import { Surface, SectionHeader, Pill, CodeBlock } from "@/components/ui/surface";
+import { Surface, SectionHeader, Pill } from "@/components/ui/surface";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
