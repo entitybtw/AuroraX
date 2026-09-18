@@ -259,7 +259,7 @@ export function GeneralTab(): JSX.Element {
                 <GaugeIcon className="h-4 w-4 text-accent" />
               </div>
               <SectionHeader
-                title="Aurora Token Saver"
+                title="AuroraX Token Saver"
                 subtitle="Policy-driven prompt and tool-output compression with an optional concise response profile. Disabled by default and scoped by endpoint, model, and provider."
               />
             </div>

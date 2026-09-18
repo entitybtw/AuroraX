@@ -1,6 +1,6 @@
 # Multi-account API pool with distinct client identities
 
-Aurora lets you load-balance several upstream API accounts under one model name and, via the Session Hub, present each account with a distinct, stable client session. This is useful when an upstream expects requests to look like separate clients rather than one shared integration.
+AuroraX lets you load-balance several upstream API accounts under one model name and, via the Session Hub, present each account with a distinct, stable client session. This is useful when an upstream expects requests to look like separate clients rather than one shared integration.
 
 High level: **client → Aurora (one URL) → pool round-robin → each account gets its own session**
 
@@ -94,7 +94,7 @@ Standard OpenAI SDK against one URL:
 ```python
 from openai import OpenAI
 
-client = OpenAI(base_url="http://localhost:8080/v1", api_key="your-aurora-key")
+client = OpenAI(base_url="http://localhost:8080/v1", api_key="your-aurorax-key")
 r = client.chat.completions.create(
     model="opencode-zen/mimo-v2.5-free",
     messages=[{"role": "user", "content": "hello"}],

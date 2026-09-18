@@ -1,4 +1,4 @@
-# Getting Started with Aurora (this fork)
+# Getting Started with AuroraX (this fork)
 
 Aurora is an OpenAI/Anthropic-compatible AI gateway that routes requests to many providers. It is a single static binary. This fork ships a published Docker image, a config-driven + dashboard workflow, and the **Session Hub** for advanced API-integration setups.
 
