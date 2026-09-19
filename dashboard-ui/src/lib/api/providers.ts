@@ -100,3 +100,36 @@ export function updatePool(name: string, data: PoolUpdateData): Promise<{ messag
     json: data,
   }) as Promise<{ message: string; pool_name: string; strategy: string }>;
 }
+
+// Provider Presets API
+
+export interface ProviderPreset {
+  name: string;
+  type: string;
+  base_url: string;
+  auth_method?: string;
+  key_optional?: boolean;
+  description: string;
+  models?: string;
+}
+
+export interface DetectPresetResponse {
+  matched: boolean;
+  preset?: ProviderPreset;
+  message?: string;
+}
+
+export function fetchProviderPresets(): Promise<ProviderPreset[]> {
+  return apiFetch("/admin/api/v1/providers/presets") as Promise<ProviderPreset[]>;
+}
+
+export function detectProviderPreset(
+  name: string,
+  type: string,
+  baseUrl: string
+): Promise<DetectPresetResponse> {
+  return apiFetch("/admin/api/v1/providers/detect-preset", {
+    method: "POST",
+    json: { name, type, base_url: baseUrl },
+  }) as Promise<DetectPresetResponse>;
+}

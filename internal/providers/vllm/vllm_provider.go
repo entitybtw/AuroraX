@@ -131,28 +131,19 @@ func setHeaders(req *http.Request, apiKey string) {
 func makeSetHeaders(oauthMgr *oauth.Manager, disableAPIKey bool) func(req *http.Request, apiKey string) {
 	return func(req *http.Request, apiKey string) {
 		// OAuth takes precedence when configured and token is available
-		if oauthMgr != nil {
-			hasToken := oauthMgr.HasToken()
-			token := oauthMgr.GetAccessToken()
-			log.Printf("oauth: provider hasToken=%v tokenLen=%d", hasToken, len(token))
-			if hasToken {
-				if err := oauthMgr.EnsureFreshToken(); err != nil {
-					log.Printf("oauth: EnsureFreshToken error: %v", err)
-				}
-				if tok := oauthMgr.GetAccessToken(); tok != "" {
-					req.Header.Set("Authorization", "Bearer "+tok)
-					log.Printf("oauth: set Authorization header with token (len=%d)", len(tok))
-					return
-				}
-				log.Printf("oauth: GetAccessToken returned empty")
-			} else {
-				log.Printf("oauth: HasToken returned false")
+		if oauthMgr != nil && oauthMgr.HasToken() {
+			if err := oauthMgr.EnsureFreshToken(); err != nil {
+				log.Printf("oauth: token refresh failed for %s: %v", req.Host, err)
 			}
-		} else {
-			log.Printf("oauth: oauthMgr is nil, using apiKey")
+			if tok := oauthMgr.GetAccessToken(); tok != "" {
+				req.Header.Set("Authorization", "Bearer "+tok)
+				if requestID := core.GetRequestID(req.Context()); requestID != "" {
+					req.Header.Set("X-Request-Id", requestID)
+				}
+				return
+			}
 		}
 		if disableAPIKey {
-			log.Printf("oauth: disable_api_key=true, skipping static key")
 			return
 		}
 		if apiKey != "" {

@@ -14,6 +14,7 @@ import (
 	"aurora/configuration"
 	"aurora/internal/core"
 	"aurora/internal/providers"
+	"aurora/internal/providers/presets"
 )
 
 // ProviderOverride tracks a UI-created or UI-updated provider that may not exist
@@ -551,4 +552,51 @@ func autoFetchFilterValue(in *config.AutoFetchFilter) config.AutoFetchFilter {
 		return config.AutoFetchFilter{}
 	}
 	return *in
+}
+
+// ListProviderPresets returns all built-in provider presets.
+// GET /admin/api/v1/providers/presets
+func (h *Handler) ListProviderPresets(c *echo.Context) error {
+	return c.JSON(http.StatusOK, presets.ListPresets())
+}
+
+// DetectProviderPresetRequest is the request body for preset detection.
+type DetectProviderPresetRequest struct {
+	Name    string `json:"name"`
+	Type    string `json:"type"`
+	BaseURL string `json:"base_url"`
+}
+
+// DetectProviderPresetResponse is the response from preset detection.
+type DetectProviderPresetResponse struct {
+	Matched bool              `json:"matched"`
+	Preset  *presets.Preset   `json:"preset,omitempty"`
+	Message string            `json:"message,omitempty"`
+}
+
+// DetectProviderPreset checks if the given provider config matches a known preset.
+// POST /admin/api/v1/providers/detect-preset
+func (h *Handler) DetectProviderPreset(c *echo.Context) error {
+	var req DetectProviderPresetRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+	}
+
+	preset, matched := presets.DetectPreset(
+		strings.TrimSpace(req.Name),
+		strings.TrimSpace(req.Type),
+		strings.TrimSpace(req.BaseURL),
+	)
+	if !matched {
+		return c.JSON(http.StatusOK, DetectProviderPresetResponse{
+			Matched: false,
+			Message: "no matching preset found",
+		})
+	}
+
+	return c.JSON(http.StatusOK, DetectProviderPresetResponse{
+		Matched: true,
+		Preset:  preset,
+		Message: "detected matching preset: " + preset.Name,
+	})
 }
