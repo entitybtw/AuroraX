@@ -56,6 +56,8 @@ type ProviderConfig struct {
 	OAuthServer string
 	// OAuthClientID is the OAuth client_id for the device flow.
 	OAuthClientID string
+	// DisableAPIKey keeps the stored API key but never sends it upstream.
+	DisableAPIKey bool
 }
 
 // resolveProviders applies env var overrides to the raw YAML provider map, filters
@@ -489,6 +491,7 @@ func buildProviderConfig(raw config.RawProviderConfig, global config.ResilienceC
 		AuthMethod:             strings.TrimSpace(raw.AuthMethod),
 		OAuthServer:            strings.TrimSpace(raw.OAuthServer),
 		OAuthClientID:          strings.TrimSpace(raw.OAuthClientID),
+		DisableAPIKey:          raw.DisableAPIKey,
 	}
 
 	if raw.Resilience == nil {

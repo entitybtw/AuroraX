@@ -77,7 +77,7 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 		compatible: openai.NewCompatibleProvider(cfg.APIKey, opts, openai.CompatibleProviderConfig{
 			ProviderName: "vllm",
 			BaseURL:      baseURL,
-			SetHeaders:   makeSetHeaders(oauthMgr),
+			SetHeaders:   makeSetHeaders(oauthMgr, opts.DisableAPIKey),
 		}),
 		rootClient: llmclient.New(llmclient.Config{
 			ProviderName:   "vllm",
@@ -87,7 +87,7 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 			CircuitBreaker: opts.Resilience.CircuitBreaker,
 			BindIP:         opts.BindIP,
 		}, func(req *http.Request) {
-			makeSetHeaders(oauthMgr)(req, cfg.APIKey)
+			makeSetHeaders(oauthMgr, opts.DisableAPIKey)(req, cfg.APIKey)
 		}),
 		oauthMgr: oauthMgr,
 	}
@@ -123,12 +123,12 @@ func (p *Provider) SetBaseURL(url string) {
 }
 
 func setHeaders(req *http.Request, apiKey string) {
-	makeSetHeaders(nil)(req, apiKey)
+	makeSetHeaders(nil, false)(req, apiKey)
 }
 
 // makeSetHeaders returns a header setter that uses OAuth tokens when available,
-// falling back to the static API key.
-func makeSetHeaders(oauthMgr *oauth.Manager) func(req *http.Request, apiKey string) {
+// falling back to the static API key unless disableAPIKey is set.
+func makeSetHeaders(oauthMgr *oauth.Manager, disableAPIKey bool) func(req *http.Request, apiKey string) {
 	return func(req *http.Request, apiKey string) {
 		// OAuth takes precedence when configured and token is available
 		if oauthMgr != nil {
@@ -137,25 +137,26 @@ func makeSetHeaders(oauthMgr *oauth.Manager) func(req *http.Request, apiKey stri
 			log.Printf("oauth: provider hasToken=%v tokenLen=%d", hasToken, len(token))
 			if hasToken {
 				if err := oauthMgr.EnsureFreshToken(); err != nil {
-					// Log but don't fail — the token might still be valid
 					log.Printf("oauth: EnsureFreshToken error: %v", err)
 				}
 				if tok := oauthMgr.GetAccessToken(); tok != "" {
 					req.Header.Set("Authorization", "Bearer "+tok)
 					log.Printf("oauth: set Authorization header with token (len=%d)", len(tok))
-				} else {
-					log.Printf("oauth: GetAccessToken returned empty")
+					return
 				}
+				log.Printf("oauth: GetAccessToken returned empty")
 			} else {
 				log.Printf("oauth: HasToken returned false")
 			}
 		} else {
 			log.Printf("oauth: oauthMgr is nil, using apiKey")
 		}
-		if oauthMgr == nil || !oauthMgr.HasToken() {
-			if apiKey != "" {
-				req.Header.Set("Authorization", "Bearer "+apiKey)
-			}
+		if disableAPIKey {
+			log.Printf("oauth: disable_api_key=true, skipping static key")
+			return
+		}
+		if apiKey != "" {
+			req.Header.Set("Authorization", "Bearer "+apiKey)
 		}
 		if requestID := core.GetRequestID(req.Context()); requestID != "" {
 			req.Header.Set("X-Request-Id", requestID)
