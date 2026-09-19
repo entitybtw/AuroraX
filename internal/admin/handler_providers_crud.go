@@ -47,6 +47,9 @@ type ProviderOverride struct {
 	OAuthServer string `json:"oauth_server,omitempty"`
 	// OAuthClientID is the OAuth client_id for the device flow.
 	OAuthClientID string `json:"oauth_client_id,omitempty"`
+	// DisableAPIKey keeps the stored API key but stops sending it upstream.
+	// Useful for OpenCode zen where an OAuth token supersedes the key.
+	DisableAPIKey *bool `json:"disable_api_key,omitempty"`
 }
 
 // IsEnabled reports whether the override is active. Legacy overrides that
@@ -168,6 +171,7 @@ func (s *ProviderOverrideStore) RawConfigs() map[string]config.RawProviderConfig
 			AuthMethod:      strings.TrimSpace(override.AuthMethod),
 			OAuthServer:     strings.TrimSpace(override.OAuthServer),
 			OAuthClientID:   strings.TrimSpace(override.OAuthClientID),
+			DisableAPIKey:   override.DisableAPIKey != nil && *override.DisableAPIKey,
 		}
 	}
 	return out

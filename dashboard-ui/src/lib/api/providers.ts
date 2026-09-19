@@ -32,6 +32,7 @@ export interface ProviderFormData {
   bind_ip?: string;
   pool_only?: boolean;
   user_agent?: string;
+  disable_api_key?: boolean;
   auto_fetch_models?: boolean;
   /** Narrows discovered models to those matching the declared conditions. */
   autofetch_filter?: AutoFetchFilter | null;
