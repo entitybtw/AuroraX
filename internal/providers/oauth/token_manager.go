@@ -54,14 +54,14 @@ type StoredToken struct {
 
 // Manager manages OAuth tokens for a single provider.
 type Manager struct {
-	mu                sync.RWMutex
-	token             *StoredToken
-	server            string
-	clientID          string
-	dataDir           string
-	providerName      string
-	httpClient        *http.Client
-	tokenFileModTime  time.Time
+	mu               sync.RWMutex
+	token            *StoredToken
+	server           string
+	clientID         string
+	dataDir          string
+	providerName     string
+	httpClient       *http.Client
+	tokenFileModTime time.Time
 }
 
 // NewManager creates a new OAuth token manager.
@@ -300,6 +300,7 @@ func (m *Manager) RefreshToken() error {
 }
 
 // SaveTokenFromResponse stores a token response obtained from the device flow.
+// If the token contains email/account info, it is persisted immediately.
 func (m *Manager) SaveTokenFromResponse(token *TokenResponse) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -310,6 +311,11 @@ func (m *Manager) SaveTokenFromResponse(token *TokenResponse) error {
 		ExpiresAt:    time.Now().Add(time.Duration(token.ExpiresIn) * time.Second),
 		Server:       m.server,
 		ClientID:     m.clientID,
+	}
+	// Fetch account info from the server (best-effort)
+	if info := m.fetchAccountInfo(token.AccessToken); info != nil {
+		m.token.AccountID = info.AccountID
+		m.token.Email = info.Email
 	}
 	return m.saveToken()
 }
@@ -373,6 +379,58 @@ func (m *Manager) saveToken() error {
 		m.tokenFileModTime = info.ModTime()
 	}
 	return nil
+}
+
+// fetchAccountInfo retrieves email and account ID from the OAuth server.
+// Returns nil on any failure (best-effort, never blocks token save).
+func (m *Manager) fetchAccountInfo(accessToken string) *StoredToken {
+	type userResponse struct {
+		ID    string `json:"id"`
+		Email string `json:"email"`
+	}
+	type orgResponse struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+
+	fetch := func(url string, out interface{}) bool {
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return false
+		}
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+		req.Header.Set("Accept", "application/json")
+		resp, err := m.httpClient.Do(req)
+		if err != nil {
+			return false
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return false
+		}
+		return json.NewDecoder(resp.Body).Decode(out) == nil
+	}
+
+	var user userResponse
+	var orgs []orgResponse
+	fetch(m.server+"/api/user", &user)
+	fetch(m.server+"/api/orgs", &orgs)
+
+	info := &StoredToken{}
+	if user.ID != "" {
+		info.AccountID = user.ID
+	}
+	if user.Email != "" {
+		info.Email = user.Email
+	}
+	// Pick first org if available
+	if len(orgs) > 0 && user.ID == "" && info.AccountID == "" {
+		info.AccountID = orgs[0].ID
+	}
+	if info.AccountID == "" && info.Email == "" {
+		return nil
+	}
+	return info
 }
 
 func (m *Manager) removeTokenFile() error {
