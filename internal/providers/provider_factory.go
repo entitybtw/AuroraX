@@ -38,6 +38,8 @@ type ProviderOptions struct {
 	string
 	// is the central registry for token managers.
 	*.Registry
+	// DisableAPIKey keeps the stored API key but stops sending it upstream.
+	DisableAPIKey bool
 }
 
 // SessionHubTransformer transforms headers for a given provider name.
@@ -168,6 +170,7 @@ func (f *ProviderFactory) Create(cfg ProviderConfig) (core.Provider, error) {
 		:  cfg.,
 		:   f.(),
 		:  f.,
+		DisableAPIKey:  cfg.DisableAPIKey,
 	}
 
 	return builder(cfg, opts), nil

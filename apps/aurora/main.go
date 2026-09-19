@@ -498,6 +498,7 @@ func mergeProviderOverridesIntoConfig(result *config.LoadResult) {
 		AuthMethod    string                    `json:"auth_method"`
 		string                    `json:""`
 		string                    `json:""`
+		DisableAPIKey *bool                     `json:"disable_api_key"`
 	}
 	var overrides []rawOverride
 	if err := json.Unmarshal(data, &overrides); err != nil {
@@ -529,6 +530,9 @@ func mergeProviderOverridesIntoConfig(result *config.LoadResult) {
 		}
 		if o.!= "" {
 			existing.= o.
+		}
+		if o.DisableAPIKey != nil {
+			existing.DisableAPIKey = *o.DisableAPIKey
 		}
 		if o.BindIP != "" {
 			existing.BindIP = o.BindIP

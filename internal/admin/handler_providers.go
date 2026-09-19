@@ -59,6 +59,7 @@ func (h *Handler) buildProviderStatusResponse() providerStatusResponse {
 				APIKeySet:       strings.TrimSpace(override.APIKey) != "",
 				PoolOnly:        override.PoolOnly != nil && *override.PoolOnly,
 				UserAgent:       strings.TrimSpace(override.UserAgent),
+				DisableAPIKey:   override.DisableAPIKey != nil && *override.DisableAPIKey,
 				AutoFetchModels: override.AutoFetchModels == nil || *override.AutoFetchModels,
 				AutoFetchFilter: override.AutoFetchFilter,
 			}

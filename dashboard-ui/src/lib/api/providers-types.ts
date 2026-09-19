@@ -59,6 +59,7 @@ export const SanitizedProviderConfigSchema = z.object({
   api_key_set: z.boolean().optional(),
   pool_only: z.boolean().optional(),
   user_agent: z.string().optional(),
+  disable_api_key: z.boolean().optional(),
   auto_fetch_models: z.boolean().optional(),
   autofetch_filter: AutoFetchFilterSchema.nullable().optional(),
   resilience: SanitizedResilienceConfigSchema.optional(),

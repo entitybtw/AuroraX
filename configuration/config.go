@@ -174,6 +174,9 @@ type RawProviderConfig struct {
 	// is the client_id used in the device flow.
 	// Defaults to "" for .
 	string `yaml:",omitempty"`
+	// DisableAPIKey keeps the stored api_key but never sends it upstream.
+	// Useful when an token supersedes the key (e.g. ).
+	DisableAPIKey bool `yaml:"disable_api_key,omitempty"`
 }
 
 // RawPoolConfig is the YAML-sourced provider pool definition. Pools group
