@@ -43,6 +43,7 @@ type SanitizedProviderConfig struct {
 	APIKeySet       bool                      `json:"api_key_set,omitempty"`
 	PoolOnly        bool                      `json:"pool_only,omitempty"`
 	UserAgent       string                    `json:"user_agent,omitempty"`
+	DisableAPIKey   bool                      `json:"disable_api_key,omitempty"`
 	AutoFetchModels bool                      `json:"auto_fetch_models"`
 	AutoFetchFilter *config.AutoFetchFilter   `json:"autofetch_filter,omitempty"`
 	Resilience      SanitizedResilienceConfig `json:"resilience"`

@@ -47,6 +47,9 @@ type ProviderOverride struct {
 	string `json:",omitempty"`
 	// is the client_id for the device flow.
 	string `json:",omitempty"`
+	// DisableAPIKey keeps the stored API key but stops sending it upstream.
+	// Useful for upstream zen where an token supersedes the key.
+	DisableAPIKey *bool `json:"disable_api_key,omitempty"`
 }
 
 // IsEnabled reports whether the override is active. Legacy overrides that
@@ -168,6 +171,7 @@ func (s *ProviderOverrideStore) RawConfigs() map[string]config.RawProviderConfig
 			AuthMethod:      strings.TrimSpace(override.AuthMethod),
 			:     strings.TrimSpace(override.),
 			:   strings.TrimSpace(override.),
+			DisableAPIKey:   override.DisableAPIKey != nil && *override.DisableAPIKey,
 		}
 	}
 	return out
