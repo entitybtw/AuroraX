@@ -127,7 +127,7 @@ interface ProviderModalProps {
 }
 
 function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps): JSX.Element {
-  const [form, setForm] = useState<ProviderFormData>(initial ?? { name: "", type: "", base_url: "", api_version: "", api_key: "", models: "", bind_ip: "", pool_only: false, user_agent: "", auto_fetch_models: true });
+  const [form, setForm] = useState<ProviderFormData>(initial ?? { name: "", type: "", base_url: "", api_version: "", api_key: "", models: "", bind_ip: "", pool_only: false, user_agent: "", disable_api_key: false, auto_fetch_models: true });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -278,6 +278,18 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
                   size="sm"
                   onCheckedChange={(v) => setForm({ ...form, pool_only: v })}
                   aria-label="Pool only"
+                />
+              </div>
+              <div className="flex items-center justify-between gap-3 border border-border/40 bg-background/30 px-3 py-2.5">
+                <div className="flex flex-col gap-1 pr-2">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Disable API Key</label>
+                  <div className="text-[11px] text-muted-foreground">Stop sending the static API key upstream. Use when an OAuth token supersedes it.</div>
+                </div>
+                <Switch
+                  checked={form.disable_api_key ?? false}
+                  size="sm"
+                  onCheckedChange={(v) => setForm({ ...form, disable_api_key: v })}
+                  aria-label="Disable API key"
                 />
               </div>
             </div>
@@ -606,6 +618,7 @@ export function ProvidersTab(): JSX.Element {
                             <Pill tone="accent">filter: {filterToText(provider.config?.autofetch_filter)}</Pill>
                           )}
                           {provider.config?.user_agent && <Pill tone="accent">custom UA</Pill>}
+                          {provider.config?.disable_api_key && <Pill tone="warning">key off</Pill>}
                           {provider.config?.bind_ip && <Pill tone="muted">bind: {provider.config.bind_ip}</Pill>}
                           {isOpencodeZenProvider(provider) && provider.oauth_status?.has_token && !provider.oauth_status?.expired && (
                             <Pill tone="success">linked</Pill>
@@ -623,7 +636,7 @@ export function ProvidersTab(): JSX.Element {
                         aria-label={`Toggle provider ${provider.name}`}
                         title={`${provider.config?.enabled === false ? "Enable" : "Disable"} ${provider.name}`}
                       />
-                      <button onClick={() => { setEditingProvider({ name: provider.name, originalName: provider.name, type: provider.config?.type || provider.type || "", base_url: provider.config?.base_url || "", api_version: provider.config?.api_version || "", api_key: provider.config?.api_key || "", models: provider.config?.models?.join(", ") || "", bind_ip: provider.config?.bind_ip || "", pool_only: provider.config?.pool_only ?? false, user_agent: provider.config?.user_agent || "", auto_fetch_models: provider.config?.auto_fetch_models ?? true, autofetch_filter_text: filterToText(provider.config?.autofetch_filter), apiKeySet: provider.config?.api_key_set ?? false }); setModalOpen("edit"); }} className="p-1.5 hover:bg-border/20 transition-colors" title="Edit provider">
+                      <button onClick={() => { setEditingProvider({ name: provider.name, originalName: provider.name, type: provider.config?.type || provider.type || "", base_url: provider.config?.base_url || "", api_version: provider.config?.api_version || "", api_key: provider.config?.api_key || "", models: provider.config?.models?.join(", ") || "", bind_ip: provider.config?.bind_ip || "", pool_only: provider.config?.pool_only ?? false, user_agent: provider.config?.user_agent || "", disable_api_key: provider.config?.disable_api_key ?? false, auto_fetch_models: provider.config?.auto_fetch_models ?? true, autofetch_filter_text: filterToText(provider.config?.autofetch_filter), apiKeySet: provider.config?.api_key_set ?? false }); setModalOpen("edit"); }} className="p-1.5 hover:bg-border/20 transition-colors" title="Edit provider">
                         <Edit3Icon className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
                       {isOpencodeZenProvider(provider) && (

@@ -174,6 +174,9 @@ type RawProviderConfig struct {
 	// OAuthClientID is the OAuth client_id used in the device flow.
 	// Defaults to "opencode-cli" for OpenCode Zen.
 	OAuthClientID string `yaml:"oauth_client_id,omitempty"`
+	// DisableAPIKey keeps the stored api_key but never sends it upstream.
+	// Useful when an OAuth token supersedes the key (e.g. OpenCode Zen free tier).
+	DisableAPIKey bool `yaml:"disable_api_key,omitempty"`
 }
 
 // RawPoolConfig is the YAML-sourced provider pool definition. Pools group

@@ -38,6 +38,8 @@ type ProviderOptions struct {
 	OAuthDataDir string
 	// OAuthRegistry is the central registry for OAuth token managers.
 	OAuthRegistry *oauth.Registry
+	// DisableAPIKey keeps the stored API key but stops sending it upstream.
+	DisableAPIKey bool
 }
 
 // SessionHubTransformer transforms headers for a given provider name.
@@ -168,6 +170,7 @@ func (f *ProviderFactory) Create(cfg ProviderConfig) (core.Provider, error) {
 		OAuthClientID:  cfg.OAuthClientID,
 		OAuthDataDir:   f.oauthDataDir(),
 		OAuthRegistry:  f.oauthRegistry,
+		DisableAPIKey:  cfg.DisableAPIKey,
 	}
 
 	return builder(cfg, opts), nil
