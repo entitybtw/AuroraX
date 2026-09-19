@@ -131,6 +131,7 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [presetConfirm, setPresetConfirm] = useState<{ preset: { name: string; type: string; base_url: string; auth_method?: string; key_optional?: boolean; description: string }; field: string } | null>(null);
 
   const handleSave = async () => {
     setSaving(true);
@@ -164,6 +165,43 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
 
   const providerTypes = ["openai", "anthropic", "gemini", "azure", "deepseek", "groq", "minimax", "ollama", "vllm", "openrouter", "oracle", "xai", "zai", "reranker", "custom"];
 
+  // Detect preset when type or base_url changes
+  const detectPresetDebounced = useCallback(async (type: string, baseUrl: string) => {
+    if (mode !== "add" || !type) return;
+    try {
+      const { detectProviderPreset } = await import("@/lib/api/providers");
+      const result = await detectProviderPreset(form.name, type, baseUrl);
+      if (result.matched && result.preset) {
+        setPresetConfirm({ preset: result.preset, field: result.preset.name });
+      }
+    } catch {
+      // Ignore detection errors
+    }
+  }, [mode, form.name]);
+
+  const handleTypeChange = (newType: string) => {
+    setForm({ ...form, type: newType });
+    detectPresetDebounced(newType, form.base_url);
+  };
+
+  const handleBaseUrlChange = (newUrl: string) => {
+    setForm({ ...form, base_url: newUrl });
+    detectPresetDebounced(form.type, newUrl);
+  };
+
+  const applyPreset = (preset: { type: string; base_url: string; auth_method?: string; key_optional?: boolean }) => {
+    setForm({
+      ...form,
+      type: preset.type,
+      base_url: preset.base_url,
+    });
+    setPresetConfirm(null);
+  };
+
+  const dismissPreset = () => {
+    setPresetConfirm(null);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full sm:max-w-lg max-h-[90vh] overflow-y-auto border border-border/60 bg-surface sm:p-6 p-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -183,7 +221,7 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Type</label>
             <select className="field-input w-full" value={form.type}
-              onChange={(e) => setForm({ ...form, type: e.target.value })}>
+              onChange={(e) => handleTypeChange(e.target.value)}>
               <option value="">Select type...</option>
               {providerTypes.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
@@ -191,7 +229,7 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Base URL</label>
             <Input type="text" placeholder="https://api.openai.com/v1" value={form.base_url}
-              onChange={(e) => setForm({ ...form, base_url: e.target.value })} />
+              onChange={(e) => handleBaseUrlChange(e.target.value)} />
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">API Version</label>
@@ -295,6 +333,38 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
             </div>
           )}
         </div>
+        {presetConfirm && (
+          <div className="mt-3 border border-accent/30 bg-accent/5 p-3 rounded">
+            <div className="flex items-start gap-2">
+              <div className="flex-1">
+                <div className="text-[12px] font-semibold text-accent">Preset detected: {presetConfirm.preset.name}</div>
+                <div className="text-[11px] text-muted-foreground mt-1">{presetConfirm.preset.description}</div>
+                <div className="text-[11px] text-muted-foreground mt-1">
+                  Base URL: <span className="font-mono text-foreground">{presetConfirm.preset.base_url}</span>
+                </div>
+                {presetConfirm.preset.auth_method && (
+                  <div className="text-[11px] text-muted-foreground">
+                    Auth: <span className="font-mono text-foreground">{presetConfirm.preset.auth_method}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <button
+                onClick={() => applyPreset(presetConfirm.preset)}
+                className="px-3 py-1 text-[11px] font-medium bg-accent text-accent-foreground hover:bg-accent/80 transition-colors"
+              >
+                Apply Preset
+              </button>
+              <button
+                onClick={dismissPreset}
+                className="px-3 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
         {error && <div className="mt-3 text-[13px] font-medium text-destructive">{error}</div>}
         <div className="flex items-center gap-3 mt-4 pt-3 border-t border-border/50">
           <Button onClick={handleSave} disabled={saving}>
