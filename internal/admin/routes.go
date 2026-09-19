@@ -40,6 +40,8 @@ func (h *Handler) RegisterRoutes(g RouteRegistrar) {
 	g.GET("/providers/status", h.ProviderStatus)
 	g.POST("/providers", h.CreateProvider)
 	g.GET("/providers/overrides", h.ListProviderOverrides)
+	g.GET("/providers/presets", h.ListProviderPresets)
+	g.POST("/providers/detect-preset", h.DetectProviderPreset)
 	g.PUT("/providers/:name", h.UpdateProvider)
 	g.DELETE("/providers/:name", h.DeleteProvider)
 	g.GET("/pools", h.ListPools)

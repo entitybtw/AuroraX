@@ -131,28 +131,19 @@ func setHeaders(req *http.Request, apiKey string) {
 func makeSetHeaders(*.Manager, disableAPIKey bool) func(req *http.Request, apiKey string) {
 	return func(req *http.Request, apiKey string) {
 		// takes precedence when configured and token is available
-		if != nil {
-			hasToken := .HasToken()
-			token := .GetAccessToken()
-			log.Printf(": provider hasToken=%v tokenLen=%d", hasToken, len(token))
-			if hasToken {
-				if err := .EnsureFreshToken(); err != nil {
-					log.Printf(": EnsureFreshToken error: %v", err)
-				}
-				if tok := .GetAccessToken(); tok != "" {
-					req.Header.Set("Authorization", "Bearer "+tok)
-					log.Printf(": set Authorization header with token (len=%d)", len(tok))
-					return
-				}
-				log.Printf(": GetAccessToken returned empty")
-			} else {
-				log.Printf(": HasToken returned false")
+		if != nil && .HasToken() {
+			if err := .EnsureFreshToken(); err != nil {
+				log.Printf(": token refresh failed for %s: %v", req.Host, err)
 			}
-		} else {
-			log.Printf(": is nil, using apiKey")
+			if tok := .GetAccessToken(); tok != "" {
+				req.Header.Set("Authorization", "Bearer "+tok)
+				if requestID := core.GetRequestID(req.Context()); requestID != "" {
+					req.Header.Set("X-Request-Id", requestID)
+				}
+				return
+			}
 		}
 		if disableAPIKey {
-			log.Printf(": disable_api_key=true, skipping static key")
 			return
 		}
 		if apiKey != "" {
