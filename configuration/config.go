@@ -891,6 +891,7 @@ func buildDefaultConfig() *Config {
 				"openrouter",
 				"zai",
 				"vllm",
+				"opencode",
 			},
 		},
 		Models: ModelsConfig{
