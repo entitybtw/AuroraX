@@ -2,11 +2,11 @@
 
 The official published image for this fork is **`entbtw/aurora`** on Docker Hub.
 
-**Current published tags:** `latest`, `v1.0.4`, `v1.0.3`, `v1.0.2`, `v1.0.1`, and `v1.0.0` (linux/amd64). Pull it with:
+**Current published tags:** `latest`, `v1.1.2`, `v1.0.4`, `v1.0.3`, `v1.0.2`, `v1.0.1`, and `v1.0.0` (linux/amd64). Pull it with:
 
 ```bash
 docker pull entbtw/aurora:latest
-docker pull entbtw/aurora:v1.0.4
+docker pull entbtw/aurora:v1.1.2
 ```
 
 The `Dockerfile` is multi-stage: it builds the React dashboard, cross-compiles the Go binary, and copies it into a distroless runtime image. This document covers building and pushing your own builds.
@@ -42,8 +42,8 @@ Use your Docker Hub username and an **access token** (Account Settings → Secur
 ```bash
 docker buildx build --platform linux/amd64 \
   -t entbtw/aurora:latest \
-  -t entbtw/aurora:v1.0.3 \
-  --build-arg VERSION=1.0.3 \
+  -t entbtw/aurora:v1.1.2 \
+  --build-arg VERSION=1.1.2 \
   --build-arg COMMIT=$(git rev-parse --short HEAD) \
   --build-arg DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
   --progress=plain \
@@ -69,11 +69,26 @@ docker run --rm entbtw/aurora:latest --help
 docker run -d --name aurora -e AURORA_MASTER_KEY=sk-... entbtw/aurora:latest
 ```
 
+### Docker Compose: `working_dir` is required
+
+The distroless runtime image defaults the working directory to `/home/nonroot`. The binary reads config files (`configs/provider-overrides.json`, `configs/pool-overrides.json`, etc.) relative to `/app`. **Always set `working_dir: /app` in your docker-compose.yml**, otherwise provider overrides silently fail to load on startup:
+
+```yaml
+services:
+  aurora:
+    image: entbtw/aurora:latest
+    working_dir: /app      # REQUIRED
+    volumes:
+      - ./aurora-data:/app/data
+      - ./configs:/app/configs
+    # ...
+```
+
 ## Tag conventions
 
 Current published tags: `latest` and a pinned `vX.Y.Z`. Add a tag by adding `-t entbtw/aurora:vX.Y.Z` to the build command, or re-tag an existing image:
 
 ```bash
-docker tag entbtw/aurora:latest entbtw/aurora:v1.0.0
-docker push entbtw/aurora:v1.0.0
+docker tag entbtw/aurora:latest entbtw/aurora:v1.1.2
+docker push entbtw/aurora:v1.1.2
 ```
