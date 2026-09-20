@@ -6,3 +6,7 @@ configs/session-hub-mappings.json
 configs/dashboard-overrides.yaml
 configs/aurora.yaml
 configs/.env
+
+aurora.gz
+bin/
+*.tar
