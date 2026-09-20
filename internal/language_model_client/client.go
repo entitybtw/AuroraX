@@ -72,6 +72,8 @@ type Config struct {
 	Hooks Hooks
 	// BindIP optionally sets the local outbound IP for upstream connections.
 	BindIP string
+	// UseUTLS enables uTLS fingerprint impersonation for the HTTP client.
+	UseUTLS bool
 }
 
 // DefaultConfig returns default client configuration
@@ -137,7 +139,13 @@ func New(cfg Config, headerSetter HeaderSetter) *Client {
 
 func httpClientForConfig(cfg Config) *http.Client {
 	if strings.TrimSpace(cfg.BindIP) != "" {
+		if cfg.UseUTLS {
+			return httpclient.NewUTLSHTTPClientWithBindIP(cfg.BindIP)
+		}
 		return httpclient.NewHTTPClientWithBindIP(cfg.BindIP)
+	}
+	if cfg.UseUTLS {
+		return httpclient.NewUTLSHTTPClient()
 	}
 	return httpclient.NewDefaultHTTPClient()
 }
