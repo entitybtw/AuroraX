@@ -58,6 +58,7 @@ func NewCompatibleProvider(apiKey string, opts providers.ProviderOptions, cfg Co
 		Hooks:          opts.Hooks,
 		CircuitBreaker: opts.Resilience.CircuitBreaker,
 		BindIP:         opts.BindIP,
+		UseUTLS:        opts.UseUTLS,
 	}
 	customUA := strings.TrimSpace(opts.UserAgent)
 	p.client = llmclient.New(clientCfg, providers.WrapHeaderSetterWithSessionHub(func(req *http.Request) {
