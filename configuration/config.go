@@ -177,6 +177,9 @@ type RawProviderConfig struct {
 	// DisableAPIKey keeps the stored api_key but never sends it upstream.
 	// Useful when an OAuth token supersedes the key (e.g. OpenCode Zen free tier).
 	DisableAPIKey bool `yaml:"disable_api_key,omitempty"`
+	// UseUTLS enables uTLS fingerprint impersonation for the HTTP client.
+	// Useful for bypassing JA3-based TLS fingerprinting (e.g. OpenCode Zen).
+	UseUTLS bool `yaml:"use_utls,omitempty"`
 }
 
 // RawPoolConfig is the YAML-sourced provider pool definition. Pools group

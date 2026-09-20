@@ -40,6 +40,8 @@ type ProviderOptions struct {
 	OAuthRegistry *oauth.Registry
 	// DisableAPIKey keeps the stored API key but stops sending it upstream.
 	DisableAPIKey bool
+	// UseUTLS enables uTLS fingerprint impersonation for the HTTP client.
+	UseUTLS bool
 }
 
 // SessionHubTransformer transforms headers for a given provider name.
@@ -171,6 +173,7 @@ func (f *ProviderFactory) Create(cfg ProviderConfig) (core.Provider, error) {
 		OAuthDataDir:   f.oauthDataDir(),
 		OAuthRegistry:  f.oauthRegistry,
 		DisableAPIKey:  cfg.DisableAPIKey,
+		UseUTLS:        cfg.UseUTLS,
 	}
 
 	return builder(cfg, opts), nil

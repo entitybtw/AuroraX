@@ -48,6 +48,12 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 		}
 	}
 
+	// Enable uTLS fingerprint impersonation for opencode.ai zen
+	// (JA3 fingerprinting bypass required for free-tier access)
+	if strings.Contains(baseURL, "opencode.ai/zen/v1") {
+		opts.UseUTLS = true
+	}
+
 	// Set OAuth defaults for OpenCode zen
 	if opts.AuthMethod == "oauth" {
 		if opts.OAuthServer == "" {
@@ -86,6 +92,7 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 			Hooks:          opts.Hooks,
 			CircuitBreaker: opts.Resilience.CircuitBreaker,
 			BindIP:         opts.BindIP,
+			UseUTLS:        opts.UseUTLS,
 		}, func(req *http.Request) {
 			makeSetHeaders(oauthMgr, opts.DisableAPIKey)(req, cfg.APIKey)
 		}),

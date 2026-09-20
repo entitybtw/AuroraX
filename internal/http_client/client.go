@@ -18,6 +18,9 @@ import (
 
 // ClientConfig holds configuration options for creating HTTP clients
 type ClientConfig struct {
+	// UseUTLS enables uTLS fingerprint impersonation (Chrome) to bypass
+	// JA3-based TLS fingerprinting used by some providers (e.g. OpenCode Zen).
+	UseUTLS bool
 	// MaxIdleConns controls the maximum number of idle (keep-alive) connections across all hosts
 	MaxIdleConns int
 
@@ -188,6 +191,14 @@ func NewHTTPClient(config *ClientConfig) *http.Client {
 		return &http.Client{
 			Transport: ensureGlobalTransport(),
 			Timeout:   cfg.Timeout,
+		}
+	}
+
+	// Use uTLS transport for JA3 fingerprint impersonation
+	if config.UseUTLS {
+		return &http.Client{
+			Transport: NewUTLSTransport(),
+			Timeout:   config.Timeout,
 		}
 	}
 
