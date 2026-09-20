@@ -36,6 +36,7 @@ services:
     container_name: aurora-gateway
     restart: unless-stopped
     network_mode: host     # <-- required for per-provider bind_ip (multi-IP outbound)
+    working_dir: /app      # <-- REQUIRED: distroless image defaults to /home/nonroot
     volumes:
       - ./aurora-data:/app/data
       - ./configs:/app/configs
@@ -46,6 +47,8 @@ services:
     env_file:
       - .env
 ```
+
+> **Important:** `working_dir: /app` is required. The distroless runtime image defaults the working directory to `/home/nonroot`, but the binary reads config files (`configs/provider-overrides.json`, `configs/pool-overrides.json`, etc.) relative to `/app`. Without this line, provider overrides silently fail to load on startup.
 
 ```bash
 docker compose up -d
