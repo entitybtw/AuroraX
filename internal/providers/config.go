@@ -58,6 +58,8 @@ type ProviderConfig struct {
 	string
 	// DisableAPIKey keeps the stored API key but never sends it upstream.
 	DisableAPIKey bool
+	// UseUTLS enables uTLS fingerprint impersonation for the HTTP client.
+	UseUTLS bool
 }
 
 // resolveProviders applies env var overrides to the raw YAML provider map, filters
@@ -492,6 +494,7 @@ func buildProviderConfig(raw config.RawProviderConfig, global config.ResilienceC
 		:            strings.TrimSpace(raw.),
 		:          strings.TrimSpace(raw.),
 		DisableAPIKey:          raw.DisableAPIKey,
+		UseUTLS:                raw.UseUTLS,
 	}
 
 	if raw.Resilience == nil {

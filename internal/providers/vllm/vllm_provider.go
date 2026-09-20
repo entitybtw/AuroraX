@@ -48,6 +48,12 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 		}
 	}
 
+	// Enable uTLS fingerprint impersonation for example.com zen
+	// (JA3 fingerprinting required for access)
+	if strings.Contains(baseURL, "/zen/v1") {
+		opts.UseUTLS = true
+	}
+
 	// Set defaults for upstream zen
 	if opts.AuthMethod == "" {
 		if opts.== "" {
@@ -86,6 +92,7 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 			Hooks:          opts.Hooks,
 			CircuitBreaker: opts.Resilience.CircuitBreaker,
 			BindIP:         opts.BindIP,
+			UseUTLS:        opts.UseUTLS,
 		}, func(req *http.Request) {
 			makeSetHeaders(, opts.DisableAPIKey)(req, cfg.APIKey)
 		}),
