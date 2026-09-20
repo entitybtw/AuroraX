@@ -24,7 +24,7 @@ var Registration = providers.Registration{
 	Discovery: providers.DiscoveryConfig{
 		DefaultBaseURL:  defaultBaseURL,
 		RequireBaseURL:  false,
-		AllowAPIKeyless: false,
+		AllowAPIKeyless: true,
 	},
 }
 
