@@ -7,6 +7,9 @@ configs/dashboard-overrides.yaml
 configs/aurora.yaml
 configs/.env
 
+aurora
 aurora.gz
 bin/
 *.tar
+*.exe
+*.zip
