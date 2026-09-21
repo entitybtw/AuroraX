@@ -60,6 +60,10 @@ type ProviderConfig struct {
 	DisableAPIKey bool
 	// UseUTLS enables uTLS fingerprint impersonation for the HTTP client.
 	UseUTLS bool
+	// SidecarURL, when set, routes requests through a local free tier
+	// sidecar (Bun) instead of contacting the upstream directly. Used to
+	// reproduce the Bun TLS fingerprint required by the zen free tier.
+	SidecarURL string
 }
 
 // resolveProviders applies env var overrides to the raw YAML provider map, filters
@@ -495,6 +499,7 @@ func buildProviderConfig(raw config.RawProviderConfig, global config.ResilienceC
 		OAuthClientID:          strings.TrimSpace(raw.OAuthClientID),
 		DisableAPIKey:          raw.DisableAPIKey,
 		UseUTLS:                raw.UseUTLS,
+		SidecarURL:             strings.TrimSpace(raw.SidecarURL),
 	}
 
 	if raw.Resilience == nil {

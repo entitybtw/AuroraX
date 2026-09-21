@@ -7,6 +7,7 @@ package opencode
 import (
 	"context"
 	"io"
+	"os"
 	"strings"
 
 	"aurora/internal/core"
@@ -16,6 +17,10 @@ import (
 )
 
 const defaultBaseURL = "https://opencode.ai/zen/v1"
+
+// sidecarEnvURL is the environment variable that points at the local Bun
+// sidecar used to reproduce the TLS fingerprint required by the zen free tier.
+const sidecarEnvURL = "AURORA_SIDECAR_BASE_URL"
 
 // Registration provides factory registration for the upstream provider.
 var Registration = providers.Registration{
@@ -47,6 +52,14 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 	// force OAuth mode for free-tier access
 	if opts.AuthMethod == "" && strings.HasPrefix(strings.TrimSpace(cfg.APIKey), "sk-") {
 		opts.AuthMethod = "oauth"
+	}
+
+	// Route zen traffic through the local Bun sidecar when one is configured.
+	// The sidecar reproduces the Bun TLS fingerprint that the zen free tier
+	// requires and forwards OAuth/API-key credentials unchanged, so paid
+	// accounts continue to work through the same path.
+	if sidecar := resolveSidecarURL(cfg); sidecar != "" {
+		cfg.BaseURL = sidecar
 	}
 
 	// Enable uTLS fingerprint impersonation for example.com zen
@@ -81,6 +94,20 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 // OAuthManager returns the OAuth token manager, or nil if OAuth is not configured.
 func (p *Provider) OAuthManager() *oauth.Manager {
 	return p.oauthMgr
+}
+
+// resolveSidecarURL returns the Bun sidecar base URL for this provider, or an
+// empty string when the sidecar is not configured. A provider-level
+// sidecar_url wins; otherwise the environment default is used, but only when
+// the provider actually targets upstream zen.
+func resolveSidecarURL(cfg providers.ProviderConfig) string {
+	if sidecar := strings.TrimSpace(cfg.SidecarURL); sidecar != "" {
+		return sidecar
+	}
+	if !strings.Contains(cfg.BaseURL, "opencode.ai/zen") {
+		return ""
+	}
+	return strings.TrimSpace(os.Getenv(sidecarEnvURL))
 }
 
 // ChatCompletion sends a chat completion request via the inner vLLM provider.

@@ -27,6 +27,8 @@ func (h *OAuthHandler) RegisterOAuthRoutes(g RouteRegistrar) {
 	g.POST("/oauth/:provider/start", h.StartDeviceFlow)
 	g.POST("/oauth/:provider/poll", h.PollToken)
 	g.GET("/oauth/:provider/status", h.TokenStatus)
+	g.POST("/oauth/:provider/refresh", h.RefreshToken)
+	g.POST("/oauth/refresh", h.RefreshAllTokens)
 	g.DELETE("/oauth/:provider/token", h.ClearToken)
 }
 
@@ -208,6 +210,71 @@ func (h *OAuthHandler) TokenStatus(c *echo.Context) error {
 		Server:      info.Server,
 		ProviderName: providerName,
 	})
+}
+
+// RefreshToken forces a refresh of the stored OAuth token for a provider.
+// POST /admin/api/v1/oauth/:provider/refresh
+func (h *OAuthHandler) RefreshToken(c *echo.Context) error {
+	providerName := strings.TrimSpace(c.Param("provider"))
+	if providerName == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "provider name is required"})
+	}
+
+	mgr := h.registry.Get(providerName)
+	if mgr == nil {
+		return c.JSON(http.StatusNotFound, map[string]string{
+			"error": "provider not found or OAuth not configured",
+		})
+	}
+	if !mgr.HasToken() {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "no token stored for provider",
+		})
+	}
+
+	if err := mgr.RefreshToken(); err != nil {
+		return c.JSON(http.StatusBadGateway, map[string]string{
+			"error": "failed to refresh token: " + err.Error(),
+		})
+	}
+
+	info := mgr.TokenInfo()
+	resp := TokenStatusResponse{HasToken: true, ProviderName: providerName}
+	if info != nil {
+		resp.Expired = time.Now().After(info.ExpiresAt)
+		resp.ExpiresAt = info.ExpiresAt
+		resp.Email = info.Email
+		resp.AccountID = info.AccountID
+		resp.Server = info.Server
+	}
+	return c.JSON(http.StatusOK, resp)
+}
+
+// RefreshAllResult reports the outcome of refreshing one provider.
+type RefreshAllResult struct {
+	Name      string `json:"name"`
+	Refreshed bool   `json:"refreshed"`
+	Error     string `json:"error,omitempty"`
+}
+
+// RefreshAllTokens forces a refresh of every stored OAuth token.
+// POST /admin/api/v1/oauth/refresh
+func (h *OAuthHandler) RefreshAllTokens(c *echo.Context) error {
+	if h.registry == nil {
+		return c.JSON(http.StatusOK, []RefreshAllResult{})
+	}
+	results := make([]RefreshAllResult, 0)
+	for name, mgr := range h.registry.AllManagers() {
+		if !mgr.HasToken() {
+			continue
+		}
+		if err := mgr.RefreshToken(); err != nil {
+			results = append(results, RefreshAllResult{Name: name, Error: err.Error()})
+			continue
+		}
+		results = append(results, RefreshAllResult{Name: name, Refreshed: true})
+	}
+	return c.JSON(http.StatusOK, results)
 }
 
 // ClearToken deletes the stored OAuth token for a provider.

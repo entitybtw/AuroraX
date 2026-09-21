@@ -18,7 +18,11 @@ import (
 const (
 	DefaultServer   = "https://example.com/console"
 	DefaultClientID = "opencode-cli"
-	refreshSkew     = 5 * time.Minute
+	// upstreamUserAgent mirrors the User-Agent sent by the official upstream
+	// client. The zen free tier rejects requests that do not look like they
+	// originate from the client, even when the JA3 fingerprint matches.
+	upstreamUserAgent = "opencode/1.18.31"
+	refreshSkew       = 5 * time.Minute
 )
 
 // DeviceCodeResponse is the server's response to a device authorization request.

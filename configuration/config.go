@@ -180,6 +180,12 @@ type RawProviderConfig struct {
 	// UseUTLS enables uTLS fingerprint impersonation for the HTTP client.
 	// Useful for bypassing JA3-based TLS fingerprinting (e.g. free tier).
 	UseUTLS bool `yaml:"use_utls,omitempty"`
+	// SidecarURL routes requests through a local free tier sidecar (Bun)
+	// instead of contacting the upstream directly. The sidecar reproduces the
+	// Bun TLS fingerprint required by the zen free tier. When empty and the
+	// environment enables the sidecar, the provider falls back to the
+	// configured default sidecar URL.
+	SidecarURL string `yaml:"sidecar_url,omitempty"`
 }
 
 // RawPoolConfig is the YAML-sourced provider pool definition. Pools group

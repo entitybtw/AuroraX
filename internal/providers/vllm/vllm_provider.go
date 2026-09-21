@@ -52,6 +52,12 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 	// (JA3 fingerprinting bypass required for free-tier access)
 	if strings.Contains(baseURL, "opencode.ai/zen/v1") {
 		opts.UseUTLS = true
+		// The official upstream client identifies itself with its versioned
+		// User-Agent; the zen free tier requires it in addition to the JA3
+		// fingerprint. Respect an explicit override if one is configured.
+		if strings.TrimSpace(opts.UserAgent) == "" {
+			opts.UserAgent = oauth.upstreamUserAgent
+		}
 	}
 
 	// Set OAuth defaults for upstream zen
@@ -153,6 +159,12 @@ func makeSetHeaders(oauthMgr *oauth.Manager, disableAPIKey bool) func(req *http.
 		if disableAPIKey {
 			return
 		}
+		// upstream zen free tier: the official client sends the literal API key
+		// "public" when the user is not signed in. Combined with the uTLS JA3
+		// fingerprint and the opencode User-Agent this unlocks the free tier.
+		if isupstreamZenHost(req.URL.Host) && apiKey == "" {
+			apiKey = "public"
+		}
 		if apiKey != "" {
 			req.Header.Set("Authorization", "Bearer "+apiKey)
 		}
@@ -160,6 +172,11 @@ func makeSetHeaders(oauthMgr *oauth.Manager, disableAPIKey bool) func(req *http.
 			req.Header.Set("X-Request-Id", requestID)
 		}
 	}
+}
+
+// isupstreamZenHost reports whether the host is the upstream free-tier API.
+func isupstreamZenHost(host string) bool {
+	return strings.Contains(host, "example.com")
 }
 
 // ChatCompletion sends a chat completion request to vLLM.
