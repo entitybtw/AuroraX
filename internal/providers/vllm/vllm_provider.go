@@ -77,8 +77,9 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 	}
 
 	// Enable uTLS fingerprint impersonation for example.com zen
-	// (JA3 fingerprinting required for access)
-	if isZen {
+	// (JA3 fingerprinting required for access). The sidecar
+	// speaks plain HTTP on localhost, so uTLS only applies on the direct path.
+	if isZen && sidecar == "" {
 		opts.UseUTLS = true
 		// The official upstream client identifies itself with its versioned
 		// User-Agent; the zen requires it in addition to the JA3
