@@ -18,6 +18,8 @@ const USER_AGENT =
 const INJECT_TOOLS = (process.env.?? "true") !== "false";
 const MAX_ATTEMPTS = Number(process.env.?? "4");
 const RETRY_DELAY_MS = Number(process.env.?? "750");
+// Optional CONNECT proxy used to egress from a specific IP (multi-IP support).
+const PROXY = (process.env.?? "").trim();
 const input = await Bun.stdin.text();
 
 let envelope;
@@ -73,11 +75,13 @@ const url = UPSTREAM.replace(/\/+$/, "") + "/chat/completions";
 let resp;
 let raw = "";
 for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-  resp = await fetch(url, {
+  const opts = {
     method: "POST",
     headers: buildHeaders(),
     body: JSON.stringify(payload),
-  });
+  };
+  if (PROXY) opts.proxy = PROXY;
+  resp = await fetch(url, opts);
   raw = await resp.text();
   // 403/429 are transient here (rate limiting / edge rejection).
   if (resp.status !== 403 && resp.status !== 429) break;
