@@ -105,4 +105,7 @@ func (h *Handler) RegisterRoutes(g RouteRegistrar) {
 
 	// Session hub routes are registered separately via sessionhub.RegisterSessionHubRoutes
 
+	g.GET("/sidecar", h.GetSidecarStatus)
+	g.PUT("/sidecar", h.UpdateSidecarSettings)
+
 }

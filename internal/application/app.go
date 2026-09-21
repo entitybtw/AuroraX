@@ -55,6 +55,7 @@ type App struct {
 	rawPools          map[string]config.RawPoolConfig
 	providerOverrides *admin.ProviderOverrideStore
 	poolOverrides     *admin.PoolOverrideStore
+	sidecarOverrides  *admin.SidecarOverrideStore
 	providers         *providers.InitResult
 	audit             *auditlog.Result
 	usage             *usage.Result
@@ -124,6 +125,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 		rawPools:          cloneRawPoolConfigs(cfg.AppConfig.RawPools),
 		providerOverrides: admin.NewProviderOverrideStore(),
 		poolOverrides:     admin.NewPoolOverrideStore(),
+		sidecarOverrides:  admin.NewSidecarOverrideStore(),
 	}
 
 	providerResult, err := providers.Init(ctx, cfg.AppConfig, cfg.Factory)
@@ -510,6 +512,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 			app.guardrails.Service,
 			app.providerOverrides,
 			app.poolOverrides,
+			app.sidecarOverrides,
 			oauthRegistryFromFactory(cfg.Factory),
 			app,
 			app,
@@ -1022,6 +1025,7 @@ func initAdmin(
 	guardrailService *guardrails.Service,
 	providerOverrides *admin.ProviderOverrideStore,
 	poolOverrides *admin.PoolOverrideStore,
+	sidecarOverrides *admin.SidecarOverrideStore,
 	oauthReg *oauth.Registry,
 	runtimeRefresher admin.RuntimeRefresher,
 	fallbackReloader admin.FallbackReloader,
@@ -1092,6 +1096,7 @@ func initAdmin(
 		admin.WithDashboardSettingsManager(settingsManager),
 		admin.WithProviderOverrides(providerOverrides),
 		admin.WithPoolWeights(poolOverrides),
+		admin.WithSidecarStore(sidecarOverrides),
 		admin.WithOAuthRegistry(oauthReg),
 		admin.WithDashboardRuntimeConfig(runtimeConfig),
 	)

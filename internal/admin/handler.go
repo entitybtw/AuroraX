@@ -59,6 +59,7 @@ type Handler struct {
 	poolWeights          *PoolOverrideStore
 	oauthRegistry        *oauth.Registry
 	sessionHub           interface{ Apply(map[string][]string, string) map[string]string }
+	sidecarStore         *SidecarOverrideStore
 
 	mutationMu sync.Mutex
 	pricingMu  sync.Mutex

@@ -118,7 +118,7 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 		compatible: openai.NewCompatibleProvider(cfg.APIKey, opts, openai.CompatibleProviderConfig{
 			ProviderName: "vllm",
 			BaseURL:      baseURL,
-			SetHeaders:   makeSetHeaders(oauthMgr, opts.DisableAPIKey),
+			SetHeaders:   makeSetHeaders(oauthMgr, opts.DisableAPIKey, opts.BindIP),
 		}),
 		rootClient: llmclient.New(llmclient.Config{
 			ProviderName:   "vllm",
@@ -129,7 +129,7 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 			BindIP:         opts.BindIP,
 			UseUTLS:        opts.UseUTLS,
 		}, func(req *http.Request) {
-			makeSetHeaders(oauthMgr, opts.DisableAPIKey)(req, cfg.APIKey)
+			makeSetHeaders(oauthMgr, opts.DisableAPIKey, opts.BindIP)(req, cfg.APIKey)
 		}),
 		oauthMgr: oauthMgr,
 	}
@@ -165,12 +165,14 @@ func (p *Provider) SetBaseURL(url string) {
 }
 
 func setHeaders(req *http.Request, apiKey string) {
-	makeSetHeaders(nil, false)(req, apiKey)
+	makeSetHeaders(nil, false, "")(req, apiKey)
 }
 
 // makeSetHeaders returns a header setter that uses OAuth tokens when available,
-// falling back to the static API key unless disableAPIKey is set.
-func makeSetHeaders(oauthMgr *oauth.Manager, disableAPIKey bool) func(req *http.Request, apiKey string) {
+// falling back to the static API key unless disableAPIKey is set. When bindIP is
+// non-empty, an x-aurora-bind-ip header is added so the Bun sidecar routes the
+// request through the matching per-IP CONNECT proxy.
+func makeSetHeaders(oauthMgr *oauth.Manager, disableAPIKey bool, bindIP string) func(req *http.Request, apiKey string) {
 	return func(req *http.Request, apiKey string) {
 		// OAuth takes precedence when configured and token is available
 		if oauthMgr != nil && oauthMgr.HasToken() {
@@ -181,6 +183,9 @@ func makeSetHeaders(oauthMgr *oauth.Manager, disableAPIKey bool) func(req *http.
 				req.Header.Set("Authorization", "Bearer "+tok)
 				if requestID := core.GetRequestID(req.Context()); requestID != "" {
 					req.Header.Set("X-Request-Id", requestID)
+				}
+				if bindIP != "" {
+					req.Header.Set("X-Aurora-Bind-Ip", bindIP)
 				}
 				return
 			}
@@ -199,6 +204,9 @@ func makeSetHeaders(oauthMgr *oauth.Manager, disableAPIKey bool) func(req *http.
 		}
 		if requestID := core.GetRequestID(req.Context()); requestID != "" {
 			req.Header.Set("X-Request-Id", requestID)
+		}
+		if bindIP != "" {
+			req.Header.Set("X-Aurora-Bind-Ip", bindIP)
 		}
 	}
 }
