@@ -102,6 +102,7 @@ if (wantStream) {
 
 // Caller wanted a single response: aggregate SSE chunks into one JSON object.
 const contentParts = [];
+const reasoningParts = [];
 const toolCalls = new Map(); // index -> { id, name, args }
 let finish = "stop";
 let mainId = "", created = 0, model = "", role = "assistant";
@@ -122,6 +123,9 @@ for (const line of raw.split("\n")) {
   if (!delta) continue;
   if (delta.role) role = delta.role;
   if (delta.content) contentParts.push(delta.content);
+  // Reasoning models stream their whole visible answer in "reasoning"; keep it
+  // so non-streaming callers do not receive an empty message.
+  if (delta.reasoning) reasoningParts.push(delta.reasoning);
 
   // Streamed tool calls arrive in fragments keyed by an index.
   if (delta.tool_calls) {
@@ -139,7 +143,17 @@ for (const line of raw.split("\n")) {
   if (chunk.usage) usage = chunk.usage;
 }
 
-const message = { role: "assistant", content: contentParts.join("") || null };
+// Prefer normal content; fall back to reasoning text when the model only
+// emitted reasoning (common for the zen free reasoning models).
+let content = contentParts.join("");
+if (!content && reasoningParts.length > 0) {
+  content = reasoningParts.join("");
+}
+
+const message = { role: role || "assistant", content: content || null };
+if (reasoningParts.length > 0) {
+  message.reasoning_content = reasoningParts.join("");
+}
 if (toolCalls.size > 0) {
   message.tool_calls = Array.from(toolCalls.values());
 }
