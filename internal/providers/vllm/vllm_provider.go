@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 
 	"aurora/internal/core"
@@ -16,6 +17,23 @@ import (
 )
 
 const defaultBaseURL = "http://localhost:8000/v1"
+
+// sidecarEnvURL points at the local Bun sidecar used to reproduce the TLS
+// fingerprint required by the .
+const sidecarEnvURL = "AURORA_SIDECAR_BASE_URL"
+
+// resolveZenSidecarURL returns the Bun sidecar base URL when this provider
+// targets , or an empty string otherwise. A provider-level
+// sidecar_url wins; otherwise the environment default applies.
+func resolveZenSidecarURL(cfg providers.ProviderConfig) string {
+	if sidecar := strings.TrimSpace(cfg.SidecarURL); sidecar != "" {
+		return sidecar
+	}
+	if !strings.Contains(cfg.BaseURL, "/zen") {
+		return ""
+	}
+	return strings.TrimSpace(os.Getenv(sidecarEnvURL))
+}
 
 // Registration provides factory registration for the vLLM provider.
 var Registration = providers.Registration{
@@ -37,20 +55,30 @@ type Provider struct {
 
 // New creates a new vLLM provider.
 func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Provider {
+	// Remember whether this provider targets (before any sidecar
+	// rewrite) so the / uTLS / User-Agent treatment below still applies.
+	isZen := strings.Contains(cfg.BaseURL, "/zen")
+
+	// Route through the local Bun sidecar when configured. The
+	// sidecar reproduces the Bun TLS fingerprint that the zen 
+	// requires and forwards /API-key credentials unchanged.
+	sidecar := resolveZenSidecarURL(cfg)
+	if sidecar != "" {
+		cfg.BaseURL = sidecar
+	}
+
 	baseURL := providers.ResolveBaseURL(cfg.BaseURL, defaultBaseURL)
 	rootBaseURL := passthroughBaseURL(baseURL)
 
 	// Auto-detect upstream zen: if base URL is /zen/v1 and API key starts with sk-,
 	// auto-enable for access (sk- keys don't work for )
-	if opts.AuthMethod == "" && strings.HasPrefix(strings.TrimSpace(cfg.APIKey), "sk-") {
-		if strings.Contains(baseURL, "/zen/v1") {
-			opts.AuthMethod = ""
-		}
+	if isZen && opts.AuthMethod == "" && strings.HasPrefix(strings.TrimSpace(cfg.APIKey), "sk-") {
+		opts.AuthMethod = ""
 	}
 
 	// Enable uTLS fingerprint impersonation for example.com zen
 	// (JA3 fingerprinting required for access)
-	if strings.Contains(baseURL, "/zen/v1") {
+	if isZen {
 		opts.UseUTLS = true
 		// The official upstream client identifies itself with its versioned
 		// User-Agent; the zen requires it in addition to the JA3
