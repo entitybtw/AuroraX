@@ -284,6 +284,9 @@ func main() {
 	if handled, code := runModelsSubcommand(os.Args[1:], os.Stdout, os.Stderr); handled {
 		os.Exit(code)
 	}
+	if handled, code := runBindProxySubcommand(os.Args[1:], os.Stdout, os.Stderr); handled {
+		os.Exit(code)
+	}
 
 	versionFlag := flag.Bool("version", false, "Print version information")
 	helpFlag := flag.Bool("help", false, "Show help and configuration reference")

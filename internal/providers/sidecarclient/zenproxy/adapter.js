@@ -6,6 +6,10 @@
 // upstream tool schema), which a Go binary cannot reproduce. OAuth access
 // tokens and API keys are forwarded untouched, so paid accounts keep working.
 //
+// Multi-IP: the caller may send `x-aurora-bind-ip`. When it matches an entry in
+// OPENCODE_ZEN_BIND_PROXIES (comma-separated `ip:port` CONNECT proxies), the
+// request is relayed through that proxy so it egresses from the chosen IP.
+//
 // Configuration (all optional):
 //
 //	OPENCODE_ZEN_BASE_URL        upstream base URL          (default https://opencode.ai/zen/v1)
@@ -14,12 +18,14 @@
 //	OPENCODE_ZEN_INJECT_TOOLS    inject upstream tools     (default true)
 //	OPENCODE_ZEN_DEFAULT_AUTH    fallback Authorization    (default "Bearer public")
 //	OPENCODE_ZEN_USER_AGENT      upstream User-Agent       (default opencode client UA)
+//	OPENCODE_ZEN_BIND_PROXIES    ip:port[,ip:port...]      (default empty)
 //
 // Endpoints:
 //
 //	POST /v1/chat/completions   proxied via a fresh Bun process
 //	GET  /v1/models             proxied directly
 //	GET  /health                liveness probe
+//	GET  /proxies               configured bind proxies
 
 const UPSTREAM = process.env.OPENCODE_ZEN_BASE_URL ?? "https://opencode.ai/zen/v1";
 const ONESHOT = new URL("./one-shot.js", import.meta.url).pathname;
@@ -29,6 +35,18 @@ const DEFAULT_AUTH = process.env.OPENCODE_ZEN_DEFAULT_AUTH ?? "Bearer public";
 const USER_AGENT =
   process.env.OPENCODE_ZEN_USER_AGENT ??
   "opencode/1.18.31 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.14";
+
+// Map of local IP -> CONNECT proxy URL (http://127.0.0.1:port).
+const BIND_PROXIES = new Map();
+for (const entry of (process.env.OPENCODE_ZEN_BIND_PROXIES ?? "").split(",")) {
+  const trimmed = entry.trim();
+  if (!trimmed) continue;
+  const idx = trimmed.lastIndexOf(":");
+  if (idx === -1) continue;
+  const ip = trimmed.slice(0, idx).trim();
+  const port = trimmed.slice(idx + 1).trim();
+  if (ip && port) BIND_PROXIES.set(ip, `http://127.0.0.1:${port}`);
+}
 
 function upstream(path) {
   return UPSTREAM.replace(/\/+$/, "") + path;
@@ -52,6 +70,10 @@ Bun.serve({
       return new Response("ok");
     }
 
+    if (url.pathname === "/proxies") {
+      return json(Array.from(BIND_PROXIES.entries()).map(([ip, proxy]) => ({ ip, proxy })));
+    }
+
     if (url.pathname === "/v1/models") {
       const auth = req.headers.get("authorization") || DEFAULT_AUTH;
       const upstreamResp = await fetch(upstream("/models"), {
@@ -71,6 +93,8 @@ Bun.serve({
     // and API keys reach the upstream unchanged. Fall back to the free-tier
     // "public" key when the caller did not supply one.
     const authorization = req.headers.get("authorization") || DEFAULT_AUTH;
+    const bindIP = (req.headers.get("x-aurora-bind-ip") || "").trim();
+    const proxy = BIND_PROXIES.get(bindIP) || "";
     const body = await req.text();
 
     const proc = Bun.spawn([process.execPath, ONESHOT], {
@@ -81,6 +105,7 @@ Bun.serve({
         ...process.env,
         OPENCODE_ZEN_BASE_URL: UPSTREAM,
         OPENCODE_ZEN_USER_AGENT: USER_AGENT,
+        OPENCODE_ZEN_PROXY: proxy,
       },
     });
 
@@ -100,7 +125,7 @@ Bun.serve({
       );
     }
 
-    // Parase the one-shot envelope: { __status, __sse?, body? }.
+    // Parse the one-shot envelope: { __status, __sse?, body? }.
     let status = 200, bodyText = out;
     try {
       const env = JSON.parse(out);
@@ -127,4 +152,7 @@ Bun.serve({
   },
 });
 
-console.log(`opencode sidecar listening on http://${HOST}:${PORT} -> ${UPSTREAM}`);
+console.log(
+  `opencode sidecar listening on http://${HOST}:${PORT} -> ${UPSTREAM}` +
+    (BIND_PROXIES.size ? ` (${BIND_PROXIES.size} bind proxies)` : ""),
+);
