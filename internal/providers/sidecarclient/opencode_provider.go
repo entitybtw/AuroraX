@@ -58,13 +58,17 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 	// The sidecar reproduces the Bun TLS fingerprint that the zen free tier
 	// requires and forwards OAuth/API-key credentials unchanged, so paid
 	// accounts continue to work through the same path.
-	if sidecar := resolveSidecarURL(cfg); sidecar != "" {
+	sidecar := resolveSidecarURL(cfg)
+	if sidecar != "" {
 		cfg.BaseURL = sidecar
 	}
 
 	// Enable uTLS fingerprint impersonation for example.com zen
-	// (JA3 fingerprinting bypass required for free-tier access)
-	opts.UseUTLS = true
+	// (JA3 fingerprinting bypass required for free-tier access). The sidecar
+	// speaks plain HTTP on localhost, so uTLS only applies on the direct path.
+	if sidecar == "" {
+		opts.UseUTLS = true
+	}
 
 	// Set OAuth defaults for upstream zen
 	if opts.AuthMethod == "oauth" {
