@@ -100,10 +100,30 @@ Bun.serve({
       );
     }
 
-    const contentType = out.trimStart().startsWith("data:")
-      ? "text/event-stream"
-      : "application/json";
-    return new Response(out, { headers: { "content-type": contentType } });
+    // Parase the one-shot envelope: { __status, __sse?, body? }.
+    let status = 200, bodyText = out;
+    try {
+      const env = JSON.parse(out);
+      if (typeof env.__status === "number") {
+        status = env.__status;
+        if (env.__sse !== undefined) {
+          bodyText = env.__sse;
+        } else if (env.body !== undefined) {
+          bodyText = JSON.stringify(env.body);
+        } else if (env.error) {
+          bodyText = JSON.stringify(env.error);
+        }
+      }
+    } catch {
+      // Not an envelope (plain SSE or JSON); pass through as-is.
+    }
+
+    const isSSE = bodyText.trimStart().startsWith("data:");
+    const contentType = isSSE ? "text/event-stream" : "application/json";
+    return new Response(bodyText, {
+      status: status >= 400 ? status : 200,
+      headers: { "content-type": contentType },
+    });
   },
 });
 
