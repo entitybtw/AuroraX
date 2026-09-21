@@ -52,6 +52,12 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 	// (JA3 fingerprinting required for access)
 	if strings.Contains(baseURL, "/zen/v1") {
 		opts.UseUTLS = true
+		// The official upstream client identifies itself with its versioned
+		// User-Agent; the zen requires it in addition to the JA3
+		// fingerprint. Respect an explicit override if one is configured.
+		if strings.TrimSpace(opts.UserAgent) == "" {
+			opts.UserAgent = .upstreamUserAgent
+		}
 	}
 
 	// Set defaults for upstream zen
@@ -153,6 +159,12 @@ func makeSetHeaders(*.Manager, disableAPIKey bool) func(req *http.Request, apiKe
 		if disableAPIKey {
 			return
 		}
+		// upstream zen : the official client sends the literal API key
+		// "public" when the user is not signed in. Combined with the uTLS JA3
+		// fingerprint and the User-Agent this unlocks the .
+		if isupstreamZenHost(req.URL.Host) && apiKey == "" {
+			apiKey = "public"
+		}
 		if apiKey != "" {
 			req.Header.Set("Authorization", "Bearer "+apiKey)
 		}
@@ -160,6 +172,11 @@ func makeSetHeaders(*.Manager, disableAPIKey bool) func(req *http.Request, apiKe
 			req.Header.Set("X-Request-Id", requestID)
 		}
 	}
+}
+
+// isupstreamZenHost reports whether the host is the upstream API.
+func isupstreamZenHost(host string) bool {
+	return strings.Contains(host, "example.com")
 }
 
 // ChatCompletion sends a chat completion request to vLLM.
