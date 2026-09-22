@@ -79,6 +79,29 @@ func RegisterSessionHubRoutes(g interface {
 		return c.JSON(200, map[string]interface{}{"status": "ok", "data": map[string]string{"name": req.Name, "status": "created"}})
 	})
 
+	g.POST("/sessionhub/providers/:name/ensure-opencode", func(c *echo.Context) error {
+		name := c.Param("name")
+		if name == "" {
+			return c.JSON(400, map[string]interface{}{"status": "error", "error": "name is required"})
+		}
+		existing, _ := hub.GetProviderRule(name)
+		merged, added, already := EnsureOpenCodeRules(existing)
+		if err := ValidateRule(name, merged); err != nil {
+			return c.JSON(400, map[string]interface{}{"status": "error", "error": err.Error()})
+		}
+		hub.SetProviderRule(name, merged)
+		return c.JSON(200, map[string]interface{}{
+			"status": "ok",
+			"data": map[string]interface{}{
+				"provider": name,
+				"added":    added,
+				"already":  already,
+				"headers":  merged.Headers,
+				"defaults": HeaderRuleDiff(merged),
+			},
+		})
+	})
+
 	g.GET("/sessionhub/providers/:name", func(c *echo.Context) error {
 		name := c.Param("name")
 		rule, ok := hub.GetProviderRule(name)
