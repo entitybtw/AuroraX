@@ -84,6 +84,21 @@ func Init(ctx context.Context, result *config.LoadResult, factory *ProviderFacto
 
 	providerMap, credentialResolved := resolveProviders(result.RawProviders, result.Config.Resilience, factory.discoveryConfigsSnapshot())
 
+	// Debug: surface provider names coming from config/env so phantom providers
+	// (e.g. an OPENCODE_*_SIDECAR_* env var mistaken for a provider) are easy to
+	// trace.
+	rawNames := make([]string, 0, len(result.RawProviders))
+	for name := range result.RawProviders {
+		rawNames = append(rawNames, name)
+	}
+	sort.Strings(rawNames)
+	resolvedNames := make([]string, 0, len(providerMap))
+	for name := range providerMap {
+		resolvedNames = append(resolvedNames, name)
+	}
+	sort.Strings(resolvedNames)
+	slog.Debug("provider resolution", "raw", rawNames, "resolved", resolvedNames)
+
 	// Apply pool-level user_agent overrides to member providers BEFORE
 	// provider instantiation so HTTP clients pick up the pool's User-Agent.
 	applyPoolUserAgentOverrides(providerMap, result.RawPools)
