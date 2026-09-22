@@ -293,7 +293,7 @@ function modelCategory(item: ModelInventoryItem): PlaygroundMode {
 }
 
 const DEFAULT_SYSTEM = "You are a concise assistant. answer user's answer briefly and clearly. use emojis when appropriate.";
-const DEFAULT_PROMPT = "Say hello from aurora and mention which model you are!";
+const DEFAULT_PROMPT = "Say hello from aurorax and mention which model you are!";
 
 export function PlaygroundPage(): JSX.Element {
   const models = useModels();
