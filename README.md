@@ -167,12 +167,14 @@ Header transformation engine for API integration workflows where upstream servic
 
 - **Per-provider/pool binding** — attach transformation rules to specific providers, pools, fallbacks, or all targets (`*`)
 - **7 header modes** — `map` (stable inbound→outbound per provider), `map_or_generate` (map when present, generate fresh when absent), `generate` (fresh ID each request), `passthrough`, `static`, `random_from_list`, `remove`
+- **Configurable charset** — generated values use `alphanumeric` (default), `hex`, or `digits`; some upstreams require a specific alphabet (e.g. free-tier tier needs `hex`)
 - **Pool-aware** — rules bound to a pool automatically apply to all member providers
 - **Inbound header forwarding** — client session headers are forwarded through the translation layer so `map` mode works even when the provider path drops arbitrary inbound headers
 - **Lock-free hot path** — `Apply()` is a single atomic map read; benchmarked at ~495 ns/op (negligible)
-- **One-click upstream rules** — the Sidecar tab can idempotently install the canonical `x-opencode-*` rules (`POST /admin/api/v1/sessionhub/providers/:name/ensure-opencode`); existing rules are preserved, only missing ones are added, and non-default values are flagged
+- **One-click / preset upstream rules** — the Sidecar tab's **Quick setup** applies a preset that idempotently installs the canonical `x-opencode-*` rules (`POST /admin/api/v1/sessionhub/providers/:name/ensure-opencode`); existing rules are preserved, only missing ones are added, and non-safe values are flagged
+- **Editable in place** — expand any rule in the Session Hub tab to toggle it, add/remove headers, and save; changes apply live without a restart
 - **Persistent or in-memory** — toggled live via API or dashboard (`PUT /admin/api/v1/sessionhub/storage {"mode":"disk"}`)
-- **Dashboard UI** — Settings → Session Hub: binding overview from live server targets (pools/providers), add rule by selecting target, live mapping viewer, storage toggle, mobile-responsive grids and touch-friendly inputs
+- **Dashboard UI** — Settings → Session Hub: status cards, binding overview from live server targets (pools/providers), inline rule editing, live mapping viewer, storage toggle, mobile-responsive grids and touch-friendly inputs
 
 #### How it works
 
@@ -327,16 +329,18 @@ Finally, add the required headers in **Settings → Session Hub** (the Sidecar t
 
 ### Session Hub integration
 
-The sidecar and Session Hub work together: the sidecar supplies the *fingerprint*, the Session Hub supplies the *headers*. **Settings → Sidecar → Configure rules** opens an opt-in dialog that idempotently merges the canonical upstream header rules into the Session Hub. Existing rules are **never overwritten** — only missing ones are added, and customised values are preserved. When a value diverges from the default the Sidecar tab flags it as **non-default** so you know the fingerprint may no longer match.
+The sidecar and Session Hub work together: the sidecar supplies the *fingerprint*, the Session Hub supplies the *headers*. **Settings → Sidecar → Quick setup** lets you pick a **preset** (e.g. upstream), choose a target pool/provider, and apply it — enabling the sidecar with the right settings and installing the matching Session Hub rules in one step. Rules are merged idempotently (existing rules are **never overwritten**, only missing headers are added) and can be edited any time in the **Session Hub** tab, which now supports in-place editing of existing rules.
 
-The canonical rules:
+> The free-tier tier validates identity headers strictly: `x-opencode-session` must be exactly `ses_` followed by **26 hex** characters, and `x-opencode-request` be `msg_` + **26 hex**. Session Hub rules for these use `charset: hex, length: 26`. Rules that diverge from this (other lengths or a non-hex alphabet) are flagged as **non-default** in the Session Hub tab and are auto-corrected by the sidecar at request time.
 
-| Header | Mode | Value |
-|--------|------|-------|
-| `x-opencode-session` | `map_or_generate` | `ses_` + 28 random chars (stable per inbound session) |
-| `x-opencode-client` | `static` | `cli` |
-| `x-opencode-request` | `generate` | `msg_` + 28 random chars (per request) |
-| `x-opencode-project` | `static` | `global` |
+Canonical rules:
+
+| Header | Mode | Charset | Value |
+|--------|------|---------|-------|
+| `x-opencode-session` | `map_or_generate` | `hex` | `ses_` + 26 hex (stable per inbound session) |
+| `x-opencode-client` | `static` | — | `cli` |
+| `x-opencode-request` | `generate` | `hex` | `msg_` + 26 hex (per request) |
+| `x-opencode-project` | `static` | — | `global` |
 
 ### Sidecar configuration reference
 

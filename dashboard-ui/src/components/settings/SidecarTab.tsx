@@ -25,8 +25,15 @@ import {
   AlertTriangleIcon,
   ShieldAlertIcon,
   ArrowRightIcon,
+  SparklesIcon,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api/client";
+import {
+  SIDECAR_PRESETS,
+  DEFAULT_SIDECAR_PRESET_ID,
+  getSidecarPreset,
+  ruleMatchesPreset,
+} from "@/components/settings/sidecarPresets";
 
 // --- Types ---
 
@@ -66,6 +73,23 @@ function useSidecarStatus() {
         "/admin/api/v1/sidecar",
       ),
     refetchInterval: 5000,
+  });
+}
+
+interface SessionHubRule {
+  name: string;
+  enabled: boolean;
+  headers: { name: string; mode: string; prefix?: string; length?: number; value?: string; charset?: string }[];
+}
+
+function useSessionHubRules() {
+  return useQuery({
+    queryKey: ["sessionhub", "providers"],
+    queryFn: () =>
+      apiFetch<{ status: string; data: SessionHubRule[] }>("/admin/api/v1/sessionhub/providers").then(
+        (r) => r.data,
+      ),
+    refetchInterval: 8000,
   });
 }
 
@@ -230,9 +254,9 @@ function SessionHubRulesDialog({
             </p>
             <div className="rounded-lg border border-border/60 divide-y divide-border/40">
               {[
-                ["x-opencode-session", "map or generate", "ses_ · 28 chars"],
+                ["x-opencode-session", "map or generate", "ses_ + 26 hex"],
                 ["x-opencode-client", "static", "cli"],
-                ["x-opencode-request", "generate", "msg_ · 28 chars"],
+                ["x-opencode-request", "generate", "msg_ + 26 hex"],
                 ["x-opencode-project", "static", "global"],
               ].map(([name, mode, detail]) => (
                 <div key={name} className="flex items-center justify-between gap-3 px-3 py-2">
@@ -245,8 +269,10 @@ function SessionHubRulesDialog({
               ))}
             </div>
             <p className="text-xs text-muted-foreground">
-              You can customise these later in the Session Hub tab. The sidecar will warn you if
-              values are changed from the defaults.
+              The free tier only accepts session/request values of exactly 26 hex characters, so
+              these rules use the <span className="font-mono">hex</span> charset. You can edit them
+              later in the Session Hub tab; non-safe values are flagged there and corrected by the
+              sidecar at request time.
             </p>
           </div>
         ) : (
@@ -320,6 +346,13 @@ export function SidecarTab(): JSX.Element {
   const [rulesDialogOpen, setRulesDialogOpen] = useState(false);
   const [rulesResult, setRulesResult] = useState<EnsureRulesResult | null>(null);
   const [rulesProvider, setRulesProvider] = useState("opencode-zen");
+  const [selectedPresetId, setSelectedPresetId] = useState(DEFAULT_SIDECAR_PRESET_ID);
+  const [lastApplyState, setLastApplyState] = useState<{ ok: boolean; message: string; added: string[]; kept: string[] } | null>(null);
+
+  const selectedPreset = getSidecarPreset(selectedPresetId);
+  const { data: sessionHubRules } = useSessionHubRules();
+  const boundRule = (sessionHubRules ?? []).find((r) => r.name === rulesProvider);
+  const ruleBound = ruleMatchesPreset(boundRule, selectedPreset);
 
   const settings = form ?? status?.settings;
   const proxies = status?.proxies ?? [];
@@ -343,6 +376,42 @@ export function SidecarTab(): JSX.Element {
   const confirmEnsureRules = () => {
     ensureRules.mutate(rulesProvider, {
       onSuccess: (res) => setRulesResult(res.data),
+    });
+  };
+
+  // Apply a preset: configure the sidecar settings, then install the matching
+  // Session Hub headers for the target. Both steps report back into the banner
+  // so the user sees exactly what changed.
+  const handleApplyPreset = () => {
+    if (!settings) return;
+    const target = rulesProvider.trim();
+    if (!target) return;
+
+    const nextSettings: SidecarSettings = {
+      ...settings,
+      enabled: selectedPreset.sidecar.enabled,
+      inject_tools: selectedPreset.sidecar.inject_tools,
+      default_auth: selectedPreset.sidecar.default_auth,
+      base_url: selectedPreset.sidecar.base_url,
+      user_agent: selectedPreset.sidecar.user_agent,
+    };
+    setForm(nextSettings);
+    updateSettings.mutate(nextSettings);
+    ensureRules.mutate(target, {
+      onSuccess: (res) =>
+        setLastApplyState({
+          ok: true,
+          message: `Applied "${selectedPreset.name}" to ${target}.`,
+          added: res.data.added,
+          kept: res.data.already,
+        }),
+      onError: (err) =>
+        setLastApplyState({
+          ok: false,
+          message: `Could not apply preset: ${err instanceof Error ? err.message : String(err)}`,
+          added: [],
+          kept: [],
+        }),
     });
   };
 
@@ -396,42 +465,150 @@ export function SidecarTab(): JSX.Element {
         </div>
       </Surface>
 
-      {/* Session Hub integration */}
-      <Surface id="sidecar-sessionhub" className="p-4 sm:p-6 scroll-mt-20">
+      {/* Quick setup: preset + target */}
+      <Surface id="sidecar-setup" className="p-4 sm:p-6 scroll-mt-20">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex items-start gap-3">
-            <div className="rounded-lg bg-rose-500/10 p-2">
-              <ShieldAlertIcon className="h-5 w-5 text-rose-500" />
+            <div className="rounded-lg bg-primary/10 p-2">
+              <SparklesIcon className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h3 className="text-base font-semibold">Session Hub headers</h3>
+              <h3 className="text-base font-semibold">Quick setup</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                upstream providers need matching <code className="rounded bg-muted px-1 py-0.5 text-xs">x-opencode-*</code>{" "}
-                headers. Add them to the Session Hub so the fingerprint check passes.
+                Pick a preset and a target. Applying it turns on the sidecar with the right
+                settings and installs the matching Session Hub headers in one step.
               </p>
             </div>
           </div>
-          <Button onClick={openRulesDialog} className="gap-1.5 h-11 sm:h-9 w-full sm:w-auto">
+          {ruleBound && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-1 text-[11px] font-medium text-success">
+              <CheckCircleIcon className="h-3 w-3" />
+              {rulesProvider} configured
+            </span>
+          )}
+        </div>
+
+        {/* Preset chooser */}
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {SIDECAR_PRESETS.map((preset) => {
+            const active = preset.id === selectedPresetId;
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => setSelectedPresetId(preset.id)}
+                className={`flex flex-col gap-1 rounded-lg border p-4 text-left transition-colors ${
+                  active
+                    ? "border-primary/50 bg-primary/5"
+                    : "border-border/40 bg-surface hover:bg-surface-hover/30"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <span className={`h-2.5 w-2.5 rounded-full ${active ? "bg-primary" : "bg-muted-foreground/30"}`} />
+                  <span className="text-sm font-medium text-foreground">{preset.name}</span>
+                </span>
+                <span className="text-xs text-muted-foreground">{preset.tagline}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <p className="mt-3 text-sm text-muted-foreground">{selectedPreset.description}</p>
+
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {selectedPreset.summary.map((row) => (
+            <div
+              key={row.label}
+              className="flex flex-col gap-0.5 rounded-md border border-border/40 bg-background/40 px-3 py-2"
+            >
+              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                {row.label}
+              </span>
+              <span className="font-mono text-xs text-foreground">{row.value}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex flex-1 flex-col gap-1.5">
+            <label className="text-sm font-medium">Target pool or provider</label>
+            <Input
+              value={rulesProvider}
+              onChange={(e) => setRulesProvider(e.target.value)}
+              className="h-11 sm:h-9 font-mono text-sm sm:max-w-xs"
+              placeholder="opencode-zen"
+            />
+            <p className="text-xs text-muted-foreground">
+              The Session Hub rule is bound to this name (a pool applies to all its members).
+            </p>
+          </div>
+          <Button
+            onClick={handleApplyPreset}
+            disabled={!rulesProvider.trim() || ensureRules.isPending || updateSettings.isPending}
+            className="h-11 gap-1.5 sm:h-9 w-full sm:w-auto"
+          >
+            {ensureRules.isPending || updateSettings.isPending ? (
+              <RefreshCwIcon className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <SparklesIcon className="h-3.5 w-3.5" />
+            )}
+            Apply preset
+          </Button>
+          <Button
+            variant="outline"
+            onClick={openRulesDialog}
+            className="h-11 gap-1.5 sm:h-9 w-full sm:w-auto"
+          >
             <ArrowRightIcon className="h-3.5 w-3.5" />
-            Configure rules
+            Review changes
           </Button>
         </div>
 
-        <div className="mt-4 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
-          <label className="text-sm font-medium shrink-0">Target provider</label>
-          <Input
-            value={rulesProvider}
-            onChange={(e) => setRulesProvider(e.target.value)}
-            className="h-11 sm:h-8 text-sm sm:text-xs font-mono sm:max-w-xs"
-            placeholder="opencode-zen"
-          />
-        </div>
+        {lastApplyState && (
+          <div className="mt-3 flex items-start gap-2 rounded-md border border-border/40 bg-muted/30 p-3 text-xs">
+            {lastApplyState.ok ? (
+              <CheckCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+            ) : (
+              <XCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+            )}
+            <div className="text-muted-foreground">
+              <span className="font-medium text-foreground">{lastApplyState.message}</span>
+              {lastApplyState.added.length > 0 && (
+                <div className="mt-1">
+                  Added:{" "}
+                  {lastApplyState.added.map((h) => (
+                    <code key={h} className="mr-1 rounded bg-muted px-1 py-0.5 font-mono">
+                      {h}
+                    </code>
+                  ))}
+                </div>
+              )}
+              {lastApplyState.kept.length > 0 && (
+                <div className="mt-1">
+                  Kept existing:{" "}
+                  {lastApplyState.kept.map((h) => (
+                    <code key={h} className="mr-1 rounded bg-muted px-1 py-0.5 font-mono">
+                      {h}
+                    </code>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="mt-3 flex items-start gap-2 rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
           <AlertTriangleIcon className="h-4 w-4 shrink-0 mt-0.5" />
-          <span>
-            Rules are merged, never overwritten. If you customise a value the sidecar will flag
-            it as non-default so you know the fingerprint may no longer match.
+          <span className="flex flex-wrap items-center gap-1">
+            Existing rules are never overwritten — only missing headers are added. Edit the rules
+            any time in the{" "}
+            <a
+              href="#sessionhub"
+              className="font-medium text-foreground underline decoration-border/60 underline-offset-2 hover:text-accent"
+            >
+              Session Hub
+            </a>{" "}
+            tab.
           </span>
         </div>
       </Surface>

@@ -40,6 +40,28 @@ function randomId(prefix) {
   return prefix + crypto.randomUUID().replace(/-/g, "").slice(0, 26);
 }
 
+// The free-tier tier validates identity headers strictly:
+//   x-opencode-session  must be "ses_" + exactly 26 hex chars
+//   x-opencode-request  must be "msg_" + 26 hex chars
+// Session Hub (or the caller) may supply these; use them when they match,
+// otherwise generate a valid value so the request never breaks.
+const SESSION_RE = /^ses_[0-9a-f]{26}$/;
+const REQUEST_RE = /^msg_[0-9a-f]{26}$/;
+
+function identityHeaders(inbound) {
+  const session = inbound["x-opencode-session"];
+  const request = inbound["x-opencode-request"];
+  return {
+    "x-opencode-client": inbound["x-opencode-client"] || "cli",
+    "x-opencode-project":
+      inbound["x-opencode-project"] || "9a15059a80937175227c853c8d7c79984cdbc2b6",
+    "x-opencode-request":
+      request && REQUEST_RE.test(request) ? request : randomId("msg_"),
+    "x-opencode-session":
+      session && SESSION_RE.test(session) ? session : randomId("ses_"),
+  };
+}
+
 // Preserve the caller's intent so a non-streaming request can be re-emitted as
 // a single JSON object.
 const wantStream = envelope.payload?.stream === true;
@@ -60,17 +82,11 @@ if (payload.tool_choice === undefined) {
 payload.stream = true;
 
 function buildHeaders() {
-  // Always generate a fresh identity per request. The free tier rejects
-  // reused/mapped upstream session headers, so inbound session values are
-  // intentionally ignored.
   return {
     Authorization: authorization,
     "Content-Type": "application/json",
     "User-Agent": USER_AGENT,
-    "x-opencode-client": "cli",
-    "x-opencode-project": "9a15059a80937175227c853c8d7c79984cdbc2b6",
-    "x-opencode-request": randomId("msg_"),
-    "x-opencode-session": randomId("ses_"),
+    ...identityHeaders(envelope.headers ?? {}),
   };
 }
 
