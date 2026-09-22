@@ -1,0 +1,55 @@
+# Runtime-only image, assembled from locally-built artifacts.
+#
+# BuildKit mis-caches cross-stage `COPY --from=builder` in this repository's
+# setup and can ship a stale binary. To avoid that entirely, build the Go
+# binary and dashboard locally, then assemble the runtime image from those
+# artifacts:
+#
+#   cd dashboard-ui && bun run build
+#   CGO_ENABLED=0 go build -ldflags="-s -w" -o build/aurora ./apps/aurora
+#   docker build -f Dockerfile.runtime -t entbtw/aurora:<tag> .
+#
+# The Bun runtime is downloaded in its own stage (deterministic version).
+FROM alpine:3.23 AS bun
+
+ARG TARGETARCH
+ARG BUN_VERSION=1.3.14
+RUN apk add --no-cache curl unzip ca-certificates && \
+	case "${TARGETARCH}" in \
+		amd64) ARCH=x64 ;; \
+		arm64) ARCH=aarch64 ;; \
+		*) echo "unsupported arch: ${TARGETARCH}" && exit 1 ;; \
+	esac && \
+	curl -fsSL -o /tmp/bun.zip "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-${ARCH}.zip" && \
+	mkdir -p /bun && \
+	unzip -oj /tmp/bun.zip "bun-linux-${ARCH}/bun" -d /bun && \
+	chmod +x /bun/bun
+
+FROM debian:bookworm-slim AS runtime-sidecar
+
+RUN apt-get update && \
+	apt-get install -y --no-install-recommends ca-certificates && \
+	rm -rf /var/lib/apt/lists/*
+
+COPY --from=bun /bun/bun /usr/local/bin/bun
+COPY internal/providers/sidecarclient/sidecar /opt/sidecar
+
+# Prebuilt binary and dashboard assets (produced by the local build steps above).
+COPY build/aurora /aurora
+COPY internal/admin/dashboard/dist /app/internal/admin/dashboard/dist
+COPY configs/dashboard-overrides.yaml /app/configs/dashboard-overrides.yaml
+
+RUN mkdir -p /app/.cache /app/data && \
+	chown -R 65532:65532 /app /opt/sidecar
+
+COPY build/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+ENV AURORA_SIDECAR_ENABLED=true \
+	AURORA_SIDECAR_PORT=8090 \
+	AURORA_SIDECAR_BASE_URL=http://127.0.0.1:8090/v1
+
+USER 65532:65532
+WORKDIR /app
+EXPOSE 8080
+ENTRYPOINT ["/docker-entrypoint.sh"]
