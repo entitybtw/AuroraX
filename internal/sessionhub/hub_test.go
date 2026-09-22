@@ -155,7 +155,7 @@ func TestStoreMappingPersistence(t *testing.T) {
 	if s.StorageMode() != "disk" {
 		t.Fatalf("expected disk storage, got %s", s.StorageMode())
 	}
-	s.GetOrCreate("acc1", "ses_in", "ses_", 28)
+	s.GetOrCreate("acc1", "ses_in", "ses_", 28, "")
 
 	// Fresh store on same file restores mapping
 	s2 := NewStore(WithPersistence(path))

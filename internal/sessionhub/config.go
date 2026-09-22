@@ -10,6 +10,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -47,6 +48,40 @@ type HeaderRule struct {
 	Length int        `yaml:"length"  json:"length"`
 	Value  string     `yaml:"value"   json:"value"`
 	Values []string   `yaml:"values"  json:"values"`
+	// Charset selects the alphabet for generated values. Empty defaults to
+	// CharsetAlphanumeric. Some upstreams (e.g. OpenCode Zen's free tier)
+	// require a specific alphabet and length for their identity headers.
+	Charset string `yaml:"charset" json:"charset"`
+}
+
+// Charset values accepted by HeaderRule.Charset.
+const (
+	CharsetAlphanumeric = "alphanumeric"
+	CharsetHex          = "hex"
+	CharsetDigits       = "digits"
+)
+
+// NormalizeCharset returns a known charset name, defaulting to alphanumeric.
+func NormalizeCharset(charset string) string {
+	switch strings.ToLower(strings.TrimSpace(charset)) {
+	case CharsetHex:
+		return CharsetHex
+	case CharsetDigits:
+		return CharsetDigits
+	default:
+		return CharsetAlphanumeric
+	}
+}
+
+func charsetAlphabet(charset string) string {
+	switch NormalizeCharset(charset) {
+	case CharsetHex:
+		return "0123456789abcdef"
+	case CharsetDigits:
+		return "0123456789"
+	default:
+		return "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	}
 }
 
 // ProviderRule defines the header transformations bound to a single target
@@ -77,10 +112,11 @@ type HubConfig struct {
 func defaultHeaderRules() []HeaderRule {
 	return []HeaderRule{
 		{
-			Name:   "x-opencode-session",
-			Mode:   HeaderModeMapOrGenerate,
-			Prefix: "ses_",
-			Length: 32,
+			Name:    "x-opencode-session",
+			Mode:    HeaderModeMapOrGenerate,
+			Prefix:  "ses_",
+			Length:  26,
+			Charset: CharsetHex,
 		},
 	}
 }
@@ -89,13 +125,19 @@ func defaultHeaderRules() []HeaderRule {
 // upstream. Zen/opencode-go fingerprint these headers, so providers that proxy
 // OpenCode traffic need them. The session and request values are generated per
 // client session; the client and project markers are static.
+//
+// IMPORTANT: the OpenCode free tier validates the identity headers strictly —
+// x-opencode-session must be exactly "ses_" followed by 26 hex characters, and
+// x-opencode-request must be "msg_" + 26 hex characters. Other lengths or a
+// non-hex alphabet are rejected with FreeTierError.
 func OpenCodeHeaderRules() []HeaderRule {
 	return []HeaderRule{
 		{
-			Name:   "x-opencode-session",
-			Mode:   HeaderModeMapOrGenerate,
-			Prefix: "ses_",
-			Length: 28,
+			Name:    "x-opencode-session",
+			Mode:    HeaderModeMapOrGenerate,
+			Prefix:  "ses_",
+			Length:  26,
+			Charset: CharsetHex,
 		},
 		{
 			Name:  "x-opencode-client",
@@ -103,10 +145,11 @@ func OpenCodeHeaderRules() []HeaderRule {
 			Value: "cli",
 		},
 		{
-			Name:   "x-opencode-request",
-			Mode:   HeaderModeGenerate,
-			Prefix: "msg_",
-			Length: 28,
+			Name:    "x-opencode-request",
+			Mode:    HeaderModeGenerate,
+			Prefix:  "msg_",
+			Length:  26,
+			Charset: CharsetHex,
 		},
 		{
 			Name:  "x-opencode-project",
@@ -119,7 +162,8 @@ func OpenCodeHeaderRules() []HeaderRule {
 // HeaderRuleEqual reports whether two rules are identical across every field.
 func HeaderRuleEqual(a, b HeaderRule) bool {
 	if a.Name != b.Name || a.Mode != b.Mode || a.Prefix != b.Prefix ||
-		a.Length != b.Length || a.Value != b.Value || len(a.Values) != len(b.Values) {
+		a.Length != b.Length || a.Value != b.Value || len(a.Values) != len(b.Values) ||
+		NormalizeCharset(a.Charset) != NormalizeCharset(b.Charset) {
 		return false
 	}
 	for i := range a.Values {
@@ -224,9 +268,10 @@ func (c *HubConfig) MarshalYAML() ([]byte, error) {
 	return yaml.Marshal(c)
 }
 
-// GenerateID produces a random alphanumeric string of the given length.
-func GenerateID(length int) string {
-	const alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+// GenerateID produces a random string of the given length using the given
+// charset (empty defaults to alphanumeric).
+func GenerateID(length int, charset string) string {
+	alphabet := charsetAlphabet(charset)
 	b := make([]byte, length)
 	rand.Read(b)
 	for i := range b {
@@ -235,12 +280,12 @@ func GenerateID(length int) string {
 	return string(b)
 }
 
-// GenerateValue builds a full value with prefix + random alphanumeric.
-func GenerateValue(prefix string, length int) string {
+// GenerateValue builds a full value with prefix + random characters.
+func GenerateValue(prefix string, length int, charset string) string {
 	if length <= 0 {
 		length = 28
 	}
-	return prefix + GenerateID(length)
+	return prefix + GenerateID(length, charset)
 }
 
 // SessionEntry is one inbound→outbound mapping.
@@ -311,7 +356,7 @@ func (s *Store) Get(provider, inbound string) string {
 }
 
 // GetOrCreate returns the existing outbound value or creates a new one.
-func (s *Store) GetOrCreate(provider, inbound, prefix string, length int) string {
+func (s *Store) GetOrCreate(provider, inbound, prefix string, length int, charset string) string {
 	s.mu.Lock()
 	key := storeKey(provider, inbound)
 	if e, ok := s.entries[key]; ok {
@@ -319,7 +364,7 @@ func (s *Store) GetOrCreate(provider, inbound, prefix string, length int) string
 		s.mu.Unlock()
 		return v
 	}
-	out := GenerateValue(prefix, length)
+	out := GenerateValue(prefix, length, charset)
 	e := &SessionEntry{
 		InboundValue:  inbound,
 		OutboundValue: out,

@@ -344,6 +344,11 @@ func ValidateRule(name string, rule ProviderRule) error {
 		if hr.Mode == HeaderModeRandomFromList && len(hr.Values) == 0 {
 			return fmt.Errorf("provider %q, header %q: random_from_list requires values", name, hr.Name)
 		}
+		if NormalizeCharset(hr.Charset) != CharsetAlphanumeric &&
+			NormalizeCharset(hr.Charset) != CharsetHex &&
+			NormalizeCharset(hr.Charset) != CharsetDigits {
+			return fmt.Errorf("provider %q, header %q: unsupported charset %q", name, hr.Name, hr.Charset)
+		}
 	}
 	return nil
 }

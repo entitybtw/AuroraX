@@ -26,6 +26,14 @@ It is built to be fast: the hot path is a single lock-free map read (microns). C
 | `random_from_list` | Pick randomly among `values`. |
 | `remove` | Strip the header. |
 
+Generated values (`generate`, `map`, `map_or_generate`) support three options:
+
+- **prefix** — prepended to the random part (e.g. `ses_`).
+- **length** — number of random characters.
+- **charset** — `alphanumeric` (default), `hex` (0-9 a-f), or `digits` (0-9).
+
+> **Upstream requirements matter.** Some upstreams validate the exact shape of identity headers. The OpenCode free tier, for example, only accepts `x-opencode-session` of the form `ses_` + exactly 26 **hex** characters (and `x-opencode-request` as `msg_` + 26 hex). Use `charset: hex, length: 26` for those. Non-conforming rules are flagged in the dashboard and auto-corrected by the sidecar at request time.
+
 ## Configuration file
 
 Rules live in `configs/session-hub-rules.yaml` and are rewritten automatically when you edit rules (via API or dashboard).
@@ -40,7 +48,8 @@ providers:
       - name: x-opencode-session
         mode: map_or_generate  # recommended: map when present, generate when absent
         prefix: "ses_"
-        length: 28
+        length: 26
+        charset: hex
       - name: x-opencode-client
         mode: static
         value: cli
@@ -117,7 +126,7 @@ curl -X POST http://localhost:8080/admin/api/v1/sessionhub/providers \
     "rule": {
       "enabled": true,
       "headers": [
-        {"name": "x-opencode-session", "mode": "map", "prefix": "ses_", "length": 28},
+        {"name": "x-opencode-session", "mode": "map", "prefix": "ses_", "length": 26, "charset": "hex"},
         {"name": "x-opencode-client",  "mode": "static", "value": "cli"}
       ]
     }
@@ -131,7 +140,7 @@ Open **Settings → Session Hub** (mobile-responsive, touch-friendly). It shows:
 - A **risk warning banner** reminding you that header impersonation is at-your-own-risk.
 - An overview of every pool/provider registered on the server, with whether each already has a rule bound (check-mark = bound).
 - **Add Rule** — pick target type (pool/provider/fallback/all) then choose the exact target from the live list; the rule Name fills in automatically.
-- **Header Rules** — add/remove rules with per-mode options (prefix, length, static value, random list).
+- **Header Rules** — add/remove/edit rules with per-mode options (prefix, length, charset, static value, random list).
 - **Live Mappings** — real-time inbound→outbound mappings per provider, plus the Memory/Disk persistence toggle and a **Clear All** action.
 
 Rules added here are applied automatically without a process restart and are saved to disk.

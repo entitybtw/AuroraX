@@ -33,7 +33,7 @@ func Transform(headers http.Header, provider string, rule ProviderRule, store *S
 			if length <= 0 {
 				length = 28
 			}
-			outbound := store.GetOrCreate(provider, inbound, prefix, length)
+			outbound := store.GetOrCreate(provider, inbound, prefix, length, hr.Charset)
 			headers.Set(name, outbound)
 			result[name] = outbound
 
@@ -48,9 +48,9 @@ func Transform(headers http.Header, provider string, rule ProviderRule, store *S
 			}
 			var outbound string
 			if inbound != "" {
-				outbound = store.GetOrCreate(provider, inbound, prefix, length)
+				outbound = store.GetOrCreate(provider, inbound, prefix, length, hr.Charset)
 			} else {
-				outbound = GenerateValue(prefix, length)
+				outbound = GenerateValue(prefix, length, hr.Charset)
 			}
 			headers.Set(name, outbound)
 			result[name] = outbound
@@ -64,7 +64,7 @@ func Transform(headers http.Header, provider string, rule ProviderRule, store *S
 			if length <= 0 {
 				length = 28
 			}
-			outbound := GenerateValue(prefix, length)
+			outbound := GenerateValue(prefix, length, hr.Charset)
 			headers.Set(name, outbound)
 			result[name] = outbound
 

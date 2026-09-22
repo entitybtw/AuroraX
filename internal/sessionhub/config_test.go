@@ -1,6 +1,9 @@
 package sessionhub
 
-import "testing"
+import (
+	"regexp"
+	"testing"
+)
 
 func TestEnsureOpenCodeRules_AddsMissingHeaders(t *testing.T) {
 	// A fresh, empty rule should receive all four canonical OpenCode headers.
@@ -90,5 +93,50 @@ func TestHeaderRuleDiff_IgnoresMissing(t *testing.T) {
 	diff := HeaderRuleDiff(ProviderRule{})
 	if len(diff) != 0 {
 		t.Fatalf("diff = %v, want none for an empty rule", diff)
+	}
+}
+
+func TestOpenCodeHeaderRules_ZenSafeShape(t *testing.T) {
+	// The free tier only accepts ses_+26 hex and msg_+26 hex. Guard the
+	// canonical rule shape so a future edit cannot silently break free tier.
+	byName := map[string]HeaderRule{}
+	for _, h := range OpenCodeHeaderRules() {
+		byName[h.Name] = h
+	}
+	session := byName["x-opencode-session"]
+	if session.Prefix != "ses_" || session.Length != 26 || NormalizeCharset(session.Charset) != CharsetHex {
+		t.Fatalf("session rule not zen-safe: %+v", session)
+	}
+	request := byName["x-opencode-request"]
+	if request.Prefix != "msg_" || request.Length != 26 || NormalizeCharset(request.Charset) != CharsetHex {
+		t.Fatalf("request rule not zen-safe: %+v", request)
+	}
+}
+
+func TestGenerateID_Charsets(t *testing.T) {
+	hex := GenerateID(26, CharsetHex)
+	if len(hex) != 26 {
+		t.Fatalf("hex length = %d, want 26", len(hex))
+	}
+	if !regexp.MustCompile(`^[0-9a-f]{26}$`).MatchString(hex) {
+		t.Fatalf("hex charset contains non-hex: %q", hex)
+	}
+
+	digits := GenerateID(10, CharsetDigits)
+	if !regexp.MustCompile(`^[0-9]{10}$`).MatchString(digits) {
+		t.Fatalf("digits charset invalid: %q", digits)
+	}
+
+	// Empty charset defaults to alphanumeric (backwards compatible).
+	alpha := GenerateID(40, "")
+	if len(alpha) != 40 {
+		t.Fatalf("alnum length = %d, want 40", len(alpha))
+	}
+}
+
+func TestGenerateValue_PrefixAndLength(t *testing.T) {
+	v := GenerateValue("ses_", 26, CharsetHex)
+	if len(v) != 30 || v[:4] != "ses_" {
+		t.Fatalf("value = %q, want ses_ + 26 hex", v)
 	}
 }
