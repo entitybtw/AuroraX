@@ -192,12 +192,26 @@ func parseProviderEnvKey(prefix, key string, spec DiscoveryConfig) (string, prov
 			return "", candidate.field, true
 		}
 		suffix, found := strings.CutSuffix(rest, "_"+candidate.name)
-		if found && validProviderEnvSuffix(suffix) {
+		if found && validProviderEnvSuffix(suffix) && !reservedProviderEnvSuffix(suffix) {
 			return suffix, candidate.field, true
 		}
 	}
 
 	return "", 0, false
+}
+
+// reservedProviderEnvSuffix reports whether an env-var suffix names gateway
+// infrastructure rather than a provider instance. Variables such as
+// AURORA_SIDECAR_BASE_URL (and legacy AURORA_SIDECAR_*) share the
+// OPENCODE_ provider prefix but configure the upstream sidecar, so they must
+// never materialize as providers.
+func reservedProviderEnvSuffix(suffix string) bool {
+	upper := strings.ToUpper(strings.TrimSpace(suffix))
+	if strings.Contains(upper, "SIDECAR") {
+		return true
+	}
+	// Bind-IP lists are consumed by the container entrypoint, not providers.
+	return upper == "BIND" || strings.HasPrefix(upper, "BIND_") || strings.HasSuffix(upper, "_BIND") || strings.Contains(upper, "_BIND_")
 }
 
 func validProviderEnvSuffix(suffix string) bool {
