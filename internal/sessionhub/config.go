@@ -85,6 +85,101 @@ func defaultHeaderRules() []HeaderRule {
 	}
 }
 
+// upstreamHeaderRules returns the canonical header rules the the CLI sends
+// upstream. free tier/opencode-go fingerprint these headers, so providers that proxy
+// upstream traffic need them. The session and request values are generated per
+// client session; the client and project markers are static.
+func upstreamHeaderRules() []HeaderRule {
+	return []HeaderRule{
+		{
+			Name:   "x-opencode-session",
+			Mode:   HeaderModeMapOrGenerate,
+			Prefix: "ses_",
+			Length: 28,
+		},
+		{
+			Name:  "x-opencode-client",
+			Mode:  HeaderModeStatic,
+			Value: "cli",
+		},
+		{
+			Name:   "x-opencode-request",
+			Mode:   HeaderModeGenerate,
+			Prefix: "msg_",
+			Length: 28,
+		},
+		{
+			Name:  "x-opencode-project",
+			Mode:  HeaderModeStatic,
+			Value: "global",
+		},
+	}
+}
+
+// HeaderRuleEqual reports whether two rules are identical across every field.
+func HeaderRuleEqual(a, b HeaderRule) bool {
+	if a.Name != b.Name || a.Mode != b.Mode || a.Prefix != b.Prefix ||
+		a.Length != b.Length || a.Value != b.Value || len(a.Values) != len(b.Values) {
+		return false
+	}
+	for i := range a.Values {
+		if a.Values[i] != b.Values[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// HeaderRuleDiff returns the canonical upstream header rules that are present
+// in the live configuration but differ from the expected defaults. Missing
+// headers are not reported — use EnsureupstreamRules to add those. An empty
+// result means every configured upstream header matches the default, so the
+// sidecar does not need to warn the operator about non-default settings.
+func HeaderRuleDiff(existing ProviderRule) []HeaderRule {
+	byName := make(map[string]HeaderRule, len(existing.Headers))
+	for _, h := range existing.Headers {
+		byName[h.Name] = h
+	}
+	diff := []HeaderRule{}
+	for _, want := range upstreamHeaderRules() {
+		got, ok := byName[want.Name]
+		if ok && !HeaderRuleEqual(got, want) {
+			diff = append(diff, want)
+		}
+	}
+	return diff
+}
+
+// EnsureupstreamRules merges the canonical upstream header rules into an
+// existing rule. Rules that already match an existing header by name and every
+// field are skipped, so an operator's customised (non-default) header values
+// are preserved rather than overwritten. It returns the merged rule, the names
+// that were added, and the names that were already present.
+func EnsureupstreamRules(existing ProviderRule) (ProviderRule, []string, []string) {
+	added := []string{}
+	skipped := []string{}
+
+	// Index existing rules by header name.
+	index := make(map[string]int, len(existing.Headers))
+	for i, h := range existing.Headers {
+		index[h.Name] = i
+	}
+
+	for _, want := range upstreamHeaderRules() {
+		if _, ok := index[want.Name]; ok {
+			// Header already present: keep the operator's version untouched,
+			// whether it matches the default exactly or was customised.
+			skipped = append(skipped, want.Name)
+			continue
+		}
+		existing.Headers = append(existing.Headers, want)
+		added = append(added, want.Name)
+	}
+
+	existing.Enabled = true
+	return existing, added, skipped
+}
+
 // LoadConfig reads session hub config from a YAML file.
 func LoadConfig(path string) (*HubConfig, error) {
 	data, err := os.ReadFile(path)
