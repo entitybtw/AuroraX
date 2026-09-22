@@ -60,20 +60,17 @@ if (payload.tool_choice === undefined) {
 payload.stream = true;
 
 function buildHeaders() {
-  // Prefer identity headers supplied by the caller / Session Hub (the adapter
-  // forwards inbound x-opencode-* headers so mapped sessions survive the hop).
-  // Fall back to locally generated values when absent so the fingerprint is
-  // always complete.
-  const inbound = envelope.headers ?? {};
+  // Always generate a fresh identity per request. The free tier rejects
+  // reused/mapped OpenCode session headers, so inbound session values are
+  // intentionally ignored.
   return {
     Authorization: authorization,
     "Content-Type": "application/json",
     "User-Agent": USER_AGENT,
-    "x-opencode-client": inbound["x-opencode-client"] || "cli",
-    "x-opencode-project":
-      inbound["x-opencode-project"] || "9a15059a80937175227c853c8d7c79984cdbc2b6",
-    "x-opencode-request": inbound["x-opencode-request"] || randomId("msg_"),
-    "x-opencode-session": inbound["x-opencode-session"] || randomId("ses_"),
+    "x-opencode-client": "cli",
+    "x-opencode-project": "9a15059a80937175227c853c8d7c79984cdbc2b6",
+    "x-opencode-request": randomId("msg_"),
+    "x-opencode-session": randomId("ses_"),
   };
 }
 

@@ -92,24 +92,13 @@ Bun.serve({
     // Forward the credential from the incoming request so OAuth access tokens
     // and API keys reach the upstream unchanged. Fall back to the free-tier
     // "public" key when the caller did not supply one.
+    //
+    // NOTE: we deliberately do NOT forward inbound x-opencode-* identity
+    // headers. The free tier rejects requests that reuse a Session-Hub mapped
+    // session; one-shot.js must generate a fresh identity per request.
     const authorization = req.headers.get("authorization") || DEFAULT_AUTH;
     const bindIP = (req.headers.get("x-aurora-bind-ip") || "").trim();
     const proxy = BIND_PROXIES.get(bindIP) || "";
-    // Session Hub (or the caller) may have set OpenCode identity headers on
-    // the inbound request. Forward them so mapped/generated sessions survive
-    // the sidecar hop; one-shot only falls back to its own generation when a
-    // header is absent. User-Agent is deliberately NOT forwarded: the sidecar's
-    // configured UA is authoritative for the fingerprint.
-    const headers = {};
-    for (const name of [
-      "x-opencode-session",
-      "x-opencode-client",
-      "x-opencode-request",
-      "x-opencode-project",
-    ]) {
-      const value = req.headers.get(name);
-      if (value) headers[name] = value;
-    }
     const body = await req.text();
 
     const proc = Bun.spawn([process.execPath, ONESHOT], {
@@ -124,7 +113,7 @@ Bun.serve({
       },
     });
 
-    proc.stdin.write(JSON.stringify({ authorization, headers, payload: JSON.parse(body) }));
+    proc.stdin.write(JSON.stringify({ authorization, payload: JSON.parse(body) }));
     proc.stdin.end();
 
     const [out, exitCode] = await Promise.all([
