@@ -1,6 +1,7 @@
 package providers
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -55,6 +56,10 @@ var testDiscoveryConfigs = map[string]DiscoveryConfig{
 	},
 	"ollama": {
 		DefaultBaseURL:  "http://localhost:11434/v1",
+		AllowAPIKeyless: true,
+	},
+	"": {
+		DefaultBaseURL:  "https:///zen/v1",
 		AllowAPIKeyless: true,
 	},
 }
@@ -382,6 +387,39 @@ func TestApplyProviderEnvVars_DiscoversMultipleSuffixedOllamaProvidersFromBaseUR
 	}
 	if providerB.BaseURL != "http://localhost:11435/v1" {
 		t.Fatalf("ollama-b BaseURL = %q, want http://localhost:11435/v1", providerB.BaseURL)
+	}
+}
+
+func TestApplyProviderEnvVars_IgnoresReservedSidecarSuffix(t *testing.T) {
+	// AURORA_SIDECAR_BASE_URL and friends share the provider prefix
+	// but configure the gateway sidecar, not a provider. They must not create an
+	// "" provider.
+	t.Setenv("AURORA_SIDECAR_BASE_URL", "http://127.0.0.1:8090/v1")
+	t.Setenv("AURORA_SIDECAR_BIND_IPS", "10.0.0.1,10.0.0.2")
+	t.Setenv("AURORA_SIDECAR_ENABLED", "true")
+	// Legacy names from before the rename must also stay reserved.
+	t.Setenv("AURORA_SIDECAR_BASE_URL", "http://127.0.0.1:8090/v1")
+	t.Setenv("AURORA_SIDECAR_ENABLED", "true")
+	t.Setenv("", "10.0.0.1")
+
+	got := applyProviderEnvVars(map[string]config.RawProviderConfig{}, testDiscoveryConfigs)
+
+	for name := range got {
+		if strings.Contains(name, "sidecar") || strings.Contains(name, "bind") {
+			t.Fatalf("reserved env vars materialized as provider %q", name)
+		}
+	}
+
+	// A real suffixed upstream provider still works.
+	t.Setenv("", "https:///zen/v1")
+	got = applyProviderEnvVars(map[string]config.RawProviderConfig{}, testDiscoveryConfigs)
+	if _, exists := got[""]; !exists {
+		t.Fatal("expected to be discovered from ")
+	}
+	for name := range got {
+		if strings.Contains(name, "sidecar") || strings.Contains(name, "bind") {
+			t.Fatalf("reserved env vars materialized as provider %q", name)
+		}
 	}
 }
 
