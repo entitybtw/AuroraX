@@ -28,6 +28,18 @@ function SettingsPageInner(): JSX.Element {
   const visibleTabs = TABS;
 
   useEffect(() => {
+    const tabParam = window.location.hash.replace(/^#/, "").trim();
+    if (tabParam && visibleTabs.some((tab) => tab.id === tabParam)) {
+      setActiveTab(tabParam as SettingsTab);
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+  }, [visibleTabs]);
+
+  const selectTab = (id: SettingsTab) => {
+    setActiveTab(id);
+  };
+
+  useEffect(() => {
     if (!visibleTabs.some((tab) => tab.id === activeTab)) {
       setActiveTab("general");
     }
@@ -46,7 +58,7 @@ function SettingsPageInner(): JSX.Element {
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => selectTab(tab.id)}
               className={cn(
                 "flex items-center gap-2 whitespace-nowrap px-4 py-2.5 text-[13px] font-medium rounded-t-lg border border-b-0 transition-colors",
                 activeTab === tab.id

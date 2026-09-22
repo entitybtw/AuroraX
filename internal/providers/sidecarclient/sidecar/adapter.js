@@ -92,13 +92,22 @@ Bun.serve({
     // Forward the credential from the incoming request so access tokens
     // and API keys reach the upstream unchanged. Fall back to the 
     // "public" key when the caller did not supply one.
-    //
-    // NOTE: we deliberately do NOT forward inbound x-* identity
-    // headers. The rejects requests that reuse a Session-Hub mapped
-    // session; one-shot.js must generate a fresh identity per request.
     const authorization = req.headers.get("authorization") || DEFAULT_AUTH;
     const bindIP = (req.headers.get("x-aurora-bind-ip") || "").trim();
     const proxy = BIND_PROXIES.get(bindIP) || "";
+    // Forward Session Hub identity headers so operator-managed rules drive the
+    // upstream identity. one-shot validates the values and falls back to its
+    // own generation when they would be rejected by the .
+    const headers = {};
+    for (const name of [
+      "x-",
+      "x-",
+      "x-",
+      "x-",
+    ]) {
+      const value = req.headers.get(name);
+      if (value) headers[name] = value;
+    }
     const body = await req.text();
 
     const proc = Bun.spawn([process.execPath, ONESHOT], {
@@ -113,7 +122,7 @@ Bun.serve({
       },
     });
 
-    proc.stdin.write(JSON.stringify({ authorization, payload: JSON.parse(body) }));
+    proc.stdin.write(JSON.stringify({ authorization, headers, payload: JSON.parse(body) }));
     proc.stdin.end();
 
     const [out, exitCode] = await Promise.all([
