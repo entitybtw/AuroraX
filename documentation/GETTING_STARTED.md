@@ -86,7 +86,8 @@ round-robin across its members.
 
 ## Next steps
 
-- [DEPLOYMENT.md](DEPLOYMENT.md) — production Docker, persistent state, multi-IP host networking.
+- [DEPLOYMENT.md](DEPLOYMENT.md) — production Docker, persistent state, multi-IP host networking, upstream sidecar image.
 - [MULTI_ACCOUNT.md](MULTI_ACCOUNT.md) — end-to-end load-balanced accounts with distinct, stable client identities.
 - [SESSION_HUB.md](SESSION_HUB.md) — header transformation & per-account session mapping.
-- [DOCKER_PUSH.md](DOCKER_PUSH.md) — the published image, tags, how to build/publish yourself.
+- [DOCKER_PUSH.md](DOCKER_PUSH.md) — the published image, tags, targets, how to build/publish yourself.
+- **free-tier tier** — use the `runtime-sidecar` image variant + **Settings → Sidecar** (see the README's **Sidecar** section; use at your own risk).
