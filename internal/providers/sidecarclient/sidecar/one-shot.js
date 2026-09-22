@@ -60,20 +60,17 @@ if (payload.tool_choice === undefined) {
 payload.stream = true;
 
 function buildHeaders() {
-  // Prefer identity headers supplied by the caller / Session Hub (the adapter
-  // forwards inbound x-* headers so mapped sessions survive the hop).
-  // Fall back to locally generated values when absent so the fingerprint is
-  // always complete.
-  const inbound = envelope.headers ?? {};
+  // Always generate a fresh identity per request. The rejects
+  // reused/mapped upstream session headers, so inbound session values are
+  // intentionally ignored.
   return {
     Authorization: authorization,
     "Content-Type": "application/json",
     "User-Agent": USER_AGENT,
-    "x-": inbound["x-"] || "cli",
-    "x-":
-      inbound["x-"] || "9a15059a80937175227c853c8d7c79984cdbc2b6",
-    "x-": inbound["x-"] || randomId("msg_"),
-    "x-": inbound["x-"] || randomId("ses_"),
+    "x-": "cli",
+    "x-": "9a15059a80937175227c853c8d7c79984cdbc2b6",
+    "x-": randomId("msg_"),
+    "x-": randomId("ses_"),
   };
 }
 
