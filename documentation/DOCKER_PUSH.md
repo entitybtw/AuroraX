@@ -61,6 +61,40 @@ Drop `--push` and add `--load` to build only into the local daemon (no push). Us
 | `DATE` | `unknown` | Build date. |
 | `GO_BUILD_TAGS` | (empty) | Extra Go build tags. |
 
+## Image targets
+
+| Target | Contents |
+|--------|----------|
+| `runtime` (default) | Distroless runtime: static binary + dashboard + sidecar sources (sidecar disabled by default). |
+| `runtime-sidecar` | debian-slim + **Bun** sidecar + `aurora bindproxy`; enable with `AURORA_SIDECAR_ENABLED=true`. Used for OpenCode free-tier routing (~100 MB larger). |
+
+```bash
+# Sidecar-enabled variant
+docker buildx build --target runtime-sidecar \
+  -t entbtw/aurora:sidecar --push .
+```
+
+### BuildKit stale-cache caveat (cross-stage COPY)
+
+When using cached BuildKit builders, a multi-stage `COPY --from=builder` can pick up a **stale** binary from cache even though the source changed. To force a fresh binary, bust the cache (e.g. `--build-arg SOURCE_CACHE_BUST=$(date +%s)`), or use the local-artifact path:
+
+```bash
+# 1. Build artifacts locally
+(cd dashboard-ui && bun run build)
+CGO_ENABLED=0 go build -ldflags="-s -w" -o build/aurora ./apps/aurora
+
+# 2. Build from local artifacts (Dockerfile.runtime copies build/ + dashboard dist)
+docker buildx build -f Dockerfile.runtime --target runtime-sidecar \
+  -t entbtw/aurora:sidecar --push .
+```
+
+Verify no stale binary shipped:
+
+```bash
+docker run --rm --entrypoint grep entbtw/aurora:sidecar -a \
+  /app/aurora -l "bindproxy"   # should match
+```
+
 ## Verify
 
 ```bash

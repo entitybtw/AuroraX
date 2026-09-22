@@ -2,6 +2,8 @@
 
 The Session Hub is a header-transformation engine used in API-integration setups where an upstream service expects each logical client to present a consistent, unique session identifier — especially across multiple accounts in a load-balanced pool.
 
+> **⚠️ Use at your own risk.** The Session Hub rewrites upstream headers to present official-client identities. This may violate a provider's terms of service, and upstream fingerprint hardening can break it at any time. A warning banner is shown on the dashboard tab.
+
 It is built to be fast: the hot path is a single lock-free map read (microns). Configuration persists, and session mappings can live in memory or on disk (toggleable).
 
 > For a complete end-to-end walkthrough (accounts in a pool, each with its own stable client session), see [MULTI_ACCOUNT.md](MULTI_ACCOUNT.md).
@@ -84,11 +86,25 @@ curl -X PUT http://localhost:8080/admin/api/v1/sessionhub/storage \
 | `GET` | `/admin/api/v1/sessionhub/providers/:name` | Get one rule |
 | `PUT` | `/admin/api/v1/sessionhub/providers/:name` | Update rule |
 | `DELETE` | `/admin/api/v1/sessionhub/providers/:name` | Delete rule |
+| `POST` | `/admin/api/v1/sessionhub/providers/:name/ensure-opencode` | Idempotently merge the canonical OpenCode header rules (never overwrites existing rules) |
 | `GET` | `/admin/api/v1/sessionhub/mappings` | List live mappings |
 | `DELETE` | `/admin/api/v1/sessionhub/mappings` | Clear all mappings |
 | `DELETE` | `/admin/api/v1/sessionhub/mappings/:provider` | Clear a provider's mappings |
 | `PUT` | `/admin/api/v1/sessionhub/storage` | Toggle `memory`/`disk` |
 | `POST` | `/admin/api/v1/sessionhub/apply` | Dry-run transform for validation |
+
+### One-click OpenCode rules
+
+`POST /admin/api/v1/sessionhub/providers/:name/ensure-opencode` installs the canonical OpenCode header rules for a provider or pool:
+
+| Header | Mode | Value |
+|--------|------|-------|
+| `x-opencode-session` | `map_or_generate` | `ses_` + 28 random chars |
+| `x-opencode-client` | `static` | `cli` |
+| `x-opencode-request` | `generate` | `msg_` + 28 random chars |
+| `x-opencode-project` | `static` | `global` |
+
+The operation is **idempotent**: existing rules are compared, only missing headers are added, and customized values are preserved. The Sidecar tab exposes this through an opt-in dialog and flags any value that diverges from the canonical default as **non-default**.
 
 ### Example: create a rule
 
@@ -110,11 +126,14 @@ curl -X POST http://localhost:8080/admin/api/v1/sessionhub/providers \
 
 ## Dashboard
 
-Open **Settings → Session Hub**. It shows:
+Open **Settings → Session Hub** (mobile-responsive, touch-friendly). It shows:
 
+- A **risk warning banner** reminding you that header impersonation is at-your-own-risk.
 - An overview of every pool/provider registered on the server, with whether each already has a rule bound (check-mark = bound).
 - **Add Rule** — pick target type (pool/provider/fallback/all) then choose the exact target from the live list; the rule Name fills in automatically.
 - **Header Rules** — add/remove rules with per-mode options (prefix, length, static value, random list).
 - **Live Mappings** — real-time inbound→outbound mappings per provider, plus the Memory/Disk persistence toggle and a **Clear All** action.
 
 Rules added here are applied automatically without a process restart and are saved to disk.
+
+OpenCode providers can also be configured from **Settings → Sidecar → Configure rules**, which opens an opt-in dialog calling the `ensure-opencode` endpoint above.

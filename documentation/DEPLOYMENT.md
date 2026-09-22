@@ -82,6 +82,7 @@ Provider keys use per-type env vars (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `VLL
 | `/app/configs/fallback.json` | Manual fallback rules (optional). |
 | `/app/configs/session-hub-rules.yaml` | Session Hub rules. |
 | `/app/configs/session-hub-mappings.json` | Persisted session mappings (storage mode = `disk`). |
+| `/app/configs/sidecar-overrides.json` | Sidecar runtime settings (opencode image only). |
 | `/app/data/` | SQLite DB, model list cache, pool counters, instance id. |
 
 Mount `./configs` and `./data` (or custom dirs) so none of this is lost across container recreation.
@@ -123,5 +124,47 @@ Pair with host networking so those IPs route correctly, and a pool that load-bal
 2. Dashboard loads and shows your providers/pools.
 3. A chat to a model returns 200 (see GETTING_STARTED for the Python example).
 4. Session Hub tab loads; `GET /admin/api/v1/sessionhub/status` reports your `storage_mode`.
+5. Sidecar tab loads (opencode image only); `GET /admin/api/v1/sidecar` reports enabled/bind proxies.
 
 If the Session Hub isn't transforming headers the way you expect, re-check the rule Name matches the provider/pool name and that storage mode matches your intent (see SESSION_HUB.md).
+
+## OpenCode sidecar (free-tier image variant)
+
+The default image is distroless and has no sidecar. For OpenCode free-tier routing, use the `runtime-sidecar` image variant, which ships the Bun sidecar + per-IP CONNECT proxies.
+
+> **⚠️ Use at your own risk.** The sidecar emulates the OpenCode client fingerprint. Upstream hardening can break it at any time and it may violate the provider's terms of service.
+
+```bash
+docker pull entbtw/aurora:sidecar   # if published; otherwise build --target runtime-sidecar
+```
+
+```yaml
+services:
+  aurora:
+    image: entbtw/aurora:sidecar
+    container_name: aurora-gateway
+    restart: unless-stopped
+    network_mode: host     # required: bind proxies must bind host egress IPs
+    working_dir: /app
+    volumes:
+      - ./aurora-data:/app/data
+      - ./configs:/app/configs
+    environment:
+      PORT: 7841
+      ADMIN_ENDPOINTS_ENABLED: "true"
+      ADMIN_UI_ENABLED: "true"
+      AURORA_SIDECAR_ENABLED: "true"
+      # Comma-separated egress IPs; one CONNECT proxy (8981+) is started per IP
+      AURORA_SIDECAR_BIND_IPS: "203.0.113.10,203.0.113.11"
+      # Provider-side routing target (Go); sidecar reads AURORA_SIDECAR_UPSTREAM_URL
+      AURORA_SIDECAR_BASE_URL: "http://127.0.0.1:8090/v1"
+    env_file:
+      - .env
+```
+
+- Entrypoint starts `aurora bindproxy` once per `AURORA_SIDECAR_BIND_IPS` entry (ports `8981+`), then the Bun sidecar on `AURORA_SIDECAR_PORT` (default `8090`).
+- The provider sets `bind_ip`; the request carries `x-aurora-bind-ip` so the sidecar picks the matching proxy. Bun does end-to-end TLS inside the tunnel — the proxy only binds the source IP.
+- Sidecar runtime settings persist to `configs/sidecar-overrides.json` and are editable from **Settings → Sidecar** (or `GET`/`PUT /admin/api/v1/sidecar`).
+- Env vars with suffix `SIDECAR`/`BIND` are reserved and ignored by provider auto-discovery (they cannot become phantom providers).
+
+Full reference: see the **OpenCode Sidecar** section of the README.
