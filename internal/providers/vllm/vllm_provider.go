@@ -19,7 +19,9 @@ import (
 const defaultBaseURL = "http://localhost:8000/v1"
 
 // sidecarEnvURL points at the local Bun sidecar used to reproduce the TLS
-// fingerprint required by the free tier free tier.
+// fingerprint required by the free-tier tier. The SIDECAR suffix is
+// reserved: env-based provider discovery ignores *_SIDECAR_* keys so this never
+// materializes as an "opencode-sidecar" provider.
 const sidecarEnvURL = "AURORA_SIDECAR_BASE_URL"
 
 // resolveZenSidecarURL returns the Bun sidecar base URL when this provider

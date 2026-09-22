@@ -11,15 +11,15 @@
 // Cloudflare edge rejections) are retried with backoff.
 import tools from "./default-tools.json" with { type: "json" };
 
-const UPSTREAM = process.env.OPENCODE_ZEN_BASE_URL ?? "https://opencode.ai/zen/v1";
+const UPSTREAM = process.env.AURORA_SIDECAR_UPSTREAM_URL ?? "https://opencode.ai/zen/v1";
 const USER_AGENT =
-  process.env.OPENCODE_ZEN_USER_AGENT ??
+  process.env.AURORA_SIDECAR_USER_AGENT ??
   "opencode/1.18.31 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.14";
-const INJECT_TOOLS = (process.env.OPENCODE_ZEN_INJECT_TOOLS ?? "true") !== "false";
-const MAX_ATTEMPTS = Number(process.env.OPENCODE_ZEN_MAX_ATTEMPTS ?? "4");
-const RETRY_DELAY_MS = Number(process.env.OPENCODE_ZEN_RETRY_DELAY_MS ?? "750");
+const INJECT_TOOLS = (process.env.AURORA_SIDECAR_INJECT_TOOLS ?? "true") !== "false";
+const MAX_ATTEMPTS = Number(process.env.AURORA_SIDECAR_MAX_ATTEMPTS ?? "4");
+const RETRY_DELAY_MS = Number(process.env.AURORA_SIDECAR_RETRY_DELAY_MS ?? "750");
 // Optional CONNECT proxy used to egress from a specific IP (multi-IP support).
-const PROXY = (process.env.OPENCODE_ZEN_PROXY ?? "").trim();
+const PROXY = (process.env.AURORA_SIDECAR_PROXY ?? "").trim();
 const input = await Bun.stdin.text();
 
 let envelope;
@@ -60,14 +60,20 @@ if (payload.tool_choice === undefined) {
 payload.stream = true;
 
 function buildHeaders() {
+  // Prefer identity headers supplied by the caller / Session Hub (the adapter
+  // forwards inbound x-opencode-* headers so mapped sessions survive the hop).
+  // Fall back to locally generated values when absent so the fingerprint is
+  // always complete.
+  const inbound = envelope.headers ?? {};
   return {
     Authorization: authorization,
     "Content-Type": "application/json",
     "User-Agent": USER_AGENT,
-    "x-opencode-client": "cli",
-    "x-opencode-project": "9a15059a80937175227c853c8d7c79984cdbc2b6",
-    "x-opencode-request": randomId("msg_"),
-    "x-opencode-session": randomId("ses_"),
+    "x-opencode-client": inbound["x-opencode-client"] || "cli",
+    "x-opencode-project":
+      inbound["x-opencode-project"] || "9a15059a80937175227c853c8d7c79984cdbc2b6",
+    "x-opencode-request": inbound["x-opencode-request"] || randomId("msg_"),
+    "x-opencode-session": inbound["x-opencode-session"] || randomId("ses_"),
   };
 }
 

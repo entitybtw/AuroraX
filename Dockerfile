@@ -25,6 +25,8 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy source and cross-compile for the target platform
+ARG SOURCE_CACHE_BUST=0
+RUN echo "source cache bust: ${SOURCE_CACHE_BUST}"
 COPY . .
 COPY --from=ui-builder /app/internal/admin/dashboard/dist ./internal/admin/dashboard/dist
 ARG VERSION=dev
@@ -93,20 +95,23 @@ RUN apt-get update && \
 
 # Copy the Bun runtime and the sidecar for the free-tier tier.
 COPY --from=bun /bun/bun /usr/local/bin/bun
-COPY internal/providers/sidecarclient/sidecar /opt/sidecarproxy
+COPY internal/providers/sidecarclient/sidecar /opt/sidecar
 
-# Copy binary and runtime config
+# Copy binary and runtime config. The cache-bust arg keeps BuildKit from
+# serving a stale cross-stage COPY when the builder's /aurora changes.
+ARG SOURCE_CACHE_BUST=0
+RUN echo "runtime source cache bust: ${SOURCE_CACHE_BUST}"
 COPY --from=builder /aurora /aurora
 COPY --from=builder /app/configs/*.yaml /app/configs/
 
 # Create writable .cache and data directories for the runtime user (UID=65532)
 RUN mkdir -p /app/.cache /app/data && \
-	chown -R 65532:65532 /app /opt/sidecarproxy
+	chown -R 65532:65532 /app /opt/sidecar
 
 COPY build/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
-# Default to routing free tier through the local sidecar. Operators can set
+# Default to routing upstream through the local sidecar. Operators can set
 # AURORA_SIDECAR_ENABLED=false to disable it at runtime.
 ENV AURORA_SIDECAR_ENABLED=true \
 	AURORA_SIDECAR_PORT=8090 \
