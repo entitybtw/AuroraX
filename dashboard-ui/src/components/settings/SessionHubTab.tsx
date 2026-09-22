@@ -4,7 +4,7 @@ import { Surface, SectionHeader } from "@/components/ui/surface";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ToggleField } from "@/components/ui/toggle-field";
-import { KeyIcon, GlobeIcon, BoxesIcon, RefreshCwIcon, PlusIcon, Trash2Icon, CheckCircleIcon, XCircleIcon, ZapIcon } from "lucide-react";
+import { KeyIcon, GlobeIcon, BoxesIcon, RefreshCwIcon, PlusIcon, Trash2Icon, CheckCircleIcon, XCircleIcon, ZapIcon, ShieldAlertIcon } from "lucide-react";
 import { apiFetch } from "@/lib/api/client";
 import { usePools } from "@/lib/api/usePools";
 import { fetchProviderStatus } from "@/lib/api/providers";
@@ -295,6 +295,19 @@ export function SessionHubTab(): JSX.Element {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Risk notice */}
+      <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+        <ShieldAlertIcon className="h-5 w-5 shrink-0 text-amber-500 mt-0.5" />
+        <div className="text-sm">
+          <p className="font-medium text-amber-600 dark:text-amber-400">Use at your own risk</p>
+          <p className="text-muted-foreground mt-1 leading-snug">
+            The Session Hub rewrites upstream headers to impersonate official clients. This may
+            violate a provider&apos;s terms of service, and upstream fingerprint hardening can
+            break it at any time. Review the documentation before relying on it.
+          </p>
+        </div>
+      </div>
+
       {/* Status */}
       <Surface id="sessionhub-status" className="p-6 scroll-mt-20">
         <div className="flex flex-col gap-6">

@@ -48,7 +48,7 @@ import { modelDisplayName, type ModelInventoryItem } from "@/lib/api/models-type
 const DEFAULT_CURL_BODY = buildPlaygroundRequestBody({
   model: "gpt-4o-mini",
   systemPrompt: "You are a concise assistant.",
-  userPrompt: "Say hello from aurora and mention the provider you used.",
+  userPrompt: "Say hello from aurorax and mention the provider you used.",
 });
 
 const POOL_MODEL_PLACEHOLDER = "your-model-id";
