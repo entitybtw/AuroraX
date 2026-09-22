@@ -7,18 +7,18 @@
 // tokens and API keys are forwarded untouched, so paid accounts keep working.
 //
 // Multi-IP: the caller may send `x-aurora-bind-ip`. When it matches an entry in
-// OPENCODE_ZEN_BIND_PROXIES (comma-separated `ip:port` CONNECT proxies), the
+// AURORA_SIDECAR_BIND_PROXIES (comma-separated `ip:port` CONNECT proxies), the
 // request is relayed through that proxy so it egresses from the chosen IP.
 //
 // Configuration (all optional):
 //
-//	OPENCODE_ZEN_BASE_URL        upstream base URL          (default https://opencode.ai/zen/v1)
-//	AURORA_SIDECAR_HOST    bind host                 (default 127.0.0.1)
-//	AURORA_SIDECAR_PORT    bind port                 (default 8090)
-//	OPENCODE_ZEN_INJECT_TOOLS    inject OpenCode tools     (default true)
-//	OPENCODE_ZEN_DEFAULT_AUTH    fallback Authorization    (default "Bearer public")
-//	OPENCODE_ZEN_USER_AGENT      upstream User-Agent       (default opencode client UA)
-//	OPENCODE_ZEN_BIND_PROXIES    ip:port[,ip:port...]      (default empty)
+//	AURORA_SIDECAR_UPSTREAM_URL      upstream base URL          (default https://opencode.ai/zen/v1)
+//	AURORA_SIDECAR_HOST            bind host                  (default 127.0.0.1)
+//	AURORA_SIDECAR_PORT            bind port                  (default 8090)
+//	AURORA_SIDECAR_INJECT_TOOLS    inject OpenCode tools      (default true)
+//	AURORA_SIDECAR_DEFAULT_AUTH    fallback Authorization     (default "Bearer public")
+//	AURORA_SIDECAR_USER_AGENT      upstream User-Agent        (default opencode client UA)
+//	AURORA_SIDECAR_BIND_PROXIES    ip:port[,ip:port...]       (default empty)
 //
 // Endpoints:
 //
@@ -27,18 +27,18 @@
 //	GET  /health                liveness probe
 //	GET  /proxies               configured bind proxies
 
-const UPSTREAM = process.env.OPENCODE_ZEN_BASE_URL ?? "https://opencode.ai/zen/v1";
+const UPSTREAM = process.env.AURORA_SIDECAR_UPSTREAM_URL ?? "https://opencode.ai/zen/v1";
 const ONESHOT = new URL("./one-shot.js", import.meta.url).pathname;
 const PORT = Number(process.env.AURORA_SIDECAR_PORT ?? "8090");
 const HOST = process.env.AURORA_SIDECAR_HOST ?? "127.0.0.1";
-const DEFAULT_AUTH = process.env.OPENCODE_ZEN_DEFAULT_AUTH ?? "Bearer public";
+const DEFAULT_AUTH = process.env.AURORA_SIDECAR_DEFAULT_AUTH ?? "Bearer public";
 const USER_AGENT =
-  process.env.OPENCODE_ZEN_USER_AGENT ??
+  process.env.AURORA_SIDECAR_USER_AGENT ??
   "opencode/1.18.31 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.14";
 
 // Map of local IP -> CONNECT proxy URL (http://127.0.0.1:port).
 const BIND_PROXIES = new Map();
-for (const entry of (process.env.OPENCODE_ZEN_BIND_PROXIES ?? "").split(",")) {
+for (const entry of (process.env.AURORA_SIDECAR_BIND_PROXIES ?? "").split(",")) {
   const trimmed = entry.trim();
   if (!trimmed) continue;
   const idx = trimmed.lastIndexOf(":");
@@ -95,6 +95,21 @@ Bun.serve({
     const authorization = req.headers.get("authorization") || DEFAULT_AUTH;
     const bindIP = (req.headers.get("x-aurora-bind-ip") || "").trim();
     const proxy = BIND_PROXIES.get(bindIP) || "";
+    // Session Hub (or the caller) may have set OpenCode identity headers on
+    // the inbound request. Forward them so mapped/generated sessions survive
+    // the sidecar hop; one-shot only falls back to its own generation when a
+    // header is absent. User-Agent is deliberately NOT forwarded: the sidecar's
+    // configured UA is authoritative for the fingerprint.
+    const headers = {};
+    for (const name of [
+      "x-opencode-session",
+      "x-opencode-client",
+      "x-opencode-request",
+      "x-opencode-project",
+    ]) {
+      const value = req.headers.get(name);
+      if (value) headers[name] = value;
+    }
     const body = await req.text();
 
     const proc = Bun.spawn([process.execPath, ONESHOT], {
@@ -103,13 +118,13 @@ Bun.serve({
       stderr: "pipe",
       env: {
         ...process.env,
-        OPENCODE_ZEN_BASE_URL: UPSTREAM,
-        OPENCODE_ZEN_USER_AGENT: USER_AGENT,
-        OPENCODE_ZEN_PROXY: proxy,
+        AURORA_SIDECAR_UPSTREAM_URL: UPSTREAM,
+        AURORA_SIDECAR_USER_AGENT: USER_AGENT,
+        AURORA_SIDECAR_PROXY: proxy,
       },
     });
 
-    proc.stdin.write(JSON.stringify({ authorization, payload: JSON.parse(body) }));
+    proc.stdin.write(JSON.stringify({ authorization, headers, payload: JSON.parse(body) }));
     proc.stdin.end();
 
     const [out, exitCode] = await Promise.all([
