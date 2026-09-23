@@ -1,4 +1,4 @@
-export type SettingsTab = "general" | "providers" | "infrastructure" | "caching" | "networking" | "sessionhub" | "sidecar";
+export type SettingsTab = "general" | "providers" | "infrastructure" | "caching" | "networking" | "sessionhub" | "sidecar" | "extensions";
 
 export interface RuntimeRefreshResponse {
   steps?: { name: string; status: string }[];

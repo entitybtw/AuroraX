@@ -33,7 +33,7 @@ type ExtensionField struct {
 	Key         string   `json:"key"`
 	Label       string   `json:"label"`
 	Description string   `json:"description,omitempty"`
-	Type        string   `json:"type,omitempty"` // text | number | boolean | select
+	Type        string   `json:"type,omitempty"` // text | number | boolean | select | color
 	Default     string   `json:"default,omitempty"`
 	Options     []string `json:"options,omitempty"`
 	Secret      bool     `json:"secret,omitempty"`
@@ -51,12 +51,12 @@ type ExtensionNavEntry struct {
 
 // ExtensionBanner is a dismissible-looking strip shown above the page outlet.
 type ExtensionBanner struct {
-	ID       string `json:"id"`
-	Level    string `json:"level,omitempty"` // info | warning | error | success
-	Message  string `json:"message"`
+	ID        string `json:"id"`
+	Level     string `json:"level,omitempty"` // info | warning | error | success
+	Message   string `json:"message"`
 	LinkLabel string `json:"link_label,omitempty"`
-	LinkURL  string `json:"link_url,omitempty"`
-	Order    int    `json:"order,omitempty"`
+	LinkURL   string `json:"link_url,omitempty"`
+	Order     int    `json:"order,omitempty"`
 }
 
 // ExtensionWidget is a card injected into a named layout slot.
@@ -82,10 +82,10 @@ type ExtensionNavLink struct {
 // ExtensionUIBlock is one structured content block on an extension page.
 // No raw HTML/JS is executed — only these shapes render.
 type ExtensionUIBlock struct {
-	Kind     string   `json:"kind"` // heading | text | code | list | links | divider | kv
-	Text     string   `json:"text,omitempty"`
-	Language string   `json:"language,omitempty"`
-	Items    []string `json:"items,omitempty"`
+	Kind     string             `json:"kind"` // heading | text | code | list | links | divider | kv
+	Text     string             `json:"text,omitempty"`
+	Language string             `json:"language,omitempty"`
+	Items    []string           `json:"items,omitempty"`
 	Links    []ExtensionNavLink `json:"links,omitempty"`
 	// KV is for kind=kv: list of {k,v} or {label,value}.
 	KV []map[string]string `json:"kv,omitempty"`
@@ -93,13 +93,13 @@ type ExtensionUIBlock struct {
 
 // ExtensionUIPage is a full dashboard page contributed by an extension.
 type ExtensionUIPage struct {
-	ID     string             `json:"id"`
-	Path   string             `json:"path"` // slug under /admin/dashboard/ext/
-	Title  string             `json:"title"`
-	Icon   string             `json:"icon,omitempty"`
-	Order  int                `json:"order,omitempty"`
-	Summary string            `json:"summary,omitempty"`
-	Blocks []ExtensionUIBlock `json:"blocks,omitempty"`
+	ID      string             `json:"id"`
+	Path    string             `json:"path"` // slug under /admin/dashboard/ext/
+	Title   string             `json:"title"`
+	Icon    string             `json:"icon,omitempty"`
+	Order   int                `json:"order,omitempty"`
+	Summary string             `json:"summary,omitempty"`
+	Blocks  []ExtensionUIBlock `json:"blocks,omitempty"`
 }
 
 // ExtensionSettingsTab adds a tab under Settings that renders blocks/widgets.
@@ -134,6 +134,10 @@ type ExtensionUI struct {
 	SettingsTabs []ExtensionSettingsTab `json:"settings_tabs,omitempty"`
 	// HideSettingsTabs hides built-in settings tab ids.
 	HideSettingsTabs []string `json:"hide_settings_tabs,omitempty"`
+	// LogoText overrides the sidebar / mobile brand text when set.
+	LogoText string `json:"logo_text,omitempty"`
+	// LogoURL overrides the brand mark (absolute or root-relative image URL).
+	LogoURL string `json:"logo_url,omitempty"`
 }
 
 // ExtensionTool describes a tool schema an extension wants injected upstream.
@@ -210,9 +214,14 @@ type Extension struct {
 	// Files is a map of relative path → file content materialised under
 	// configs/extensions/<id>/ on apply (tool schemas, helper scripts, …).
 	// Paths must stay under the extension directory (no ".." / absolute).
-	Files    map[string]string   `json:"files,omitempty"`
-	Provides *ExtensionProvides  `json:"provides,omitempty"`
-	UI       ExtensionUI         `json:"ui,omitempty"`
+	Files    map[string]string  `json:"files,omitempty"`
+	Provides *ExtensionProvides `json:"provides,omitempty"`
+	UI       ExtensionUI        `json:"ui,omitempty"`
+	// Config holds user-saved overrides: values for ui.fields keys and
+	// optional theme var overrides (CSS custom properties starting with "--").
+	// It is persisted with the extension and merged into the UI theme on
+	// ListExtensionUI.
+	Config map[string]string `json:"config,omitempty"`
 	// Applied marks that the operator activated this extension (UI + sidecar).
 	Applied bool   `json:"applied,omitempty"`
 	Builtin bool   `json:"builtin"`
@@ -411,6 +420,7 @@ func (p *Extension) Validate() error {
 		return fmt.Errorf("extension id must not contain spaces or slashes")
 	}
 	if p.Type == "" {
+		// Default to sidecar; explicit types such as "theme" are preserved.
 		p.Type = "sidecar"
 	}
 	// "opencode" is a normal extension id (the store seed uses it). Provider
@@ -447,6 +457,64 @@ func safeExtRelPath(rel string) bool {
 		return false
 	}
 	return !strings.ContainsAny(rel, ":")
+}
+
+// EffectiveTags returns the stored tags unioned with auto-detected capability
+// tags derived from the extension's shape. List/Get responses surface this
+// derived list so the dashboard's tag filters see capabilities (theme,
+// sessionhub, sidecar, ui, oauth, providers) without the tags being persisted.
+func (e Extension) EffectiveTags() []string {
+	seen := make(map[string]bool, len(e.Tags)+6)
+	out := make([]string, 0, len(e.Tags)+6)
+	add := func(t string) {
+		if t == "" {
+			return
+		}
+		key := strings.ToLower(t)
+		if seen[key] {
+			return
+		}
+		seen[key] = true
+		out = append(out, t)
+	}
+	for _, t := range e.Tags {
+		add(t)
+	}
+
+	hasThemeTag := false
+	for _, t := range e.Tags {
+		if strings.EqualFold(strings.TrimSpace(t), "theme") {
+			hasThemeTag = true
+			break
+		}
+	}
+	hasColorField := false
+	for _, f := range e.UI.Fields {
+		if strings.EqualFold(f.Type, "color") {
+			hasColorField = true
+			break
+		}
+	}
+	if e.Type == "theme" || hasThemeTag || len(e.UI.Theme) > 0 || hasColorField {
+		add("theme")
+	}
+	if len(e.Headers) > 0 {
+		add("sessionhub")
+	}
+	if e.BaseURL != "" || e.InjectTools != nil || e.Type == "sidecar" {
+		add("sidecar")
+	}
+	if e.UI.Accent != "" || len(e.UI.Nav) > 0 || len(e.UI.Pages) > 0 ||
+		len(e.UI.Banners) > 0 || len(e.UI.Widgets) > 0 || len(e.UI.SettingsTabs) > 0 {
+		add("ui")
+	}
+	if e.OAuth != nil || extensionProvidesFeature(e.Provides, "oauth") {
+		add("oauth")
+	}
+	if e.Provides != nil && len(e.Provides.ProviderTypes) > 0 {
+		add("providers")
+	}
+	return out
 }
 
 // MaterializeFiles writes ext.Files under dir (creating subdirs). Returns the
@@ -500,17 +568,23 @@ func WithExtensionStore(store *ExtensionStore) Option {
 	}
 }
 
-// ListExtensions returns all imported extensions.
+// ListExtensions returns all imported extensions. Tags on each response copy
+// are replaced with EffectiveTags() so the dashboard sees auto-detected
+// capability tags without them being persisted.
 func (h *Handler) ListExtensions(c *echo.Context) error {
 	if h.extensions == nil {
 		return c.JSON(http.StatusOK, map[string]any{"extensions": []any{}, "presets": []any{}})
 	}
 	list := h.extensions.List()
+	for i := range list {
+		list[i].Tags = list[i].EffectiveTags()
+	}
 	// "presets" is a temporary alias for older dashboard builds.
 	return c.JSON(http.StatusOK, map[string]any{"extensions": list, "presets": list})
 }
 
-// GetExtension returns a single extension by id.
+// GetExtension returns a single extension by id. Tags on the response copy
+// are replaced with EffectiveTags() (see ListExtensions).
 func (h *Handler) GetExtension(c *echo.Context) error {
 	if h.extensions == nil {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "extensions unavailable"})
@@ -519,6 +593,7 @@ func (h *Handler) GetExtension(c *echo.Context) error {
 	if !ok {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "extension not found"})
 	}
+	ext.Tags = ext.EffectiveTags()
 	return c.JSON(http.StatusOK, ext)
 }
 
@@ -573,9 +648,9 @@ func (h *Handler) ImportExtension(c *echo.Context) error {
 	activated := h.extensions.Upsert(ext)
 	saved, _ := h.extensions.Get(ext.ID)
 	return c.JSON(http.StatusOK, map[string]any{
-		"status":   "ok",
-		"extension": saved,
-		"preset":   saved,
+		"status":                   "ok",
+		"extension":                saved,
+		"preset":                   saved,
 		"activated_provider_types": activated,
 	})
 }
@@ -591,11 +666,10 @@ func (h *Handler) DeleteExtension(c *echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 }
 
-// ApplyExtension applies an extension's sidecar settings and returns the header
-// rules the caller should install into the Session Hub via
-// /sessionhub/providers/:name/ensure-headers. Optional provider types declared
-// under provides.provider_types are activated on apply.
-func (h *Handler) ApplyExtension(c *echo.Context) error {
+// UnapplyExtension deactivates an extension (Applied=false). Sidecar settings
+// and session hub headers installed by a previous apply are left untouched;
+// the operator re-applies another extension or edits settings to replace them.
+func (h *Handler) UnapplyExtension(c *echo.Context) error {
 	if h.extensions == nil {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "extensions unavailable"})
 	}
@@ -603,8 +677,152 @@ func (h *Handler) ApplyExtension(c *echo.Context) error {
 	if !ok {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "extension not found"})
 	}
+	ext.Applied = false
+	h.extensions.Upsert(ext)
+	return c.JSON(http.StatusOK, map[string]any{
+		"status":    "ok",
+		"extension": ext.ID,
+		"applied":   false,
+	})
+}
+
+// UpdateExtensionConfig merges user-saved overrides into an extension's
+// Config map. Keys must match a ui.fields key or be a CSS custom property
+// starting with "--".
+func (h *Handler) UpdateExtensionConfig(c *echo.Context) error {
+	if h.extensions == nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "extensions unavailable"})
+	}
+	ext, ok := h.extensions.Get(c.Param("id"))
+	if !ok {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "extension not found"})
+	}
+	var req struct {
+		Config map[string]string `json:"config"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+	}
+	fieldKeys := make(map[string]bool, len(ext.UI.Fields))
+	for _, f := range ext.UI.Fields {
+		fieldKeys[f.Key] = true
+	}
+	for key := range req.Config {
+		if strings.HasPrefix(key, "--") {
+			continue
+		}
+		if !fieldKeys[key] {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": fmt.Sprintf("invalid config key %q: must match a ui.fields key or start with --", key),
+			})
+		}
+	}
+	if ext.Config == nil {
+		ext.Config = make(map[string]string, len(req.Config))
+	}
+	for key, value := range req.Config {
+		ext.Config[key] = value
+	}
+	h.extensions.Upsert(ext)
+	saved, _ := h.extensions.Get(ext.ID)
+	return c.JSON(http.StatusOK, map[string]any{
+		"status":    "ok",
+		"extension": saved,
+	})
+}
+
+// applyFailure carries an HTTP status + message out of buildApplyResponse.
+type applyFailure struct {
+	status int
+	msg    string
+}
+
+// ApplyExtension applies an extension's sidecar settings and returns the header
+// rules the caller should install into the Session Hub via
+// /sessionhub/providers/:name/ensure-headers. Optional provider types declared
+// under provides.provider_types are activated on apply.
+func (h *Handler) ApplyExtension(c *echo.Context) error {
+	resp, _, fail := h.buildApplyResponse(c)
+	if fail != nil {
+		return c.JSON(fail.status, map[string]string{"error": fail.msg})
+	}
+	return c.JSON(http.StatusOK, resp)
+}
+
+// FullApplyExtension runs the full apply pipeline (identical to
+// ApplyExtension) and, when a session_hub_target is supplied and the
+// extension declares header rules, also installs those rules into the
+// Session Hub target (provider or pool) server-side. The response is the
+// apply payload plus a "session_hub" result when headers were considered.
+// If the Session Hub is not wired into the handler, session_hub reports
+// installed=false and the headers stay in the response so the frontend can
+// chain POST /sessionhub/providers/:name/ensure-headers itself.
+func (h *Handler) FullApplyExtension(c *echo.Context) error {
+	var req struct {
+		SessionHubTarget string `json:"session_hub_target"`
+	}
+	body, err := io.ReadAll(io.LimitReader(c.Request().Body, 1<<20))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "read body: " + err.Error()})
+	}
+	if len(strings.TrimSpace(string(body))) > 0 {
+		if err := json.Unmarshal(body, &req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		}
+	}
+	resp, ext, fail := h.buildApplyResponse(c)
+	if fail != nil {
+		return c.JSON(fail.status, map[string]string{"error": fail.msg})
+	}
+	target := strings.TrimSpace(req.SessionHubTarget)
+	if target != "" && len(ext.Headers) > 0 {
+		resp["session_hub"] = h.ensureSessionHubHeaders(target, ext.Headers)
+	}
+	return c.JSON(http.StatusOK, resp)
+}
+
+// ensureSessionHubHeaders installs header rules into the session hub target
+// through the wired SessionHeaderEnsurer. It never fails the overall apply:
+// on error or when no ensurer is wired it reports installed=false so the
+// caller can fall back to chaining ensure-headers from the frontend.
+func (h *Handler) ensureSessionHubHeaders(target string, headers []ExtensionHeader) map[string]any {
+	if h.sessionHeaderEnsurer == nil {
+		return map[string]any{
+			"installed": false,
+			"target":    target,
+			"reason":    "session hub unavailable",
+		}
+	}
+	result, err := h.sessionHeaderEnsurer.EnsureHeaders(target, headers)
+	if err != nil {
+		return map[string]any{
+			"installed": false,
+			"target":    target,
+			"error":     err.Error(),
+		}
+	}
+	out := map[string]any{}
+	for key, value := range result {
+		out[key] = value
+	}
+	out["installed"] = true
+	out["target"] = target
+	return out
+}
+
+// buildApplyResponse runs the shared apply pipeline and returns the response
+// payload. On failure it returns a non-nil *applyFailure describing the HTTP
+// error the caller should render.
+func (h *Handler) buildApplyResponse(c *echo.Context) (map[string]any, Extension, *applyFailure) {
+	if h.extensions == nil {
+		return nil, Extension{}, &applyFailure{http.StatusNotFound, "extensions unavailable"}
+	}
+	ext, ok := h.extensions.Get(c.Param("id"))
+	if !ok {
+		return nil, Extension{}, &applyFailure{http.StatusNotFound, "extension not found"}
+	}
 	if h.sidecarStore == nil {
-		return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "sidecar store unavailable"})
+		return nil, Extension{}, &applyFailure{http.StatusServiceUnavailable, "sidecar store unavailable"}
 	}
 
 	// Merge into current sidecar settings; values the extension does not
@@ -656,7 +874,7 @@ func (h *Handler) ApplyExtension(c *echo.Context) error {
 	if len(ext.Files) > 0 {
 		toolsPath, ferr := ext.MaterializeFiles(ExtensionFilesDir(ext.ID))
 		if ferr != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "materialize files: " + ferr.Error()})
+			return nil, Extension{}, &applyFailure{http.StatusBadRequest, "materialize files: " + ferr.Error()}
 		}
 		if toolsPath != "" {
 			next.ToolsPath = toolsPath
@@ -695,13 +913,13 @@ func (h *Handler) ApplyExtension(c *echo.Context) error {
 	}
 
 	resp := map[string]any{
-		"status":                    "ok",
-		"extension":                 ext.ID,
-		"preset":                    ext.ID,
-		"headers":                   ext.Headers,
-		"tools":                     tools,
-		"activated_provider_types":  activated,
-		"provides":                  ext.Provides,
+		"status":                   "ok",
+		"extension":                ext.ID,
+		"preset":                   ext.ID,
+		"headers":                  ext.Headers,
+		"tools":                    tools,
+		"activated_provider_types": activated,
+		"provides":                 ext.Provides,
 	}
 	if ext.OAuth != nil {
 		resp["oauth"] = ext.OAuth
@@ -712,7 +930,7 @@ func (h *Handler) ApplyExtension(c *echo.Context) error {
 	if next.ToolsPath != "" {
 		resp["tools_path"] = next.ToolsPath
 	}
-	return c.JSON(http.StatusOK, resp)
+	return resp, ext, nil
 }
 
 // extensionProvidesFeature reports whether provides.features lists name
@@ -794,6 +1012,46 @@ type ExtensionUIContribution struct {
 	UI   ExtensionUI `json:"ui"`
 }
 
+// extensionUIWithConfig returns e.UI with user Config overrides merged into
+// the theme map (the UI copy's Theme is replaced, never the stored map).
+// Config keys starting with "--" are CSS custom properties and are set
+// directly. Config keys matching a ui.fields key of type color map onto the
+// theme only when the key is "accent" (→ "--accent"); other color field keys
+// without a "--" prefix are skipped.
+func extensionUIWithConfig(e Extension) ExtensionUI {
+	if len(e.Config) == 0 {
+		return e.UI
+	}
+	colorKeys := make(map[string]bool)
+	for _, f := range e.UI.Fields {
+		if strings.EqualFold(f.Type, "color") {
+			colorKeys[f.Key] = true
+		}
+	}
+	overrides := make(map[string]string)
+	for key, value := range e.Config {
+		if strings.HasPrefix(key, "--") {
+			overrides[key] = value
+			continue
+		}
+		if key == "accent" && colorKeys[key] {
+			overrides["--accent"] = value
+		}
+	}
+	if len(overrides) == 0 {
+		return e.UI
+	}
+	theme := make(map[string]string, len(e.UI.Theme)+len(overrides))
+	for key, value := range e.UI.Theme {
+		theme[key] = value
+	}
+	for key, value := range overrides {
+		theme[key] = value
+	}
+	e.UI.Theme = theme
+	return e.UI
+}
+
 // ListExtensionUI returns merged UI contributions from applied extensions.
 // The dashboard uses this to modify navigation, pages, banners, widgets, theme.
 // GET /admin/api/v1/sidecar/extensions/ui
@@ -806,14 +1064,15 @@ func (h *Handler) ListExtensionUI(c *echo.Context) error {
 		if !e.Applied {
 			continue
 		}
-		if e.UI.Accent == "" && len(e.UI.Nav) == 0 && len(e.UI.Pages) == 0 &&
-			len(e.UI.Banners) == 0 && len(e.UI.Widgets) == 0 &&
-			len(e.UI.SettingsTabs) == 0 && len(e.UI.HideNav) == 0 &&
-			len(e.UI.HideSettingsTabs) == 0 && e.UI.Help == "" &&
-			len(e.UI.Theme) == 0 {
+		ui := extensionUIWithConfig(e)
+		if ui.Accent == "" && len(ui.Nav) == 0 && len(ui.Pages) == 0 &&
+			len(ui.Banners) == 0 && len(ui.Widgets) == 0 &&
+			len(ui.SettingsTabs) == 0 && len(ui.HideNav) == 0 &&
+			len(ui.HideSettingsTabs) == 0 && ui.Help == "" &&
+			len(ui.Theme) == 0 && ui.LogoText == "" && ui.LogoURL == "" {
 			continue
 		}
-		out = append(out, ExtensionUIContribution{ID: e.ID, Name: e.Name, UI: e.UI})
+		out = append(out, ExtensionUIContribution{ID: e.ID, Name: e.Name, UI: ui})
 	}
 	return c.JSON(http.StatusOK, map[string]any{"contributions": out})
 }

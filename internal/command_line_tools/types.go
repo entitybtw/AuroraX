@@ -22,6 +22,18 @@ type ModelField struct {
 	Multi        bool   `json:"multi,omitempty"`
 }
 
+type ToolPreset struct {
+	ID                string            `json:"id"`
+	Label             string            `json:"label"`
+	Description       string            `json:"description,omitempty"`
+	ToolID            string            `json:"tool_id"`
+	BaseURL           string            `json:"base_url,omitempty"`
+	Model             string            `json:"model,omitempty"`
+	ModelOverrides    map[string]string `json:"model_overrides,omitempty"`
+	Models            []string          `json:"models,omitempty"`
+	APIKeyPlaceholder string            `json:"api_key_placeholder,omitempty"`
+}
+
 type PreviewRequest struct {
 	BaseURL        string            `json:"base_url"`
 	APIKey         string            `json:"api_key"`

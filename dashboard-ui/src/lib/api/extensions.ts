@@ -94,6 +94,8 @@ const ExtensionUISchema = z.object({
   pages: z.array(ExtensionUIPageSchema).optional(),
   settings_tabs: z.array(ExtensionSettingsTabSchema).optional(),
   hide_settings_tabs: z.array(z.string()).optional(),
+  logo_text: z.string().optional(),
+  logo_url: z.string().optional(),
 });
 
 const ExtensionUIContributionSchema = z.object({
@@ -145,6 +147,7 @@ const ExtensionSchema = z.object({
   requirements: z.array(z.string()).optional(),
   notes: z.array(z.string()).optional(),
   settings: z.record(z.string()).optional(),
+  config: z.record(z.string()).optional(),
   oauth: ExtensionOAuthSchema.optional(),
   files: z.record(z.string()).optional(),
   provides: ExtensionProvidesSchema.optional(),
@@ -241,6 +244,52 @@ export async function applyExtension(
 
 /** @deprecated Prefer applyExtension. */
 export const applySidecarPreset = applyExtension;
+
+/** Mark an extension as not applied (drops its UI contribution). */
+export async function unapplyExtension(id: string): Promise<void> {
+  await apiFetch(`/admin/api/v1/sidecar/extensions/${encodeURIComponent(id)}/unapply`, {
+    method: "POST",
+  });
+}
+
+/** Persist config overrides for an extension (merged into ui.theme server-side). */
+export async function updateExtensionConfig(
+  id: string,
+  config: Record<string, string>,
+): Promise<void> {
+  await apiFetch(`/admin/api/v1/sidecar/extensions/${encodeURIComponent(id)}/config`, {
+    method: "PUT",
+    json: { config },
+  });
+}
+
+/** Apply everywhere: activate the extension and optionally bind session hub headers. */
+export async function fullApplyExtension(
+  id: string,
+  sessionHubTarget?: string,
+): Promise<{
+  headers: ExtensionHeader[];
+  tools: string[];
+  oauth?: ExtensionOAuth | undefined;
+  tools_path?: string | undefined;
+}> {
+  const body = sessionHubTarget ? { session_hub_target: sessionHubTarget } : {};
+  const res = await apiFetch<{
+    headers?: ExtensionHeader[];
+    tools?: string[];
+    oauth?: ExtensionOAuth;
+    tools_path?: string;
+  }>(`/admin/api/v1/sidecar/extensions/${encodeURIComponent(id)}/full-apply`, {
+    method: "POST",
+    json: body,
+  });
+  return {
+    headers: res.headers ?? [],
+    tools: res.tools ?? [],
+    oauth: res.oauth,
+    tools_path: res.tools_path,
+  };
+}
 
 /** Merge header rules into a Session Hub target (idempotent). */
 export async function ensureExtensionHeaders(

@@ -11,6 +11,8 @@ import (
 	"unicode"
 )
 
+const apiKeyPlaceholder = "<AURORA_API_KEY>"
+
 type Service struct {
 	applyEnabled bool
 	fs           FileSystem
@@ -47,13 +49,21 @@ func (s *Service) GetTool(id string) (Tool, bool) {
 	return tool, ok
 }
 
+func (s *Service) ListPresets() []ToolPreset {
+	return builtInPresets()
+}
+
 func (s *Service) Preview(toolID string, req PreviewRequest) (PreviewResponse, error) {
 	tool, req, err := s.toolAndRequest(toolID, req)
 	if err != nil {
 		return PreviewResponse{}, err
 	}
 	redacted := req
-	redacted.APIKey = maskKey(req.APIKey)
+	if strings.TrimSpace(req.APIKey) == "" {
+		redacted.APIKey = apiKeyPlaceholder
+	} else {
+		redacted.APIKey = maskKey(req.APIKey)
+	}
 	return PreviewResponse{Tool: tool, Snippets: snippetsFor(tool.ID, redacted), MaskedKey: redacted.APIKey}, nil
 }
 
@@ -185,6 +195,77 @@ func toolDefinitions(applyEnabled bool, home string) []toolDefinition {
 	}
 }
 
+func builtInPresets() []ToolPreset {
+	return []ToolPreset{
+		{
+			ID:          "claude-balanced",
+			Label:       "Claude Code — balanced",
+			Description: "Claude Code through Aurora with Sonnet and Haiku defaults.",
+			ToolID:      "claude-code",
+			Model:       "claude-sonnet",
+			ModelOverrides: map[string]string{
+				"ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet",
+				"ANTHROPIC_DEFAULT_HAIKU_MODEL":  "claude-haiku",
+			},
+			APIKeyPlaceholder: apiKeyPlaceholder,
+		},
+		{
+			ID:          "codex-default",
+			Label:       "Codex — default",
+			Description: "OpenAI Codex CLI pointed at the Aurora gateway.",
+			ToolID:      "codex",
+			Model:       "gpt-5-codex",
+			ModelOverrides: map[string]string{
+				"CODEX_MODEL":          "gpt-5-codex",
+				"CODEX_SUBAGENT_MODEL": "gpt-5-codex",
+			},
+			APIKeyPlaceholder: apiKeyPlaceholder,
+		},
+		{
+			ID:                "opencode-multi",
+			Label:             "upstream — multi-model",
+			Description:       "upstream with several Aurora models available under the aurora/ prefix.",
+			ToolID:            "opencode",
+			Models:            []string{"claude-sonnet", "gpt-4o-mini", "gemini-2.0-flash"},
+			Model:             "claude-sonnet",
+			APIKeyPlaceholder: apiKeyPlaceholder,
+		},
+		{
+			ID:          "openclaw-default",
+			Label:       "Open Claw — default",
+			Description: "Open Claw agent defaults routed through Aurora.",
+			ToolID:      "openclaw",
+			Model:       "claude-sonnet",
+			ModelOverrides: map[string]string{
+				"OPENCLAW_MODEL": "claude-sonnet",
+			},
+			APIKeyPlaceholder: apiKeyPlaceholder,
+		},
+		{
+			ID:          "qwen-default",
+			Label:       "Qwen Code — default",
+			Description: "Qwen Code using Aurora as an OpenAI-compatible provider.",
+			ToolID:      "qwen",
+			Model:       "qwen3-coder",
+			ModelOverrides: map[string]string{
+				"QWEN_MODEL": "qwen3-coder",
+			},
+			APIKeyPlaceholder: apiKeyPlaceholder,
+		},
+		{
+			ID:          "generic-openai",
+			Label:       "Generic OpenAI-compatible",
+			Description: "Export OPENAI_* environment variables for any OpenAI-compatible client.",
+			ToolID:      "generic",
+			Model:       "gpt-4o-mini",
+			ModelOverrides: map[string]string{
+				"OPENAI_MODEL": "gpt-4o-mini",
+			},
+			APIKeyPlaceholder: apiKeyPlaceholder,
+		},
+	}
+}
+
 func snippetsFor(toolID string, req PreviewRequest) map[string]string {
 	for _, definition := range toolDefinitions(false, homeDir()) {
 		if definition.ID == toolID {
@@ -259,7 +340,7 @@ func opencodeSnippets(req PreviewRequest) map[string]string {
 	cfg := map[string]any{
 		"provider": map[string]any{
 			"aurorax": map[string]any{
-				"npm": "@ai-sdk/openai-compatible",
+				"npm":  "@ai-sdk/openai-compatible",
 				"name": "AuroraX Gateway",
 				"options": map[string]string{
 					"baseURL": baseV1(req),

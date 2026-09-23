@@ -59,6 +59,7 @@ type Handler struct {
 	poolWeights          *PoolOverrideStore
 	oauthRegistry        *oauth.Registry
 	sessionHub           interface{ Apply(map[string][]string, string) map[string]string }
+	sessionHeaderEnsurer SessionHeaderEnsurer
 	sidecarStore         *SidecarOverrideStore
 	extensions           *ExtensionStore
 
@@ -637,6 +638,25 @@ func WithSessionHub(hub SessionHubInterface) Option {
 	return func(handler *Handler) {
 		handler.sessionHub = hub
 	}
+}
+
+// SessionHeaderEnsurer installs extension header rules into a session hub
+// target (provider, pool, …). It mirrors POST /sessionhub/providers/:name/
+// ensure-headers: merge semantics that never overwrite an operator's
+// customised header fields. The application layer wires an adapter over the
+// real session hub so this package stays free of a sessionhub import.
+type SessionHeaderEnsurer interface {
+	EnsureHeaders(target string, headers []ExtensionHeader) (map[string]any, error)
+}
+
+// SetSessionHeaderEnsurer wires session hub header installation after handler
+// construction — the session hub is created after the admin handler at
+// startup, so an Option cannot capture it.
+func (h *Handler) SetSessionHeaderEnsurer(ensurer SessionHeaderEnsurer) {
+	if h == nil {
+		return
+	}
+	h.sessionHeaderEnsurer = ensurer
 }
 
 func WithMasterKey(key string) Option {

@@ -591,6 +591,9 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 			registerSessionHubPoolMemberships(app.sessionHub, app.providers.Pools)
 		}
 		serverCfg.SessionHub = app.sessionHub
+		// Let extension full-apply install header rules server-side
+		// (same merge semantics as /sessionhub/providers/:name/ensure-headers).
+		adminHandler.SetSessionHeaderEnsurer(sessionHubHeaderEnsurer{hub: app.sessionHub})
 		slog.Info("session hub initialized", "providers", len(app.sessionHub.Config().Providers))
 
 		// Initialize OAuth device flow handler
@@ -1136,7 +1139,8 @@ func initAdmin(
 	return adminHandler, dashHandler, nil
 }
 
-func configGuardrailDefinitions(cfg config.GuardrailsConfig) ([]guardrails.Definition, error) {if !cfg.Enabled {
+func configGuardrailDefinitions(cfg config.GuardrailsConfig) ([]guardrails.Definition, error) {
+	if !cfg.Enabled {
 		return nil, nil
 	}
 
@@ -2042,4 +2046,45 @@ func registerSessionHubPoolMemberships(hub *sessionhub.Hub, pools *pool.Registry
 			hub.SetPoolMembership(snap.Name, members)
 		}
 	}
+}
+
+// sessionHubHeaderEnsurer adapts the session hub to the admin handler's
+// SessionHeaderEnsurer so extension full-apply can install header rules
+// without the admin package importing sessionhub. Merge semantics match
+// POST /sessionhub/providers/:name/ensure-headers: existing customised
+// headers are preserved, missing ones are appended, and the target rule is
+// validated before it is written.
+type sessionHubHeaderEnsurer struct {
+	hub *sessionhub.Hub
+}
+
+// EnsureHeaders merges headers into the target's rule (provider, pool, …).
+func (e sessionHubHeaderEnsurer) EnsureHeaders(target string, headers []admin.ExtensionHeader) (map[string]any, error) {
+	if e.hub == nil {
+		return nil, fmt.Errorf("session hub unavailable")
+	}
+	want := make([]sessionhub.HeaderRule, 0, len(headers))
+	for _, h := range headers {
+		want = append(want, sessionhub.HeaderRule{
+			Name:    h.Name,
+			Mode:    sessionhub.HeaderMode(h.Mode),
+			Prefix:  h.Prefix,
+			Length:  h.Length,
+			Value:   h.Value,
+			Values:  h.Values,
+			Charset: h.Charset,
+		})
+	}
+	existing, _ := e.hub.GetProviderRule(target)
+	merged, added, kept := sessionhub.EnsureRules(existing, want)
+	if err := sessionhub.ValidateRule(target, merged); err != nil {
+		return nil, err
+	}
+	e.hub.SetProviderRule(target, merged)
+	return map[string]any{
+		"provider": target,
+		"added":    added,
+		"already":  kept,
+		"headers":  merged.Headers,
+	}, nil
 }

@@ -11,9 +11,9 @@ import (
 
 func (h *Handler) ListCLITools(c *echo.Context) error {
 	if h.cliTools == nil {
-		return c.JSON(http.StatusOK, map[string]any{"tools": []any{}})
+		return c.JSON(http.StatusOK, map[string]any{"tools": []any{}, "presets": []any{}})
 	}
-	return c.JSON(http.StatusOK, map[string]any{"tools": h.cliTools.ListTools()})
+	return c.JSON(http.StatusOK, map[string]any{"tools": h.cliTools.ListTools(), "presets": h.cliTools.ListPresets()})
 }
 
 func (h *Handler) GetCLITool(c *echo.Context) error {

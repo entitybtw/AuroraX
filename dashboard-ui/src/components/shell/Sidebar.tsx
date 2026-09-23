@@ -137,8 +137,9 @@ export function Sidebar({
   const { location } = useRouterState();
   const path = location.pathname;
   const { loggedIn, user } = useSession();
-  const { hideNav } = useExtensionUIContext();
+  const { hideNav, logoText, logoURL } = useExtensionUIContext();
   const extNav = useExtensionNav();
+  const brandLabel = logoText || "AuroraX";
 
   const isHidden = React.useCallback(
     (label: string, to: string): boolean => {
@@ -213,10 +214,22 @@ export function Sidebar({
     >
       <header className="flex items-center pb-4 pt-5 px-4 gap-3">
         <span className="shrink-0">
-          <SidebarLogo />
+          {logoURL ? (
+            <img
+              src={logoURL}
+              alt=""
+              className="h-7 w-7 md:h-8 md:w-8 object-contain"
+              onError={(e) => {
+                const img = e.currentTarget;
+                img.style.display = "none";
+              }}
+            />
+          ) : (
+            <SidebarLogo />
+          )}
         </span>
         <div className="min-w-0 flex-1">
-          <h1 className="font-display text-lg font-bold tracking-tight text-foreground whitespace-nowrap overflow-hidden">AuroraX</h1>
+          <h1 className="font-display text-lg font-bold tracking-tight text-foreground whitespace-nowrap overflow-hidden">{brandLabel}</h1>
         </div>
         <button onClick={onCloseMobile} className="md:hidden p-2 -mr-1 text-muted-foreground hover:text-foreground active:scale-95 transition-all rounded-lg hover:bg-surface-hover" aria-label="Close menu">
           <X className="h-5 w-5" />
