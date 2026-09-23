@@ -327,7 +327,7 @@ export function ExtensionsTab(): JSX.Element {
             ...(e.tagline != null ? { tagline: e.tagline } : {}),
             url:
               e.raw_url ??
-              `${base.replace(/\/$/, "")}/api/v1/extensions/${encodeURIComponent(e.id)}/raw`,
+              `${base.replace(/\/$/, "")}/extensions/${encodeURIComponent(e.id)}.extension.json`,
           })),
         );
         if (list.length === 0) setStoreError("No extensions found at this store.");
