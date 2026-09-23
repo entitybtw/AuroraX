@@ -1,5 +1,14 @@
 import { useEffect, useState } from "react";
-import { SettingsIcon, ServerIcon, DatabaseIcon, GlobeIcon, BoxesIcon, KeyIcon, CpuIcon } from "lucide-react";
+import {
+  SettingsIcon,
+  ServerIcon,
+  DatabaseIcon,
+  GlobeIcon,
+  BoxesIcon,
+  KeyIcon,
+  CpuIcon,
+  PuzzleIcon,
+} from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { SettingsProvider } from "@/components/settings/SettingsContext";
 import { GeneralTab } from "@/components/settings/GeneralTab";
@@ -10,10 +19,19 @@ import { InfrastructureTab } from "@/components/settings/InfrastructureTab";
 import { SessionHubTab } from "@/components/settings/SessionHubTab";
 import { SidecarTab } from "@/components/settings/SidecarTab";
 import { EditionStatusChip } from "@/components/settings/EditionBadges";
+import { ExtensionBlocks, ExtensionWidgets } from "@/components/extensions/ExtensionWidgets";
+import {
+  useExtensionSettingsTabs,
+  useExtensionUIContext,
+} from "@/lib/extensions/ui-context";
 import { cn } from "@/lib/utils";
 import type { SettingsTab } from "@/components/settings/types";
 
-const TABS: { id: SettingsTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+const BUILTIN_TABS: {
+  id: SettingsTab;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}[] = [
   { id: "general", label: "General", icon: SettingsIcon },
   { id: "providers", label: "Providers", icon: ServerIcon },
   { id: "infrastructure", label: "Infrastructure", icon: BoxesIcon },
@@ -23,19 +41,41 @@ const TABS: { id: SettingsTab; label: string; icon: React.ComponentType<{ classN
   { id: "sidecar", label: "Sidecar", icon: CpuIcon },
 ];
 
+type TabItem = {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  extensionId?: string;
+};
+
 function SettingsPageInner(): JSX.Element {
-  const [activeTab, setActiveTab] = useState<SettingsTab>("general");
-  const visibleTabs = TABS;
+  const [activeTab, setActiveTab] = useState<string>("general");
+  const { hideSettingsTabs } = useExtensionUIContext();
+  const extTabs = useExtensionSettingsTabs();
+
+  const visibleTabs: TabItem[] = [
+    ...BUILTIN_TABS.filter((t) => !hideSettingsTabs.has(t.id)).map((t) => ({
+      id: t.id as string,
+      label: t.label,
+      icon: t.icon,
+    })),
+    ...extTabs.map((t) => ({
+      id: t.id,
+      label: t.label,
+      icon: PuzzleIcon,
+      extensionId: t.extensionId,
+    })),
+  ];
 
   useEffect(() => {
     const tabParam = window.location.hash.replace(/^#/, "").trim();
     if (tabParam && visibleTabs.some((tab) => tab.id === tabParam)) {
-      setActiveTab(tabParam as SettingsTab);
+      setActiveTab(tabParam);
       window.history.replaceState(null, "", window.location.pathname + window.location.search);
     }
   }, [visibleTabs]);
 
-  const selectTab = (id: SettingsTab) => {
+  const selectTab = (id: string) => {
     setActiveTab(id);
   };
 
@@ -44,6 +84,8 @@ function SettingsPageInner(): JSX.Element {
       setActiveTab("general");
     }
   }, [activeTab, visibleTabs]);
+
+  const activeExtTab = extTabs.find((t) => t.id === activeTab);
 
   return (
     <div className="flex flex-col gap-6">
@@ -80,6 +122,14 @@ function SettingsPageInner(): JSX.Element {
       {activeTab === "infrastructure" && <InfrastructureTab />}
       {activeTab === "sessionhub" && <SessionHubTab />}
       {activeTab === "sidecar" && <SidecarTab />}
+
+      {activeExtTab && (
+        <div className="border border-border/40 bg-surface/35 p-6">
+          <ExtensionBlocks blocks={activeExtTab.blocks ?? []} />
+        </div>
+      )}
+
+      <ExtensionWidgets slot="settings" />
     </div>
   );
 }

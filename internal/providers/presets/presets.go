@@ -38,16 +38,10 @@ func DetectPreset(name, providerType, baseURL string) (*Preset, bool) {
 	return nil, false
 }
 
-// builtInPresets contains the full list of provider presets.
+// builtInPresets contains the full list of provider presets. Extensions may
+// contribute additional presets at runtime; upstream is intentionally not
+// built-in and ships with its store extension.
 var builtInPresets = []Preset{
-	{
-		Name:        "()",
-		Type:        "",
-		BaseURL:     "https:///zen/v1",
-		AuthMethod:  "",
-		KeyOptional: true,
-		Description: "models with device flow authentication. No API key required — link your upstream account via browser.",
-	},
 	{
 		Name:        "OpenAI",
 		Type:        "openai",

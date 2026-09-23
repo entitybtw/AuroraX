@@ -108,4 +108,23 @@ func (h *Handler) RegisterRoutes(g RouteRegistrar) {
 	g.GET("/sidecar", h.GetSidecarStatus)
 	g.PUT("/sidecar", h.UpdateSidecarSettings)
 
+	g.GET("/sidecar/extensions", h.ListExtensions)
+	g.GET("/sidecar/extensions/ui", h.ListExtensionUI)
+	g.POST("/sidecar/extensions/import", h.ImportExtension)
+	g.GET("/sidecar/extensions/stores", h.ListExtensionStores)
+	g.POST("/sidecar/extensions/store/browse", h.BrowseExtensionStore)
+	g.POST("/sidecar/extensions/store/install", h.InstallExtensionFromStore)
+	g.GET("/sidecar/extensions/:id", h.GetExtension)
+	g.GET("/sidecar/extensions/:id/export", h.ExportExtension)
+	g.DELETE("/sidecar/extensions/:id", h.DeleteExtension)
+	g.POST("/sidecar/extensions/:id/apply", h.ApplyExtension)
+
+	// Temporary aliases for older dashboards.
+	g.GET("/sidecar/presets", h.ListExtensions)
+	g.POST("/sidecar/presets/import", h.ImportExtension)
+	g.GET("/sidecar/presets/:id", h.GetExtension)
+	g.GET("/sidecar/presets/:id/export", h.ExportExtension)
+	g.DELETE("/sidecar/presets/:id", h.DeleteExtension)
+	g.POST("/sidecar/presets/:id/apply", h.ApplyExtension)
+
 }

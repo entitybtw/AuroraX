@@ -481,10 +481,13 @@ export function ProvidersTab(): JSX.Element {
   const providers = providerStatus?.providers ?? [];
   const summary = providerStatus?.summary;
 
-  // Check if a provider is an upstream zen provider (vllm type with /zen/v1 base URL)
-  const is= (provider: any) => {
-    const baseUrl = provider.config?.base_url || "";
-    return provider.type === "vllm" && baseUrl.includes("/zen/v1");
+  // is an extension feature (provides.features includes ""); show
+  // the link control for any provider with auth_method=or the optional
+  // type activated by extension.
+  const supports= (provider: any) => {
+    const auth = provider.config?.auth_method || "";
+    if (auth === "") return true;
+    return provider.type === "";
   };
 
   const allSelected = providers.length > 0 && providers.every((p) => selected.has(p.name));
@@ -690,7 +693,7 @@ export function ProvidersTab(): JSX.Element {
                           {provider.config?.user_agent && <Pill tone="accent">custom UA</Pill>}
                           {provider.config?.disable_api_key && <Pill tone="warning">key off</Pill>}
                           {provider.config?.bind_ip && <Pill tone="muted">bind: {provider.config.bind_ip}</Pill>}
-                          {is(provider) && provider.?.has_token && !provider.?.expired && (
+                          {supports(provider) && provider.?.has_token && !provider.?.expired && (
                             <Pill tone="success">linked</Pill>
                           )}
                         </div>
@@ -709,12 +712,12 @@ export function ProvidersTab(): JSX.Element {
                       <button onClick={() => { setEditingProvider({ name: provider.name, originalName: provider.name, type: provider.config?.type || provider.type || "", base_url: provider.config?.base_url || "", api_version: provider.config?.api_version || "", api_key: provider.config?.api_key || "", models: provider.config?.models?.join(", ") || "", bind_ip: provider.config?.bind_ip || "", pool_only: provider.config?.pool_only ?? false, user_agent: provider.config?.user_agent || "", disable_api_key: provider.config?.disable_api_key ?? false, auto_fetch_models: provider.config?.auto_fetch_models ?? true, autofetch_filter_text: filterToText(provider.config?.autofetch_filter), apiKeySet: provider.config?.api_key_set ?? false }); setModalOpen("edit"); }} className="p-1.5 hover:bg-border/20 transition-colors" title="Edit provider">
                         <Edit3Icon className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
-                      {is(provider) && (
+                      {supports(provider) && (
                         <button
                           onClick={() => set(provider.name)}
                           className="p-1.5 hover:bg-accent/10 transition-colors text-accent"
-                          title="Link upstream account ()"
-                          aria-label={`Link upstream account for ${provider.name}`}
+                          title="Link account"
+                          aria-label={`Link account for ${provider.name}`}
                         >
                           <KeyIcon className="h-3.5 w-3.5" />
                         </button>

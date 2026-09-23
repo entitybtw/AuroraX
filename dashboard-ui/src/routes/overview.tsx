@@ -23,6 +23,7 @@ import type { DashboardConfigResponse } from "@/lib/api/dashboard-config";
 import type { UsageQueryFilters } from "@/lib/api/usage-types";
 import { PageHeader } from "@/components/ui/page-header";
 import { TenantScopeSelect } from "@/components/tenant/TenantScopeSelect";
+import { ExtensionWidgets } from "@/components/extensions/ExtensionWidgets";
 import { useTenantScope } from "@/lib/tenant/tenant-scope";
 
 function EditionHero({ config }: { config: DashboardConfigResponse | undefined }): JSX.Element {
@@ -127,6 +128,8 @@ export function OverviewPage(): JSX.Element {
       />
 
       <EditionHero config={dashboardConfig.data} />
+
+      <ExtensionWidgets slot="overview" />
 
       <StatCards
         summary={summary.data}
