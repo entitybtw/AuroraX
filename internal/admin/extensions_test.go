@@ -101,7 +101,6 @@ func TestExtension_ExtendedSchemaRoundTrip(t *testing.T) {
 	  "": {"server":"https://auth.example.test","client_id":"cli","verification_base":"https://auth.example.test"},
 	  "files": {"tools/":"[]","scripts/helper.js":"// helper"},
 	  "headers": [{"name":"x-session","mode":"generate","prefix":"s_","length":24,"charset":"hex"}],
-	  "store_urls": ["https://store.example.test"],
 	  "ui": {"accent":"#123456","fields":[{"key":"region","label":"Region","type":"select","options":["eu","us"]}]}
 	}`
 	var p Extension
@@ -131,9 +130,6 @@ func TestExtension_ExtendedSchemaRoundTrip(t *testing.T) {
 	}
 	if len(p.UI.Fields) != 1 || p.UI.Fields[0].Key != "region" {
 		t.Fatalf("ui.fields not parsed: %+v", p.UI.Fields)
-	}
-	if len(p.StoreURLs) != 1 {
-		t.Fatalf("store_urls not parsed: %+v", p.StoreURLs)
 	}
 	out, err := json.Marshal(p)
 	if err != nil || !json.Valid(out) {
@@ -255,5 +251,90 @@ func TestHandler_ListExtensionUI_OnlyApplied(t *testing.T) {
 	got := body.Contributions[0]
 	if got.ID != "ui-ext" || got.UI.Accent != "#112233" || len(got.UI.Nav) != 1 {
 		t.Fatalf("unexpected contribution: %+v", got)
+	}
+}
+
+func TestApplyExtension_Configures(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("AURORA_EXTENSIONS_PATH", filepath.Join(dir, "extensions.json"))
+	t.Setenv("AURORA_PROVIDER_OVERRIDES_PATH", filepath.Join(dir, "provider-overrides.json"))
+	t.Setenv("AURORA_SIDECAR_OVERRIDES_PATH", filepath.Join(dir, "sidecar-overrides.json"))
+
+	overrides := NewProviderOverrideStore()
+	zend := true
+	overrides.upsert(ProviderOverride{
+		Name:    "vllm-zen-main",
+		Type:    "vllm",
+		BaseURL: "https:///zen/v1",
+		Enabled: &zend,
+	})
+	overrides.upsert(ProviderOverride{
+		Name:    "openrouter-main",
+		Type:    "openrouter",
+		BaseURL: "https://openrouter.ai/api/v1",
+		Enabled: &zend,
+	})
+
+	store := NewExtensionStore()
+	ext := Extension{
+		ID:     "",
+		Name:   "upstream",
+		BaseURL: "https:///zen/v1",
+		: &Extension{
+			Server:           "https://example.com/console",
+			ClientID:         "",
+			VerificationBase: "https://example.com",
+		},
+		Provides: &ExtensionProvides{
+			ProviderTypes: []string{""},
+			Features:      []string{""},
+		},
+	}
+	store.Upsert(ext)
+
+	h := NewHandler(nil, nil,
+		WithExtensionStore(store),
+		WithSidecarStore(NewSidecarOverrideStore()),
+		WithProviderOverrides(overrides),
+	)
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/sidecar/extensions//apply", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: ""}})
+	if err := h.ApplyExtension(c); err != nil {
+		t.Fatalf("ApplyExtension: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var body struct {
+		[]string `json:""`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(body.) != 1 || body.[0] != "vllm-zen-main" {
+		t.Fatalf("= %v, want [vllm-zen-main]", body.)
+	}
+
+	zen, ok := overrides.get("vllm-zen-main")
+	if !ok {
+		t.Fatal("zen override missing")
+	}
+	if zen.AuthMethod != "" || zen.!= "https://example.com/console" || zen.!= "" {
+		t.Fatalf("zen not applied: %+v", zen)
+	}
+	other, _ := overrides.get("openrouter-main")
+	if other.AuthMethod == "" {
+		t.Fatalf("non-matching provider must not get : %+v", other)
+	}
+
+	// Sidecar defaults also carry endpoints.
+	side := h.sidecarStore.get()
+	if side.!= "https://example.com/console" || side.!= "" {
+		t.Fatalf("sidecar defaults not set: %+v", side)
 	}
 }
