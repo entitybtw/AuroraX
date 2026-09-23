@@ -219,6 +219,13 @@ type providerUpdateRequest struct {
 	UserAgent       *string                 `json:"user_agent"`
 	AutoFetchModels *bool                   `json:"auto_fetch_models"`
 	AutoFetchFilter *config.AutoFetchFilter `json:"autofetch_filter"`
+	// AuthMethod selects "key" (default) or "oauth".
+	AuthMethod *string `json:"auth_method"`
+	// OAuthServer / OAuthClientID configure the device flow for auth_method=oauth.
+	OAuthServer   *string `json:"oauth_server"`
+	OAuthClientID *string `json:"oauth_client_id"`
+	// DisableAPIKey stops sending the stored static key (OAuth supersedes it).
+	DisableAPIKey *bool `json:"disable_api_key"`
 	// NewName renames the provider (both UI-created and static providers).
 	NewName *string `json:"new_name"`
 }
@@ -381,6 +388,18 @@ func (h *Handler) UpdateProvider(c *echo.Context) error {
 	}
 	if req.AutoFetchFilter != nil {
 		updated.AutoFetchFilter = cloneAutoFetchFilter(req.AutoFetchFilter)
+	}
+	if req.AuthMethod != nil {
+		updated.AuthMethod = strings.TrimSpace(*req.AuthMethod)
+	}
+	if req.OAuthServer != nil {
+		updated.OAuthServer = strings.TrimSpace(*req.OAuthServer)
+	}
+	if req.OAuthClientID != nil {
+		updated.OAuthClientID = strings.TrimSpace(*req.OAuthClientID)
+	}
+	if req.DisableAPIKey != nil {
+		updated.DisableAPIKey = boolPtr(*req.DisableAPIKey)
 	}
 
 	// Rename support: the caller may supply a new_name. The new override is

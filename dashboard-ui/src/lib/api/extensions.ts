@@ -148,7 +148,6 @@ const ExtensionSchema = z.object({
   oauth: ExtensionOAuthSchema.optional(),
   files: z.record(z.string()).optional(),
   provides: ExtensionProvidesSchema.optional(),
-  store_urls: z.array(z.string()).optional(),
   ui: ExtensionUISchema.optional(),
   applied: z.boolean().optional(),
   builtin: z.boolean(),

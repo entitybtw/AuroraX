@@ -27,7 +27,6 @@ type SidecarSettings struct {
 	RetryDelayMs    int               `json:"retry_delay_ms"`
 	BindIPs         []string          `json:"bind_ips"`
 	Proxies         []SidecarProxy    `json:"proxies"`
-	StoreURLs       []string          `json:"store_urls"`
 	// ToolsPath is an absolute or sidecar-relative path to a JSON tool schema
 	// file supplied by an extension (overrides the bundled default).
 	ToolsPath string `json:"tools_path,omitempty"`
@@ -118,7 +117,6 @@ func (s *SidecarOverrideStore) load() {
 	s.settings.BindIPs = loaded.BindIPs
 	s.settings.Proxies = loaded.Proxies
 	s.settings.InjectToolTypes = loaded.InjectToolTypes
-	s.settings.StoreURLs = loaded.StoreURLs
 	s.settings.ToolsPath = loaded.ToolsPath
 	s.settings.OAuthServer = loaded.OAuthServer
 	s.settings.OAuthClientID = loaded.OAuthClientID

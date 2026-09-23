@@ -60,7 +60,6 @@ interface SidecarSettings {
   max_attempts: number;
   retry_delay_ms: number;
   bind_ips: string[];
-  store_urls?: string[] | undefined;
   proxies: SidecarProxy[];
   tools_path?: string | undefined;
   oauth_server?: string | undefined;

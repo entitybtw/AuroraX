@@ -214,12 +214,9 @@ type Extension struct {
 	Provides *ExtensionProvides  `json:"provides,omitempty"`
 	UI       ExtensionUI         `json:"ui,omitempty"`
 	// Applied marks that the operator activated this extension (UI + sidecar).
-	Applied bool `json:"applied,omitempty"`
-	// StoreURLs are catalog base URLs the UI can browse when this extension
-	// is selected (informational; not applied to sidecar settings).
-	StoreURLs []string `json:"store_urls,omitempty"`
-	Builtin   bool     `json:"builtin"`
-	Source    string   `json:"source,omitempty"`
+	Applied bool   `json:"applied,omitempty"`
+	Builtin bool   `json:"builtin"`
+	Source  string `json:"source,omitempty"`
 }
 
 // ExtensionStore holds imported extensions, persisting them to disk so they
@@ -677,9 +674,6 @@ func (h *Handler) ApplyExtension(c *echo.Context) error {
 			next.OAuthVerificationBase = ext.OAuth.VerificationBase
 		}
 	}
-	if len(ext.StoreURLs) > 0 && len(next.StoreURLs) == 0 {
-		next.StoreURLs = ext.StoreURLs
-	}
 	h.sidecarStore.update(next)
 
 	var activated []string
@@ -687,6 +681,9 @@ func (h *Handler) ApplyExtension(c *echo.Context) error {
 		ext.Applied = true
 		activated = h.extensions.Upsert(ext)
 	}
+
+	// provides.features "oauth" wires device-flow OAuth onto matching providers.
+	oauthProviders := h.applyExtensionOAuth(c, ext)
 
 	tools := make([]string, 0, len(ext.Tools))
 	for _, t := range ext.Tools {
@@ -709,10 +706,85 @@ func (h *Handler) ApplyExtension(c *echo.Context) error {
 	if ext.OAuth != nil {
 		resp["oauth"] = ext.OAuth
 	}
+	if len(oauthProviders) > 0 {
+		resp["oauth_providers"] = oauthProviders
+	}
 	if next.ToolsPath != "" {
 		resp["tools_path"] = next.ToolsPath
 	}
 	return c.JSON(http.StatusOK, resp)
+}
+
+// extensionProvidesFeature reports whether provides.features lists name
+// (case-insensitive).
+func extensionProvidesFeature(p *ExtensionProvides, name string) bool {
+	if p == nil {
+		return false
+	}
+	for _, f := range p.Features {
+		if strings.EqualFold(strings.TrimSpace(f), name) {
+			return true
+		}
+	}
+	return false
+}
+
+// applyExtensionOAuth enables auth_method=oauth on providers that this
+// extension targets: type ∈ provides.provider_types, or base_url equals the
+// extension base_url (e.g. free tier free-tier vllm instances). OAuth server /
+// client_id come from extension.oauth. Returns updated provider names.
+// No-op when the extension does not declare provides.features "oauth".
+func (h *Handler) applyExtensionOAuth(c *echo.Context, ext Extension) []string {
+	if h.providerOverrides == nil || ext.OAuth == nil ||
+		!extensionProvidesFeature(ext.Provides, "oauth") {
+		return nil
+	}
+	server := strings.TrimSpace(ext.OAuth.Server)
+	clientID := strings.TrimSpace(ext.OAuth.ClientID)
+	if server == "" || clientID == "" {
+		return nil
+	}
+
+	types := map[string]bool{}
+	if ext.Provides != nil {
+		for _, t := range ext.Provides.ProviderTypes {
+			t = strings.ToLower(strings.TrimSpace(t))
+			if t != "" {
+				types[t] = true
+			}
+		}
+	}
+	extBase := strings.TrimRight(strings.TrimSpace(ext.BaseURL), "/")
+
+	var updated []string
+	for _, o := range h.providerOverrides.list() {
+		if !o.IsEnabled() {
+			continue
+		}
+		match := types[strings.ToLower(strings.TrimSpace(o.Type))]
+		if !match && extBase != "" {
+			base := strings.TrimRight(strings.TrimSpace(o.BaseURL), "/")
+			match = base == extBase
+		}
+		if !match {
+			continue
+		}
+		if o.AuthMethod == "oauth" && o.OAuthServer == server && o.OAuthClientID == clientID {
+			continue
+		}
+		o.AuthMethod = "oauth"
+		o.OAuthServer = server
+		o.OAuthClientID = clientID
+		h.providerOverrides.upsert(o)
+		updated = append(updated, o.Name)
+	}
+	if len(updated) > 0 && h.runtimeRefresher != nil {
+		if _, err := h.runtimeRefresher.RefreshRuntime(c.Request().Context()); err != nil {
+			// Surface refresh failure without failing apply — overrides persist.
+			return updated
+		}
+	}
+	return updated
 }
 
 // ExtensionUIContribution is one applied extension's UI payload for the dashboard.
@@ -746,31 +818,10 @@ func (h *Handler) ListExtensionUI(c *echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{"contributions": out})
 }
 
-// ListExtensionStores returns configured store base URLs (from sidecar settings
-// plus any store_urls on installed extensions).
+// ListExtensionStores returns configured store base URLs. Operators type a
+// store URL in the dashboard; extensions do not ship catalog URLs.
 func (h *Handler) ListExtensionStores(c *echo.Context) error {
-	seen := map[string]bool{}
-	var urls []string
-	add := func(u string) {
-		u = strings.TrimRight(strings.TrimSpace(u), "/")
-		if u != "" && !seen[u] {
-			seen[u] = true
-			urls = append(urls, u)
-		}
-	}
-	if h.sidecarStore != nil {
-		for _, u := range h.sidecarStore.get().StoreURLs {
-			add(u)
-		}
-	}
-	if h.extensions != nil {
-		for _, e := range h.extensions.List() {
-			for _, u := range e.StoreURLs {
-				add(u)
-			}
-		}
-	}
-	return c.JSON(http.StatusOK, map[string]any{"stores": urls})
+	return c.JSON(http.StatusOK, map[string]any{"stores": []string{}})
 }
 
 // BrowseExtensionStore proxies a search to a configured (or ad-hoc) store.

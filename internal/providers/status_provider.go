@@ -44,6 +44,9 @@ type SanitizedProviderConfig struct {
 	PoolOnly        bool                      `json:"pool_only,omitempty"`
 	UserAgent       string                    `json:"user_agent,omitempty"`
 	DisableAPIKey   bool                      `json:"disable_api_key,omitempty"`
+	AuthMethod      string                    `json:"auth_method,omitempty"`
+	OAuthServer     string                    `json:"oauth_server,omitempty"`
+	OAuthClientID   string                    `json:"oauth_client_id,omitempty"`
 	AutoFetchModels bool                      `json:"auto_fetch_models"`
 	AutoFetchFilter *config.AutoFetchFilter   `json:"autofetch_filter,omitempty"`
 	Resilience      SanitizedResilienceConfig `json:"resilience"`
@@ -112,6 +115,10 @@ func SanitizeProviderConfigs(configs map[string]ProviderConfig) []SanitizedProvi
 			APIKeySet:       strings.TrimSpace(cfg.APIKey) != "",
 			PoolOnly:        cfg.PoolOnly,
 			UserAgent:       strings.TrimSpace(cfg.UserAgent),
+			DisableAPIKey:   cfg.DisableAPIKey,
+			AuthMethod:      strings.TrimSpace(cfg.AuthMethod),
+			OAuthServer:     strings.TrimSpace(cfg.OAuthServer),
+			OAuthClientID:   strings.TrimSpace(cfg.OAuthClientID),
 			AutoFetchModels: cfg.AutoFetchModels == nil || *cfg.AutoFetchModels,
 			AutoFetchFilter: sanitizedAutoFetchFilter(cfg.AutoFetchFilter),
 			Resilience: SanitizedResilienceConfig{
