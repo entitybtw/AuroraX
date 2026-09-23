@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/labstack/echo/v5"
 )
@@ -1083,6 +1084,82 @@ func (h *Handler) ListExtensionStores(c *echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{"stores": []string{}})
 }
 
+// storeCatalogURLs returns candidate catalog URLs for a store base. The first
+// entry is the plain-static layout, which every static host serves (GitHub
+// Pages included); the second is the nginx "pretty route" alias.
+func storeCatalogURLs(base string) []string {
+	trimmed := strings.TrimRight(strings.TrimSpace(base), "/")
+	return []string{
+		trimmed + "/api/v1/extensions.json",
+		trimmed + "/api/v1/extensions",
+	}
+}
+
+// storeRawURLs returns candidate raw extension URLs, static layout first.
+func storeRawURLs(base, id string) []string {
+	trimmed := strings.TrimRight(strings.TrimSpace(base), "/")
+	escaped := url.PathEscape(id)
+	return []string{
+		trimmed + "/extensions/" + escaped + ".extension.json",
+		trimmed + "/api/v1/extensions/" + escaped + "/raw",
+	}
+}
+
+// fetchFirstOK GETs each candidate in order and returns the first 200 body
+// together with the URL that produced it.
+func fetchFirstOK(candidates []string) (string, []byte, error) {
+	client := &http.Client{Timeout: 20 * time.Second}
+	var lastErr error
+	for _, candidate := range candidates {
+		resp, err := client.Get(candidate)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		data, readErr := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+		resp.Body.Close()
+		if readErr != nil {
+			lastErr = readErr
+			continue
+		}
+		if resp.StatusCode == http.StatusOK {
+			return candidate, data, nil
+		}
+		lastErr = fmt.Errorf("store status %d", resp.StatusCode)
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("no store url candidates")
+	}
+	return "", nil, lastErr
+}
+
+// attachRawURLs fills in a raw_url for every catalog entry so the dashboard
+// installs from a URL that actually exists on the store host.
+func attachRawURLs(catalog any, base string) {
+	root, ok := catalog.(map[string]any)
+	if !ok {
+		return
+	}
+	list, ok := root["extensions"].([]any)
+	if !ok {
+		return
+	}
+	for _, item := range list {
+		entry, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		id, _ := entry["id"].(string)
+		if id == "" {
+			continue
+		}
+		if existing, ok := entry["raw_url"].(string); ok && existing != "" {
+			continue
+		}
+		entry["raw_url"] = storeRawURLs(base, id)[0]
+	}
+}
+
 // BrowseExtensionStore proxies a search to a configured (or ad-hoc) store.
 // Query: url=<store base> [q=] [tag=] [type=].
 func (h *Handler) BrowseExtensionStore(c *echo.Context) error {
@@ -1094,40 +1171,47 @@ func (h *Handler) BrowseExtensionStore(c *echo.Context) error {
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "url must be http or https"})
 	}
-	browse := *u
-	browse.Path = strings.TrimRight(browse.Path, "/") + "/api/v1/extensions"
-	q := browse.Query()
+	browseQuery := u.Query()
 	for _, key := range []string{"q", "tag", "source", "type"} {
 		if v := strings.TrimSpace(c.QueryParam(key)); v != "" {
-			q.Set(key, v)
+			browseQuery.Set(key, v)
 		}
 	}
-	browse.RawQuery = q.Encode()
 
-	client := &http.Client{}
-	resp, err := client.Get(browse.String())
-	if err != nil {
-		return c.JSON(http.StatusBadGateway, map[string]string{"error": "store fetch: " + err.Error()})
+	candidates := make([]string, 0, 2)
+	for _, candidate := range storeCatalogURLs(base) {
+		parsed, parseErr := url.Parse(candidate)
+		if parseErr != nil {
+			continue
+		}
+		merged := parsed.Query()
+		for key, values := range browseQuery {
+			for _, v := range values {
+				merged.Add(key, v)
+			}
+		}
+		parsed.RawQuery = merged.Encode()
+		candidates = append(candidates, parsed.String())
 	}
-	defer resp.Body.Close()
-	data, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
-	if err != nil {
-		return c.JSON(http.StatusBadGateway, map[string]string{"error": "store read: " + err.Error()})
-	}
-	if resp.StatusCode != http.StatusOK {
-		return c.JSON(http.StatusBadGateway, map[string]string{
-			"error": fmt.Sprintf("store status %d", resp.StatusCode),
-		})
+
+	_, data, fetchErr := fetchFirstOK(candidates)
+	if fetchErr != nil {
+		return c.JSON(http.StatusBadGateway, map[string]string{"error": fetchErr.Error()})
 	}
 	var parsed any
 	if err := json.Unmarshal(data, &parsed); err != nil {
 		return c.JSON(http.StatusBadGateway, map[string]string{"error": "invalid store JSON"})
 	}
-	return c.JSONBlob(http.StatusOK, data)
+	attachRawURLs(parsed, base)
+	encoded, err := json.Marshal(parsed)
+	if err != nil {
+		return c.JSONBlob(http.StatusOK, data)
+	}
+	return c.JSONBlob(http.StatusOK, encoded)
 }
 
 // InstallExtensionFromStore installs an extension by raw URL (typically a
-// store's /api/v1/extensions/{id}/raw endpoint) or by store base + id.
+// store's /extensions/{id}.extension.json file) or by store base + id.
 func (h *Handler) InstallExtensionFromStore(c *echo.Context) error {
 	var req struct {
 		URL   string `json:"url"`
@@ -1142,8 +1226,11 @@ func (h *Handler) InstallExtensionFromStore(c *echo.Context) error {
 		if req.Store == "" || req.ID == "" {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "url or store+id is required"})
 		}
-		target = strings.TrimRight(strings.TrimSpace(req.Store), "/") +
-			"/api/v1/extensions/" + url.PathEscape(req.ID) + "/raw"
+		resolved, _, fetchErr := fetchFirstOK(storeRawURLs(req.Store, req.ID))
+		if fetchErr != nil {
+			return c.JSON(http.StatusBadGateway, map[string]string{"error": fetchErr.Error()})
+		}
+		target = resolved
 	}
 	body, _ := json.Marshal(map[string]string{"url": target})
 	c.Request().Body = io.NopCloser(strings.NewReader(string(body)))
