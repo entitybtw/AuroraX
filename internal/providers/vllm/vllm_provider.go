@@ -21,17 +21,11 @@ const defaultBaseURL = "http://localhost:8000/v1"
 // sidecarEnvURL points at the local TLS-fingerprint sidecar (extension-
 // driven). The SIDECAR suffix is reserved: env-based provider discovery
 // ignores *_SIDECAR_* keys so this never materializes as a provider.
-// AURORA_SIDECAR_BASE_URL is preferred; AURORA_SIDECAR_BASE_URL is a
-// legacy alias for existing deployments.
+// AURORA_SIDECAR_BASE_URL points at the local sidecar.
 const sidecarEnvURL = "AURORA_SIDECAR_BASE_URL"
 
-const sidecarEnvURLLegacy = "AURORA_SIDECAR_BASE_URL"
-
 func envSidecarURL() string {
-	if v := strings.TrimSpace(os.Getenv(sidecarEnvURL)); v != "" {
-		return v
-	}
-	return strings.TrimSpace(os.Getenv(sidecarEnvURLLegacy))
+	return strings.TrimSpace(os.Getenv(sidecarEnvURL))
 }
 
 // resolveSidecarURL returns the sidecar base URL for this provider.
