@@ -85,7 +85,7 @@ func Init(ctx context.Context, result *config.LoadResult, factory *ProviderFacto
 	providerMap, credentialResolved := resolveProviders(result.RawProviders, result.Config.Resilience, factory.discoveryConfigsSnapshot())
 
 	// Debug: surface provider names coming from config/env so phantom providers
-	// (e.g. an OPENCODE_*_SIDECAR_* env var mistaken for a provider) are easy to
+	// (e.g. an AURORA_SIDECAR_* env var mistaken for a provider) are easy to
 	// trace.
 	rawNames := make([]string, 0, len(result.RawProviders))
 	for name := range result.RawProviders {

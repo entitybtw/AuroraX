@@ -12,10 +12,7 @@
 // kept so free-tier upstreams stay compatible.
 import bundledTools from "./default-tools.json" with { type: "json" };
 
-const TOOLS_PATH =
-  process.env.AURORA_SIDECAR_TOOLS_PATH ??
-  process.env.AURORA_SIDECAR_TOOLS_PATH ??
-  "";
+const TOOLS_PATH = process.env.AURORA_SIDECAR_TOOLS_PATH ?? "";
 
 let tools = bundledTools;
 if (TOOLS_PATH) {
@@ -32,39 +29,18 @@ if (TOOLS_PATH) {
 
 // AURORA_SIDECAR_UPSTREAM_URL is set by adapter.js on spawn. Never fall back
 // to AURORA_SIDECAR_BASE_URL — that is the sidecar's own bind address.
-const UPSTREAM = (
-  process.env.AURORA_SIDECAR_UPSTREAM_URL ??
-  process.env.AURORA_SIDECAR_UPSTREAM_URL ??
-  ""
-).trim();
-const USER_AGENT =
-  process.env.AURORA_SIDECAR_USER_AGENT ??
-  process.env.AURORA_SIDECAR_USER_AGENT ??
-  "";
+const UPSTREAM = (process.env.AURORA_SIDECAR_UPSTREAM_URL ?? "").trim();
+const USER_AGENT = process.env.AURORA_SIDECAR_USER_AGENT ?? "";
 const DEFAULT_AUTH =
-  process.env.AURORA_SIDECAR_DEFAULT_AUTH ??
-  process.env.AURORA_SIDECAR_DEFAULT_AUTH ??
-  "Bearer public";
+  process.env.AURORA_SIDECAR_DEFAULT_AUTH ?? "Bearer public";
 const INJECT_TOOLS =
-  (process.env.AURORA_SIDECAR_INJECT_TOOLS ??
-    process.env.AURORA_SIDECAR_INJECT_TOOLS ??
-    "true") !== "false";
-const MAX_ATTEMPTS = Number(
-  process.env.AURORA_SIDECAR_MAX_ATTEMPTS ??
-    process.env.AURORA_SIDECAR_MAX_ATTEMPTS ??
-    "4",
-);
+  (process.env.AURORA_SIDECAR_INJECT_TOOLS ?? "true") !== "false";
+const MAX_ATTEMPTS = Number(process.env.AURORA_SIDECAR_MAX_ATTEMPTS ?? "4");
 const RETRY_DELAY_MS = Number(
-  process.env.AURORA_SIDECAR_RETRY_DELAY_MS ??
-    process.env.AURORA_SIDECAR_RETRY_DELAY_MS ??
-    "750",
+  process.env.AURORA_SIDECAR_RETRY_DELAY_MS ?? "750",
 );
 // Optional CONNECT proxy used to egress from a specific IP (multi-IP support).
-const PROXY = (
-  process.env.AURORA_SIDECAR_PROXY ??
-  process.env.AURORA_SIDECAR_PROXY ??
-  ""
-).trim();
+const PROXY = (process.env.AURORA_SIDECAR_PROXY ?? "").trim();
 const input = await Bun.stdin.text();
 
 let envelope;

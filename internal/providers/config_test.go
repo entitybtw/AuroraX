@@ -391,16 +391,11 @@ func TestApplyProviderEnvVars_DiscoversMultipleSuffixedOllamaProvidersFromBaseUR
 }
 
 func TestApplyProviderEnvVars_IgnoresReservedSidecarSuffix(t *testing.T) {
-	// AURORA_SIDECAR_BASE_URL and friends share the OPENCODE_ provider prefix
-	// but configure the gateway sidecar, not a provider. They must not create an
-	// "opencode-sidecar" provider.
+	// AURORA_SIDECAR_* configures the gateway sidecar, not a provider. They
+	// must not materialize as a provider.
 	t.Setenv("AURORA_SIDECAR_BASE_URL", "http://127.0.0.1:8090/v1")
 	t.Setenv("AURORA_SIDECAR_BIND_IPS", "10.0.0.1,10.0.0.2")
 	t.Setenv("AURORA_SIDECAR_ENABLED", "true")
-	// Legacy names from before the rename must also stay reserved.
-	t.Setenv("AURORA_SIDECAR_BASE_URL", "http://127.0.0.1:8090/v1")
-	t.Setenv("AURORA_SIDECAR_ENABLED", "true")
-	t.Setenv("OPENCODE_ZEN_BIND_IPS", "10.0.0.1")
 
 	got := applyProviderEnvVars(map[string]config.RawProviderConfig{}, testDiscoveryConfigs)
 

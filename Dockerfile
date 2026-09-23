@@ -85,7 +85,7 @@ RUN apk add --no-cache curl unzip ca-certificates && \
 # ---------------------------------------------------------------------------
 # Runtime stage with TLS sidecar — debian-slim + Bun.
 # Build with: docker build --target runtime-sidecar ...
-# (target name kept for compatibility; content is generic sidecar)
+# (extension-driven TLS sidecar sidecar)
 FROM debian:bookworm-slim AS runtime-sidecar
 
 # ca-certificates lets the sidecar verify upstream TLS certificates.
@@ -113,7 +113,6 @@ RUN chmod +x /docker-entrypoint.sh
 
 # Default to routing through the local sidecar when the image variant is used.
 # Operators can set AURORA_SIDECAR_ENABLED=false to disable it at runtime
-# (OPENCODE_* is a legacy alias).
 ENV AURORA_SIDECAR_ENABLED=true \
 	AURORA_SIDECAR_PORT=8090 \
 	AURORA_SIDECAR_BASE_URL=http://127.0.0.1:8090/v1

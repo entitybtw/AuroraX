@@ -1,9 +1,9 @@
-// Package opencode provides the optional "opencode" provider type.
+// Package sidecarclient provides the optional "opencode" provider type.
 // It is NOT registered by default: extensions declare it under
 // provides.provider_types and the gateway activates it when that
 // extension is installed. OAuth device flow is an extension feature and
 // only runs when auth_method is explicitly "oauth".
-package opencode
+package sidecarclient
 
 import (
 	"context"
@@ -24,16 +24,11 @@ const baseURLOverride = ""
 
 // sidecarEnvURL points at the local TLS-fingerprint sidecar. The SIDECAR
 // suffix is reserved so env-based discovery never creates a provider from
-// these keys. AURORA_SIDECAR_BASE_URL is preferred; AURORA_SIDECAR_BASE_URL
-// is a legacy alias.
+// these keys. AURORA_SIDECAR_BASE_URL points at the local sidecar.
 const sidecarEnvURL = "AURORA_SIDECAR_BASE_URL"
-const sidecarEnvURLLegacy = "AURORA_SIDECAR_BASE_URL"
 
 func envSidecarURL() string {
-	if v := strings.TrimSpace(os.Getenv(sidecarEnvURL)); v != "" {
-		return v
-	}
-	return strings.TrimSpace(os.Getenv(sidecarEnvURLLegacy))
+	return strings.TrimSpace(os.Getenv(sidecarEnvURL))
 }
 
 // Registration provides factory registration for the optional opencode type.

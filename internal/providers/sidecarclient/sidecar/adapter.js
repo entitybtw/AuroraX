@@ -14,7 +14,6 @@
 // injection and identity headers are only applied when that type is listed
 // in AURORA_SIDECAR_INJECT_TYPES (comma-separated; empty = all types).
 //
-// Configuration (all optional; AURORA_SIDECAR_* accepted as legacy alias):
 //
 //	AURORA_SIDECAR_UPSTREAM_URL   upstream base URL     (overrides sidecar-overrides.base_url)
 //	AURORA_SIDECAR_HOST           bind host             (default 127.0.0.1)
@@ -37,25 +36,22 @@
 //	GET  /health                liveness probe
 //	GET  /proxies               configured bind proxies
 
-const env = (name, legacy, fallback) =>
-  process.env[name] ?? process.env[legacy] ?? fallback;
+const env = (name, fallback) => process.env[name] ?? fallback;
 
 const ONESHOT = new URL("./one-shot.js", import.meta.url).pathname;
 const PORT = Number(
-  process.env.AURORA_SIDECAR_PORT ?? process.env.AURORA_SIDECAR_PORT ?? "8090",
+  process.env.AURORA_SIDECAR_PORT ?? "8090",
 );
 const HOST =
-  process.env.AURORA_SIDECAR_HOST ?? process.env.AURORA_SIDECAR_HOST ?? "127.0.0.1";
+  process.env.AURORA_SIDECAR_HOST ?? "127.0.0.1";
 const DEFAULT_AUTH =
-  process.env.AURORA_SIDECAR_DEFAULT_AUTH ??
   process.env.AURORA_SIDECAR_DEFAULT_AUTH ??
   "Bearer public";
 const USER_AGENT =
   process.env.AURORA_SIDECAR_USER_AGENT ??
-  process.env.AURORA_SIDECAR_USER_AGENT ??
   "";
 const INJECT_TYPES_RAW =
-  process.env.AURORA_SIDECAR_INJECT_TYPES ?? process.env.AURORA_SIDECAR_INJECT_TYPES ?? "";
+  process.env.AURORA_SIDECAR_INJECT_TYPES ?? "";
 const OVERRIDES_PATH =
   process.env.AURORA_SIDECAR_OVERRIDES_PATH ?? "configs/sidecar-overrides.json";
 
@@ -64,7 +60,7 @@ const OVERRIDES_PATH =
 // extension-applied sidecar-overrides.base_url.
 function resolveUpstreamSync() {
   const explicit =
-    process.env.AURORA_SIDECAR_UPSTREAM_URL ?? process.env.AURORA_SIDECAR_UPSTREAM_URL;
+    process.env.AURORA_SIDECAR_UPSTREAM_URL;
   if (explicit && explicit.trim()) return explicit.trim();
   try {
     const text = require("node:fs").readFileSync(OVERRIDES_PATH, "utf8");
@@ -82,7 +78,7 @@ const UPSTREAM = resolveUpstreamSync();
 // Map of local IP -> CONNECT proxy URL (http://127.0.0.1:port).
 const BIND_PROXIES = new Map();
 const proxiesRaw =
-  process.env.AURORA_SIDECAR_BIND_PROXIES ?? process.env.AURORA_SIDECAR_BIND_PROXIES ?? "";
+  process.env.AURORA_SIDECAR_BIND_PROXIES ?? "";
 for (const entry of proxiesRaw.split(",")) {
   const trimmed = entry.trim();
   if (!trimmed) continue;
@@ -215,7 +211,7 @@ Bun.serve({
     const injectTools =
       overrides.injectTools !== null
         ? overrides.injectTools
-        : env("AURORA_SIDECAR_INJECT_TOOLS", "AURORA_SIDECAR_INJECT_TOOLS", "true") !== "false";
+        : env("AURORA_SIDECAR_INJECT_TOOLS", "true") !== "false";
     const inject = injectTools && overridesAllow(providerType, overrides);
 
     // Forward identity headers so operator-managed (extension) rules drive
@@ -230,7 +226,6 @@ Bun.serve({
     const toolsPath =
       overrides.toolsPath ||
       process.env.AURORA_SIDECAR_TOOLS_PATH ||
-      process.env.AURORA_SIDECAR_TOOLS_PATH ||
       "";
     const proc = Bun.spawn([process.execPath, ONESHOT], {
       stdin: "pipe",
@@ -244,19 +239,10 @@ Bun.serve({
         AURORA_SIDECAR_PROXY: proxy,
         AURORA_SIDECAR_INJECT_TOOLS: inject ? "true" : "false",
         AURORA_SIDECAR_TOOLS_PATH: toolsPath,
-        // legacy aliases for one-shot if not rewritten
-        AURORA_SIDECAR_USER_AGENT: USER_AGENT,
-        AURORA_SIDECAR_PROXY: proxy,
-        AURORA_SIDECAR_INJECT_TOOLS: inject ? "true" : "false",
-        AURORA_SIDECAR_TOOLS_PATH: toolsPath,
         AURORA_SIDECAR_MAX_ATTEMPTS:
-          process.env.AURORA_SIDECAR_MAX_ATTEMPTS ??
-          process.env.AURORA_SIDECAR_MAX_ATTEMPTS ??
-          "4",
+          process.env.AURORA_SIDECAR_MAX_ATTEMPTS ?? "4",
         AURORA_SIDECAR_RETRY_DELAY_MS:
-          process.env.AURORA_SIDECAR_RETRY_DELAY_MS ??
-          process.env.AURORA_SIDECAR_RETRY_DELAY_MS ??
-          "750",
+          process.env.AURORA_SIDECAR_RETRY_DELAY_MS ?? "750",
       },
     });
 

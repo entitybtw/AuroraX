@@ -49,7 +49,7 @@ type ProviderOverride struct {
 	// OAuthClientID is the OAuth client_id for the device flow.
 	OAuthClientID string `json:"oauth_client_id,omitempty"`
 	// DisableAPIKey keeps the stored API key but stops sending it upstream.
-	// Useful for upstream zen where an OAuth token supersedes the key.
+	// Useful when an OAuth token supersedes the key.
 	DisableAPIKey *bool `json:"disable_api_key,omitempty"`
 }
 

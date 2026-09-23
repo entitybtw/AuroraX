@@ -32,7 +32,7 @@ import (
 	"aurora/internal/providers/minimax"
 	"aurora/internal/providers/ollama"
 	"aurora/internal/providers/oauth"
-	opencodeprovider "aurora/internal/providers/sidecarclient"
+	sidecarprovider "aurora/internal/providers/sidecarclient"
 	"aurora/internal/providers/openai"
 	"aurora/internal/providers/openrouter"
 	"aurora/internal/providers/oracle"
@@ -407,7 +407,7 @@ func main() {
 
 	// Optional provider types ship with extensions (provides.provider_types)
 	// and are activated when the matching extension is installed — not here.
-	providers.RegisterOptional(opencodeprovider.Registration)
+	providers.RegisterOptional(sidecarprovider.Registration)
 
 	// Reranker is a specialized provider type for reranking/embedding
 	// services (e.g. Jina AI, Cohere). It is not an LLM provider — it

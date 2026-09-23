@@ -82,7 +82,7 @@ Provider keys use per-type env vars (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `VLL
 | `/app/configs/fallback.json` | Manual fallback rules (optional). |
 | `/app/configs/session-hub-rules.yaml` | Session Hub rules. |
 | `/app/configs/session-hub-mappings.json` | Persisted session mappings (storage mode = `disk`). |
-| `/app/configs/sidecar-overrides.json` | Sidecar runtime settings (opencode image only). |
+| `/app/configs/sidecar-overrides.json` | Sidecar runtime settings (sidecar image variant). |
 | `/app/data/` | SQLite DB, model list cache, pool counters, instance id. |
 
 Mount `./configs` and `./data` (or custom dirs) so none of this is lost across container recreation.
@@ -130,7 +130,7 @@ If the Session Hub isn't transforming headers the way you expect, re-check the r
 
 ## Sidecar image variant (extension-driven fingerprint)
 
-The default image is distroless and has no sidecar. For extension-driven TLS fingerprinting, use the `runtime-sidecar` image variant (target name kept for compatibility; content is generic), which ships the Bun sidecar + per-IP CONNECT proxies.
+The default image is distroless and has no sidecar. For extension-driven TLS fingerprinting, use the `runtime-sidecar` image variant, which ships the Bun sidecar + per-IP CONNECT proxies.
 
 > **⚠️ Use at your own risk.** The sidecar emulates an upstream client fingerprint. Upstream hardening can break it at any time, it may violate the provider's terms of service. Review third-party extensions before installing them from a store.
 
@@ -162,7 +162,6 @@ services:
       - .env
 ```
 
-- Entrypoint starts `aurora bindproxy` once per `AURORA_SIDECAR_BIND_IPS` entry (ports `8981+`), then the Bun sidecar on `AURORA_SIDECAR_PORT` (default `8090`). Legacy `AURORA_SIDECAR_*` vars are still accepted as aliases.
 - The provider sets `bind_ip`; the request carries `x-aurora-bind-ip` so the sidecar picks the matching proxy. Bun does end-to-end TLS inside the tunnel — the proxy only binds the source IP.
 - Sidecar runtime settings persist to `configs/sidecar-overrides.json` and are editable from **Settings → Sidecar** (or `GET`/`PUT /admin/api/v1/sidecar`). Extensions merge into these settings on apply.
 - Env vars with suffix `SIDECAR`/`BIND` are reserved and ignored by provider auto-discovery (they cannot become phantom providers).

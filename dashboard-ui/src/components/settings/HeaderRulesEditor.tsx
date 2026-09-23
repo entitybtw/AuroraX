@@ -50,7 +50,7 @@ export function sessionHeaderRule(overrides: Partial<HeaderRule> = {}): HeaderRu
  * @deprecated Prefer sessionHeaderRule with your extension's header shape.
  * Kept so older imports keep compiling; canonical rules ship with extensions.
  */
-export function openCodeSessionRule(): HeaderRule {
+export function legacySessionHeaderExample(): HeaderRule {
   return sessionHeaderRule({
     name: "x-opencode-session",
     prefix: "ses_",

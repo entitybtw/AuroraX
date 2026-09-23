@@ -157,14 +157,10 @@ func WithSidecarStore(store *SidecarOverrideStore) Option {
 func (h *Handler) GetSidecarStatus(c *echo.Context) error {
 	settings := h.sidecarStore.get()
 	// Bind IPs are normally supplied via AURORA_SIDECAR_BIND_IPS and consumed
-	// by the container entrypoint. Fall back to that env var (and the legacy
-	// OPENCODE_ alias) so operators see the live configuration even before
-	// saving anything from the dashboard.
+	// by the container entrypoint. Fall back to that env var so operators see
+	// the live configuration even before saving anything from the dashboard.
 	if len(settings.BindIPs) == 0 {
 		raw := strings.TrimSpace(os.Getenv("AURORA_SIDECAR_BIND_IPS"))
-		if raw == "" {
-			raw = strings.TrimSpace(os.Getenv("AURORA_SIDECAR_BIND_IPS"))
-		}
 		if raw != "" {
 			for _, ip := range strings.Split(raw, ",") {
 				if v := strings.TrimSpace(ip); v != "" {

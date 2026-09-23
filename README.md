@@ -239,7 +239,7 @@ providers:
 
 ## Sidecar — Extension-driven TLS fingerprint proxy
 
-AuroraX can route upstream traffic through a bundled **Bun sidecar** when an extension supplies the base URL, User-Agent, auth and tool scope. The sidecar reproduces a client fingerprint Go cannot (BoringSSL ClientHello). It runs inside the `runtime-sidecar` image variant (target name kept for compatibility; content is generic) and is managed from **Settings → Sidecar**.
+AuroraX can route upstream traffic through a bundled **Bun sidecar** when an extension supplies the base URL, User-Agent, auth and tool scope. The sidecar reproduces a client fingerprint Go cannot (BoringSSL ClientHello). It runs inside the `runtime-sidecar` image variant and is managed from **Settings → Sidecar**.
 
 > **⚠️ Use at your own risk.** The sidecar emulates an upstream client. Upstream hardening can break it at any time, it may violate the provider's terms of service, and it relies on an actively maintained fingerprint. Review this section before enabling, and prefer a paid/API-key path for production workloads. Review third-party extensions before installing them from a store.
 
@@ -344,7 +344,6 @@ All settings are editable in **Settings → Sidecar** (persisted to `configs/sid
 | Upstream | `AURORA_SIDECAR_BASE_URL` | — | Provider routing target (Go side) |
 | Sidecar upstream | `AURORA_SIDECAR_UPSTREAM_URL` | — | Sidecar's own upstream (Bun side) |
 
-Legacy `AURORA_SIDECAR_*` env vars are still accepted as aliases.
 
 > **Reserved namespace:** env vars whose provider-suffix is `SIDECAR` or contains `BIND` are ignored by provider auto-discovery, so they never materialise as phantom providers.
 
@@ -982,7 +981,7 @@ Run the built binary directly (from source: `go build -o aurora ./apps/aurora`, 
 aurora/
 ├── apps/              # Application entrypoints (gateway, aurora bindproxy subcommand)
 ├── internal/          # Core packages (providers, gateway, storage, guardrails, sessionhub, admin)
-│   └── providers/sidecarclient/sidecar/   # Bun sidecar: adapter.js, one-shot.js, default-tools.json
+│   └── providers/sidecarclient/sidecar/  # Bun sidecar: adapter.js, one-shot.js, default-tools.json
 ├── dashboard-ui/      # React admin dashboard (Vite)
 ├── configs/           # Configuration profiles and examples
 ├── documentation/     # Markdown docs (Getting Started, Deployment, Session Hub, Docker)

@@ -213,7 +213,6 @@ func TestPassthrough_UsesV1ForOpenAICompatibleEndpointsWhenBaseURLIncludesV1(t *
 
 func TestResolveSidecarURL_ZenUsesEnvGenericDoesNot(t *testing.T) {
 	t.Setenv("AURORA_SIDECAR_BASE_URL", "http://127.0.0.1:8090/v1")
-	t.Setenv("AURORA_SIDECAR_BASE_URL", "")
 
 	zen := resolveSidecarURL(providers.ProviderConfig{BaseURL: "https://opencode.ai/zen/v1"})
 	if zen != "http://127.0.0.1:8090/v1" {

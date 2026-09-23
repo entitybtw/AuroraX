@@ -202,9 +202,8 @@ func parseProviderEnvKey(prefix, key string, spec DiscoveryConfig) (string, prov
 
 // reservedProviderEnvSuffix reports whether an env-var suffix names gateway
 // infrastructure rather than a provider instance. Variables such as
-// AURORA_SIDECAR_BASE_URL (and legacy AURORA_SIDECAR_*) share the
-// OPENCODE_ provider prefix but configure the upstream sidecar, so they must
-// never materialize as providers.
+// AURORA_SIDECAR_BASE_URL configure the local sidecar, so they must never
+// materialize as providers.
 func reservedProviderEnvSuffix(suffix string) bool {
 	upper := strings.ToUpper(strings.TrimSpace(suffix))
 	if strings.Contains(upper, "SIDECAR") {
