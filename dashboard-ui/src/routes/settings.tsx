@@ -18,6 +18,7 @@ import { ProvidersTab } from "@/components/settings/ProvidersTab";
 import { InfrastructureTab } from "@/components/settings/InfrastructureTab";
 import { SessionHubTab } from "@/components/settings/SessionHubTab";
 import { SidecarTab } from "@/components/settings/SidecarTab";
+import { ExtensionsTab } from "@/components/settings/ExtensionsTab";
 import { EditionStatusChip } from "@/components/settings/EditionBadges";
 import { ExtensionBlocks, ExtensionWidgets } from "@/components/extensions/ExtensionWidgets";
 import {
@@ -38,6 +39,7 @@ const BUILTIN_TABS: {
   { id: "caching", label: "Caching", icon: DatabaseIcon },
   { id: "networking", label: "Networking", icon: GlobeIcon },
   { id: "sessionhub", label: "Session Hub", icon: KeyIcon },
+  { id: "extensions", label: "Extensions", icon: PuzzleIcon },
   { id: "sidecar", label: "Sidecar", icon: CpuIcon },
 ];
 
@@ -74,6 +76,15 @@ function SettingsPageInner(): JSX.Element {
       window.history.replaceState(null, "", window.location.pathname + window.location.search);
     }
   }, [visibleTabs]);
+
+  useEffect(() => {
+    const onTab = (event: Event) => {
+      const detail = (event as CustomEvent<unknown>).detail;
+      if (typeof detail === "string" && detail) setActiveTab(detail);
+    };
+    window.addEventListener("aurora:settings-tab", onTab);
+    return () => window.removeEventListener("aurora:settings-tab", onTab);
+  }, []);
 
   const selectTab = (id: string) => {
     setActiveTab(id);
@@ -121,6 +132,7 @@ function SettingsPageInner(): JSX.Element {
       {activeTab === "providers" && <ProvidersTab />}
       {activeTab === "infrastructure" && <InfrastructureTab />}
       {activeTab === "sessionhub" && <SessionHubTab />}
+      {activeTab === "extensions" && <ExtensionsTab />}
       {activeTab === "sidecar" && <SidecarTab />}
 
       {activeExtTab && (

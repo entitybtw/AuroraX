@@ -187,6 +187,75 @@ func TestCodexSnippetsUseModelOverride(t *testing.T) {
 	}
 }
 
+func TestPreviewUsesPlaceholderForEmptyAPIKey(t *testing.T) {
+	service := NewService(false, nil)
+	for _, apiKey := range []string{"", "   "} {
+		preview, err := service.Preview("claude-code", PreviewRequest{
+			BaseURL: "http://localhost:8080",
+			APIKey:  apiKey,
+			Model:   "fallback/model",
+		})
+		if err != nil {
+			t.Fatalf("Preview returned error for api key %q: %v", apiKey, err)
+		}
+		assertEqual(t, preview.MaskedKey, "<AURORA_API_KEY>")
+		if !strings.Contains(preview.Snippets["env"], "ANTHROPIC_AUTH_TOKEN=<AURORA_API_KEY>") {
+			t.Fatalf("expected placeholder in env snippet, got %s", preview.Snippets["env"])
+		}
+		if strings.Contains(preview.Snippets["env"], "********") {
+			t.Fatalf("did not expect mask placeholder for empty key, got %s", preview.Snippets["env"])
+		}
+	}
+}
+
+func TestPreviewMasksNonEmptyAPIKey(t *testing.T) {
+	service := NewService(false, nil)
+	preview, err := service.Preview("claude-code", PreviewRequest{
+		BaseURL: "http://localhost:8080",
+		APIKey:  "sk-test-key-123456",
+		Model:   "fallback/model",
+	})
+	if err != nil {
+		t.Fatalf("Preview returned error: %v", err)
+	}
+	assertEqual(t, preview.MaskedKey, "sk-t…3456")
+	if preview.MaskedKey == "<AURORA_API_KEY>" {
+		t.Fatal("expected masked key for non-empty api key")
+	}
+}
+
+func TestApplyRejectsEmptyAPIKey(t *testing.T) {
+	service := NewService(true, nil)
+	if _, err := service.Apply("claude-code", PreviewRequest{
+		BaseURL: "http://localhost:8080",
+		APIKey:  "",
+		Model:   "fallback/model",
+	}); err == nil {
+		t.Fatal("expected Apply to reject empty api_key")
+	}
+}
+
+func TestBuiltInPresetsTargetKnownTools(t *testing.T) {
+	service := NewService(false, nil)
+	presets := service.ListPresets()
+	if len(presets) == 0 {
+		t.Fatal("expected built-in presets")
+	}
+	seen := map[string]bool{}
+	for _, preset := range presets {
+		if preset.ID == "" || preset.Label == "" || preset.ToolID == "" {
+			t.Fatalf("preset missing required fields: %+v", preset)
+		}
+		if seen[preset.ID] {
+			t.Fatalf("duplicate preset id %s", preset.ID)
+		}
+		seen[preset.ID] = true
+		if _, ok := service.GetTool(preset.ToolID); !ok {
+			t.Fatalf("preset %s targets unknown tool %s", preset.ID, preset.ToolID)
+		}
+	}
+}
+
 func decodeClaudeEnv(t *testing.T, config string) map[string]string {
 	t.Helper()
 	var parsed struct {
