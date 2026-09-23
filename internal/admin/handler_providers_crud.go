@@ -49,7 +49,7 @@ type ProviderOverride struct {
 	// is the client_id for the device flow.
 	string `json:",omitempty"`
 	// DisableAPIKey keeps the stored API key but stops sending it upstream.
-	// Useful for upstream zen where an token supersedes the key.
+	// Useful when an token supersedes the key.
 	DisableAPIKey *bool `json:"disable_api_key,omitempty"`
 }
 
