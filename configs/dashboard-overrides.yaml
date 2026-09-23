@@ -24,6 +24,8 @@ cache:
         refresh_interval: 3600
         model_list:
             url: https://raw.githubusercontent.com/aurorallm/aurora/refs/heads/main/docs-assets/assets/models.json
+        local:
+            cache_dir: .cache
     response:
         simple:
             enabled: false
@@ -31,15 +33,14 @@ cache:
                 key: 'aurora:response:'
                 ttl: 3600
         semantic:
-            enabled: true
+            # Disabled by default: enable from the dashboard only after setting
+            # embedder.provider and a full vector_store block (see config.example.yaml).
+            enabled: false
             similarity_threshold: 0.92
             prompt_similarity_threshold: 0.9
             ttl: 3600
             max_conversation_messages: 3
             exclude_system_prompt: true
-            embedder_provider: jina_1
-            embedder_model: jina-embeddings-v3
-            vector_store_type: qdrant
     prompt:
         mode: auto
         system_prompt: true

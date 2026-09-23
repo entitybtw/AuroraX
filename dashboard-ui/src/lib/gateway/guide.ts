@@ -1,4 +1,4 @@
-﻿import { withBasePath } from "@/lib/basepath";
+import { withBasePath } from "@/lib/basepath";
 
 export interface GatewayEndpointRow {
   method: string;

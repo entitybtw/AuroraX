@@ -35,8 +35,8 @@ const (
 	// (auto-generates on first encounter, reuses thereafter).
 	HeaderModeMap HeaderMode = "map"
 	// HeaderModeMapOrGenerate is like "map" but falls back to "generate" when
-	// the inbound header is absent — useful for clients like the the CLI
-	// that only sometimes send a session header.
+	// the inbound header is absent — useful for clients that only sometimes
+	// send a session header.
 	HeaderModeMapOrGenerate HeaderMode = "map_or_generate"
 )
 
@@ -49,7 +49,8 @@ type HeaderRule struct {
 	Value  string     `yaml:"value"   json:"value"`
 	Values []string   `yaml:"values"  json:"values"`
 	// Charset selects the alphabet for generated values. Empty defaults to
-	// CharsetAlphanumeric. Some upstreams (e.g. 's )
+	// CharsetAlphanumeric. Some upstreams require a specific alphabet
+	// (e.g. hex for identity prefixes).
 	// require a specific alphabet and length for their identity headers.
 	Charset string `yaml:"charset" json:"charset"`
 }
@@ -108,55 +109,10 @@ type HubConfig struct {
 	MappingsPath string `yaml:"-" json:"-"`
 }
 
-// defaultHeaderRules returns sensible defaults for known header names.
+// defaultHeaderRules returns empty defaults — header rules come from
+// extensions (ensure-headers), not from built-in presets.
 func defaultHeaderRules() []HeaderRule {
-	return []HeaderRule{
-		{
-			Name:    "x-",
-			Mode:    HeaderModeMapOrGenerate,
-			Prefix:  "ses_",
-			Length:  26,
-			Charset: CharsetHex,
-		},
-	}
-}
-
-// upstreamHeaderRules returns the canonical header rules the the CLI sends
-// upstream. /fingerprint these headers, so providers that proxy
-// upstream traffic need them. The session and request values are generated per
-// client session; the client and project markers are static.
-//
-// IMPORTANT: the tier validates the identity headers strictly —
-// x-must be exactly "ses_" followed by 26 hex characters, and
-// x-must be "msg_" + 26 hex characters. Other lengths or a
-// non-hex alphabet are rejected with .
-func upstreamHeaderRules() []HeaderRule {
-	return []HeaderRule{
-		{
-			Name:    "x-",
-			Mode:    HeaderModeMapOrGenerate,
-			Prefix:  "ses_",
-			Length:  26,
-			Charset: CharsetHex,
-		},
-		{
-			Name:  "x-",
-			Mode:  HeaderModeStatic,
-			Value: "cli",
-		},
-		{
-			Name:    "x-",
-			Mode:    HeaderModeGenerate,
-			Prefix:  "msg_",
-			Length:  26,
-			Charset: CharsetHex,
-		},
-		{
-			Name:  "x-",
-			Mode:  HeaderModeStatic,
-			Value: "global",
-		},
-	}
+	return nil
 }
 
 // HeaderRuleEqual reports whether two rules are identical across every field.
@@ -174,54 +130,30 @@ func HeaderRuleEqual(a, b HeaderRule) bool {
 	return true
 }
 
-// HeaderRuleDiff returns the canonical upstream header rules that are present
-// in the live configuration but differ from the expected defaults. Missing
-// headers are not reported — use EnsureupstreamRules to add those. An empty
-// result means every configured upstream header matches the default, so the
-// sidecar does not need to warn the operator about non-default settings.
-func HeaderRuleDiff(existing ProviderRule) []HeaderRule {
-	byName := make(map[string]HeaderRule, len(existing.Headers))
-	for _, h := range existing.Headers {
-		byName[h.Name] = h
-	}
-	diff := []HeaderRule{}
-	for _, want := range upstreamHeaderRules() {
-		got, ok := byName[want.Name]
-		if ok && !HeaderRuleEqual(got, want) {
-			diff = append(diff, want)
-		}
-	}
-	return diff
-}
-
-// EnsureupstreamRules merges the canonical upstream header rules into an
-// existing rule. Rules that already match an existing header by name and every
-// field are skipped, so an operator's customised (non-default) header values
-// are preserved rather than overwritten. It returns the merged rule, the names
-// that were added, and the names that were already present.
-func EnsureupstreamRules(existing ProviderRule) (ProviderRule, []string, []string) {
+// EnsureRules merges an arbitrary set of desired header rules into an existing
+// rule. Headers already present (by name) are preserved untouched, so an
+// operator's customised values are never overwritten; only missing headers are
+// appended. It returns the merged rule, the names added, and the names kept.
+func EnsureRules(existing ProviderRule, want []HeaderRule) (ProviderRule, []string, []string) {
 	added := []string{}
-	skipped := []string{}
-
-	// Index existing rules by header name.
+	kept := []string{}
 	index := make(map[string]int, len(existing.Headers))
 	for i, h := range existing.Headers {
 		index[h.Name] = i
 	}
-
-	for _, want := range upstreamHeaderRules() {
-		if _, ok := index[want.Name]; ok {
-			// Header already present: keep the operator's version untouched,
-			// whether it matches the default exactly or was customised.
-			skipped = append(skipped, want.Name)
+	for _, w := range want {
+		if w.Name == "" {
 			continue
 		}
-		existing.Headers = append(existing.Headers, want)
-		added = append(added, want.Name)
+		if _, ok := index[w.Name]; ok {
+			kept = append(kept, w.Name)
+			continue
+		}
+		existing.Headers = append(existing.Headers, w)
+		added = append(added, w.Name)
 	}
-
 	existing.Enabled = true
-	return existing, added, skipped
+	return existing, added, kept
 }
 
 // LoadConfig reads session hub config from a YAML file.

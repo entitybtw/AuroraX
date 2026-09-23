@@ -14,6 +14,7 @@ import {
   Monitor,
   Moon,
   Network,
+  Puzzle,
   Settings,
   ShieldCheck,
   Sun,
@@ -33,6 +34,11 @@ import { useApiKeyState } from "@/lib/auth/useApiKey";
 import { useSession } from "@/lib/auth/useSession";
 import { clearSession, isLoggedIn, fetchMe } from "@/lib/auth/session";
 import { clearApiKey } from "@/lib/auth/storage";
+import {
+  useExtensionNav,
+  useExtensionUIContext,
+} from "@/lib/extensions/ui-context";
+import type { ExtensionNavEntry } from "@/lib/api/extensions";
 
 type IconType = React.ComponentType<{ className?: string }>;
 
@@ -77,6 +83,41 @@ const NAV: readonly NavEntry[] = [
   { to: "/admin/dashboard/settings", label: "Settings", Icon: Settings, requiredResource: "admin/settings" },
 ];
 
+/** Whitelisted lucide icon names extensions may reference in ui.nav. */
+const EXT_ICON_MAP: Record<string, IconType> = {
+  layout: LayoutDashboard,
+  overview: LayoutDashboard,
+  box: Box,
+  boxes: Layers,
+  layers: Layers,
+  network: Network,
+  database: Database,
+  terminal: Terminal,
+  history: History,
+  chart: ChartColumn,
+  settings: Settings,
+  shield: ShieldCheck,
+  key: KeyRound,
+  workflow: Workflow,
+  book: BookOpen,
+  puzzle: Puzzle,
+  plugin: Puzzle,
+  message: MessageSquareText,
+};
+
+function resolveExtIcon(name?: string): IconType {
+  if (name && EXT_ICON_MAP[name.toLowerCase()]) return EXT_ICON_MAP[name.toLowerCase()]!;
+  return Puzzle;
+}
+
+/** Map extension nav entry to a dashboard path (relative page → /admin/dashboard/ext/...). */
+function extNavTo(entry: ExtensionNavEntry): { to: string; external: boolean } {
+  const raw = entry.to.trim();
+  if (/^https?:\/\//i.test(raw)) return { to: raw, external: true };
+  if (raw.startsWith("/")) return { to: raw, external: false };
+  return { to: `/admin/dashboard/ext/${raw.replace(/^\/+/, "")}`, external: false };
+}
+
 export interface SidebarProps {
   config: DashboardConfigResponse | undefined;
   onOpenAuthDialog: () => void;
@@ -96,6 +137,23 @@ export function Sidebar({
   const { location } = useRouterState();
   const path = location.pathname;
   const { loggedIn, user } = useSession();
+  const { hideNav } = useExtensionUIContext();
+  const extNav = useExtensionNav();
+
+  const isHidden = React.useCallback(
+    (label: string, to: string): boolean => {
+      if (hideNav.size === 0) return false;
+      const l = label.toLowerCase();
+      const t = to.toLowerCase();
+      for (const token of hideNav) {
+        if (l === token || t === token || t.endsWith("/" + token) || t.includes(token)) {
+          return true;
+        }
+      }
+      return false;
+    },
+    [hideNav],
+  );
 
   // Fetch permissions from /auth/me after identity login.
   React.useEffect(() => {
@@ -167,7 +225,13 @@ export function Sidebar({
 
       <nav className="flex-1 overflow-y-auto px-2 py-2 overflow-x-hidden">
         <ul className="flex flex-col gap-0.5">
-          {NAV.filter((entry) => (!entry.show || entry.show(config)) && hasCapability(config, entry.requiredCapability) && canAccess(entry)).map(
+          {NAV.filter(
+            (entry) =>
+              (!entry.show || entry.show(config)) &&
+              hasCapability(config, entry.requiredCapability) &&
+              canAccess(entry) &&
+              !isHidden(entry.label, entry.to),
+          ).map(
             (entry) => {
               const active =
                 path === entry.to ||
@@ -197,6 +261,51 @@ export function Sidebar({
               );
             },
           )}
+          {extNav.map((entry) => {
+            const resolved = extNavTo(entry);
+            if (resolved.external) {
+              return (
+                <li key={`ext-${entry.id}`}>
+                  <a
+                    href={resolved.to}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group flex items-center gap-2.5 py-2 px-3 text-[13px] font-medium rounded-lg text-muted-foreground hover:bg-surface-hover/80 hover:text-foreground"
+                    onClick={onCloseMobile}
+                  >
+                    {React.createElement(resolveExtIcon(entry.icon), {
+                      className: "h-4 w-4 shrink-0",
+                    })}
+                    <span className="truncate whitespace-nowrap">{entry.label}</span>
+                  </a>
+                </li>
+              );
+            }
+            const active = path === resolved.to || path.startsWith(resolved.to + "/");
+            const Icon = resolveExtIcon(entry.icon);
+            return (
+              <li key={`ext-${entry.id}`}>
+                <Link
+                  to={resolved.to}
+                  className={cn(
+                    "group flex items-center gap-2.5 py-2 px-3 text-[13px] font-medium transition-all duration-200 ease-[var(--ease-ios)] rounded-lg",
+                    "text-muted-foreground hover:bg-surface-hover/80 hover:text-foreground active:scale-[0.98]",
+                    active && "bg-accent/15 text-accent border-l-4 md:border-l-0 border-accent pl-[8px] md:pl-3",
+                  )}
+                  aria-current={active ? "page" : undefined}
+                  onClick={onCloseMobile}
+                >
+                  <Icon
+                    className={cn(
+                      "h-4 w-4 shrink-0 transition-all duration-200 ease-[var(--ease-spring)] group-hover:scale-110",
+                      active && "text-accent",
+                    )}
+                  />
+                  <span className="truncate whitespace-nowrap">{entry.label}</span>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       </nav>
 
