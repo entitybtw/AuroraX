@@ -66,7 +66,7 @@ Drop `--push` and add `--load` to build only into the local daemon (no push). Us
 | Target | Contents |
 |--------|----------|
 | `runtime` (default) | Distroless runtime: static binary + dashboard + sidecar sources (sidecar disabled by default). |
-| `runtime-sidecar` | debian-slim + **Bun** sidecar + `aurora bindproxy`; enable with `AURORA_SIDECAR_ENABLED=true`. Used for free-tier-tier routing (~100 MB larger). |
+| `runtime-sidecar` | debian-slim + **Bun** sidecar + `aurora bindproxy`; enable with `AURORA_SIDECAR_ENABLED=true` (legacy: `AURORA_SIDECAR_*`). Target name kept for compatibility; content is a generic extension-driven sidecar (~100 MB larger). |
 
 ```bash
 # Sidecar-enabled variant

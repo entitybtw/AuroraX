@@ -70,7 +70,7 @@ client = OpenAI(
 )
 
 r = client.chat.completions.create(
-    model="opencode-zen/mimo-v2.5-free",   # "<pool-or-provider>/<model>"
+    model="my-pool/model-name",         # "<pool-or-provider>/<model>"
     messages=[{"role": "user", "content": "hello"}],
 )
 print(r.choices[0].message.content)
@@ -81,13 +81,13 @@ Anthropic SDKs work the same way against `/v1/messages` — no format changes.
 ## Model selector format
 
 `model` values are `<target>/<model>` where `target` is a pool or provider name
-(e.g. `opencode-zen/mimo-v2.5-free`, `openrouter/gpt-oss-20b:free`). Naming a pool routes
+(e.g. `my-pool/model-name`, `openrouter/gpt-oss-20b:free`). Naming a pool routes
 round-robin across its members.
 
 ## Next steps
 
-- [DEPLOYMENT.md](DEPLOYMENT.md) — production Docker, persistent state, multi-IP host networking, upstream sidecar image.
+- [DEPLOYMENT.md](DEPLOYMENT.md) — production Docker, persistent state, multi-IP host networking, sidecar image variant.
 - [MULTI_ACCOUNT.md](MULTI_ACCOUNT.md) — end-to-end load-balanced accounts with distinct, stable client identities.
 - [SESSION_HUB.md](SESSION_HUB.md) — header transformation & per-account session mapping.
 - [DOCKER_PUSH.md](DOCKER_PUSH.md) — the published image, tags, targets, how to build/publish yourself.
-- **free-tier tier** — use the `runtime-sidecar` image variant + **Settings → Sidecar** (see the README's **Sidecar** section; use at your own risk).
+- **Sidecar + extensions** — use the `runtime-sidecar` image variant + **Settings → Sidecar** (see the README's **Sidecar** section; use at your own risk). Install upstream-specific behaviour from **aurorax-store**.

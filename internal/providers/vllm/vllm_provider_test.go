@@ -10,6 +10,7 @@ import (
 
 	"aurora/internal/core"
 	"aurora/internal/language_model_client"
+	"aurora/internal/providers"
 )
 
 func TestChatCompletion_UsesOptionalBearerAuthAndChatEndpoint(t *testing.T) {
@@ -207,5 +208,28 @@ func TestPassthrough_UsesV1ForOpenAICompatibleEndpointsWhenBaseURLIncludesV1(t *
 
 	if gotPath != "/v1/chat/completions" {
 		t.Fatalf("path = %q, want /v1/chat/completions", gotPath)
+	}
+}
+
+func TestResolveSidecarURL_ZenUsesEnvGenericDoesNot(t *testing.T) {
+	t.Setenv("AURORA_SIDECAR_BASE_URL", "http://127.0.0.1:8090/v1")
+	t.Setenv("AURORA_SIDECAR_BASE_URL", "")
+
+	zen := resolveSidecarURL(providers.ProviderConfig{BaseURL: "https://opencode.ai/zen/v1"})
+	if zen != "http://127.0.0.1:8090/v1" {
+		t.Fatalf("sidecar = %q, want env sidecar", zen)
+	}
+
+	generic := resolveSidecarURL(providers.ProviderConfig{BaseURL: "https://cheapvibecode.ru/v1"})
+	if generic != "" {
+		t.Fatalf("generic sidecar = %q, want empty (direct)", generic)
+	}
+
+	explicit := resolveSidecarURL(providers.ProviderConfig{
+		BaseURL:    "https://example.com/v1",
+		SidecarURL: "http://127.0.0.1:8090/v1",
+	})
+	if explicit != "http://127.0.0.1:8090/v1" {
+		t.Fatalf("explicit sidecar = %q, want provider sidecar_url", explicit)
 	}
 }

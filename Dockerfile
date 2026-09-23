@@ -43,7 +43,7 @@ RUN mkdir -p /app/.cache /app/data && touch /app/.cache/.keep /app/data/.keep
 
 # ---------------------------------------------------------------------------
 # Runtime stage (default) — minimal distroless image. No Bun, no sidecar.
-# Use this unless the free tier Bun sidecar is required.
+# Use this unless the extension-driven TLS sidecar is required.
 # ---------------------------------------------------------------------------
 FROM gcr.io/distroless/static-debian12:nonroot AS runtime
 
@@ -62,7 +62,7 @@ EXPOSE 8080
 ENTRYPOINT ["/aurora"]
 
 # ---------------------------------------------------------------------------
-# Bun stage — downloads the Bun runtime used by the free tier sidecar.
+# Bun stage — downloads the Bun runtime used by the TLS sidecar.
 # The zen free tier fingerprints the TLS handshake and only accepts Bun's
 # BoringSSL ClientHello, which a Go binary cannot reproduce.
 # ---------------------------------------------------------------------------
@@ -83,9 +83,9 @@ RUN apk add --no-cache curl unzip ca-certificates && \
 	ls -la /bun/bun
 
 # ---------------------------------------------------------------------------
-# Runtime stage with free tier sidecar — debian-slim + Bun.
+# Runtime stage with TLS sidecar — debian-slim + Bun.
 # Build with: docker build --target runtime-sidecar ...
-# ---------------------------------------------------------------------------
+# (target name kept for compatibility; content is generic sidecar)
 FROM debian:bookworm-slim AS runtime-sidecar
 
 # ca-certificates lets the sidecar verify upstream TLS certificates.
@@ -93,7 +93,7 @@ RUN apt-get update && \
 	apt-get install -y --no-install-recommends ca-certificates && \
 	rm -rf /var/lib/apt/lists/*
 
-# Copy the Bun runtime and the sidecar for the free-tier tier.
+# Copy the Bun runtime and the sidecar for extension-driven fingerprinting.
 COPY --from=bun /bun/bun /usr/local/bin/bun
 COPY internal/providers/sidecarclient/sidecar /opt/sidecar
 
@@ -111,8 +111,9 @@ RUN mkdir -p /app/.cache /app/data && \
 COPY build/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
-# Default to routing upstream through the local sidecar. Operators can set
-# AURORA_SIDECAR_ENABLED=false to disable it at runtime.
+# Default to routing through the local sidecar when the image variant is used.
+# Operators can set AURORA_SIDECAR_ENABLED=false to disable it at runtime
+# (OPENCODE_* is a legacy alias).
 ENV AURORA_SIDECAR_ENABLED=true \
 	AURORA_SIDECAR_PORT=8090 \
 	AURORA_SIDECAR_BASE_URL=http://127.0.0.1:8090/v1

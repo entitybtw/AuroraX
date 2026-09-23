@@ -25,6 +25,11 @@ type runtimeRefreshStepResult struct {
 	err     error
 }
 
+// rebuildTimeout bounds the synchronous provider rebuild (including model
+// inventory refresh) performed during app.New so a hung upstream cannot
+// prevent the gateway from binding its listen port.
+const rebuildTimeout = 45 * time.Second
+
 // RefreshRuntime performs a manual runtime refresh for admin-triggered actions.
 // It refreshes provider/model metadata and DB-backed in-memory snapshots without
 // touching exact or semantic response caches.
@@ -339,8 +344,9 @@ func (a *App) modelRegistry() *providers.ModelRegistry {
 }
 
 // rebuildWithOverrides rebuilds the provider runtime from the base config merged
-// with any persisted UI overrides (providers and pools). Used at startup so
-// dashboard-created providers survive restarts.
+// with persisted dashboard overrides. The rebuild path synchronously refreshes
+// model inventory (ReplaceProviders → Initialize); bound it so a single slow
+// or self-proxying upstream cannot hang process startup forever.
 func (a *App) rebuildWithOverrides(ctx context.Context) error {
 	if a == nil || a.providers == nil {
 		return nil
@@ -349,7 +355,9 @@ func (a *App) rebuildWithOverrides(ctx context.Context) error {
 	if len(rawProviders) == 0 {
 		return nil
 	}
-	if _, err := a.providers.Rebuild(ctx, rawProviders, a.runtimeRawPools(), a.config, a.providers.Factory); err != nil {
+	rebuildCtx, cancel := context.WithTimeout(ctx, rebuildTimeout)
+	defer cancel()
+	if _, err := a.providers.Rebuild(rebuildCtx, rawProviders, a.runtimeRawPools(), a.config, a.providers.Factory); err != nil {
 		return err
 	}
 	return nil

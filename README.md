@@ -65,7 +65,7 @@ Dashboard-driven operations — no more `.env`-only workflows for the things you
 - **Response headers** — configurable `X-Actual-Provider` / `X-Actual-Model` / `X-Requested` / `X-Fallback-Chain`, per-header toggles, custom headers, success/error/always modes, emitted on `429`/`401`.
 - **Persistence** — state saved to `configs/provider-overrides.json`, `configs/pool-overrides.json`, `configs/fallback.json` (env-overridable); Docker volumes keep it across recreation.
 - **Session Hub** — header transformation engine with per-provider/pool session mapping, inbound→outbound unique ID generation, disk persistence with live toggle, and pool-aware binding via UI (see [Session Hub](#session-hub) below).
-- **upstream sidecar** — bundled Bun sidecar that reproduces the upstream client fingerprint to unlock **free-tier-tier** models, with **multi-IP egress** (per-IP Go CONNECT proxies), a dedicated **Settings → Sidecar** tab (enable, port, tools injection, auth, retry, bind IPs), a one-click **Session Hub rule** dialog, and graceful fallback for paid/OAuth traffic (see [Sidecar](#opencode-sidecar--free-tier-access) below).
+- **Sidecar + extensions** — bundled Bun sidecar for extension-driven TLS fingerprinting (headers, tools, retries), **multi-IP egress** (per-IP Go CONNECT proxies), a dedicated **Settings → Sidecar** tab (extensions, browse store, enable, port, tools injection, auth, retry, bind IPs), a one-click **Session Hub rule** dialog, and graceful fallback for paid/OAuth traffic (see [Sidecar](#sidecar--extension-driven-tls-fingerprint-proxy) below).
 
 ---
 
@@ -167,26 +167,26 @@ Header transformation engine for API integration workflows where upstream servic
 
 - **Per-provider/pool binding** — attach transformation rules to specific providers, pools, fallbacks, or all targets (`*`)
 - **7 header modes** — `map` (stable inbound→outbound per provider), `map_or_generate` (map when present, generate fresh when absent), `generate` (fresh ID each request), `passthrough`, `static`, `random_from_list`, `remove`
-- **Configurable charset** — generated values use `alphanumeric` (default), `hex`, or `digits`; some upstreams require a specific alphabet (e.g. free-tier tier needs `hex`)
+- **Configurable charset** — generated values use `alphanumeric` (default), `hex`, or `digits`; some upstreams require a specific alphabet (e.g. identity-prefix + hex)
 - **Pool-aware** — rules bound to a pool automatically apply to all member providers
 - **Inbound header forwarding** — client session headers are forwarded through the translation layer so `map` mode works even when the provider path drops arbitrary inbound headers
 - **Lock-free hot path** — `Apply()` is a single atomic map read; benchmarked at ~495 ns/op (negligible)
-- **One-click / preset upstream rules** — the Sidecar tab's **Quick setup** applies a preset that idempotently installs the canonical `x-opencode-*` rules (`POST /admin/api/v1/sessionhub/providers/:name/ensure-opencode`); existing rules are preserved, only missing ones are added, and non-safe values are flagged
+- **Extensions (import only)** — portable JSON bundles that configure sidecar + Session Hub headers (+ optional provider types). Applied idempotently via `POST /admin/api/v1/sessionhub/providers/:name/ensure-headers`; existing rules are preserved, only missing ones are added, and non-default values are flagged. Install from a store or by URL (see **aurorax-store**).
 - **Editable in place** — expand any rule in the Session Hub tab to toggle it, add/remove headers, and save; changes apply live without a restart
 - **Persistent or in-memory** — toggled live via API or dashboard (`PUT /admin/api/v1/sessionhub/storage {"mode":"disk"}`)
 - **Dashboard UI** — Settings → Session Hub: status cards, binding overview from live server targets (pools/providers), inline rule editing, live mapping viewer, storage toggle, mobile-responsive grids and touch-friendly inputs
 
 #### How it works
 
-1. Client sends request to AuroraX (e.g. with `x-opencode-session: ses_abc123`)
+1. Client sends request to AuroraX (e.g. with an inbound identity header)
 2. Gateway intercepts the inbound session header and stores it in request context
-3. Request is routed to a pool member (e.g. `opencode-zen` → `vllm-zen-backup`)
+3. Request is routed to a pool member (e.g. `pool-a` → `acc-backup`)
 4. Provider's outbound `headerSetter` fires: session hub applies rules for that provider/pool
-5. `map` mode: inbound `ses_abc123` → unique outbound `ses_xR4f8k2m...` per provider (stable, deduplicated)
-6. `map_or_generate` mode: same as `map` when inbound is present; generates fresh `ses_...` when absent (for the CLI sessions)
-7. `generate` mode: fresh random `ses_...` per request (always unique)
-8. Additional headers (`x-opencode-client`, `user-agent`) are injected per rule
-8. Outbound request goes to upstream with transformed headers
+5. `map` mode: inbound value → unique outbound value per provider (stable, deduplicated)
+6. `map_or_generate` mode: same as `map` when inbound is present; generates a fresh prefixed value when absent (for clients that only sometimes send a session header)
+7. `generate` mode: fresh random value per request (always unique)
+8. Additional static headers are injected per rule
+9. Outbound request goes to upstream with transformed headers
 
 #### Config
 
@@ -196,23 +196,17 @@ Rules are persisted in `configs/session-hub-rules.yaml` (gitignored). Live edits
 enabled: true
 mapping_storage: disk          # "memory" or "disk"
 providers:
-  opencode-zen:                # matches pool name or provider name
+  my-provider:                 # matches pool name or provider name
     enabled: true
     headers:
-      - name: x-opencode-session
+      - name: x-session-id
         mode: map_or_generate  # recommended: map when present, generate when absent
         prefix: "ses_"
-        length: 28
-      - name: x-opencode-client
+        length: 26
+        charset: hex
+      - name: x-client-id
         mode: static
         value: cli
-      - name: x-opencode-request
-        mode: generate
-        prefix: "msg_"
-        length: 28
-      - name: x-opencode-project
-        mode: static
-        value: global
 ```
 
 #### API
@@ -234,7 +228,7 @@ providers:
 | Mode | Behavior |
 |------|----------|
 | `map` | First request generates unique outbound value per provider; subsequent requests with same inbound reuse it |
-| `map_or_generate` | **(default)** Like `map` but falls back to `generate` when the inbound header is absent — ideal for the CLI clients |
+| `map_or_generate` | **(default)** Like `map` but falls back to `generate` when the inbound header is absent — ideal for clients that only sometimes send a session header |
 | `generate` | Fresh random value every request |
 | `passthrough` | Original value forwarded unchanged |
 | `static` | Fixed value (set `value:`) |
@@ -243,26 +237,28 @@ providers:
 
 ---
 
-## Sidecar — Free-Tier Access
+## Sidecar — Extension-driven TLS fingerprint proxy
 
-AuroraX can route **free tier** (`opencode.ai/zen/v1`) and **opencode-go** traffic — including the **free tier** — through a bundled **Bun sidecar** that reproduces the official upstream client fingerprint. The sidecar runs inside the `runtime-sidecar` image variant and is managed from **Settings → Sidecar**.
+AuroraX can route upstream traffic through a bundled **Bun sidecar** when an extension supplies the base URL, User-Agent, auth and tool scope. The sidecar reproduces a client fingerprint Go cannot (BoringSSL ClientHello). It runs inside the `runtime-sidecar` image variant (target name kept for compatibility; content is generic) and is managed from **Settings → Sidecar**.
 
-> **⚠️ Use at your own risk.** The sidecar emulates the upstream client to reach the free tier. Upstream hardening can break it at any time, it may violate the provider's terms of service, and it relies on an actively maintained fingerprint. Review this section before enabling, and prefer a paid/API-key path for production workloads.
+> **⚠️ Use at your own risk.** The sidecar emulates an upstream client. Upstream hardening can break it at any time, it may violate the provider's terms of service, and it relies on an actively maintained fingerprint. Review this section before enabling, and prefer a paid/API-key path for production workloads. Review third-party extensions before installing them from a store.
+
+Upstream-specific free-tier details live in the **opencode** store extension (not built into the gateway). Install via **Settings → Sidecar → Browse store** or import by URL.
 
 ### Why a sidecar exists
 
-upstream's free tier edge applies **layered** client verification. A request must pass **all** of these simultaneously:
+Some upstream edges apply **layered** client verification. A request must pass **all** of these simultaneously:
 
 | Layer | Check | Why Go alone fails |
 |-------|-------|--------------------|
-| 1. TLS fingerprint | Ja3/Ja4 ClientHello must match Bun's BoringSSL profile | Go `net/http` and even Chrome-impersonating uTLS do **not** match Bun |
-| 2. HTTP headers | `User-Agent`, `x-opencode-client: cli`, `x-opencode-project`, `x-opencode-request`, `x-opencode-session` | Header shape must match exactly |
-| 3. Tool schema | Body must carry the **full 11-tool upstream schema** + `tool_choice: auto` | free tier rejects partial tool sets |
-| 4. Streaming | Free tier only answers `stream: true` | Non-streaming requests must be re-aggregated |
-| 5. Auth | `Authorization: Bearer public` (free tier) or a real OAuth `st_*` token | `sk-*` dashboard keys are rejected on the free tier |
-| 6. Behaviour | Fresh connection per request; retry transient 403/429 | Connection reuse triggers rejection |
+| 1. TLS fingerprint | Ja3/Ja4 ClientHello must match the extension's expected profile (e.g. Bun BoringSSL) | Go `net/http` and even Chrome-impersonating uTLS may **not** match |
+| 2. HTTP headers | User-Agent + identity headers declared by the extension | Header shape must match exactly |
+| 3. Tool schema | Body must carry the extension's full tool schema + `tool_choice: auto` (if required) | Partial tool sets can be rejected |
+| 4. Streaming | Some free tiers only answer `stream: true` | Non-streaming requests must be re-aggregated |
+| 5. Auth | Extension-supplied default auth or a real OAuth token | Dashboard API keys may be rejected |
+| 6. Behaviour | Fresh connection per request; retry transient 403/429 | Connection reuse can trigger rejection |
 
-Go cannot produce layer 1, and one layer without the others is useless — hence the sidecar. The sidecar lets **Bun** perform the end-to-end TLS handshake while Aurora still owns routing, auth, and pooling.
+Go cannot always produce layer 1, and one layer without the others is useless — hence the sidecar. **Bun** performs the end-to-end TLS handshake while Aurora still owns routing, auth, and pooling.
 
 ### Architecture
 
@@ -278,21 +274,21 @@ Go bind-proxy (aurora bindproxy, :8981+)
    ▼
 Bun one-shot (fresh process per request)
    │  Bun TLS handshake (BoringSSL)      ← layer 1
-   │  11 tools + tool_choice:auto        ← layer 3
-   │  stream: true                       ← layer 4
-   │  UA + x-opencode-* headers          ← layer 2
-   │  Bearer public / OAuth token        ← layer 5
+   │  extension tool schema              ← layer 3
+   │  stream: true (if required)         ← layer 4
+   │  UA + identity headers              ← layer 2
+   │  default auth / OAuth token         ← layer 5
    ▼
-opencode.ai/zen/v1/chat/completions  → 200
+upstream /v1/chat/completions  → 200
 ```
 
 The sidecar always streams upstream; when the caller asked for a non-streaming response it aggregates the SSE chunks back into a single `chat.completion` object (falling back to `reasoning_content` when a reasoning model emits no visible `content`).
 
 ### What works
 
-- **Free-tier models** — `mimo-v2.5-free`, `nemotron-3.5-lightning-free`, `deepseek-v4-flash-free`, and the rest of the free lineup, via `Bearer public`
+- **Extension-driven fingerprints** — install an extension (e.g. opencode from the store) to supply base URL, UA, headers, tools and retries
 - **Paid/OAuth traffic** — the sidecar forwards the incoming `Authorization` untouched, so OAuth tokens and API keys keep working through the same path
-- **Multi-IP egress** — one Go CONNECT proxy per configured IP (ports `8981+`), selected per provider via `bind_ip`, so free-tier rate limits spread across IPs
+- **Multi-IP egress** — one Go CONNECT proxy per configured IP (ports `8981+`), selected per provider via `bind_ip`, so rate limits can spread across IPs
 - **Streaming and non-streaming** — both, with SSE aggregation on the non-streaming path
 - **Runtime tuning** — every knob is editable from **Settings → Sidecar** and persisted to `configs/sidecar-overrides.json`
 
@@ -313,34 +309,23 @@ docker run -d --name aurora \
   entbtw/aurora:sidecar
 ```
 
-Then configure an upstream provider (type `vllm` or `opencode`) with:
+Then configure a provider (`type: vllm` or `opencode` if the extension provides it) with:
 
 ```yaml
 providers:
-  opencode-zen:
+  sidecar-upstream:
     type: vllm
-    base_url: https://opencode.ai/zen/v1   # the real upstream, rewritten to the sidecar at runtime
-    sidecar_url: http://127.0.0.1:8090/v1  # route this provider through the sidecar
-    bind_ip: 203.0.113.10                  # egress IP → matching CONNECT proxy
+    base_url: https://upstream.example.com/v1   # real upstream, rewritten to the sidecar at runtime
+    sidecar_url: http://127.0.0.1:8090/v1       # route this provider through the sidecar
+    bind_ip: 203.0.113.10                       # egress IP → matching CONNECT proxy
     pool_only: true
 ```
 
-Finally, add the required headers in **Settings → Session Hub** (the Sidecar tab offers a one-click dialog that merges them in — see below).
+Import the matching extension (headers + settings) from the store, then apply it in **Settings → Sidecar**.
 
 ### Session Hub integration
 
-The sidecar and Session Hub work together: the sidecar supplies the *fingerprint*, the Session Hub supplies the *headers*. **Settings → Sidecar → Quick setup** lets you pick a **preset** (e.g. upstream), choose a target pool/provider, and apply it — enabling the sidecar with the right settings and installing the matching Session Hub rules in one step. Rules are merged idempotently (existing rules are **never overwritten**, only missing headers are added) and can be edited any time in the **Session Hub** tab, which now supports in-place editing of existing rules.
-
-> The free-tier tier validates identity headers strictly: `x-opencode-session` must be exactly `ses_` followed by **26 hex** characters, and `x-opencode-request` be `msg_` + **26 hex**. Session Hub rules for these use `charset: hex, length: 26`. Rules that diverge from this (other lengths or a non-hex alphabet) are flagged as **non-default** in the Session Hub tab and are auto-corrected by the sidecar at request time.
-
-Canonical rules:
-
-| Header | Mode | Charset | Value |
-|--------|------|---------|-------|
-| `x-opencode-session` | `map_or_generate` | `hex` | `ses_` + 26 hex (stable per inbound session) |
-| `x-opencode-client` | `static` | — | `cli` |
-| `x-opencode-request` | `generate` | `hex` | `msg_` + 26 hex (per request) |
-| `x-opencode-project` | `static` | — | `global` |
+The sidecar and Session Hub work together: the sidecar supplies the *fingerprint*, the extension supplies the *headers*. **Settings → Sidecar** lets you pick an **extension**, choose a target pool/provider, and apply it — enabling the sidecar with the right settings and installing the matching Session Hub rules in one step. Rules are merged idempotently (existing rules are **never overwritten**, only missing headers are added) via `POST /admin/api/v1/sessionhub/providers/:name/ensure-headers` and can be edited any time in the **Session Hub** tab.
 
 ### Sidecar configuration reference
 
@@ -350,14 +335,16 @@ All settings are editable in **Settings → Sidecar** (persisted to `configs/sid
 |---------|---------|---------|---------|
 | Enabled | `AURORA_SIDECAR_ENABLED` | `true` | Start/stop the sidecar |
 | Port | `AURORA_SIDECAR_PORT` | `8090` | Loopback HTTP port |
-| Inject tools | `AURORA_SIDECAR_INJECT_TOOLS` | `true` | Add the 11 upstream tools when absent |
-| Default auth | `AURORA_SIDECAR_DEFAULT_AUTH` | `Bearer public` | Fallback Authorization |
-| User-Agent | `AURORA_SIDECAR_USER_AGENT` | `opencode/1.18.31 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.14` | Upstream UA |
+| Inject tools | `AURORA_SIDECAR_INJECT_TOOLS` | `true` | Add tool schemas when absent |
+| Default auth | `AURORA_SIDECAR_DEFAULT_AUTH` | — | Fallback Authorization |
+| User-Agent | `AURORA_SIDECAR_USER_AGENT` | — | Upstream UA (set by extension) |
 | Max attempts | `AURORA_SIDECAR_MAX_ATTEMPTS` | `4` | Retries on 403/429 |
 | Retry delay | `AURORA_SIDECAR_RETRY_DELAY_MS` | `750` | Base backoff between retries |
 | Bind IPs | `AURORA_SIDECAR_BIND_IPS` | — | Comma-separated egress IPs |
-| Upstream | `AURORA_SIDECAR_BASE_URL` | `https://opencode.ai/zen/v1` | Provider routing target (Go side) |
-| Sidecar upstream | `AURORA_SIDECAR_UPSTREAM_URL` | `https://opencode.ai/zen/v1` | Sidecar's own upstream (Bun side) |
+| Upstream | `AURORA_SIDECAR_BASE_URL` | — | Provider routing target (Go side) |
+| Sidecar upstream | `AURORA_SIDECAR_UPSTREAM_URL` | — | Sidecar's own upstream (Bun side) |
+
+Legacy `AURORA_SIDECAR_*` env vars are still accepted as aliases.
 
 > **Reserved namespace:** env vars whose provider-suffix is `SIDECAR` or contains `BIND` are ignored by provider auto-discovery, so they never materialise as phantom providers.
 
@@ -365,46 +352,28 @@ All settings are editable in **Settings → Sidecar** (persisted to `configs/sid
 
 The fingerprint is emulated, not inherent, so upstream changes can break it. To recover quickly:
 
-- **Update the profile** — bump `BUN_VERSION` in `Dockerfile.builder` and the `User-Agent` / tool schema (`internal/providers/sidecarclient/sidecar/default-tools.json`) to match the latest the CLI.
-- **Watch for degradation** — a rising share of `403 FreeTierError` in the logs signals a server-side change. The sidecar retries transient 403/429 automatically.
+- **Update the profile** — bump `BUN_VERSION` in `Dockerfile.builder` and the extension's `User-Agent` / tool schema (see the store extension) to match the current client.
+- **Watch for degradation** — a rising share of `403` in the logs signals a server-side change. The sidecar retries transient 403/429 automatically.
 - **Tune, don't fork** — headers, auth, user-agent, tool injection, retries, and IPs are all runtime settings, so most adjustments need no rebuild.
-- **Fail over gracefully** — keep OpenRouter/paid providers in the same pool so a broken fingerprint doesn't take down routing.
+- **Fail over gracefully** — keep paid/API-key providers in the same pool so a broken fingerprint doesn't take down routing.
 
 ### Known limitations
 
 - The sidecar variant is **debian-slim + Bun** (~100 MB larger than the distroless default). Use `runtime` when the sidecar is not needed.
-- Free-tier availability depends on upstream's current policy and can change without notice.
-- The full 11-tool schema adds ~23 KB to every upstream request body.
+- Free-tier availability depends on the upstream's current policy and can change without notice.
+- Full tool schemas add request-body size on every upstream call.
 
 ---
 
-## free tier — Provider Notes
+## Extensions & store
 
-AuroraX routes free tier (`opencode.ai/zen/v1`) via the `vllm` provider type with optional multi-IP rotation, session-hub header mapping, and the Bun sidecar for free-tier access.
+AuroraX loads portable **extensions** (JSON) that configure the sidecar and Session Hub in one apply. Extensions ship tool schemas, identity headers, UA/auth defaults, and optional provider types (`provides.provider_types`, e.g. `opencode`).
 
-### Without the sidecar
+- Install from **aurorax-store** (**Settings → Sidecar → Browse store**) or import by URL (`POST /sidecar/extensions/import`).
+- Apply activates sidecar settings + optional provider types; headers are installed via `ensure-headers`.
+- The gateway does **not** bundle third-party free-tier policy; use the matching store extension (e.g. **opencode**) if you need it.
 
-- **Paid models** with a valid OAuth token — direct HTTPS works.
-- **`sk-*` API keys** — rejected on the free tier (`FreeTierError`); use OAuth or the sidecar.
-
-### With the sidecar (recommended)
-
-See [Sidecar](#opencode-sidecar--free-tier-access) above. The sidecar handles both free and paid traffic and is the supported path for the free lineup.
-
-### Free-tier model lineup
-
-`mimo-v2.5-free`, `nemotron-3.5-lightning-free`, `nemotron-3-ultra-free`, `deepseek-v4-flash-free`, `muse-spark-1.3-contributor-free`, `muse-spark-1.2-contributor-free`, `ling-3.0-flash-fin-free` — availability tracks upstream's policy.
-
-### Alternative: OpenRouter free tier
-
-If you'd rather not rely on the fingerprint, OpenRouter free models work through AuroraX with a normal API key:
-
-```bash
-openrouter/nvidia/nemotron-3-ultra:free
-openrouter/google/gemma-4-31b-it:free
-openrouter/nvidia/nemotron-3.5-lightning:free
-# ... and more
-```
+> **⚠️ Use at your own risk.** Review third-party extensions before installing them from a store.
 
 ---
 

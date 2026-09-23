@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 
 	"aurora/configuration"
@@ -22,7 +23,7 @@ type ProviderOptions struct {
 	BindIP string
 	// UserAgent optionally overrides the User-Agent header sent to the upstream provider.
 	UserAgent string
-	// ProviderName is the configured instance name (e.g. "opencode-zen").
+	// ProviderName is the configured instance name (e.g. "acc-1" or "my-pool-member").
 	// Empty when the creating caller does not supply a name.
 	ProviderName string
 	// SessionHub optionally provides a header transformer for session mapping.
@@ -160,20 +161,37 @@ func (f *ProviderFactory) Create(cfg ProviderConfig) (core.Provider, error) {
 	}
 
 	opts := ProviderOptions{
-		Hooks:          hooks,
-		Models:         cfg.Models,
-		Resilience:     cfg.Resilience,
-		BindIP:         cfg.BindIP,
-		UserAgent:      cfg.UserAgent,
-		ProviderName:   cfg.Name,
-		SessionHub:     f.sessionHub,
-		AuthMethod:     cfg.AuthMethod,
-		OAuthServer:    cfg.OAuthServer,
-		OAuthClientID:  cfg.OAuthClientID,
-		OAuthDataDir:   f.oauthDataDir(),
-		OAuthRegistry:  f.oauthRegistry,
-		DisableAPIKey:  cfg.DisableAPIKey,
-		UseUTLS:        cfg.UseUTLS,
+		Hooks:         hooks,
+		Models:        cfg.Models,
+		Resilience:    cfg.Resilience,
+		BindIP:        cfg.BindIP,
+		UserAgent:     cfg.UserAgent,
+		ProviderName:  cfg.Name,
+		SessionHub:    f.sessionHub,
+		AuthMethod:    cfg.AuthMethod,
+		OAuthServer:   cfg.OAuthServer,
+		OAuthClientID: cfg.OAuthClientID,
+		OAuthDataDir:  f.oauthDataDir(),
+		OAuthRegistry: f.oauthRegistry,
+		DisableAPIKey: cfg.DisableAPIKey,
+		UseUTLS:       cfg.UseUTLS,
+	}
+
+	// Extension-applied sidecar defaults fill empty OAuth wiring so the
+	// gateway itself never hardcodes a provider origin/client.
+	if opts.AuthMethod == "oauth" {
+		def := LoadSidecarOAuthDefaults()
+		if opts.OAuthServer == "" {
+			opts.OAuthServer = def.OAuthServer
+		}
+		if opts.OAuthClientID == "" {
+			opts.OAuthClientID = def.OAuthClientID
+		}
+	}
+	if strings.TrimSpace(cfg.BaseURL) == "" {
+		if def := LoadSidecarOAuthDefaults(); def.BaseURL != "" && cfg.Type == "opencode" {
+			cfg.BaseURL = def.BaseURL
+		}
 	}
 
 	return builder(cfg, opts), nil
@@ -229,4 +247,67 @@ func (f *ProviderFactory) PassthroughSemanticEnrichers() []core.PassthroughSeman
 		return nil
 	}
 	return enrichers
+}
+
+// optionalRegistrations holds provider types that are NOT registered by
+// default. Extensions declare them under provides.provider_types and they
+// are activated on import/apply (e.g. the "opencode" type ships only with
+// the matching store extension).
+var (
+	optionalMu       sync.RWMutex
+	optionalRegistry = map[string]Registration{}
+)
+
+// RegisterOptional stages a provider type for extension-driven activation.
+// It does not make the type available to Create until ActivateOptional runs.
+func RegisterOptional(reg Registration) {
+	if reg.Type == "" || reg.New == nil {
+		return
+	}
+	optionalMu.Lock()
+	defer optionalMu.Unlock()
+	optionalRegistry[reg.Type] = reg
+}
+
+// OptionalTypes returns the staged optional provider type names.
+func OptionalTypes() []string {
+	optionalMu.RLock()
+	defer optionalMu.RUnlock()
+	out := make([]string, 0, len(optionalRegistry))
+	for t := range optionalRegistry {
+		out = append(out, t)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// ActivateOptional registers the named optional types on the factory if they
+// were staged via RegisterOptional. Returns the types that were newly activated.
+func (f *ProviderFactory) ActivateOptional(types ...string) []string {
+	optionalMu.RLock()
+	defer optionalMu.RUnlock()
+	var activated []string
+	for _, t := range types {
+		reg, ok := optionalRegistry[t]
+		if !ok {
+			continue
+		}
+		f.mu.RLock()
+		_, already := f.builders[t]
+		f.mu.RUnlock()
+		if already {
+			continue
+		}
+		f.Add(reg)
+		activated = append(activated, t)
+	}
+	return activated
+}
+
+// IsRegistered reports whether a provider type is currently creatable.
+func (f *ProviderFactory) IsRegistered(typ string) bool {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	_, ok := f.builders[typ]
+	return ok
 }

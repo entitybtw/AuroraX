@@ -56,6 +56,7 @@ type App struct {
 	providerOverrides *admin.ProviderOverrideStore
 	poolOverrides     *admin.PoolOverrideStore
 	sidecarOverrides  *admin.SidecarOverrideStore
+	extensions        *admin.ExtensionStore
 	providers         *providers.InitResult
 	audit             *auditlog.Result
 	usage             *usage.Result
@@ -126,6 +127,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 		providerOverrides: admin.NewProviderOverrideStore(),
 		poolOverrides:     admin.NewPoolOverrideStore(),
 		sidecarOverrides:  admin.NewSidecarOverrideStore(),
+		extensions:        admin.NewExtensionStore(),
 	}
 
 	providerResult, err := providers.Init(ctx, cfg.AppConfig, cfg.Factory)
@@ -133,6 +135,17 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 		return nil, fmt.Errorf("failed to initialize providers: %w", err)
 	}
 	app.providers = providerResult
+
+	// Optional provider types (declared by extensions under
+	// provides.provider_types) are activated from the extension store —
+	// they are not registered by default.
+	app.extensions.SetProviderTypeActivator(func(p *admin.ExtensionProvides) []string {
+		if p == nil || len(p.ProviderTypes) == 0 {
+			return nil
+		}
+		return cfg.Factory.ActivateOptional(p.ProviderTypes...)
+	})
+	app.extensions.ActivateOptionalTypes()
 
 	// Apply persisted UI provider/pool overrides onto the freshly built runtime so
 	// providers created via the dashboard survive restarts.
@@ -513,6 +526,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 			app.providerOverrides,
 			app.poolOverrides,
 			app.sidecarOverrides,
+			app.extensions,
 			oauthRegistryFromFactory(cfg.Factory),
 			app,
 			app,
@@ -584,6 +598,13 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 			oauthReg := cfg.Factory.OAuthRegistry()
 			if oauthReg != nil {
 				oauthHandler := admin.NewOAuthHandler(oauthReg)
+				// Live verification base from sidecar/extension settings.
+				if sc := app.sidecarOverrides; sc != nil {
+					oauthHandler.SetVerificationBase(sc.Get().OAuthVerificationBase)
+					oauthHandler.WithVerificationBaseFunc(func() string {
+						return sc.Get().OAuthVerificationBase
+					})
+				}
 				serverCfg.OAuthHandler = oauthHandler
 				slog.Info("oauth device flow enabled", "providers", oauthReg.Len())
 			}
@@ -1026,6 +1047,7 @@ func initAdmin(
 	providerOverrides *admin.ProviderOverrideStore,
 	poolOverrides *admin.PoolOverrideStore,
 	sidecarOverrides *admin.SidecarOverrideStore,
+	extensions *admin.ExtensionStore,
 	oauthReg *oauth.Registry,
 	runtimeRefresher admin.RuntimeRefresher,
 	fallbackReloader admin.FallbackReloader,
@@ -1097,6 +1119,7 @@ func initAdmin(
 		admin.WithProviderOverrides(providerOverrides),
 		admin.WithPoolWeights(poolOverrides),
 		admin.WithSidecarStore(sidecarOverrides),
+		admin.WithExtensionStore(extensions),
 		admin.WithOAuthRegistry(oauthReg),
 		admin.WithDashboardRuntimeConfig(runtimeConfig),
 	)

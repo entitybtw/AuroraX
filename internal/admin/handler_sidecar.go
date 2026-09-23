@@ -10,20 +10,31 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-// SidecarSettings holds the runtime configuration for the free tier
-// sidecar. The settings are persisted to a JSON file in the configs directory
-// and can be read/written via the admin API.
+// SidecarSettings holds the runtime configuration for the generic TLS
+// sidecar (extension-driven client fingerprint proxy). The settings are
+// persisted to a JSON file and read/written via the admin API. Defaults are
+// neutral — extensions supply base_url, user-agent, auth, tool scope and
+// optional OAuth device-flow endpoints.
 type SidecarSettings struct {
-	Enabled       bool              `json:"enabled"`
-	Port          int               `json:"port"`
-	InjectTools   bool              `json:"inject_tools"`
-	DefaultAuth   string            `json:"default_auth"`
-	UserAgent     string            `json:"user_agent"`
-	BaseURL       string            `json:"base_url"`
-	MaxAttempts   int               `json:"max_attempts"`
-	RetryDelayMs  int               `json:"retry_delay_ms"`
-	BindIPs       []string          `json:"bind_ips"`
-	Proxies       []SidecarProxy    `json:"proxies"`
+	Enabled         bool              `json:"enabled"`
+	Port            int               `json:"port"`
+	InjectTools     bool              `json:"inject_tools"`
+	InjectToolTypes []string          `json:"inject_tool_types"`
+	DefaultAuth     string            `json:"default_auth"`
+	UserAgent       string            `json:"user_agent"`
+	BaseURL         string            `json:"base_url"`
+	MaxAttempts     int               `json:"max_attempts"`
+	RetryDelayMs    int               `json:"retry_delay_ms"`
+	BindIPs         []string          `json:"bind_ips"`
+	Proxies         []SidecarProxy    `json:"proxies"`
+	StoreURLs       []string          `json:"store_urls"`
+	// ToolsPath is an absolute or sidecar-relative path to a JSON tool schema
+	// file supplied by an extension (overrides the bundled default).
+	ToolsPath string `json:"tools_path,omitempty"`
+	// OAuth defaults installed by the active extension (device flow).
+	OAuthServer           string `json:"oauth_server,omitempty"`
+	OAuthClientID         string `json:"oauth_client_id,omitempty"`
+	OAuthVerificationBase string `json:"oauth_verification_base,omitempty"`
 }
 
 // SidecarProxy represents a single per-IP CONNECT proxy entry.
@@ -56,7 +67,6 @@ func NewSidecarOverrideStore() *SidecarOverrideStore {
 			Port:         8090,
 			InjectTools:  true,
 			DefaultAuth:  "Bearer public",
-			BaseURL:      "https://opencode.ai/zen/v1",
 			MaxAttempts:  4,
 			RetryDelayMs: 750,
 		},
@@ -66,6 +76,13 @@ func NewSidecarOverrideStore() *SidecarOverrideStore {
 	}
 	s.load()
 	return s
+}
+
+// Get returns a copy of the current sidecar settings.
+func (s *SidecarOverrideStore) Get() SidecarSettings {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.settings
 }
 
 func (s *SidecarOverrideStore) load() {
@@ -100,6 +117,12 @@ func (s *SidecarOverrideStore) load() {
 	}
 	s.settings.BindIPs = loaded.BindIPs
 	s.settings.Proxies = loaded.Proxies
+	s.settings.InjectToolTypes = loaded.InjectToolTypes
+	s.settings.StoreURLs = loaded.StoreURLs
+	s.settings.ToolsPath = loaded.ToolsPath
+	s.settings.OAuthServer = loaded.OAuthServer
+	s.settings.OAuthClientID = loaded.OAuthClientID
+	s.settings.OAuthVerificationBase = loaded.OAuthVerificationBase
 }
 
 func (s *SidecarOverrideStore) save() {
@@ -134,10 +157,15 @@ func WithSidecarStore(store *SidecarOverrideStore) Option {
 func (h *Handler) GetSidecarStatus(c *echo.Context) error {
 	settings := h.sidecarStore.get()
 	// Bind IPs are normally supplied via AURORA_SIDECAR_BIND_IPS and consumed
-	// by the container entrypoint. Fall back to that env var so operators see
-	// the live configuration even before saving anything from the dashboard.
+	// by the container entrypoint. Fall back to that env var (and the legacy
+	// OPENCODE_ alias) so operators see the live configuration even before
+	// saving anything from the dashboard.
 	if len(settings.BindIPs) == 0 {
-		if raw := strings.TrimSpace(os.Getenv("AURORA_SIDECAR_BIND_IPS")); raw != "" {
+		raw := strings.TrimSpace(os.Getenv("AURORA_SIDECAR_BIND_IPS"))
+		if raw == "" {
+			raw = strings.TrimSpace(os.Getenv("AURORA_SIDECAR_BIND_IPS"))
+		}
+		if raw != "" {
 			for _, ip := range strings.Split(raw, ",") {
 				if v := strings.TrimSpace(ip); v != "" {
 					settings.BindIPs = append(settings.BindIPs, v)

@@ -1,25 +1,70 @@
-// Executes exactly one upstream zen request in a fresh Bun process.
+// Executes exactly one upstream request in a fresh Bun process.
 //
 // A single process must only issue one request: reusing the connection makes
-// subsequent zen requests fail, so the adapter spawns this script per request
-// and this script exits right after the response is written.
+// subsequent free-tier requests fail, so the adapter spawns this script per
+// request and this script exits right after the response is written.
 //
-// The free tier only responds to streaming requests carrying the full upstream
-// tool schema, so we always stream upstream. When the caller asked for a
-// non-streaming response, the SSE chunks are aggregated back into a single
-// JSON chat.completion object. Transient 403/429 responses (rate limiting or
-// Cloudflare edge rejections) are retried with backoff.
-import tools from "./default-tools.json" with { type: "json" };
+// Tool injection is scoped by AURORA_SIDECAR_INJECT_TOOLS (set by adapter
+// from overrides + provider type). When enabled and the body has no tools,
+// the schema is loaded from AURORA_SIDECAR_TOOLS_PATH (extension-supplied)
+// and falls back to the bundled default-tools.json.
+// Streaming aggregation, identity header validation and 403/429 retry are
+// kept so free-tier upstreams stay compatible.
+import bundledTools from "./default-tools.json" with { type: "json" };
 
-const UPSTREAM = process.env.AURORA_SIDECAR_UPSTREAM_URL ?? "https://opencode.ai/zen/v1";
+const TOOLS_PATH =
+  process.env.AURORA_SIDECAR_TOOLS_PATH ??
+  process.env.AURORA_SIDECAR_TOOLS_PATH ??
+  "";
+
+let tools = bundledTools;
+if (TOOLS_PATH) {
+  try {
+    const text = await Bun.file(TOOLS_PATH).text();
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      tools = parsed;
+    }
+  } catch {
+    // keep bundled schema when the extension path is missing/invalid
+  }
+}
+
+// AURORA_SIDECAR_UPSTREAM_URL is set by adapter.js on spawn. Never fall back
+// to AURORA_SIDECAR_BASE_URL — that is the sidecar's own bind address.
+const UPSTREAM = (
+  process.env.AURORA_SIDECAR_UPSTREAM_URL ??
+  process.env.AURORA_SIDECAR_UPSTREAM_URL ??
+  ""
+).trim();
 const USER_AGENT =
   process.env.AURORA_SIDECAR_USER_AGENT ??
-  "opencode/1.18.31 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.14";
-const INJECT_TOOLS = (process.env.AURORA_SIDECAR_INJECT_TOOLS ?? "true") !== "false";
-const MAX_ATTEMPTS = Number(process.env.AURORA_SIDECAR_MAX_ATTEMPTS ?? "4");
-const RETRY_DELAY_MS = Number(process.env.AURORA_SIDECAR_RETRY_DELAY_MS ?? "750");
+  process.env.AURORA_SIDECAR_USER_AGENT ??
+  "";
+const DEFAULT_AUTH =
+  process.env.AURORA_SIDECAR_DEFAULT_AUTH ??
+  process.env.AURORA_SIDECAR_DEFAULT_AUTH ??
+  "Bearer public";
+const INJECT_TOOLS =
+  (process.env.AURORA_SIDECAR_INJECT_TOOLS ??
+    process.env.AURORA_SIDECAR_INJECT_TOOLS ??
+    "true") !== "false";
+const MAX_ATTEMPTS = Number(
+  process.env.AURORA_SIDECAR_MAX_ATTEMPTS ??
+    process.env.AURORA_SIDECAR_MAX_ATTEMPTS ??
+    "4",
+);
+const RETRY_DELAY_MS = Number(
+  process.env.AURORA_SIDECAR_RETRY_DELAY_MS ??
+    process.env.AURORA_SIDECAR_RETRY_DELAY_MS ??
+    "750",
+);
 // Optional CONNECT proxy used to egress from a specific IP (multi-IP support).
-const PROXY = (process.env.AURORA_SIDECAR_PROXY ?? "").trim();
+const PROXY = (
+  process.env.AURORA_SIDECAR_PROXY ??
+  process.env.AURORA_SIDECAR_PROXY ??
+  ""
+).trim();
 const input = await Bun.stdin.text();
 
 let envelope;
@@ -40,7 +85,7 @@ function randomId(prefix) {
   return prefix + crypto.randomUUID().replace(/-/g, "").slice(0, 26);
 }
 
-// The free-tier tier validates identity headers strictly:
+// Some free tiers validate identity headers strictly, e.g.:
 //   x-opencode-session  must be "ses_" + exactly 26 hex chars
 //   x-opencode-request  must be "msg_" + 26 hex chars
 // Session Hub (or the caller) may supply these; use them when they match,
@@ -49,17 +94,26 @@ const SESSION_RE = /^ses_[0-9a-f]{26}$/;
 const REQUEST_RE = /^msg_[0-9a-f]{26}$/;
 
 function identityHeaders(inbound) {
-  const session = inbound["x-opencode-session"];
-  const request = inbound["x-opencode-request"];
-  return {
-    "x-opencode-client": inbound["x-opencode-client"] || "cli",
-    "x-opencode-project":
-      inbound["x-opencode-project"] || "9a15059a80937175227c853c8d7c79984cdbc2b6",
-    "x-opencode-request":
-      request && REQUEST_RE.test(request) ? request : randomId("msg_"),
-    "x-opencode-session":
-      session && SESSION_RE.test(session) ? session : randomId("ses_"),
-  };
+  const out = {};
+  // Forward any unknown inbound identity-ish headers as-is.
+  for (const [k, v] of Object.entries(inbound || {})) {
+    if (typeof v === "string" && v) out[k] = v;
+  }
+  // Normalize well-known free-tier shapes when present or when defaults apply.
+  if (inbound?.["x-opencode-client"] || "x-opencode-client" in (inbound || {})) {
+    // keep inbound
+  }
+  const session = inbound?.["x-opencode-session"];
+  const request = inbound?.["x-opencode-request"];
+  if (session !== undefined || request !== undefined || inbound?.["x-opencode-client"] || inbound?.["x-opencode-project"]) {
+    out["x-opencode-client"] = inbound?.["x-opencode-client"] || "cli";
+    out["x-opencode-project"] = inbound?.["x-opencode-project"] || "global";
+    out["x-opencode-request"] =
+      request && REQUEST_RE.test(request) ? request : randomId("msg_");
+    out["x-opencode-session"] =
+      session && SESSION_RE.test(session) ? session : randomId("ses_");
+  }
+  return out;
 }
 
 // Preserve the caller's intent so a non-streaming request can be re-emitted as
@@ -69,25 +123,32 @@ const payload = envelope.payload ?? envelope;
 const authorization =
   typeof envelope.authorization === "string" && envelope.authorization
     ? envelope.authorization
-    : "Bearer public";
+    : DEFAULT_AUTH;
 
-// The zen free tier requires the full upstream tool schema and streams, else it
-// responds with FreeTierError regardless of the TLS fingerprint.
+// Free tiers often require the full tool schema and streaming, else they
+// respond with FreeTierError regardless of the TLS fingerprint.
 if (INJECT_TOOLS && (!Array.isArray(payload.tools) || payload.tools.length === 0)) {
   payload.tools = tools;
 }
-if (payload.tool_choice === undefined) {
+if (INJECT_TOOLS && payload.tool_choice === undefined) {
   payload.tool_choice = "auto";
 }
-payload.stream = true;
+if (INJECT_TOOLS) {
+  payload.stream = true;
+}
 
 function buildHeaders() {
-  return {
+  const h = {
     Authorization: authorization,
     "Content-Type": "application/json",
-    "User-Agent": USER_AGENT,
     ...identityHeaders(envelope.headers ?? {}),
   };
+  if (USER_AGENT) h["User-Agent"] = USER_AGENT;
+  return h;
+}
+
+if (!UPSTREAM) {
+  emitError(503, "sidecar upstream not configured");
 }
 
 const url = UPSTREAM.replace(/\/+$/, "") + "/chat/completions";
@@ -102,14 +163,13 @@ for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
   if (PROXY) opts.proxy = PROXY;
   resp = await fetch(url, opts);
   raw = await resp.text();
-  // 403/429 are transient here (free-tier rate limiting / edge rejection).
+  // 403/429 are transient here (rate limiting / edge rejection).
   if (resp.status !== 403 && resp.status !== 429) break;
   if (attempt < MAX_ATTEMPTS) {
     await new Promise((r) => setTimeout(r, RETRY_DELAY_MS * attempt));
   }
 }
 
-const contentType = (resp.headers.get("content-type") || "").toLowerCase();
 const upstreamStatus = resp.status;
 
 if (!resp.ok) {
@@ -128,7 +188,10 @@ const contentParts = [];
 const reasoningParts = [];
 const toolCalls = new Map(); // index -> { id, name, args }
 let finish = "stop";
-let mainId = "", created = 0, model = "", role = "assistant";
+let mainId = "",
+  created = 0,
+  model = "",
+  role = "assistant";
 let usage = {};
 
 for (const line of raw.split("\n")) {
@@ -136,7 +199,11 @@ for (const line of raw.split("\n")) {
   const data = line.slice(5).trim();
   if (data === "[DONE]") continue;
   let chunk;
-  try { chunk = JSON.parse(data); } catch { continue; }
+  try {
+    chunk = JSON.parse(data);
+  } catch {
+    continue;
+  }
 
   if (!mainId && chunk.id) mainId = chunk.id;
   if (!created && chunk.created) created = chunk.created;
@@ -146,15 +213,16 @@ for (const line of raw.split("\n")) {
   if (!delta) continue;
   if (delta.role) role = delta.role;
   if (delta.content) contentParts.push(delta.content);
-  // Reasoning models stream their whole visible answer in "reasoning"; keep it
-  // so non-streaming callers do not receive an empty message.
   if (delta.reasoning) reasoningParts.push(delta.reasoning);
 
-  // Streamed tool calls arrive in fragments keyed by an index.
   if (delta.tool_calls) {
     for (const tc of delta.tool_calls) {
       const idx = tc.index ?? 0;
-      let cur = toolCalls.get(idx) || { id: "", type: tc.type || "function", function: { name: "", arguments: "" } };
+      let cur = toolCalls.get(idx) || {
+        id: "",
+        type: tc.type || "function",
+        function: { name: "", arguments: "" },
+      };
       if (tc.id) cur.id = tc.id;
       if (tc.function?.name) cur.function.name += tc.function.name;
       if (tc.function?.arguments) cur.function.arguments += tc.function.arguments;
@@ -166,8 +234,6 @@ for (const line of raw.split("\n")) {
   if (chunk.usage) usage = chunk.usage;
 }
 
-// Prefer normal content; fall back to reasoning text when the model only
-// emitted reasoning (common for the zen free reasoning models).
 let content = contentParts.join("");
 if (!content && reasoningParts.length > 0) {
   content = reasoningParts.join("");

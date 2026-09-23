@@ -21,6 +21,7 @@ import { GuardrailsPage } from "@/routes/guardrails";
 import { CachePage } from "@/routes/cache";
 import { SettingsPage } from "@/routes/settings";
 import { PoolsPage } from "@/routes/pools";
+import { ExtensionPage } from "@/components/extensions/ExtensionPage";
 
 import { ConsolePage } from "@/routes/console";
 import { CombosPage } from "@/routes/combos";
@@ -176,6 +177,13 @@ const poolsRoute = createRoute({
   component: protectedComponent(PoolsPage, "admin/pools"),
 });
 
+/** Catch-all for extension-provided pages under /admin/dashboard/ext/{path}. */
+const extensionPageRoute = createRoute({
+  getParentRoute: () => dashboardLayout,
+  path: "ext/$",
+  component: protectedComponent(ExtensionPage, "admin/dashboard"),
+});
+
 const routeTree = rootRoute.addChildren([
   indexRedirect,
   loginRoute,
@@ -198,6 +206,7 @@ const routeTree = rootRoute.addChildren([
     guardrailsRoute,
     cacheRoute,
     settingsRoute,
+    extensionPageRoute,
   ]),
 ]);
 

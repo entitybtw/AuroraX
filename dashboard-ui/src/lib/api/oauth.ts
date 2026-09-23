@@ -12,6 +12,7 @@ export const OAuthProviderStatusSchema = z.object({
 export const OAuthStartDeviceFlowResponseSchema = z.object({
   user_code: z.string(),
   verification_uri_complete: z.string(),
+  verification_base: z.string().optional(),
   expires_in: z.number(),
   interval: z.number(),
 });

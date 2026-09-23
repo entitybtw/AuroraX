@@ -60,6 +60,7 @@ type Handler struct {
 	oauthRegistry        *oauth.Registry
 	sessionHub           interface{ Apply(map[string][]string, string) map[string]string }
 	sidecarStore         *SidecarOverrideStore
+	extensions           *ExtensionStore
 
 	mutationMu sync.Mutex
 	pricingMu  sync.Mutex

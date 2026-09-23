@@ -79,13 +79,25 @@ func RegisterSessionHubRoutes(g interface {
 		return c.JSON(200, map[string]interface{}{"status": "ok", "data": map[string]string{"name": req.Name, "status": "created"}})
 	})
 
-	g.POST("/sessionhub/providers/:name/ensure-opencode", func(c *echo.Context) error {
+	// ensure-headers merges an arbitrary set of header rules (typically
+	// supplied by an extension) into a target. It is idempotent and never
+	// overwrites an existing header's customised fields.
+	ensureHeaders := func(c *echo.Context) error {
 		name := c.Param("name")
 		if name == "" {
 			return c.JSON(400, map[string]interface{}{"status": "error", "error": "name is required"})
 		}
+		var req struct {
+			Headers []HeaderRule `json:"headers"`
+		}
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(400, map[string]interface{}{"status": "error", "error": "invalid JSON: " + err.Error()})
+		}
+		if len(req.Headers) == 0 {
+			return c.JSON(400, map[string]interface{}{"status": "error", "error": "headers are required"})
+		}
 		existing, _ := hub.GetProviderRule(name)
-		merged, added, already := EnsureupstreamRules(existing)
+		merged, added, kept := EnsureRules(existing, req.Headers)
 		if err := ValidateRule(name, merged); err != nil {
 			return c.JSON(400, map[string]interface{}{"status": "error", "error": err.Error()})
 		}
@@ -95,12 +107,14 @@ func RegisterSessionHubRoutes(g interface {
 			"data": map[string]interface{}{
 				"provider": name,
 				"added":    added,
-				"already":  already,
+				"already":  kept,
 				"headers":  merged.Headers,
-				"defaults": HeaderRuleDiff(merged),
 			},
 		})
-	})
+	}
+	g.POST("/sessionhub/providers/:name/ensure-headers", ensureHeaders)
+	// Alias kept for older dashboards.
+	g.POST("/sessionhub/providers/:name/ensure-preset", ensureHeaders)
 
 	g.GET("/sessionhub/providers/:name", func(c *echo.Context) error {
 		name := c.Param("name")

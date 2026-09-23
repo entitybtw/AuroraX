@@ -1,7 +1,8 @@
-// Package opencode provides free tier integration for the LLM gateway.
-// It wraps the vLLM provider but auto-detects upstream API keys (sk-*) and
-// forces OAuth device flow for free-tier access. When no OAuth token is
-// available, falls back to the static API key.
+// Package opencode provides the optional "opencode" provider type.
+// It is NOT registered by default: extensions declare it under
+// provides.provider_types and the gateway activates it when that
+// extension is installed. OAuth device flow is an extension feature and
+// only runs when auth_method is explicitly "oauth".
 package opencode
 
 import (
@@ -16,76 +17,78 @@ import (
 	"aurora/internal/providers/vllm"
 )
 
-const defaultBaseURL = "https://opencode.ai/zen/v1"
+// baseURLOverride is not a hardcoded product origin: Discovery leaves
+// DefaultBaseURL empty and RequireBaseURL is true. When the provider config
+// has no base_url, the factory injects the extension-applied sidecar base_url.
+const baseURLOverride = ""
 
-// sidecarEnvURL is the environment variable that points at the local Bun
-// sidecar used to reproduce the TLS fingerprint required by the free-tier
-// tier. The SIDECAR suffix is reserved: env-based provider discovery ignores
-// *_SIDECAR_* keys so this never materializes as an "opencode-sidecar" provider.
+// sidecarEnvURL points at the local TLS-fingerprint sidecar. The SIDECAR
+// suffix is reserved so env-based discovery never creates a provider from
+// these keys. AURORA_SIDECAR_BASE_URL is preferred; AURORA_SIDECAR_BASE_URL
+// is a legacy alias.
 const sidecarEnvURL = "AURORA_SIDECAR_BASE_URL"
+const sidecarEnvURLLegacy = "AURORA_SIDECAR_BASE_URL"
 
-// Registration provides factory registration for the upstream provider.
+func envSidecarURL() string {
+	if v := strings.TrimSpace(os.Getenv(sidecarEnvURL)); v != "" {
+		return v
+	}
+	return strings.TrimSpace(os.Getenv(sidecarEnvURLLegacy))
+}
+
+// Registration provides factory registration for the optional opencode type.
+// Only staged via providers.RegisterOptional — not Add()ed by default.
+// base_url must come from provider config or the extension (sidecar overrides).
 var Registration = providers.Registration{
 	Type:  "opencode",
 	New:   New,
 	Discovery: providers.DiscoveryConfig{
-		DefaultBaseURL:  defaultBaseURL,
+		DefaultBaseURL:  baseURLOverride,
 		RequireBaseURL:  false,
 		AllowAPIKeyless: true,
 	},
 }
 
-// Provider wraps the vLLM provider with upstream-specific OAuth logic.
+// Provider wraps the vLLM provider with extension-scoped routing.
 type Provider struct {
 	inner    *vllm.Provider
 	oauthMgr *oauth.Manager
 }
 
-// New creates a new upstream provider.
-// When an sk-* API key is detected, it automatically enables OAuth device flow
-// and registers with the OAuth registry. The API key is kept as fallback.
+// New creates a provider for the optional opencode type.
+// OAuth runs only when auth_method is explicitly "oauth" (extension feature);
+// sk-* keys alone do not force OAuth. Server/client_id come from provider
+// config or extension-applied sidecar defaults — never from gateway hardcode.
 func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Provider {
-	// If no base URL configured, use upstream zen default
 	if strings.TrimSpace(cfg.BaseURL) == "" {
-		cfg.BaseURL = defaultBaseURL
+		cfg.BaseURL = providers.LoadSidecarOAuthDefaults().BaseURL
 	}
 
-	// Auto-detect: if there's an sk-* API key but auth_method is not set,
-	// force OAuth mode for free-tier access
-	if opts.AuthMethod == "" && strings.HasPrefix(strings.TrimSpace(cfg.APIKey), "sk-") {
-		opts.AuthMethod = "oauth"
-	}
-
-	// Route zen traffic through the local Bun sidecar when one is configured.
-	// The sidecar reproduces the Bun TLS fingerprint that the zen free tier
-	// requires and forwards OAuth/API-key credentials unchanged, so paid
-	// accounts continue to work through the same path.
 	sidecar := resolveSidecarURL(cfg)
 	if sidecar != "" {
 		cfg.BaseURL = sidecar
 	}
 
-	// Enable uTLS fingerprint impersonation for example.com zen
-	// (JA3 fingerprinting bypass required for free-tier access). The sidecar
-	// speaks plain HTTP on localhost, so uTLS only applies on the direct path.
+	// Direct path uses uTLS for JA3 fingerprinting; the sidecar speaks plain
+	// HTTP on localhost so uTLS only applies when not routing through it.
 	if sidecar == "" {
 		opts.UseUTLS = true
 	}
 
-	// Set OAuth defaults for upstream zen
 	if opts.AuthMethod == "oauth" {
+		def := providers.LoadSidecarOAuthDefaults()
 		if opts.OAuthServer == "" {
-			opts.OAuthServer = oauth.DefaultServer
+			opts.OAuthServer = def.OAuthServer
 		}
 		if opts.OAuthClientID == "" {
-			opts.OAuthClientID = oauth.DefaultClientID
+			opts.OAuthClientID = def.OAuthClientID
 		}
 	}
 
-	// Create the inner vLLM provider with the resolved config
+	// Signal provider type to the sidecar so it can scope inject_tools.
+	cfg.SidecarURL = sidecar
 	inner := vllm.New(cfg, opts).(*vllm.Provider)
 
-	// Get the OAuth manager from the inner provider
 	var oauthMgr *oauth.Manager
 	if innerOAuth := inner.OAuthManager(); innerOAuth != nil {
 		oauthMgr = innerOAuth
@@ -102,18 +105,14 @@ func (p *Provider) OAuthManager() *oauth.Manager {
 	return p.oauthMgr
 }
 
-// resolveSidecarURL returns the Bun sidecar base URL for this provider, or an
+// resolveSidecarURL returns the sidecar base URL for this provider, or an
 // empty string when the sidecar is not configured. A provider-level
-// sidecar_url wins; otherwise the environment default is used, but only when
-// the provider actually targets upstream zen.
+// sidecar_url wins; otherwise the environment default is used.
 func resolveSidecarURL(cfg providers.ProviderConfig) string {
 	if sidecar := strings.TrimSpace(cfg.SidecarURL); sidecar != "" {
 		return sidecar
 	}
-	if !strings.Contains(cfg.BaseURL, "opencode.ai/zen") {
-		return ""
-	}
-	return strings.TrimSpace(os.Getenv(sidecarEnvURL))
+	return envSidecarURL()
 }
 
 // ChatCompletion sends a chat completion request via the inner vLLM provider.

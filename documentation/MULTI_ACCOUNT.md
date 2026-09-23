@@ -15,7 +15,7 @@ Each account is a provider of the same `type`, at the same `base_url`, with its 
   {
     "name": "acc-1",
     "type": "vllm",
-    "base_url": "https://opencode.ai/zen/v1",
+    "base_url": "https://upstream.example.com/v1",
     "api_key": "sk-...",
     "models": "mimo-v2.5-free",
     "pool_only": true,
@@ -24,7 +24,7 @@ Each account is a provider of the same `type`, at the same `base_url`, with its 
   {
     "name": "acc-2",
     "type": "vllm",
-    "base_url": "https://opencode.ai/zen/v1",
+    "base_url": "https://upstream.example.com/v1",
     "api_key": "sk-...",
     "models": "mimo-v2.5-free",
     "pool_only": true,
@@ -39,17 +39,17 @@ Each account is a provider of the same `type`, at the same `base_url`, with its 
 
 ```json
 {
-  "pools": {
-    "opencode-zen": {
-      "Members": ["acc-1", "acc-2"],
-      "Strategy": "round_robin",
-      "HealthAware": true
+    "pools": {
+      "my-pool": {
+        "Members": ["acc-1", "acc-2"],
+        "Strategy": "round_robin",
+        "HealthAware": true
+      }
     }
-  }
 }
 ```
 
-Now `opencode-zen/mimo-v2.5-free` routes to `acc-1` or `acc-2` round-robin.
+Now `my-pool/model-name` routes to `acc-1` or `acc-2` round-robin.
 
 ## 3. Give each account a distinct, stable client identity (Session Hub)
 
@@ -61,25 +61,22 @@ Add a Session Hub rule bound to the pool. The Session Hub runs on every outbound
 enabled: true
 mapping_storage: disk            # keep the same session per account across restarts
 providers:
-  opencode-zen:                  # pool name — applies to all members
+  my-pool:                       # pool name — applies to all members
     enabled: true
     headers:
-      - name: x-opencode-session
+      - name: x-session-id
         mode: map                # inbound → unique stable value per provider
         prefix: ses_
         length: 28
-      - name: x-opencode-client
+      - name: x-client-id
         mode: static
         value: cli
-      - name: user-agent
-        mode: static
-        value: "opencode/1.18.26 ai-sdk/openai/2.0.0 runtime/bun/1.0.0"
 ```
 
 Effect:
 
-| inbound from your CLI | routed to | outbound session sent upstream |
-|-----------------------|-----------|-------------------------------|
+| inbound from your client | routed to | outbound session sent upstream |
+|--------------------------|-----------|--------------------------------|
 | `ses_client_X` | `acc-1` | `ses_A1b2C3…` (stable) |
 | `ses_client_X` (next) | `acc-2` | `ses_D4e5F6…` (stable, different) |
 
@@ -96,7 +93,7 @@ from openai import OpenAI
 
 client = OpenAI(base_url="http://localhost:8080/v1", api_key="your-aurorax-key")
 r = client.chat.completions.create(
-    model="opencode-zen/mimo-v2.5-free",
+    model="my-pool/model-name",
     messages=[{"role": "user", "content": "hello"}],
 )
 print(r.choices[0].message.content)

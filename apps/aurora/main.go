@@ -402,9 +402,12 @@ func main() {
 	factory.Add(minimax.Registration)
 	factory.Add(ollama.Registration)
 	factory.Add(vllm.Registration)
-	factory.Add(opencodeprovider.Registration)
 	factory.Add(xai.Registration)
 	factory.Add(zai.Registration)
+
+	// Optional provider types ship with extensions (provides.provider_types)
+	// and are activated when the matching extension is installed — not here.
+	providers.RegisterOptional(opencodeprovider.Registration)
 
 	// Reranker is a specialized provider type for reranking/embedding
 	// services (e.g. Jina AI, Cohere). It is not an LLM provider — it

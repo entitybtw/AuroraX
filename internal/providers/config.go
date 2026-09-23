@@ -60,9 +60,9 @@ type ProviderConfig struct {
 	DisableAPIKey bool
 	// UseUTLS enables uTLS fingerprint impersonation for the HTTP client.
 	UseUTLS bool
-	// SidecarURL, when set, routes requests through a local free tier
-	// sidecar (Bun) instead of contacting the upstream directly. Used to
-	// reproduce the Bun TLS fingerprint required by the zen free tier.
+	// SidecarURL, when set, routes requests through a local TLS-fingerprint
+	// sidecar (Bun) instead of contacting the upstream directly. Used by
+	// extensions that need a client fingerprint Go cannot reproduce.
 	SidecarURL string
 }
 

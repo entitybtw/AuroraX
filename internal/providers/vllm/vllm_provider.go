@@ -18,23 +18,36 @@ import (
 
 const defaultBaseURL = "http://localhost:8000/v1"
 
-// sidecarEnvURL points at the local Bun sidecar used to reproduce the TLS
-// fingerprint required by the free-tier tier. The SIDECAR suffix is
-// reserved: env-based provider discovery ignores *_SIDECAR_* keys so this never
-// materializes as an "opencode-sidecar" provider.
+// sidecarEnvURL points at the local TLS-fingerprint sidecar (extension-
+// driven). The SIDECAR suffix is reserved: env-based provider discovery
+// ignores *_SIDECAR_* keys so this never materializes as a provider.
+// AURORA_SIDECAR_BASE_URL is preferred; AURORA_SIDECAR_BASE_URL is a
+// legacy alias for existing deployments.
 const sidecarEnvURL = "AURORA_SIDECAR_BASE_URL"
 
-// resolveZenSidecarURL returns the Bun sidecar base URL when this provider
-// targets free tier, or an empty string otherwise. A provider-level
-// sidecar_url wins; otherwise the environment default applies.
-func resolveZenSidecarURL(cfg providers.ProviderConfig) string {
+const sidecarEnvURLLegacy = "AURORA_SIDECAR_BASE_URL"
+
+func envSidecarURL() string {
+	if v := strings.TrimSpace(os.Getenv(sidecarEnvURL)); v != "" {
+		return v
+	}
+	return strings.TrimSpace(os.Getenv(sidecarEnvURLLegacy))
+}
+
+// resolveSidecarURL returns the sidecar base URL for this provider.
+// A provider-level sidecar_url always wins. The environment sidecar is only
+// used for free tier origins — generic vLLM endpoints (and any other
+// host) must talk to their own base_url directly. Routing every vLLM provider
+// through the local sidecar self-proxies when AURORA_SIDECAR_BASE_URL points
+// at the sidecar itself and hangs ListModels during startup rebuild.
+func resolveSidecarURL(cfg providers.ProviderConfig) string {
 	if sidecar := strings.TrimSpace(cfg.SidecarURL); sidecar != "" {
 		return sidecar
 	}
-	if !strings.Contains(cfg.BaseURL, "opencode.ai/zen") {
-		return ""
+	if strings.Contains(cfg.BaseURL, "opencode.ai/zen") {
+		return envSidecarURL()
 	}
-	return strings.TrimSpace(os.Getenv(sidecarEnvURL))
+	return ""
 }
 
 // Registration provides factory registration for the vLLM provider.
@@ -57,14 +70,9 @@ type Provider struct {
 
 // New creates a new vLLM provider.
 func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Provider {
-	// Remember whether this provider targets free tier (before any sidecar
-	// rewrite) so the OAuth / uTLS / User-Agent treatment below still applies.
-	isZen := strings.Contains(cfg.BaseURL, "opencode.ai/zen")
-
-	// Route free tier through the local Bun sidecar when configured. The
-	// sidecar reproduces the Bun TLS fingerprint that the zen free tier
-	// requires and forwards OAuth/API-key credentials unchanged.
-	sidecar := resolveZenSidecarURL(cfg)
+	// Route through the local TLS sidecar when configured (extension-supplied
+	// fingerprint proxy). Credentials are forwarded unchanged.
+	sidecar := resolveSidecarURL(cfg)
 	if sidecar != "" {
 		cfg.BaseURL = sidecar
 	}
@@ -72,55 +80,48 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 	baseURL := providers.ResolveBaseURL(cfg.BaseURL, defaultBaseURL)
 	rootBaseURL := passthroughBaseURL(baseURL)
 
-	// Auto-detect upstream zen: if base URL is opencode.ai/zen/v1 and API key starts with sk-,
-	// auto-enable OAuth for free-tier access (sk- keys don't work for free tier)
-	if isZen && opts.AuthMethod == "" && strings.HasPrefix(strings.TrimSpace(cfg.APIKey), "sk-") {
-		opts.AuthMethod = "oauth"
-	}
-
-	// Enable uTLS fingerprint impersonation for example.com zen
-	// (JA3 fingerprinting bypass required for free-tier access). The sidecar
-	// speaks plain HTTP on localhost, so uTLS only applies on the direct path.
-	if isZen && sidecar == "" {
-		opts.UseUTLS = true
-		// The official upstream client identifies itself with its versioned
-		// User-Agent; the zen free tier requires it in addition to the JA3
-		// fingerprint. Respect an explicit override if one is configured.
-		if strings.TrimSpace(opts.UserAgent) == "" {
-			opts.UserAgent = oauth.upstreamUserAgent
-		}
-	}
-
-	// Set OAuth defaults for upstream zen
+	// OAuth only when explicitly requested (extension feature / provider
+	// config). Fallback is extension-applied sidecar overrides — no
+	// provider-specific hardcode in the gateway.
 	if opts.AuthMethod == "oauth" {
+		def := providers.LoadSidecarOAuthDefaults()
 		if opts.OAuthServer == "" {
-			opts.OAuthServer = oauth.DefaultServer
+			opts.OAuthServer = def.OAuthServer
 		}
 		if opts.OAuthClientID == "" {
-			opts.OAuthClientID = oauth.DefaultClientID
+			opts.OAuthClientID = def.OAuthClientID
 		}
 	}
 
-	// Set up OAuth token manager if auth_method is "oauth"
 	var oauthMgr *oauth.Manager
 	if opts.AuthMethod == "oauth" {
-		oauthMgr = oauth.NewManager(
-			opts.OAuthServer,
-			opts.OAuthClientID,
-			opts.OAuthDataDir,
-			opts.ProviderName,
-		)
-		// Register with the central registry so admin API can access it
-		if opts.OAuthRegistry != nil {
-			opts.OAuthRegistry.Register(opts.ProviderName, oauthMgr)
+		if opts.OAuthServer == "" || opts.OAuthClientID == "" {
+			log.Printf("vllm: oauth requires oauth_server/oauth_client_id (set via extension apply)")
+		} else {
+			oauthMgr = oauth.NewManager(
+				opts.OAuthServer,
+				opts.OAuthClientID,
+				opts.OAuthDataDir,
+				opts.ProviderName,
+			)
+			if opts.OAuthRegistry != nil {
+				opts.OAuthRegistry.Register(opts.ProviderName, oauthMgr)
+			}
 		}
+	}
+
+	// Sidecar routing is signaled to the proxy via X-Aurora-* headers.
+	viaSidecar := sidecar != ""
+	providerType := strings.TrimSpace(cfg.Type)
+	if providerType == "" {
+		providerType = "vllm"
 	}
 
 	return &Provider{
 		compatible: openai.NewCompatibleProvider(cfg.APIKey, opts, openai.CompatibleProviderConfig{
 			ProviderName: "vllm",
 			BaseURL:      baseURL,
-			SetHeaders:   makeSetHeaders(oauthMgr, opts.DisableAPIKey, opts.BindIP),
+			SetHeaders:   makeSetHeaders(oauthMgr, opts.DisableAPIKey, opts.BindIP, providerType, viaSidecar),
 		}),
 		rootClient: llmclient.New(llmclient.Config{
 			ProviderName:   "vllm",
@@ -131,7 +132,7 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 			BindIP:         opts.BindIP,
 			UseUTLS:        opts.UseUTLS,
 		}, func(req *http.Request) {
-			makeSetHeaders(oauthMgr, opts.DisableAPIKey, opts.BindIP)(req, cfg.APIKey)
+			makeSetHeaders(oauthMgr, opts.DisableAPIKey, opts.BindIP, providerType, viaSidecar)(req, cfg.APIKey)
 		}),
 		oauthMgr: oauthMgr,
 	}
@@ -167,16 +168,30 @@ func (p *Provider) SetBaseURL(url string) {
 }
 
 func setHeaders(req *http.Request, apiKey string) {
-	makeSetHeaders(nil, false, "")(req, apiKey)
+	makeSetHeaders(nil, false, "", "vllm", false)(req, apiKey)
 }
 
-// makeSetHeaders returns a header setter that uses OAuth tokens when available,
-// falling back to the static API key unless disableAPIKey is set. When bindIP is
-// non-empty, an x-aurora-bind-ip header is added so the Bun sidecar routes the
-// request through the matching per-IP CONNECT proxy.
-func makeSetHeaders(oauthMgr *oauth.Manager, disableAPIKey bool, bindIP string) func(req *http.Request, apiKey string) {
+// makeSetHeaders returns a header setter that uses OAuth tokens when
+// available, falling back to the static API key unless disableAPIKey is set.
+// Sidecar-routing headers (X-Aurora-Bind-Ip, X-Aurora-Provider-Type) are set
+// first so multi-IP egress works even when Authorization is suppressed.
+func makeSetHeaders(
+	oauthMgr *oauth.Manager,
+	disableAPIKey bool,
+	bindIP string,
+	providerType string,
+	viaSidecar bool,
+) func(req *http.Request, apiKey string) {
 	return func(req *http.Request, apiKey string) {
-		// OAuth takes precedence when configured and token is available
+		if viaSidecar || bindIP != "" {
+			if providerType != "" {
+				req.Header.Set("X-Aurora-Provider-Type", providerType)
+			}
+			if bindIP != "" {
+				req.Header.Set("X-Aurora-Bind-Ip", bindIP)
+			}
+		}
+
 		if oauthMgr != nil && oauthMgr.HasToken() {
 			if err := oauthMgr.EnsureFreshToken(); err != nil {
 				log.Printf("oauth: token refresh failed for %s: %v", req.Host, err)
@@ -186,20 +201,14 @@ func makeSetHeaders(oauthMgr *oauth.Manager, disableAPIKey bool, bindIP string) 
 				if requestID := core.GetRequestID(req.Context()); requestID != "" {
 					req.Header.Set("X-Request-Id", requestID)
 				}
-				if bindIP != "" {
-					req.Header.Set("X-Aurora-Bind-Ip", bindIP)
-				}
 				return
 			}
 		}
 		if disableAPIKey {
+			if requestID := core.GetRequestID(req.Context()); requestID != "" {
+				req.Header.Set("X-Request-Id", requestID)
+			}
 			return
-		}
-		// upstream zen free tier: the official client sends the literal API key
-		// "public" when the user is not signed in. Combined with the uTLS JA3
-		// fingerprint and the opencode User-Agent this unlocks the free tier.
-		if isupstreamZenHost(req.URL.Host) && apiKey == "" {
-			apiKey = "public"
 		}
 		if apiKey != "" {
 			req.Header.Set("Authorization", "Bearer "+apiKey)
@@ -207,15 +216,7 @@ func makeSetHeaders(oauthMgr *oauth.Manager, disableAPIKey bool, bindIP string) 
 		if requestID := core.GetRequestID(req.Context()); requestID != "" {
 			req.Header.Set("X-Request-Id", requestID)
 		}
-		if bindIP != "" {
-			req.Header.Set("X-Aurora-Bind-Ip", bindIP)
-		}
 	}
-}
-
-// isupstreamZenHost reports whether the host is the upstream free-tier API.
-func isupstreamZenHost(host string) bool {
-	return strings.Contains(host, "example.com")
 }
 
 // ChatCompletion sends a chat completion request to vLLM.

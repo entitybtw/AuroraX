@@ -26,7 +26,7 @@ import { usePools } from "@/lib/api/usePools";
 import { fetchProviderStatus } from "@/lib/api/providers";
 import {
   HeaderRulesEditor,
-  openCodeSessionRule,
+  sessionHeaderRule,
   type HeaderRule,
 } from "@/components/settings/HeaderRulesEditor";
 
@@ -117,10 +117,17 @@ function useSessionHubMutations() {
     onSuccess: invalidate,
   });
 
-  const ensureupstream = useMutation({
-    mutationFn: (name: string) =>
-      apiFetch(`/admin/api/v1/sessionhub/providers/${encodeURIComponent(name)}/ensure-opencode`, {
+  const ensureHeaders = useMutation({
+    mutationFn: ({
+      name,
+      headers,
+    }: {
+      name: string;
+      headers: HeaderRule[];
+    }) =>
+      apiFetch(`/admin/api/v1/sessionhub/providers/${encodeURIComponent(name)}/ensure-headers`, {
         method: "POST",
+        json: { headers },
       }),
     onSuccess: invalidate,
   });
@@ -140,7 +147,7 @@ function useSessionHubMutations() {
     createProvider,
     deleteProvider,
     updateProvider,
-    ensureupstream,
+    ensureHeaders,
     clearMappings,
     setStorageMode,
   };
@@ -148,15 +155,19 @@ function useSessionHubMutations() {
 
 // --- Helpers ---
 
-/** A header rule is "zen-safe" when it produces ses_/msg_ + 26 hex chars. */
-function isZenSafe(hr: HeaderRule): boolean {
+/** A generate/map rule whose charset/length diverge from ses_/msg_ + 26 hex. */
+function looksLikeIdentityGenerate(hr: HeaderRule): boolean {
   if (hr.mode !== "generate" && hr.mode !== "map" && hr.mode !== "map_or_generate") return true;
   const charset = (hr.charset || "alphanumeric").toLowerCase();
-  return hr.length === 26 && charset === "hex" && (hr.prefix === "ses_" || hr.prefix === "msg_");
+  return (
+    hr.length === 26 &&
+    charset === "hex" &&
+    (hr.prefix === "ses_" || hr.prefix === "msg_" || hr.prefix === "")
+  );
 }
 
 function ruleHasWarnings(rule: ProviderRule): boolean {
-  return rule.headers.some((h) => !isZenSafe(h));
+  return rule.headers.some((h) => !looksLikeIdentityGenerate(h));
 }
 
 function StatusBadge({ healthy, label }: { healthy: boolean; label: string }) {
@@ -175,13 +186,13 @@ function StatusBadge({ healthy, label }: { healthy: boolean; label: string }) {
 }
 
 function ModeChip({ header }: { header: HeaderRule }) {
-  const warn = !isZenSafe(header);
+  const warn = !looksLikeIdentityGenerate(header);
   return (
     <span
       className={`inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium ${
         warn ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"
       }`}
-      title={warn ? "Not free-tier safe (use length 26 + hex)" : undefined}
+      title={warn ? "Non-default generate shape (check length/charset)" : undefined}
     >
       {warn && <AlertTriangleIcon className="h-2.5 w-2.5" />}
       {header.name || "(unnamed)"}: {header.mode}
@@ -202,7 +213,7 @@ function ProviderCard({
   provider: ProviderRule;
   onDelete: (name: string) => void;
   onSave: (name: string, rule: ProviderRule) => void;
-  onEnsure: (name: string) => void;
+  onEnsure: (name: string, headers: HeaderRule[]) => void;
   saving: boolean;
   ensuring: boolean;
 }) {
@@ -275,12 +286,14 @@ function ProviderCard({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => onEnsure(provider.name)}
+              onClick={() =>
+                onEnsure(provider.name, provider.headers.length > 0 ? provider.headers : [])
+              }
               disabled={ensuring}
               className="self-start sm:self-auto"
             >
               <SparklesIcon className="mr-1.5 h-3.5 w-3.5" />
-              {ensuring ? "Applying..." : "Add missing upstream headers"}
+              {ensuring ? "Applying..." : "Add missing headers"}
             </Button>
           </div>
 
@@ -342,7 +355,7 @@ export function SessionHubTab(): JSX.Element {
   const [newSelectedProvider, setNewSelectedProvider] = useState("");
   const [newName, setNewName] = useState("");
   const [newEnabled, setNewEnabled] = useState(true);
-  const [newHeaders, setNewHeaders] = useState<HeaderRule[]>([openCodeSessionRule()]);
+  const [newHeaders, setNewHeaders] = useState<HeaderRule[]>([sessionHeaderRule()]);
 
   const poolQuery = usePools();
   const provStatusQuery = useServerProviders();
@@ -354,7 +367,7 @@ export function SessionHubTab(): JSX.Element {
   const resetAddForm = () => {
     setNewName("");
     setNewEnabled(true);
-    setNewHeaders([openCodeSessionRule()]);
+    setNewHeaders([sessionHeaderRule()]);
   };
 
   const handleAdd = () => {
@@ -386,11 +399,14 @@ export function SessionHubTab(): JSX.Element {
         <div className="text-sm">
           <p className="font-medium text-amber-600 dark:text-amber-400">Use at your own risk</p>
           <p className="mt-1 leading-snug text-muted-foreground">
-            The Session Hub rewrites upstream headers to impersonate official clients. This may
-            violate a provider&apos;s terms of service, and upstream fingerprint hardening can
-            break it at any time. For free tier free tier, the session must be exactly 26 hex
-            characters (charset <span className="font-mono">hex</span>, length <span className="font-mono">26</span>);
-            the dashboard flags rules that are not free-tier safe.
+            The Session Hub rewrites upstream headers to present client identities. Depending on
+            the provider and upstream, some of these transformations may violate a provider&apos;s
+            terms of service, and upstream fingerprint hardening can break them at any time. Use
+            only the rules you need, and review the documentation before relying on them.
+          </p>
+          <p className="mt-2 leading-snug text-muted-foreground">
+            Rules imported from third-party extensions are unreviewed modifications. Treat them as
+            untrusted code: review the JSON before applying, and prefer sources you trust.
           </p>
         </div>
       </div>
@@ -491,9 +507,11 @@ export function SessionHubTab(): JSX.Element {
                   provider={p}
                   onDelete={(name) => mutations.deleteProvider.mutate(name)}
                   onSave={(name, rule) => mutations.updateProvider.mutate({ name, rule })}
-                  onEnsure={(name) => mutations.ensureupstream.mutate(name)}
+                  onEnsure={(name, headers) =>
+                    mutations.ensureHeaders.mutate({ name, headers })
+                  }
                   saving={mutations.updateProvider.isPending}
-                  ensuring={mutations.ensureupstream.isPending}
+                  ensuring={mutations.ensureHeaders.isPending}
                 />
               ))}
             </div>

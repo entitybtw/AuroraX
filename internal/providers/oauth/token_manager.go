@@ -1,5 +1,7 @@
 // Package oauth implements the RFC 8628 OAuth 2.0 device authorization grant
-// for providers that require browser-based authentication (e.g. free tier).
+// for providers that require browser-based authentication. Defaults below are
+// overridden per-provider via auth_method: oauth + oauth_server / oauth_client_id
+// (typically supplied by an extension that declares features: ["oauth"]).
 package oauth
 
 import (
@@ -16,11 +18,14 @@ import (
 )
 
 const (
-	DefaultServer   = "https://example.com/console"
-	DefaultClientID = "opencode-cli"
-	// upstreamUserAgent mirrors the User-Agent sent by the official upstream
-	// client. The zen free tier rejects requests that do not look like they
-	// originate from the client, even when the JA3 fingerprint matches.
+	// DefaultServer / DefaultClientID are empty: device-flow endpoints are
+	// supplied by the extension (oauth.server / oauth_client_id) via provider
+	// config or sidecar overrides — the gateway does not hardcode an origin.
+	// Kept as named constants for tests and explicit wiring.
+	DefaultServer   = ""
+	DefaultClientID = ""
+	// upstreamUserAgent is only used when a caller opts in via UserAgent on
+	// the manager config (not applied by default).
 	upstreamUserAgent = "opencode/1.18.31"
 	refreshSkew       = 5 * time.Minute
 )
@@ -68,14 +73,10 @@ type Manager struct {
 	tokenFileModTime time.Time
 }
 
-// NewManager creates a new OAuth token manager.
+// NewManager creates a new OAuth token manager. server/clientID must be
+// supplied by the provider config or extension-applied sidecar defaults;
+// empty values are left empty (StartDeviceFlow will fail without a server).
 func NewManager(server, clientID, dataDir, providerName string) *Manager {
-	if server == "" {
-		server = DefaultServer
-	}
-	if clientID == "" {
-		clientID = DefaultClientID
-	}
 	if dataDir == "" {
 		dataDir = "data"
 	}

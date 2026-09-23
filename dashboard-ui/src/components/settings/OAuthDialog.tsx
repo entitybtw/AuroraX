@@ -46,15 +46,22 @@ export function OAuthDialog({
   const [unlinking, setUnlinking] = useState(false);
   const [alreadyLinked, setAlreadyLinked] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(true);
+  const [verificationBase, setVerificationBase] = useState("");
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
   const stepRef = useRef<"idle" | "waiting" | "polling" | "success" | "error">("idle");
 
-  // Format verification URI for display (add https://example.com if relative)
+  // Resolve verification URI: absolute URLs pass through; relative paths are
+  // expanded with the extension-supplied base (never a hardcoded origin).
   const fullVerificationUri = useCallback(() => {
-    if (verificationUri.startsWith("http")) return verificationUri;
-    return `https://example.com${verificationUri}`;
-  }, [verificationUri]);
+    if (!verificationUri) return "";
+    if (verificationUri.startsWith("http://") || verificationUri.startsWith("https://")) {
+      return verificationUri;
+    }
+    if (!verificationBase) return verificationUri;
+    const path = verificationUri.startsWith("/") ? verificationUri : `/${verificationUri}`;
+    return `${verificationBase.replace(/\/$/, "")}${path}`;
+  }, [verificationUri, verificationBase]);
 
   // On dialog open: check status first, then decide whether to start a new flow.
   useEffect(() => {
@@ -132,6 +139,7 @@ export function OAuthDialog({
       // Backend doesn't return device_code, but starts background polling
       setUserCode(res.user_code);
       setVerificationUri(res.verification_uri_complete);
+      setVerificationBase(res.verification_base ?? "");
       setExpiresIn(res.expires_in);
       setPollInterval(res.interval);
       startTimeRef.current = Date.now();
@@ -307,12 +315,12 @@ export function OAuthDialog({
                 ? alreadyLinked
                   ? "Account Linked"
                   : "Authorized!"
-                : "Link upstream Account"}
+                : "Link OAuth Account"}
           </DialogTitle>
           <DialogDescription>
             {checkingStatus && "Checking OAuth status for this provider..."}
             {!checkingStatus && step === "success" && alreadyLinked && (
-              "This provider is already linked to an upstream account."
+              "This provider is already linked to an OAuth account."
             )}
             {!checkingStatus && step === "waiting" && "Starting device authorization flow..."}
             {!checkingStatus && step === "polling" && (
@@ -324,7 +332,7 @@ export function OAuthDialog({
                 <span className="text-xs text-muted-foreground">remaining</span>
               </>
             )}
-            {!checkingStatus && step === "success" && !alreadyLinked && "Your upstream account is now linked."}
+            {!checkingStatus && step === "success" && !alreadyLinked && "Your OAuth account is now linked."}
             {!checkingStatus && step === "error" && error}
           </DialogDescription>
         </DialogHeader>

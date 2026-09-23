@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Surface } from "@/components/ui/surface";
 import { Button } from "@/components/ui/button";
@@ -26,14 +26,20 @@ import {
   ShieldAlertIcon,
   ArrowRightIcon,
   SparklesIcon,
+  DownloadIcon,
+  UploadIcon,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api/client";
 import {
-  SIDECAR_PRESETS,
-  DEFAULT_SIDECAR_PRESET_ID,
-  getSidecarPreset,
-  ruleMatchesPreset,
-} from "@/components/settings/sidecarPresets";
+  fetchExtensions,
+  importExtension,
+  deleteExtension,
+  exportExtensionUrl,
+  applyExtension,
+  ensureExtensionHeaders,
+  type Extension,
+} from "@/lib/api/extensions";
+import { SidecarPresetImportDialog } from "@/components/settings/SidecarPresetImportDialog";
 
 // --- Types ---
 
@@ -47,20 +53,34 @@ interface SidecarSettings {
   enabled: boolean;
   port: number;
   inject_tools: boolean;
+  inject_tool_types?: string[] | undefined;
   default_auth: string;
   user_agent: string;
   base_url: string;
   max_attempts: number;
   retry_delay_ms: number;
   bind_ips: string[];
+  store_urls?: string[] | undefined;
   proxies: SidecarProxy[];
+  tools_path?: string | undefined;
+  oauth_server?: string | undefined;
+  oauth_client_id?: string | undefined;
+  oauth_verification_base?: string | undefined;
 }
 
 interface EnsureRulesResult {
   provider: string;
   added: string[];
   already: string[];
-  headers: { name: string; mode: string; prefix?: string; length?: number; value?: string }[];
+  headers: {
+    name: string;
+    mode: string;
+    prefix?: string | undefined;
+    length?: number | undefined;
+    value?: string | undefined;
+    charset?: string | undefined;
+    values?: string[] | undefined;
+  }[];
 }
 
 // --- API hooks ---
@@ -104,10 +124,16 @@ function useSidecarMutation() {
   });
 
   const ensureRules = useMutation({
-    mutationFn: (provider: string) =>
+    mutationFn: ({
+      provider,
+      headers,
+    }: {
+      provider: string;
+      headers: EnsureRulesResult["headers"];
+    }) =>
       apiFetch<{ status: string; data: EnsureRulesResult }>(
-        `/admin/api/v1/sessionhub/providers/${encodeURIComponent(provider)}/ensure-opencode`,
-        { method: "POST" },
+        `/admin/api/v1/sessionhub/providers/${encodeURIComponent(provider)}/ensure-headers`,
+        { method: "POST", json: { headers } },
       ),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["sessionhub"] });
@@ -140,9 +166,16 @@ function RiskNotice() {
       <div className="text-sm">
         <p className="font-medium text-amber-600 dark:text-amber-400">Use at your own risk</p>
         <p className="text-muted-foreground mt-1 leading-snug">
-          The sidecar emulates the upstream client fingerprint to reach the free tier.
-          Upstream hardening can break it at any time, and using it may violate the
-          provider&apos;s terms of service. Review the documentation before enabling.
+          The sidecar reproduces an upstream client signature (TLS fingerprint, headers and tool
+          schema) so requests look like they come from the official client. Upstream hardening can
+          break it at any time, and some of these techniques may violate a provider&apos;s terms of
+          service.
+        </p>
+        <p className="text-muted-foreground mt-2 leading-snug">
+          Import extensions only from sources you trust. Third-party extensions are unreviewed
+          modifications and may contain harmful instructions, data-exfiltration URLs, or
+          configuration that violates a provider&apos;s rules. Review an extension&apos;s JSON
+          before importing and keep a copy of anything you import.
         </p>
       </div>
     </div>
@@ -224,12 +257,16 @@ function SessionHubRulesDialog({
   onConfirm,
   pending,
   result,
+  headers,
+  extensionName,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
   pending: boolean;
   result: EnsureRulesResult | null;
+  headers?: EnsureRulesResult["headers"] | undefined;
+  extensionName?: string | undefined;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -237,42 +274,44 @@ function SessionHubRulesDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShieldAlertIcon className="h-5 w-5 text-amber-500" />
-            Add upstream header rules?
+            Add header rules from extension?
           </DialogTitle>
           <DialogDescription>
-            The sidecar replicates the upstream client fingerprint. The Session Hub must send
-            matching <code className="rounded bg-muted px-1 py-0.5 text-xs">x-opencode-*</code>{" "}
-            headers for the free tier to accept requests.
+            {extensionName ? `The "${extensionName}" extension ` : "This extension "}
+            supplies header rules the Session Hub must install for the upstream to accept requests.
           </DialogDescription>
         </DialogHeader>
 
         {!result ? (
           <div className="flex flex-col gap-3 text-sm">
             <p className="text-muted-foreground">
-              This will add the following rules to each upstream provider. Existing rules are
-              never overwritten — only missing ones are added.
+              This will add the following rules to the selected target. Existing rules are never
+              overwritten — only missing ones are added.
             </p>
             <div className="rounded-lg border border-border/60 divide-y divide-border/40">
-              {[
-                ["x-opencode-session", "map or generate", "ses_ + 26 hex"],
-                ["x-opencode-client", "static", "cli"],
-                ["x-opencode-request", "generate", "msg_ + 26 hex"],
-                ["x-opencode-project", "static", "global"],
-              ].map(([name, mode, detail]) => (
-                <div key={name} className="flex items-center justify-between gap-3 px-3 py-2">
-                  <code className="text-xs font-medium">{name}</code>
-                  <div className="text-right text-xs text-muted-foreground">
-                    <div>{mode}</div>
-                    <div className="font-mono">{detail}</div>
-                  </div>
+              {(headers ?? []).length === 0 ? (
+                <div className="px-3 py-2 text-xs text-muted-foreground">
+                  This extension does not declare header rules.
                 </div>
-              ))}
+              ) : (
+                (headers ?? []).map((h) => (
+                  <div key={h.name} className="flex items-center justify-between gap-3 px-3 py-2">
+                    <code className="text-xs font-medium">{h.name}</code>
+                    <div className="text-right text-xs text-muted-foreground">
+                      <div>{h.mode}</div>
+                      <div className="font-mono">
+                        {h.prefix ?? ""}
+                        {h.length ? ` + ${h.length}` : ""}
+                        {h.value ? ` · ${h.value}` : ""}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
-              The free tier only accepts session/request values of exactly 26 hex characters, so
-              these rules use the <span className="font-mono">hex</span> charset. You can edit them
-              later in the Session Hub tab; non-safe values are flagged there and corrected by the
-              sidecar at request time.
+              You can edit rules any time in the Session Hub tab; non-default values are flagged
+              there.
             </p>
           </div>
         ) : (
@@ -345,14 +384,47 @@ export function SidecarTab(): JSX.Element {
   const [form, setForm] = useState<SidecarSettings | null>(null);
   const [rulesDialogOpen, setRulesDialogOpen] = useState(false);
   const [rulesResult, setRulesResult] = useState<EnsureRulesResult | null>(null);
-  const [rulesProvider, setRulesProvider] = useState("opencode-zen");
-  const [selectedPresetId, setSelectedPresetId] = useState(DEFAULT_SIDECAR_PRESET_ID);
+  const [rulesProvider, setRulesProvider] = useState("");
+  const [extensions, setExtensions] = useState<Extension[]>([]);
+  const [selectedExtensionId, setSelectedExtensionId] = useState("");
   const [lastApplyState, setLastApplyState] = useState<{ ok: boolean; message: string; added: string[]; kept: string[] } | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importMode, setImportMode] = useState<"json" | "url">("json");
+  const [importJSON, setImportJSON] = useState("");
+  const [importURL, setImportURL] = useState("");
+  const [importBusy, setImportBusy] = useState(false);
+  const [importError, setImportError] = useState("");
+  const [extensionsError, setExtensionsError] = useState("");
+  const [storeURL, setStoreURL] = useState("");
+  const [storeBusy, setStoreBusy] = useState(false);
+  const [storeError, setStoreError] = useState("");
+  const [storeResults, setStoreResults] = useState<
+    Array<{ id: string; name: string; tagline?: string | undefined; url: string }>
+  >([]);
 
-  const selectedPreset = getSidecarPreset(selectedPresetId);
   const { data: sessionHubRules } = useSessionHubRules();
+
+  const selectedExtension = extensions.find((p) => p.id === selectedExtensionId);
   const boundRule = (sessionHubRules ?? []).find((r) => r.name === rulesProvider);
-  const ruleBound = ruleMatchesPreset(boundRule, selectedPreset);
+  const ruleBound = Boolean(boundRule);
+
+  // Load imported extensions from the gateway (no built-ins).
+  const loadExtensions = () => {
+    fetchExtensions()
+      .then((list) => {
+        setExtensions(list);
+        setExtensionsError("");
+        setSelectedExtensionId((current) =>
+          current && list.some((p) => p.id === current) ? current : list[0]?.id ?? "",
+        );
+      })
+      .catch((err) => setExtensionsError(err instanceof Error ? err.message : "Failed to load extensions"));
+  };
+
+  useEffect(() => {
+    loadExtensions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const settings = form ?? status?.settings;
   const proxies = status?.proxies ?? [];
@@ -374,45 +446,158 @@ export function SidecarTab(): JSX.Element {
   };
 
   const confirmEnsureRules = () => {
-    ensureRules.mutate(rulesProvider, {
-      onSuccess: (res) => setRulesResult(res.data),
-    });
+    if (!selectedExtension) return;
+    ensureRules.mutate(
+      { provider: rulesProvider, headers: selectedExtension.headers ?? [] },
+      {
+        onSuccess: (res) => setRulesResult(res.data),
+      },
+    );
   };
 
-  // Apply a preset: configure the sidecar settings, then install the matching
-  // Session Hub headers for the target. Both steps report back into the banner
-  // so the user sees exactly what changed.
-  const handleApplyPreset = () => {
-    if (!settings) return;
+  // Apply an extension: push its sidecar settings, then install its header
+  // rules into the Session Hub for the chosen target. Both steps report into
+  // the result banner.
+  const handleApplyExtension = () => {
+    if (!settings || !selectedExtension) return;
     const target = rulesProvider.trim();
     if (!target) return;
 
     const nextSettings: SidecarSettings = {
       ...settings,
-      enabled: selectedPreset.sidecar.enabled,
-      inject_tools: selectedPreset.sidecar.inject_tools,
-      default_auth: selectedPreset.sidecar.default_auth,
-      base_url: selectedPreset.sidecar.base_url,
-      user_agent: selectedPreset.sidecar.user_agent,
+      enabled: true,
+      inject_tools: selectedExtension.inject_tools ?? settings.inject_tools,
+      inject_tool_types: selectedExtension.inject_tool_types ?? settings.inject_tool_types ?? [],
+      default_auth: selectedExtension.default_auth ?? settings.default_auth,
+      base_url: selectedExtension.base_url ?? settings.base_url,
+      user_agent: selectedExtension.user_agent ?? settings.user_agent,
+      max_attempts: selectedExtension.max_attempts ?? settings.max_attempts,
+      retry_delay_ms: selectedExtension.retry_delay_ms ?? settings.retry_delay_ms,
+      oauth_server:
+        selectedExtension.oauth?.server ??
+        selectedExtension.settings?.oauth_server ??
+        settings.oauth_server,
+      oauth_client_id:
+        selectedExtension.oauth?.client_id ??
+        selectedExtension.settings?.oauth_client_id ??
+        settings.oauth_client_id,
+      oauth_verification_base:
+        selectedExtension.oauth?.verification_base ??
+        selectedExtension.settings?.oauth_verification_base ??
+        settings.oauth_verification_base,
     };
     setForm(nextSettings);
     updateSettings.mutate(nextSettings);
-    ensureRules.mutate(target, {
-      onSuccess: (res) =>
+
+    applyExtension(selectedExtension.id)
+      .then((res) => {
+        if (res.tools_path || res.oauth) {
+          setForm((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  tools_path: res.tools_path ?? prev.tools_path,
+                  oauth_server: res.oauth?.server ?? prev.oauth_server,
+                  oauth_client_id: res.oauth?.client_id ?? prev.oauth_client_id,
+                  oauth_verification_base:
+                    res.oauth?.verification_base ?? prev.oauth_verification_base,
+                }
+              : prev,
+          );
+        }
+        return ensureExtensionHeaders(target, res.headers);
+      })
+      .then((res) =>
         setLastApplyState({
           ok: true,
-          message: `Applied "${selectedPreset.name}" to ${target}.`,
-          added: res.data.added,
-          kept: res.data.already,
+          message: `Applied "${selectedExtension.name}" to ${target}.`,
+          added: res.added,
+          kept: res.already,
         }),
-      onError: (err) =>
+      )
+      .catch((err) =>
         setLastApplyState({
           ok: false,
-          message: `Could not apply preset: ${err instanceof Error ? err.message : String(err)}`,
+          message: `Could not apply extension: ${err instanceof Error ? err.message : String(err)}`,
           added: [],
           kept: [],
         }),
-    });
+      );
+  };
+
+  const handleImport = () => {
+    setImportBusy(true);
+    setImportError("");
+    importExtension(importMode === "url" ? { url: importURL.trim() } : { json: importJSON })
+      .then((ext) => {
+        loadExtensions();
+        setSelectedExtensionId(ext.id);
+        setImportOpen(false);
+        setImportJSON("");
+        setImportURL("");
+      })
+      .catch((err) => setImportError(err instanceof Error ? err.message : "Import failed"))
+      .finally(() => setImportBusy(false));
+  };
+
+  const handleExport = (ext: Extension) => {
+    apiFetch<Extension>(`/admin/api/v1/sidecar/extensions/${encodeURIComponent(ext.id)}/export`)
+      .then((data) => {
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${ext.id}.extension.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      })
+      .catch(() => {
+        window.open(exportExtensionUrl(ext.id), "_blank");
+      });
+  };
+
+  const handleDeleteExtension = (ext: Extension) => {
+    if (ext.builtin) return;
+    deleteExtension(ext.id).then(loadExtensions);
+  };
+
+  const handleBrowseStore = () => {
+    const base = storeURL.trim();
+    if (!base) return;
+    setStoreBusy(true);
+    setStoreError("");
+    setStoreResults([]);
+    apiFetch<{ extensions?: Array<{ id: string; name: string; tagline?: string; raw_url?: string }> }>(
+      `/admin/api/v1/sidecar/extensions/store/browse?url=${encodeURIComponent(base)}`,
+      { method: "POST", json: { url: base } },
+    )
+      .then((res) => {
+        const list = (res as { extensions?: Array<{ id: string; name: string; tagline?: string; raw_url?: string }> })
+          .extensions ?? [];
+        setStoreResults(
+          list.map((e) => ({
+            id: e.id,
+            name: e.name,
+            ...(e.tagline != null ? { tagline: e.tagline } : {}),
+            url: e.raw_url ?? `${base.replace(/\/$/, "")}/api/v1/extensions/${encodeURIComponent(e.id)}/raw`,
+          })),
+        );
+        if (list.length === 0) setStoreError("No extensions found at this store.");
+      })
+      .catch((err) => setStoreError(err instanceof Error ? err.message : "Store fetch failed"))
+      .finally(() => setStoreBusy(false));
+  };
+
+  const handleInstallFromStore = (url: string, id: string) => {
+    setStoreBusy(true);
+    setStoreError("");
+    importExtension({ url })
+      .then(() => {
+        loadExtensions();
+        setSelectedExtensionId(id);
+      })
+      .catch((err) => setStoreError(err instanceof Error ? err.message : "Install failed"))
+      .finally(() => setStoreBusy(false));
   };
 
   if (isLoading) {
@@ -445,8 +630,9 @@ export function SidecarTab(): JSX.Element {
             <div>
               <h3 className="text-base font-semibold">Sidecar</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Bun-based TLS proxy for free-tier-tier access. Works for both free tier and
-                opencode-go providers. Requires the Bun runtime.
+                Optional Bun-based TLS proxy that reproduces extension-supplied upstream client
+                signatures (TLS fingerprint, headers, tool schema). Configured through extensions;
+                requires the Bun runtime.
               </p>
             </div>
           </div>
@@ -475,28 +661,34 @@ export function SidecarTab(): JSX.Element {
             <div>
               <h3 className="text-base font-semibold">Quick setup</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Pick a preset and a target. Applying it turns on the sidecar with the right
-                settings and installs the matching Session Hub headers in one step.
+                Pick an imported extension and a target. Applying it turns on the sidecar with the
+                right settings and installs the matching Session Hub headers in one step.
               </p>
             </div>
           </div>
           {ruleBound && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-1 text-[11px] font-medium text-success">
+            <span className="hidden items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-1 text-[11px] font-medium text-success sm:inline-flex">
               <CheckCircleIcon className="h-3 w-3" />
               {rulesProvider} configured
             </span>
           )}
         </div>
 
-        {/* Preset chooser */}
+        {extensionsError ? (
+          <p className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+            {extensionsError}
+          </p>
+        ) : null}
+
+        {/* Extension chooser */}
         <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {SIDECAR_PRESETS.map((preset) => {
-            const active = preset.id === selectedPresetId;
+          {extensions.map((ext) => {
+            const active = ext.id === selectedExtensionId;
             return (
               <button
-                key={preset.id}
+                key={ext.id}
                 type="button"
-                onClick={() => setSelectedPresetId(preset.id)}
+                onClick={() => setSelectedExtensionId(ext.id)}
                 className={`flex flex-col gap-1 rounded-lg border p-4 text-left transition-colors ${
                   active
                     ? "border-primary/50 bg-primary/5"
@@ -504,65 +696,237 @@ export function SidecarTab(): JSX.Element {
                 }`}
               >
                 <span className="flex items-center gap-2">
-                  <span className={`h-2.5 w-2.5 rounded-full ${active ? "bg-primary" : "bg-muted-foreground/30"}`} />
-                  <span className="text-sm font-medium text-foreground">{preset.name}</span>
+                  {ext.ui?.accent ? (
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: ext.ui.accent }} />
+                  ) : (
+                    <span className={`h-2.5 w-2.5 rounded-full ${active ? "bg-primary" : "bg-muted-foreground/30"}`} />
+                  )}
+                  <span className="text-sm font-medium text-foreground">{ext.name}</span>
                 </span>
-                <span className="text-xs text-muted-foreground">{preset.tagline}</span>
+                <span className="text-xs text-muted-foreground">{ext.tagline}</span>
               </button>
             );
           })}
-        </div>
-
-        <p className="mt-3 text-sm text-muted-foreground">{selectedPreset.description}</p>
-
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {selectedPreset.summary.map((row) => (
-            <div
-              key={row.label}
-              className="flex flex-col gap-0.5 rounded-md border border-border/40 bg-background/40 px-3 py-2"
-            >
-              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                {row.label}
-              </span>
-              <span className="font-mono text-xs text-foreground">{row.value}</span>
+          {extensions.length === 0 && !extensionsError ? (
+            <div className="col-span-full rounded-lg border border-dashed border-border/60 bg-surface/50 p-6 text-center text-sm text-muted-foreground">
+              No extensions installed. Import extension JSON or install from a store below.
             </div>
-          ))}
+          ) : null}
         </div>
 
-        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="flex flex-1 flex-col gap-1.5">
-            <label className="text-sm font-medium">Target pool or provider</label>
-            <Input
-              value={rulesProvider}
-              onChange={(e) => setRulesProvider(e.target.value)}
-              className="h-11 sm:h-9 font-mono text-sm sm:max-w-xs"
-              placeholder="opencode-zen"
-            />
-            <p className="text-xs text-muted-foreground">
-              The Session Hub rule is bound to this name (a pool applies to all its members).
-            </p>
-          </div>
-          <Button
-            onClick={handleApplyPreset}
-            disabled={!rulesProvider.trim() || ensureRules.isPending || updateSettings.isPending}
-            className="h-11 gap-1.5 sm:h-9 w-full sm:w-auto"
-          >
-            {ensureRules.isPending || updateSettings.isPending ? (
-              <RefreshCwIcon className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <SparklesIcon className="h-3.5 w-3.5" />
-            )}
-            Apply preset
+        {/* Import / export / store toolbar */}
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)} className="h-10 gap-1.5 sm:h-9">
+            <UploadIcon className="h-3.5 w-3.5" />
+            Import extension
           </Button>
-          <Button
-            variant="outline"
-            onClick={openRulesDialog}
-            className="h-11 gap-1.5 sm:h-9 w-full sm:w-auto"
-          >
-            <ArrowRightIcon className="h-3.5 w-3.5" />
-            Review changes
-          </Button>
+          {selectedExtension ? (
+            <>
+              <Button variant="outline" size="sm" onClick={() => handleExport(selectedExtension)} className="h-10 gap-1.5 sm:h-9">
+                <DownloadIcon className="h-3.5 w-3.5" />
+                Export {selectedExtension.name}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleDeleteExtension(selectedExtension)}
+                className="h-10 gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 sm:h-9"
+              >
+                <Trash2Icon className="h-3.5 w-3.5" />
+                Delete
+              </Button>
+            </>
+          ) : null}
         </div>
+
+        {/* Store browse */}
+        <div className="mt-3 rounded-lg border border-border/40 bg-background/40 p-3">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            Browse store
+          </p>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+            <Input
+              value={storeURL}
+              onChange={(e) => setStoreURL(e.target.value)}
+              placeholder="https://store.example.com"
+              className="h-11 sm:h-9 font-mono text-sm flex-1"
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBrowseStore}
+              disabled={storeBusy || !storeURL.trim()}
+              className="h-11 gap-1.5 sm:h-9"
+            >
+              {storeBusy ? <RefreshCwIcon className="h-3.5 w-3.5 animate-spin" /> : <GlobeIcon className="h-3.5 w-3.5" />}
+              Browse
+            </Button>
+          </div>
+          {storeError ? (
+            <p className="mt-2 text-xs text-destructive">{storeError}</p>
+          ) : null}
+          {storeResults.length > 0 ? (
+            <div className="mt-2 flex flex-col gap-1.5">
+              {storeResults.map((r) => (
+                <div
+                  key={r.id}
+                  className="flex flex-col gap-1 rounded-md border border-border/40 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-foreground">{r.name}</span>
+                    {r.tagline ? (
+                      <span className="block truncate text-xs text-muted-foreground">{r.tagline}</span>
+                    ) : null}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleInstallFromStore(r.url, r.id)}
+                    disabled={storeBusy}
+                    className="h-9 gap-1.5 sm:h-8"
+                  >
+                    <DownloadIcon className="h-3.5 w-3.5" />
+                    Install
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        {selectedExtension ? (
+          <>
+            <p className="mt-4 text-sm text-muted-foreground">{selectedExtension.description}</p>
+            {selectedExtension.ui?.help ? (
+              <p className="mt-2 text-xs text-muted-foreground">{selectedExtension.ui.help}</p>
+            ) : null}
+
+            {(selectedExtension.requirements?.length ?? 0) > 0 ? (
+              <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                  Requirements
+                </p>
+                <ul className="mt-1 list-disc pl-4 text-xs text-muted-foreground">
+                  {selectedExtension.requirements?.map((req) => (
+                    <li key={req}>{req}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {(selectedExtension.headers?.length ?? 0) > 0 ? (
+              <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {selectedExtension.headers?.map((h) => (
+                  <div
+                    key={h.name}
+                    className="flex flex-col gap-0.5 rounded-md border border-border/40 bg-background/40 px-3 py-2"
+                  >
+                    <span className="font-mono text-xs font-medium text-foreground">{h.name}</span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {h.mode}
+                      {h.prefix ? ` · ${h.prefix}` : ""}
+                      {h.length ? ` + ${h.length}` : ""}
+                      {h.charset ? ` ${h.charset}` : ""}
+                      {h.value ? ` · ${h.value}` : ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {/* Dynamic ui.fields */}
+            {(selectedExtension.ui?.fields?.length ?? 0) > 0 ? (
+              <div className="mt-4 rounded-lg border border-border/40 bg-background/40 p-3">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Extension settings
+                </p>
+                <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {selectedExtension.ui?.fields?.map((field) => (
+                    <label key={field.key} className="flex flex-col gap-1.5">
+                      <span className="text-sm font-medium">{field.label}</span>
+                      {field.type === "boolean" ? (
+                        <ToggleField
+                          label=""
+                          checked={
+                            (selectedExtension.settings?.[field.key] ??
+                              field.default ??
+                              "false") === "true"
+                          }
+                          onCheckedChange={(v) => {
+                            /* informational until apply wires free-form settings */
+                            void v;
+                          }}
+                          description={field.description}
+                        />
+                      ) : field.type === "select" && field.options?.length ? (
+                        <select
+                          className="h-11 sm:h-9 rounded-lg border border-border/60 bg-surface px-3 text-sm text-foreground"
+                          defaultValue={field.default ?? field.options[0]}
+                          disabled
+                        >
+                          {field.options.map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <Input
+                          type={field.secret ? "password" : field.type === "number" ? "number" : "text"}
+                          defaultValue={field.default ?? ""}
+                          disabled
+                          className="h-11 sm:h-9 font-mono text-sm"
+                          placeholder={field.secret ? "••••••••" : field.default}
+                        />
+                      )}
+                      {field.description ? (
+                        <span className="text-xs text-muted-foreground">{field.description}</span>
+                      ) : null}
+                    </label>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Fields are applied when the extension is applied.
+                </p>
+              </div>
+            ) : null}
+
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="flex flex-1 flex-col gap-1.5">
+                <label className="text-sm font-medium">Target pool or provider</label>
+                <Input
+                  value={rulesProvider}
+                  onChange={(e) => setRulesProvider(e.target.value)}
+                  className="h-11 font-mono text-sm sm:h-9 sm:max-w-xs"
+                  placeholder="my-pool"
+                />
+                <p className="text-xs text-muted-foreground">
+                  The Session Hub rule is bound to this name (a pool applies to all its members).
+                </p>
+              </div>
+              <Button
+                onClick={handleApplyExtension}
+                disabled={!rulesProvider.trim() || updateSettings.isPending}
+                className="h-11 w-full gap-1.5 sm:h-9 sm:w-auto"
+              >
+                {updateSettings.isPending ? (
+                  <RefreshCwIcon className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <SparklesIcon className="h-3.5 w-3.5" />
+                )}
+                Apply extension
+              </Button>
+              <Button
+                variant="outline"
+                onClick={openRulesDialog}
+                className="h-11 w-full gap-1.5 sm:h-9 sm:w-auto"
+              >
+                <ArrowRightIcon className="h-3.5 w-3.5" />
+                Review changes
+              </Button>
+            </div>
+          </>
+        ) : null}
 
         {lastApplyState && (
           <div className="mt-3 flex items-start gap-2 rounded-md border border-border/40 bg-muted/30 p-3 text-xs">
@@ -611,6 +975,20 @@ export function SidecarTab(): JSX.Element {
             tab.
           </span>
         </div>
+
+        <SidecarPresetImportDialog
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          mode={importMode}
+          setMode={setImportMode}
+          jsonValue={importJSON}
+          setJSONValue={setImportJSON}
+          urlValue={importURL}
+          setURLValue={setImportURL}
+          onConfirm={handleImport}
+          pending={importBusy}
+          error={importError}
+        />
       </Surface>
 
       {/* Core settings */}
@@ -637,13 +1015,13 @@ export function SidecarTab(): JSX.Element {
             label="Enable sidecar"
             checked={settings.enabled}
             onCheckedChange={(v) => update("enabled", v)}
-            description="Route upstream traffic through the Bun TLS proxy"
+            description="Route matching provider traffic through the Bun TLS proxy"
           />
           <ToggleField
-            label="Inject upstream tools"
+            label="Inject tool schema"
             checked={settings.inject_tools}
             onCheckedChange={(v) => update("inject_tools", v)}
-            description="Automatically add the 11 upstream tools to free-tier requests"
+            description="Add the preset's bundled tool schema when the request has none"
           />
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium">Listen port</label>
@@ -663,9 +1041,9 @@ export function SidecarTab(): JSX.Element {
               value={settings.base_url}
               onChange={(e) => update("base_url", e.target.value)}
               className="h-11 sm:h-9 font-mono text-sm"
-              placeholder="https://opencode.ai/zen/v1"
+              placeholder="https://upstream.example.com/v1"
             />
-            <p className="text-xs text-muted-foreground">upstream API base URL (free tier or go)</p>
+            <p className="text-xs text-muted-foreground">Extension / operator upstream base URL</p>
           </div>
         </div>
       </Surface>
@@ -703,7 +1081,7 @@ export function SidecarTab(): JSX.Element {
               value={settings.user_agent}
               onChange={(e) => update("user_agent", e.target.value)}
               className="h-11 sm:h-9 font-mono text-sm"
-              placeholder="opencode/1.18.31 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.14"
+              placeholder="Mozilla/5.0 ..."
             />
             <p className="text-xs text-muted-foreground">Upstream User-Agent header</p>
           </div>
@@ -805,6 +1183,8 @@ export function SidecarTab(): JSX.Element {
         onConfirm={confirmEnsureRules}
         pending={ensureRules.isPending}
         result={rulesResult}
+        headers={selectedExtension?.headers ?? []}
+        extensionName={selectedExtension?.name}
       />
     </div>
   );

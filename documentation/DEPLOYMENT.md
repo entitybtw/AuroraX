@@ -96,7 +96,7 @@ Providers can pin their outbound source IP with `bind_ip`. This requires Aurora 
 {
   "name": "vllm-acc-1",
   "type": "vllm",
-  "base_url": "https://opencode.ai/zen/v1",
+  "base_url": "https://upstream.example.com/v1",
   "api_key": "sk-...",
   "bind_ip": "203.0.113.10",     # residential/egress IP on the host
   "pool_only": true,
@@ -108,13 +108,13 @@ Pair with host networking so those IPs route correctly, and a pool that load-bal
 
 ```json
 {
-  "pools": {
-    "opencode-zen": {
-      "Members": ["vllm-acc-1", "vllm-acc-2", "vllm-acc-3"],
-      "Strategy": "round_robin",
-      "HealthAware": true
+    "pools": {
+      "sidecar-pool": {
+        "Members": ["vllm-acc-1", "vllm-acc-2", "vllm-acc-3"],
+        "Strategy": "round_robin",
+        "HealthAware": true
+      }
     }
-  }
 }
 ```
 
@@ -124,15 +124,15 @@ Pair with host networking so those IPs route correctly, and a pool that load-bal
 2. Dashboard loads and shows your providers/pools.
 3. A chat to a model returns 200 (see GETTING_STARTED for the Python example).
 4. Session Hub tab loads; `GET /admin/api/v1/sessionhub/status` reports your `storage_mode`.
-5. Sidecar tab loads (opencode image only); `GET /admin/api/v1/sidecar` reports enabled/bind proxies.
+5. Sidecar tab loads (sidecar image only); `GET /admin/api/v1/sidecar` reports enabled/bind proxies.
 
 If the Session Hub isn't transforming headers the way you expect, re-check the rule Name matches the provider/pool name and that storage mode matches your intent (see SESSION_HUB.md).
 
-## upstream sidecar (free-tier image variant)
+## Sidecar image variant (extension-driven fingerprint)
 
-The default image is distroless and has no sidecar. For free-tier-tier routing, use the `runtime-sidecar` image variant, which ships the Bun sidecar + per-IP CONNECT proxies.
+The default image is distroless and has no sidecar. For extension-driven TLS fingerprinting, use the `runtime-sidecar` image variant (target name kept for compatibility; content is generic), which ships the Bun sidecar + per-IP CONNECT proxies.
 
-> **⚠️ Use at your own risk.** The sidecar emulates the upstream client fingerprint. Upstream hardening can break it at any time and it may violate the provider's terms of service.
+> **⚠️ Use at your own risk.** The sidecar emulates an upstream client fingerprint. Upstream hardening can break it at any time, it may violate the provider's terms of service. Review third-party extensions before installing them from a store.
 
 ```bash
 docker pull entbtw/aurora:sidecar   # if published; otherwise build --target runtime-sidecar
@@ -162,9 +162,9 @@ services:
       - .env
 ```
 
-- Entrypoint starts `aurora bindproxy` once per `AURORA_SIDECAR_BIND_IPS` entry (ports `8981+`), then the Bun sidecar on `AURORA_SIDECAR_PORT` (default `8090`).
+- Entrypoint starts `aurora bindproxy` once per `AURORA_SIDECAR_BIND_IPS` entry (ports `8981+`), then the Bun sidecar on `AURORA_SIDECAR_PORT` (default `8090`). Legacy `AURORA_SIDECAR_*` vars are still accepted as aliases.
 - The provider sets `bind_ip`; the request carries `x-aurora-bind-ip` so the sidecar picks the matching proxy. Bun does end-to-end TLS inside the tunnel — the proxy only binds the source IP.
-- Sidecar runtime settings persist to `configs/sidecar-overrides.json` and are editable from **Settings → Sidecar** (or `GET`/`PUT /admin/api/v1/sidecar`).
+- Sidecar runtime settings persist to `configs/sidecar-overrides.json` and are editable from **Settings → Sidecar** (or `GET`/`PUT /admin/api/v1/sidecar`). Extensions merge into these settings on apply.
 - Env vars with suffix `SIDECAR`/`BIND` are reserved and ignored by provider auto-discovery (they cannot become phantom providers).
 
 Full reference: see the **Sidecar** section of the README.

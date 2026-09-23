@@ -13,7 +13,11 @@ import (
 
 // OAuthHandler manages OAuth device flow for providers.
 type OAuthHandler struct {
-	registry *oauth.Registry
+	registry         *oauth.Registry
+	verificationBase string
+	// baseFunc, when set, overrides verificationBase (reads live sidecar
+	// settings so extension apply updates the origin without restart).
+	baseFunc func() string
 }
 
 // NewOAuthHandler creates a new OAuth admin handler.
@@ -36,8 +40,50 @@ func (h *OAuthHandler) RegisterOAuthRoutes(g RouteRegistrar) {
 type StartDeviceFlowResponse struct {
 	UserCode                string `json:"user_code"`
 	VerificationURIComplete string `json:"verification_uri_complete"`
+	VerificationBase        string `json:"verification_base,omitempty"`
 	ExpiresIn               int    `json:"expires_in"`
 	Interval                int    `json:"interval"`
+}
+
+// SetVerificationBase injects the extension-driven origin used to expand
+// relative verification URIs (no provider-specific hardcode in the UI).
+func (h *OAuthHandler) SetVerificationBase(base string) {
+	h.verificationBase = strings.TrimRight(strings.TrimSpace(base), "/")
+}
+
+// WithVerificationBaseFunc wires a live resolver for the extension-supplied
+// verification origin (relative device-flow URIs).
+func (h *OAuthHandler) WithVerificationBaseFunc(fn func() string) {
+	h.baseFunc = fn
+}
+
+func (h *OAuthHandler) currentVerificationBase() string {
+	if h.baseFunc != nil {
+		if v := strings.TrimRight(strings.TrimSpace(h.baseFunc()), "/"); v != "" {
+			return v
+		}
+	}
+	return h.verificationBase
+}
+
+// verificationBaseFor expands a relative verification URI. Absolute http(s)
+// URIs are returned unchanged.
+func (h *OAuthHandler) verificationBaseFor(uri string) string {
+	uri = strings.TrimSpace(uri)
+	if uri == "" {
+		return ""
+	}
+	if strings.HasPrefix(uri, "http://") || strings.HasPrefix(uri, "https://") {
+		return uri
+	}
+	base := h.currentVerificationBase()
+	if base == "" {
+		return uri
+	}
+	if !strings.HasPrefix(uri, "/") {
+		uri = "/" + uri
+	}
+	return base + uri
 }
 
 // StartDeviceFlow initiates the OAuth 2.0 device authorization grant.
@@ -67,7 +113,8 @@ func (h *OAuthHandler) StartDeviceFlow(c *echo.Context) error {
 
 	return c.JSON(http.StatusOK, StartDeviceFlowResponse{
 		UserCode:                dc.UserCode,
-		VerificationURIComplete: dc.VerificationURIComplete,
+		VerificationURIComplete: h.verificationBaseFor(dc.VerificationURIComplete),
+		VerificationBase:        h.currentVerificationBase(),
 		ExpiresIn:               dc.ExpiresIn,
 		Interval:                dc.Interval,
 	})

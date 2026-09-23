@@ -169,22 +169,21 @@ type RawProviderConfig struct {
 	// device authorization grant to obtain and refresh bearer tokens.
 	AuthMethod string `yaml:"auth_method,omitempty"`
 	// OAuthServer is the base URL of the OAuth authorization server.
-	// Defaults to "https://example.com/console" for free tier.
+	// Set by the extension that provides the oauth feature (e.g. opencode).
 	OAuthServer string `yaml:"oauth_server,omitempty"`
 	// OAuthClientID is the OAuth client_id used in the device flow.
-	// Defaults to "opencode-cli" for free tier.
+	// Set by the extension that provides the oauth feature.
 	OAuthClientID string `yaml:"oauth_client_id,omitempty"`
 	// DisableAPIKey keeps the stored api_key but never sends it upstream.
-	// Useful when an OAuth token supersedes the key (e.g. free tier free tier).
+	// Useful when an OAuth token supersedes the key.
 	DisableAPIKey bool `yaml:"disable_api_key,omitempty"`
 	// UseUTLS enables uTLS fingerprint impersonation for the HTTP client.
-	// Useful for bypassing JA3-based TLS fingerprinting (e.g. free tier).
+	// Useful for bypassing JA3-based TLS fingerprinting.
 	UseUTLS bool `yaml:"use_utls,omitempty"`
-	// SidecarURL routes requests through a local free tier sidecar (Bun)
+	// SidecarURL routes requests through a local extension-driven sidecar (Bun)
 	// instead of contacting the upstream directly. The sidecar reproduces the
-	// Bun TLS fingerprint required by the zen free tier. When empty and the
-	// environment enables the sidecar, the provider falls back to the
-	// configured default sidecar URL.
+	// fingerprint the extension expects. When empty and the environment enables
+	// the sidecar, the provider falls back to the configured default sidecar URL.
 	SidecarURL string `yaml:"sidecar_url,omitempty"`
 }
 

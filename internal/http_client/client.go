@@ -19,7 +19,7 @@ import (
 // ClientConfig holds configuration options for creating HTTP clients
 type ClientConfig struct {
 	// UseUTLS enables uTLS fingerprint impersonation (Chrome) to bypass
-	// JA3-based TLS fingerprinting used by some providers (e.g. free tier).
+	// JA3-based TLS fingerprinting used by some providers.
 	UseUTLS bool
 	// MaxIdleConns controls the maximum number of idle (keep-alive) connections across all hosts
 	MaxIdleConns int

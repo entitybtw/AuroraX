@@ -32,17 +32,31 @@ export function emptyHeaderRule(): HeaderRule {
   return { name: "", mode: "passthrough", prefix: "", length: 0, value: "", values: [], charset: "" };
 }
 
-/** The canonical, free-tier-safe upstream session rule. */
-export function openCodeSessionRule(): HeaderRule {
+/** A generic map-or-generate session header starter (extensions override name/prefix). */
+export function sessionHeaderRule(overrides: Partial<HeaderRule> = {}): HeaderRule {
   return {
-    name: "x-opencode-session",
+    name: "x-session-id",
     mode: "map_or_generate",
-    prefix: "ses_",
+    prefix: "",
     length: 26,
     value: "",
     values: [],
     charset: "hex",
+    ...overrides,
   };
+}
+
+/**
+ * @deprecated Prefer sessionHeaderRule with your extension's header shape.
+ * Kept so older imports keep compiling; canonical rules ship with extensions.
+ */
+export function openCodeSessionRule(): HeaderRule {
+  return sessionHeaderRule({
+    name: "x-opencode-session",
+    prefix: "ses_",
+    length: 26,
+    charset: "hex",
+  });
 }
 
 const GENERATE_MODES = new Set(["map", "generate", "map_or_generate"]);
@@ -77,7 +91,7 @@ export function HeaderRulesEditor({ headers, onChange, compact = false }: Header
         >
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Input
-              placeholder="Header name (e.g. x-opencode-session)"
+              placeholder="Header name (e.g. x-session-id)"
               value={hr.name}
               onChange={(e) => update(idx, { name: e.target.value })}
               className="flex-1 font-mono"
