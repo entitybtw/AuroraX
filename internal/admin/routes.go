@@ -118,6 +118,9 @@ func (h *Handler) RegisterRoutes(g RouteRegistrar) {
 	g.GET("/sidecar/extensions/:id/export", h.ExportExtension)
 	g.DELETE("/sidecar/extensions/:id", h.DeleteExtension)
 	g.POST("/sidecar/extensions/:id/apply", h.ApplyExtension)
+	g.POST("/sidecar/extensions/:id/unapply", h.UnapplyExtension)
+	g.POST("/sidecar/extensions/:id/full-apply", h.FullApplyExtension)
+	g.PUT("/sidecar/extensions/:id/config", h.UpdateExtensionConfig)
 
 	// Temporary aliases for older dashboards.
 	g.GET("/sidecar/presets", h.ListExtensions)

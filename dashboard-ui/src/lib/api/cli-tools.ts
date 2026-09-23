@@ -22,7 +22,21 @@ const CLIToolSchema = z.object({
   notes: z.array(z.string()).optional(),
   model_fields: z.array(CLIModelFieldSchema).optional(),
 });
-const CLIToolsResponseSchema = z.object({ tools: z.array(CLIToolSchema) });
+const CLIToolPresetSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  description: z.string().optional(),
+  tool_id: z.string(),
+  base_url: z.string().optional(),
+  model: z.string().optional(),
+  model_overrides: z.record(z.string()).optional(),
+  models: z.array(z.string()).optional(),
+  api_key_placeholder: z.string().optional(),
+});
+const CLIToolsResponseSchema = z.object({
+  tools: z.array(CLIToolSchema),
+  presets: z.array(CLIToolPresetSchema).optional(),
+});
 const CLIPreviewResponseSchema = z.object({
   tool: CLIToolSchema,
   snippets: z.record(z.string()),
@@ -36,6 +50,7 @@ const CLIApplyResponseSchema = z.object({
 
 export type CLIModelField = z.infer<typeof CLIModelFieldSchema>;
 export type CLITool = z.infer<typeof CLIToolSchema>;
+export type CLIToolPreset = z.infer<typeof CLIToolPresetSchema>;
 export interface CLIPreviewRequest {
   base_url: string;
   api_key: string;
@@ -46,9 +61,9 @@ export interface CLIPreviewRequest {
 export type CLIPreviewResponse = z.infer<typeof CLIPreviewResponseSchema>;
 export type CLIApplyResponse = z.infer<typeof CLIApplyResponseSchema>;
 
-export async function fetchCLITools(): Promise<CLITool[]> {
+export async function fetchCLITools(): Promise<{ tools: CLITool[]; presets: CLIToolPreset[] }> {
   const data = await apiFetch<z.infer<typeof CLIToolsResponseSchema>>("/admin/api/v1/cli-tools", { schema: CLIToolsResponseSchema });
-  return data.tools;
+  return { tools: data.tools, presets: data.presets ?? [] };
 }
 
 export function previewCLITool(tool: string, payload: CLIPreviewRequest): Promise<CLIPreviewResponse> {

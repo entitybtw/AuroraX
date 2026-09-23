@@ -25,7 +25,8 @@ import { CodeBlock, Pill, SectionHeader, Surface } from "@/components/ui/surface
 import { DataTable, TableWrap, Td, Th } from "@/components/ui/data-table";
 import { RequirePermission } from "@/components/shell/RequirePermission";
 import { useClipboardButton } from "@/lib/clipboard/useClipboardButton";
-import { applyCLITool, fetchCLITools, previewCLITool, type CLIPreviewResponse, type CLITool } from "@/lib/api/cli-tools";
+import { applyCLITool, fetchCLITools, previewCLITool, type CLIPreviewResponse, type CLITool, type CLIToolPreset } from "@/lib/api/cli-tools";
+import { useAuthKeys } from "@/lib/api/useAuthKeys";
 import {
   ANTHROPIC_ENDPOINT_ROWS,
   buildPlaygroundRequestBody,
@@ -221,6 +222,7 @@ function PoolCard({ pool, exampleModelId }: PoolCardProps): JSX.Element {
 
 function CLIToolsGuideSection(): JSX.Element {
   const [tools, setTools] = useState<CLITool[]>([]);
+  const [presets, setPresets] = useState<CLIToolPreset[]>([]);
   const [selected, setSelected] = useState("");
   const [configOpen, setConfigOpen] = useState(false);
   const [form, setForm] = useState<CLIFormState>({ base_url: window.location.origin, api_key: "", model: "", model_overrides: {} });
@@ -231,7 +233,11 @@ function CLIToolsGuideSection(): JSX.Element {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [keyMode, setKeyMode] = useState<"placeholder" | "paste">("paste");
+  const [selectedAuthKey, setSelectedAuthKey] = useState("");
   const models = useModels();
+  const authKeysQuery = useAuthKeys();
+  const authKeys = useMemo(() => authKeysQuery.data ?? [], [authKeysQuery.data]);
   const modelOptions = useMemo(() => Array.from(new Set((models.data ?? []).map(modelDisplayName).filter(Boolean))).sort(), [models.data]);
 
   function invalidatePreview(): void {
@@ -264,13 +270,45 @@ function CLIToolsGuideSection(): JSX.Element {
     invalidatePreview();
   }
 
+  function applyPreset(preset: CLIToolPreset): void {
+    setSelected(preset.tool_id);
+    setForm((currentForm) => {
+      const next: CLIFormState = {
+        ...currentForm,
+        base_url: preset.base_url || currentForm.base_url,
+        model: preset.model || currentForm.model,
+        model_overrides: preset.model_overrides ? { ...preset.model_overrides } : {},
+        api_key: "",
+      };
+      if (preset.models && preset.models.length > 0) {
+        next.selectedModels = [...preset.models];
+      } else {
+        delete next.selectedModels;
+      }
+      return next;
+    });
+    if (preset.api_key_placeholder) {
+      setKeyMode("placeholder");
+    }
+    setSelectedAuthKey("");
+    setConfigOpen(true);
+    invalidatePreview();
+  }
+
+  function updateKeyMode(mode: "placeholder" | "paste"): void {
+    setKeyMode(mode);
+    setSelectedAuthKey("");
+    updateForm({ api_key: "" });
+  }
+
   const load = useCallback(async (): Promise<void> => {
     try {
       setLoading(true);
       setError("");
       const list = await fetchCLITools();
-      setTools(list);
-      setSelected((current) => current || list[0]?.id || "");
+      setTools(list.tools);
+      setPresets(list.presets);
+      setSelected((current) => current || list.tools[0]?.id || "");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load CLI tools.");
     } finally {
@@ -286,16 +324,26 @@ function CLIToolsGuideSection(): JSX.Element {
 
   const current = tools.find((tool) => tool.id === selected) ?? null;
   const currentPreviewKey = `${selected}:${formVersion}`;
-  const canApply = Boolean(current?.can_apply && preview && previewKey === currentPreviewKey);
+  const canApply = Boolean(
+    current?.can_apply &&
+      preview &&
+      previewKey === currentPreviewKey &&
+      keyMode === "paste" &&
+      form.api_key.trim(),
+  );
   const applyDisabledReason = !current
     ? "Select a CLI tool first."
     : !current.can_apply
       ? "Host apply is disabled for this tool or this gateway. Enable CLI_TOOLS_APPLY_ENABLED=true to allow supported tools to write config on the gateway host."
-      : !preview
-        ? "Preview this configuration before applying it on the gateway host."
-        : previewKey !== currentPreviewKey
-          ? "Preview again after changing the URL, key, or model."
-          : "";
+      : keyMode === "placeholder"
+        ? "Switch to Paste key and enter a full API key to apply on the host."
+        : !form.api_key.trim()
+          ? "Enter a full API key to apply on the host."
+          : !preview
+            ? "Preview this configuration before applying it on the gateway host."
+            : previewKey !== currentPreviewKey
+              ? "Preview again after changing the URL, key, or model."
+              : "";
 
   async function runPreview(): Promise<void> {
     if (!selected) return;
@@ -368,6 +416,22 @@ function CLIToolsGuideSection(): JSX.Element {
         </div>
       ) : (
         <div className="flex min-w-0 flex-col gap-5">
+          {presets.length > 0 ? (
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Presets</span>
+              {presets.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => applyPreset(preset)}
+                  title={preset.description || preset.label}
+                  className="rounded-full border border-border bg-background/35 px-3 py-1 text-xs text-foreground transition hover:border-accent/50 hover:bg-surface-hover"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {tools.map((tool) => {
               const isSelected = selected === tool.id;
@@ -436,7 +500,54 @@ function CLIToolsGuideSection(): JSX.Element {
                       <input className="field-input min-w-0 font-mono" value={form.base_url} onChange={(e) => updateForm({ base_url: e.target.value })} />
                     </CLIField>
                     <CLIField label="API key">
-                      <input type="password" autoComplete="new-password" className="field-input min-w-0 font-mono" value={form.api_key} onChange={(e) => updateForm({ api_key: e.target.value })} placeholder="Only sent when applying" />
+                      <div className="flex min-w-0 flex-col gap-2">
+                        <select
+                          className="field-input min-w-0 max-w-full truncate font-mono"
+                          value={keyMode}
+                          onChange={(e) => updateKeyMode(e.target.value === "placeholder" ? "placeholder" : "paste")}
+                          aria-label="API key mode"
+                        >
+                          <option value="placeholder">Placeholder (&lt;AURORA_API_KEY&gt;)</option>
+                          <option value="paste">Paste key</option>
+                        </select>
+                        {keyMode === "placeholder" ? (
+                          <p className="text-xs leading-5 text-muted-foreground">
+                            Previews and copied snippets use <code className="font-mono text-foreground">&lt;AURORA_API_KEY&gt;</code> so shared configs never embed a secret. Apply on host still requires a pasted key.
+                          </p>
+                        ) : (
+                          <div className="flex min-w-0 flex-col gap-2">
+                            {authKeys.length > 0 ? (
+                              <select
+                                className="field-input min-w-0 max-w-full truncate"
+                                value={selectedAuthKey}
+                                onChange={(e) => setSelectedAuthKey(e.target.value)}
+                                aria-label="Existing auth keys (reference only)"
+                              >
+                                <option value="">Existing keys (reference only)</option>
+                                {authKeys.map((key) => (
+                                  <option key={key.id} value={key.id}>
+                                    {key.name} ({key.redacted_value || "no value"})
+                                  </option>
+                                ))}
+                              </select>
+                            ) : null}
+                            <input
+                              type="password"
+                              autoComplete="new-password"
+                              className="field-input min-w-0 font-mono"
+                              value={form.api_key}
+                              onChange={(e) => updateForm({ api_key: e.target.value })}
+                              placeholder="Paste full API key"
+                            />
+                            <p className="text-xs leading-5 text-muted-foreground">
+                              Auth keys only expose redacted values — paste the full key below to apply, or use placeholder mode for shared configs.{" "}
+                              <Link className="text-accent hover:underline" to="/admin/dashboard/auth-keys">
+                                Create new key
+                              </Link>
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </CLIField>
                     <CLIField label={current.model_fields?.length ? "Fallback model" : "Model or combo"}>
                       <select className="field-input min-w-0 max-w-full truncate font-mono" value={form.model} onChange={(e) => updateForm({ model: e.target.value })}>

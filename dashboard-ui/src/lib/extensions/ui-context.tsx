@@ -21,6 +21,10 @@ interface ExtensionUIContextValue {
   hideSettingsTabs: Set<string>;
   /** Accent override (last non-empty wins). */
   accent?: string | undefined;
+  /** Brand text override (last non-empty wins). */
+  logoText?: string | undefined;
+  /** Brand logo URL override (last non-empty wins). */
+  logoURL?: string | undefined;
   isLoading: boolean;
 }
 
@@ -30,6 +34,8 @@ const ExtensionUIContext = React.createContext<ExtensionUIContextValue>({
   hideNav: new Set(),
   hideSettingsTabs: new Set(),
   accent: undefined,
+  logoText: undefined,
+  logoURL: undefined,
   isLoading: false,
 });
 
@@ -57,8 +63,36 @@ const THEME_VAR_ALLOWLIST = new Set([
   "--radius-sm",
   "--radius-md",
   "--radius-lg",
+  "--radius-control",
+  "--radius-card",
+  "--radius-sheet",
   "--font-display",
+  "--font-sans",
+  "--font-mono",
+  "--sidebar-width",
+  "--space-page",
+  "--chart-input",
+  "--chart-output",
+  "--chart-cat-1",
+  "--chart-cat-2",
+  "--chart-cat-3",
+  "--chart-cat-4",
+  "--chart-cat-5",
+  "--chart-cat-6",
+  "--chart-cat-7",
+  "--chart-cat-8",
+  "--chart-cat-9",
+  "--chart-cat-10",
+  "--glass-bg",
+  "--glass-border",
+  "--shadow-tint",
+  "--ring-highlight",
 ]);
+
+function isAllowedThemeVar(key: string): boolean {
+  if (THEME_VAR_ALLOWLIST.has(key)) return true;
+  return /^--chart-cat-\d+$/.test(key);
+}
 
 function sanitizeThemeVars(
   contributions: ExtensionUIContribution[],
@@ -68,7 +102,7 @@ function sanitizeThemeVars(
     const theme = c.ui.theme;
     if (theme) {
       for (const [k, v] of Object.entries(theme)) {
-        if (!THEME_VAR_ALLOWLIST.has(k)) continue;
+        if (!isAllowedThemeVar(k)) continue;
         if (typeof v !== "string") continue;
         if (/[;{}<>]/.test(v)) continue;
         out[k] = v;
@@ -111,6 +145,24 @@ export function ExtensionUIProvider({ children }: { children: React.ReactNode })
     return a;
   }, [contributions]);
 
+  const logoText = React.useMemo(() => {
+    let t: string | undefined;
+    for (const c of contributions) {
+      if (c.ui.logo_text) t = c.ui.logo_text;
+    }
+    return t;
+  }, [contributions]);
+
+  const logoURL = React.useMemo(() => {
+    let u: string | undefined;
+    for (const c of contributions) {
+      if (c.ui.logo_url) u = c.ui.logo_url;
+    }
+    if (!u) return undefined;
+    if (/^https?:\/\//i.test(u) || u.startsWith("/") || u.startsWith("./")) return u;
+    return undefined;
+  }, [contributions]);
+
   React.useEffect(() => {
     const root = document.documentElement;
     const applied: string[] = [];
@@ -130,9 +182,11 @@ export function ExtensionUIProvider({ children }: { children: React.ReactNode })
       hideNav,
       hideSettingsTabs,
       accent,
+      logoText,
+      logoURL,
       isLoading: query.isLoading,
     }),
-    [contributions, themeVars, hideNav, hideSettingsTabs, accent, query.isLoading],
+    [contributions, themeVars, hideNav, hideSettingsTabs, accent, logoText, logoURL, query.isLoading],
   );
 
   return (
