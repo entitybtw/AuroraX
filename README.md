@@ -37,6 +37,7 @@ Full guides, written for this fork.
 | [Multi-account pools](documentation/MULTI_ACCOUNT.md) | end-to-end: load-balanced accounts with distinct, stable client identities |
 | [Session Hub](documentation/SESSION_HUB.md) | header transformation & session mapping engine, header modes, API reference, dashboard |
 | [Docker image](documentation/DOCKER_PUSH.md) | published image `entbtw/aurora`, tags, how to build & publish |
+| [Extensions](documentation/extensions/README.md) | themes, sidecar presets, addons — JSON surface, apply flow, safety |
 
 **Quick deploy:**
 
