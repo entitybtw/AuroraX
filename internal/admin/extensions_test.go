@@ -93,7 +93,6 @@ func TestExtension_ExtendedSchemaRoundTrip(t *testing.T) {
 	  "id": "proto-x",
 	  "name": "Proto X",
 	  "author": "community",
-	  "tags": ["tls", "custom"],
 	  "homepage": "https://example.test",
 	  "provides": {"provider_types": ["opencode"], "features": ["oauth"]},
 	  "inject_tool_types": ["opencode"],
@@ -340,18 +339,30 @@ func TestApplyExtension_ConfiguresOAuthOnMatchingProviders(t *testing.T) {
 	}
 }
 
-func TestHandler_ListAndGetExtensions_StripsTags(t *testing.T) {
+func TestHandler_ExtensionsHaveNoTags(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("AURORA_EXTENSIONS_PATH", filepath.Join(dir, "extensions.json"))
 
+	// Import with tags in the JSON — field must be dropped (not in schema).
 	store := NewExtensionStore()
-	store.Upsert(Extension{
-		ID:      "theme-ext",
-		Name:    "Theme Ext",
-		Type:    "theme",
-		Tags:    []string{"official", "theme"},
-		Headers: []ExtensionHeader{{Name: "x-session", Mode: "generate"}},
-	})
+	raw := `{
+	  "id": "no-tags",
+	  "name": "No Tags",
+	  "type": "theme",
+	  "tags": ["official", "theme"]
+	}`
+	var imported Extension
+	if err := json.Unmarshal([]byte(raw), &imported); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	exported, err := json.Marshal(imported)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if strings.Contains(string(exported), `"tags"`) {
+		t.Fatalf("tags must not round-trip on Extension: %s", exported)
+	}
+	store.Upsert(imported)
 
 	h := NewHandler(nil, nil, WithExtensionStore(store))
 	e := echo.New()
@@ -362,33 +373,19 @@ func TestHandler_ListAndGetExtensions_StripsTags(t *testing.T) {
 	if err := h.ListExtensions(c); err != nil {
 		t.Fatalf("ListExtensions: %v", err)
 	}
-	var listBody struct {
-		Extensions []Extension `json:"extensions"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &listBody); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	if len(listBody.Extensions) != 1 {
-		t.Fatalf("extensions = %d, want 1", len(listBody.Extensions))
-	}
-	listed := listBody.Extensions[0]
-	if len(listed.Tags) != 0 {
-		t.Fatalf("list response tags = %v, want empty", listed.Tags)
+	if strings.Contains(rec.Body.String(), `"tags"`) {
+		t.Fatalf("list response must not contain tags: %s", rec.Body.String())
 	}
 
-	req = httptest.NewRequest(http.MethodGet, "/sidecar/extensions/theme-ext", nil)
+	req = httptest.NewRequest(http.MethodGet, "/sidecar/extensions/no-tags", nil)
 	rec = httptest.NewRecorder()
 	c = e.NewContext(req, rec)
-	c.SetPathValues(echo.PathValues{{Name: "id", Value: "theme-ext"}})
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: "no-tags"}})
 	if err := h.GetExtension(c); err != nil {
 		t.Fatalf("GetExtension: %v", err)
 	}
-	var got Extension
-	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	if len(got.Tags) != 0 {
-		t.Fatalf("get response tags = %v, want empty", got.Tags)
+	if strings.Contains(rec.Body.String(), `"tags"`) {
+		t.Fatalf("get response must not contain tags: %s", rec.Body.String())
 	}
 }
 
