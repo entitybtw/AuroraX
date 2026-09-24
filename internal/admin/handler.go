@@ -62,6 +62,8 @@ type Handler struct {
 	sessionHeaderEnsurer SessionHeaderEnsurer
 	sidecarStore         *SidecarOverrideStore
 	extensions           *ExtensionStore
+	extensionStoreURLs   *ExtensionStoreURLStore
+	extensionStoresOnce  sync.Once
 
 	mutationMu sync.Mutex
 	pricingMu  sync.Mutex

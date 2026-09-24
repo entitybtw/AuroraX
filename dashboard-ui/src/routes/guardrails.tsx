@@ -123,8 +123,8 @@ export function GuardrailsPage(): JSX.Element {
     <div className="flex flex-col gap-6">
       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 pt-4 border-b border-border/60">
         <div className="min-w-0 flex-1">
-          <h1 className="font-display text-[34px] font-normal leading-tight tracking-tight text-foreground">Guardrails</h1>
-          <p className="mt-1.5 text-[15px] text-muted-foreground">Reusable policy objects stored in the database and kept hot in memory for workflow execution.</p>
+          <h1 className="font-display text-[28px] md:text-[34px] font-normal leading-tight tracking-tight text-foreground">Guardrails</h1>
+          <p className="mt-1.5 text-sm md:text-[15px] text-muted-foreground">Reusable policy objects stored in the database and kept hot in memory for workflow execution.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Button onClick={() => handleOpenForm()} disabled={typesLoading}>
@@ -334,10 +334,10 @@ export function GuardrailsPage(): JSX.Element {
                     />
                   </Th>
                   <Th>Name</Th>
-                  <Th>Type</Th>
-                  <Th>Direction</Th>
-                  <Th>User Path</Th>
-                  <Th>Summary</Th>
+                  <Th className="hidden sm:table-cell">Type</Th>
+                  <Th className="hidden md:table-cell">Direction</Th>
+                  <Th className="hidden lg:table-cell">User Path</Th>
+                  <Th className="hidden md:table-cell">Summary</Th>
                   <Th className="text-right">Actions</Th>
                 </tr>
               </thead>
@@ -353,14 +353,14 @@ export function GuardrailsPage(): JSX.Element {
                         />
                       </Td>
                       <Td className="font-mono font-medium">{g.name}</Td>
-                      <Td>
+                      <Td className="hidden sm:table-cell">
                         <span className="inline-flex items-center  bg-surface px-2.5 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-inset ring-border">
                           {typeDef?.label || g.type}
                         </span>
                       </Td>
-                      <Td><code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">{g.direction || "input"}</code></Td>
-                      <Td><code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">{g.user_path || "—"}</code></Td>
-                      <Td>
+                      <Td className="hidden md:table-cell"><code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">{g.direction || "input"}</code></Td>
+                      <Td className="hidden lg:table-cell"><code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">{g.user_path || "—"}</code></Td>
+                      <Td className="hidden md:table-cell">
                         <div className="flex flex-col">
                           <span className="text-sm font-medium">{g.summary || g.description || "No summary yet."}</span>
                           {g.description && g.summary && <span className="text-xs text-muted-foreground">{g.description}</span>}

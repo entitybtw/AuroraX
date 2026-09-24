@@ -82,8 +82,8 @@ export function UsagePage(): JSX.Element {
     <div className="flex flex-col gap-6">
       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 pt-4 border-b border-border/60">
         <div className="min-w-0 flex-1">
-          <h1 className="font-display text-[34px] font-normal leading-tight tracking-tight text-foreground">Usage Analytics</h1>
-          <p className="mt-1.5 text-[15px] text-muted-foreground">Track requests, tokens, and costs across your gateway.</p>
+          <h1 className="font-display text-[28px] md:text-[34px] font-normal leading-tight tracking-tight text-foreground">Usage Analytics</h1>
+          <p className="mt-1.5 text-sm md:text-[15px] text-muted-foreground">Track requests, tokens, and costs across your gateway.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <TenantScopeSelect />
@@ -137,7 +137,7 @@ export function UsagePage(): JSX.Element {
       {/* Tables/Charts Column */}
       <div className="flex flex-col gap-6">
         {/* Model Usage Card */}
-        <Surface className="flex flex-col flex-1 overflow-hidden min-h-[450px]">
+        <Surface className="flex flex-col flex-1 overflow-hidden min-h-[320px] md:min-h-[450px]">
           <div className="border-b border-border/40 bg-surface-hover/30 p-5 flex items-center justify-between backdrop-blur-sm z-10 relative">
             <div className="flex items-center gap-3">
               <div className="h-6 w-1.5 bg-accent"></div>
@@ -176,20 +176,20 @@ export function UsagePage(): JSX.Element {
             ) : (
               <TableWrap className="border-0 rounded-none shadow-none">
                 <DataTable>
-                  <thead>
-                    <tr className="bg-surface-hover/40 backdrop-blur-sm">
-                      <Th>Model</Th>
-                      <Th>Provider</Th>
-                      <Th className="text-right">Total {usageMode === "tokens" ? "Tokens" : "Cost"}</Th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {modelUsage.map((row) => {
-                      const totalTokens = row.input_tokens + row.output_tokens;
-                      return (
-                        <tr key={`${row.provider}-${row.model}`} className="hover:bg-surface-hover/40 transition-colors border-b border-border/40 last:border-0">
-                          <Td className="font-mono text-[13px] font-semibold text-foreground">{row.model}</Td>
-                          <Td className="text-[11px] uppercase tracking-wider text-muted-foreground font-bold">{row.provider_name || row.provider}</Td>
+              <thead>
+                <tr className="bg-surface-hover/40 backdrop-blur-sm">
+                  <Th>Model</Th>
+                  <Th className="hidden sm:table-cell">Provider</Th>
+                  <Th className="text-right">Total {usageMode === "tokens" ? "Tokens" : "Cost"}</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {modelUsage.map((row) => {
+                  const totalTokens = row.input_tokens + row.output_tokens;
+                  return (
+                    <tr key={`${row.provider}-${row.model}`} className="hover:bg-surface-hover/40 transition-colors border-b border-border/40 last:border-0">
+                      <Td className="font-mono text-[13px] font-semibold text-foreground">{row.model}</Td>
+                      <Td className="hidden sm:table-cell text-[11px] uppercase tracking-wider text-muted-foreground font-bold">{row.provider_name || row.provider}</Td>
                           <Td className="text-right font-mono text-[14px] font-bold text-foreground">
                             {usageMode === "tokens" ? formatNumber(totalTokens) : formatCost(row.total_cost)}
                           </Td>
@@ -204,7 +204,7 @@ export function UsagePage(): JSX.Element {
         </Surface>
 
         {/* Provider Usage Card */}
-        <Surface className="flex flex-col flex-1 overflow-hidden min-h-[450px]">
+        <Surface className="flex flex-col flex-1 overflow-hidden min-h-[320px] md:min-h-[450px]">
           <div className="border-b border-border/40 bg-surface-hover/30 p-5 flex items-center justify-between backdrop-blur-sm z-10 relative">
             <div className="flex items-center gap-3">
               <div className="h-6 w-1.5 bg-accent"></div>
@@ -277,7 +277,7 @@ export function UsagePage(): JSX.Element {
         </Surface>
 
         {/* User Path Usage Card */}
-        <Surface className="flex flex-col flex-1 overflow-hidden min-h-[450px]">
+        <Surface className="flex flex-col flex-1 overflow-hidden min-h-[320px] md:min-h-[450px]">
           <div className="border-b border-border/40 bg-surface-hover/30 p-5 flex items-center justify-between backdrop-blur-sm z-10 relative">
             <div className="flex items-center gap-3">
               <div className="h-6 w-1.5 bg-accent"></div>
@@ -339,7 +339,7 @@ export function UsagePage(): JSX.Element {
       </div>
 
       {/* Request Log */}
-      <Surface className="flex flex-col flex-1 overflow-hidden h-[600px]">
+      <Surface className="flex flex-col flex-1 overflow-hidden h-auto max-h-[75vh] md:h-[600px] md:max-h-none">
         <div className="border-b border-border/40 bg-surface-hover/30 p-5 flex flex-col gap-4 backdrop-blur-sm z-10 relative">
           <div className="flex items-center gap-3">
             <div className="h-6 w-1.5 bg-accent"></div>
@@ -357,19 +357,19 @@ export function UsagePage(): JSX.Element {
               placeholder="Model filter"
               value={logModel}
               onChange={(e) => setLogModel(e.target.value)}
-              className="w-32 h-9"
+              className="w-full sm:w-32 h-11 md:h-9"
             />
             <Input
               placeholder="Provider filter"
               value={logProvider}
               onChange={(e) => setLogProvider(e.target.value)}
-              className="w-32 h-9"
+              className="w-full sm:w-32 h-11 md:h-9"
             />
             <Input
               placeholder="User path filter"
               value={logUserPath}
               onChange={(e) => setLogUserPath(e.target.value)}
-              className="w-40 h-9"
+              className="w-full sm:w-40 h-11 md:h-9"
             />
           </div>
         </div>
@@ -385,10 +385,10 @@ export function UsagePage(): JSX.Element {
                   <tr className="bg-surface-hover/40 backdrop-blur-sm">
                     <Th>Timestamp</Th>
                     <Th>Model</Th>
-                    <Th>Provider</Th>
-                    <Th>User Path</Th>
-                    <Th className="text-right">{usageMode === "costs" ? "Input Cost" : "Input"}</Th>
-                    <Th className="text-right">{usageMode === "costs" ? "Output Cost" : "Output"}</Th>
+                    <Th className="hidden md:table-cell">Provider</Th>
+                    <Th className="hidden lg:table-cell">User Path</Th>
+                    <Th className="hidden sm:table-cell text-right">{usageMode === "costs" ? "Input Cost" : "Input"}</Th>
+                    <Th className="hidden sm:table-cell text-right">{usageMode === "costs" ? "Output Cost" : "Output"}</Th>
                     <Th className="text-right">{usageMode === "costs" ? "Total Cost" : "Total"}</Th>
                     {usageMode === "tokens" && <Th className="text-right">Cost</Th>}
                   </tr>
@@ -410,12 +410,12 @@ export function UsagePage(): JSX.Element {
                           {timestamp ? format(new Date(timestamp), "MMM d, HH:mm:ss") : "—"}
                         </Td>
                         <Td className="font-mono text-[13px] font-semibold text-foreground">{String(entry.model ?? "")}</Td>
-                        <Td className="text-[11px] uppercase tracking-wider text-muted-foreground font-bold">{String(entry.provider_name ?? entry.provider ?? "")}</Td>
-                        <Td className="font-mono text-[12px] text-muted-foreground">{String(entry.user_path ?? "—")}</Td>
-                        <Td className="text-right font-mono text-[13px]">
+                        <Td className="hidden md:table-cell text-[11px] uppercase tracking-wider text-muted-foreground font-bold">{String(entry.provider_name ?? entry.provider ?? "")}</Td>
+                        <Td className="hidden lg:table-cell font-mono text-[12px] text-muted-foreground">{String(entry.user_path ?? "—")}</Td>
+                        <Td className="hidden sm:table-cell text-right font-mono text-[13px]">
                           {usageMode === "costs" ? formatCost(inputCost) : formatNumber(inputTokens)}
                         </Td>
-                        <Td className="text-right font-mono text-[13px]">
+                        <Td className="hidden sm:table-cell text-right font-mono text-[13px]">
                           {usageMode === "costs" ? formatCost(outputCost) : formatNumber(outputTokens)}
                         </Td>
                         <Td className="text-right font-mono text-[14px] font-bold text-foreground">

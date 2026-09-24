@@ -654,15 +654,15 @@ export function PlaygroundPage(): JSX.Element {
       : "Rerank";
 
   return (
-    <div className="flex flex-col gap-6 h-[calc(100vh-2rem)]">
+    <div className="flex flex-col gap-6 xl:h-[calc(100vh-2rem)]">
       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 pt-4 border-b border-border/60 shrink-0">
         <div className="min-w-0 flex-1">
-          <h1 className="font-display text-[34px] font-normal leading-tight tracking-tight text-foreground">Playground</h1>
-          <p className="mt-1.5 text-[15px] text-muted-foreground">Test chat, embeddings, and rerank models through the gateway. Select a model and the playground adapts to its capability.</p>
+          <h1 className="font-display text-[28px] md:text-[34px] font-normal leading-tight tracking-tight text-foreground">Playground</h1>
+          <p className="mt-1.5 text-sm md:text-[15px] text-muted-foreground">Test chat, embeddings, and rerank models through the gateway. Select a model and the playground adapts to its capability.</p>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] min-h-[850px] xl:min-h-[calc(100vh-140px)]">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] min-h-0 md:min-h-[850px] xl:min-h-[calc(100vh-140px)]">
         <Surface className="p-0 overflow-hidden flex flex-col h-full border border-border">
           <form
             className="flex flex-col h-full"
@@ -687,13 +687,13 @@ export function PlaygroundPage(): JSX.Element {
 
             <div className="p-5 flex-1 space-y-5 overflow-y-auto">
               {/* Model + Temperature row */}
-              <div className="grid grid-cols-[1fr_auto] gap-4 items-end">
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-4 items-end">
                 <label className="block space-y-2">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Model</span>
                   <select
                     value={model}
                     onChange={(event) => handleModelChange(event.target.value)}
-                    className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm font-semibold text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all"
+                    className="h-11 md:h-10 w-full rounded-md border border-border bg-background px-3 text-sm font-semibold text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all"
                   >
                     <option value="">{options[0] ? `Auto: ${options[0].label}` : "No models loaded"}</option>
                     {(["chat", "embeddings", "rerank"] as PlaygroundMode[]).map((cat) => {
@@ -715,7 +715,7 @@ export function PlaygroundPage(): JSX.Element {
                   ) : null}
                 </label>
                 {mode === "chat" && (
-                  <label className="block space-y-2 w-[80px]">
+                  <label className="block space-y-2 w-full sm:w-[80px]">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Temp</span>
                     <input
                       type="number"
@@ -724,7 +724,7 @@ export function PlaygroundPage(): JSX.Element {
                       step="0.1"
                       value={temperature}
                       onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                      className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm font-mono text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all"
+                      className="h-11 md:h-10 w-full rounded-md border border-border bg-background px-3 text-sm font-mono text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all"
                     />
                   </label>
                 )}
@@ -732,14 +732,14 @@ export function PlaygroundPage(): JSX.Element {
 
               {/* Advanced inference parameters */}
               {mode === "chat" && (
-                <div className="grid grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
                   <label className="block space-y-2">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Max tokens</span>
                     <input
                       type="number" min="1" max="131072" step="1"
                       value={maxTokens}
                       onChange={(e) => setMaxTokens(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                      className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs font-mono text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all"
+                      className="h-11 md:h-9 w-full rounded-md border border-border bg-background px-3 text-xs font-mono text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all"
                     />
                   </label>
                   <label className="block space-y-2">
@@ -748,7 +748,7 @@ export function PlaygroundPage(): JSX.Element {
                       type="number" min="0" max="1" step="0.05"
                       value={topP}
                       onChange={(e) => setTopP(Math.min(1, Math.max(0, parseFloat(e.target.value) || 0)))}
-                      className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs font-mono text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all"
+                      className="h-11 md:h-9 w-full rounded-md border border-border bg-background px-3 text-xs font-mono text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all"
                     />
                   </label>
                   <label className="block space-y-2">
@@ -757,7 +757,7 @@ export function PlaygroundPage(): JSX.Element {
                       type="number" min="-2" max="2" step="0.1"
                       value={frequencyPenalty}
                       onChange={(e) => setFrequencyPenalty(Math.min(2, Math.max(-2, parseFloat(e.target.value) || 0)))}
-                      className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs font-mono text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all"
+                      className="h-11 md:h-9 w-full rounded-md border border-border bg-background px-3 text-xs font-mono text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all"
                     />
                   </label>
                   <label className="block space-y-2">
@@ -766,7 +766,7 @@ export function PlaygroundPage(): JSX.Element {
                       type="number" min="-2" max="2" step="0.1"
                       value={presencePenalty}
                       onChange={(e) => setPresencePenalty(Math.min(2, Math.max(-2, parseFloat(e.target.value) || 0)))}
-                      className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs font-mono text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all"
+                      className="h-11 md:h-9 w-full rounded-md border border-border bg-background px-3 text-xs font-mono text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all"
                     />
                   </label>
                   <label className="block space-y-2">
@@ -775,7 +775,7 @@ export function PlaygroundPage(): JSX.Element {
                       type="number" min="0" max="999999" step="1"
                       value={seed ?? ""}
                       onChange={(e) => setSeed(e.target.value ? parseInt(e.target.value, 10) : undefined)}
-                      className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs font-mono text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all"
+                      className="h-11 md:h-9 w-full rounded-md border border-border bg-background px-3 text-xs font-mono text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all"
                       placeholder="—"
                     />
                   </label>
