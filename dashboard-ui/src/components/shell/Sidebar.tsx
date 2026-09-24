@@ -38,6 +38,10 @@ import {
   useExtensionNav,
   useExtensionUIContext,
 } from "@/lib/extensions/ui-context";
+import {
+  extractHiddenFeatures,
+  hiddenFeatureSet,
+} from "@/lib/features/features";
 import type { ExtensionNavEntry } from "@/lib/api/extensions";
 
 type IconType = React.ComponentType<{ className?: string }>;
@@ -50,35 +54,39 @@ interface NavEntry {
   requiredResource?: string;
   requiredAction?: "read" | "write";
   requiredCapability?: string;
+  /** Operator feature id — omitted = never hideable via feature toggles. */
+  featureId?: string;
 }
 
 const NAV: readonly NavEntry[] = [
   { to: "/admin/dashboard/overview", label: "Overview", Icon: LayoutDashboard, requiredResource: "admin/dashboard" },
-  { to: "/admin/dashboard/pools", label: "Pools", Icon: Network, requiredResource: "admin/pools" },
-  { to: "/admin/dashboard/guide", label: "Guide", Icon: BookOpen },
-  { to: "/admin/dashboard/playground", label: "Playground", Icon: MessageSquareText },
+  { to: "/admin/dashboard/pools", label: "Pools", Icon: Network, requiredResource: "admin/pools", featureId: "pools" },
+  { to: "/admin/dashboard/guide", label: "Guide", Icon: BookOpen, featureId: "guide" },
+  { to: "/admin/dashboard/playground", label: "Playground", Icon: MessageSquareText, featureId: "playground" },
   { to: "/admin/dashboard/models", label: "Models", Icon: Box, requiredResource: "admin/models" },
-  { to: "/admin/dashboard/combos", label: "Combos", Icon: Layers, requiredResource: "admin/models" },
-  { to: "/admin/dashboard/fallback", label: "Fallback", Icon: Workflow, requiredResource: "admin/models" },
-  { to: "/admin/dashboard/audit-logs", label: "Audit Logs", Icon: History, requiredResource: "admin/audit" },
-  { to: "/admin/dashboard/console", label: "Live Console", Icon: Terminal, requiredResource: "admin/audit" },
-  { to: "/admin/dashboard/usage", label: "Usage", Icon: ChartColumn, requiredResource: "admin/usage" },
+  { to: "/admin/dashboard/combos", label: "Combos", Icon: Layers, requiredResource: "admin/models", featureId: "combos" },
+  { to: "/admin/dashboard/fallback", label: "Fallback", Icon: Workflow, requiredResource: "admin/models", featureId: "fallback" },
+  { to: "/admin/dashboard/audit-logs", label: "Audit Logs", Icon: History, requiredResource: "admin/audit", featureId: "audit_logs" },
+  { to: "/admin/dashboard/console", label: "Live Console", Icon: Terminal, requiredResource: "admin/audit", featureId: "console" },
+  { to: "/admin/dashboard/usage", label: "Usage", Icon: ChartColumn, requiredResource: "admin/usage", featureId: "usage" },
   {
     to: "/admin/dashboard/cache",
     label: "Cache",
     Icon: Database,
     show: (cfg) => flagOn(cfg?.CACHE_ENABLED),
     requiredResource: "admin/cache",
+    featureId: "cache",
   },
 
-  { to: "/admin/dashboard/auth-keys", label: "API Keys", Icon: KeyRound, requiredResource: "admin/keys" },
-  { to: "/admin/dashboard/workflows", label: "Workflows", Icon: Workflow, requiredResource: "admin/workflows" },
+  { to: "/admin/dashboard/auth-keys", label: "API Keys", Icon: KeyRound, requiredResource: "admin/keys", featureId: "auth_keys" },
+  { to: "/admin/dashboard/workflows", label: "Workflows", Icon: Workflow, requiredResource: "admin/workflows", featureId: "workflows" },
   {
     to: "/admin/dashboard/guardrails",
     label: "Guardrails",
     Icon: ShieldCheck,
     show: (cfg) => flagOn(cfg?.GUARDRAILS_ENABLED),
     requiredResource: "admin/guardrails",
+    featureId: "guardrails",
   },
   { to: "/admin/dashboard/settings", label: "Settings", Icon: Settings, requiredResource: "admin/settings" },
 ];
@@ -140,6 +148,10 @@ export function Sidebar({
   const { hideNav, logoText, logoURL } = useExtensionUIContext();
   const extNav = useExtensionNav();
   const brandLabel = logoText || "AuroraX";
+  const hiddenFeatures = React.useMemo(
+    () => hiddenFeatureSet(extractHiddenFeatures(config)),
+    [config],
+  );
 
   const isHidden = React.useCallback(
     (label: string, to: string): boolean => {
@@ -243,6 +255,7 @@ export function Sidebar({
               (!entry.show || entry.show(config)) &&
               hasCapability(config, entry.requiredCapability) &&
               canAccess(entry) &&
+              !(entry.featureId && hiddenFeatures.has(entry.featureId)) &&
               !isHidden(entry.label, entry.to),
           ).map(
             (entry) => {

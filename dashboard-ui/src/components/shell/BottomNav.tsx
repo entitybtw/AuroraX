@@ -1,18 +1,25 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { LayoutDashboard, Box, Terminal, Settings, Workflow } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useDashboardConfig } from "@/lib/api/useDashboardConfig";
+import { extractHiddenFeatures, hiddenFeatureSet } from "@/lib/features/features";
 
 const TABS = [
   { to: "/admin/dashboard/overview", label: "Home", Icon: LayoutDashboard },
   { to: "/admin/dashboard/models", label: "Models", Icon: Box },
-  { to: "/admin/dashboard/fallback", label: "Fallback", Icon: Workflow },
-  { to: "/admin/dashboard/console", label: "Console", Icon: Terminal },
+  { to: "/admin/dashboard/fallback", label: "Fallback", Icon: Workflow, featureId: "fallback" },
+  { to: "/admin/dashboard/console", label: "Console", Icon: Terminal, featureId: "console" },
   { to: "/admin/dashboard/settings", label: "Settings", Icon: Settings },
 ];
 
 export function BottomNav(): JSX.Element {
   const { location } = useRouterState();
   const path = location.pathname;
+  const { data: config } = useDashboardConfig();
+  const hiddenFeatures = hiddenFeatureSet(extractHiddenFeatures(config));
+  const visibleTabs = TABS.filter((tab) => !tab.featureId || !hiddenFeatures.has(tab.featureId));
+
+  if (visibleTabs.length === 0) return <></>;
 
   return (
     <nav
@@ -20,7 +27,7 @@ export function BottomNav(): JSX.Element {
       aria-label="Primary mobile navigation"
     >
       <div className="flex items-center justify-around h-16">
-        {TABS.map(({ to, label, Icon }) => {
+        {visibleTabs.map(({ to, label, Icon }) => {
           const active = path === to || path.startsWith(to + "/");
           return (
             <Link

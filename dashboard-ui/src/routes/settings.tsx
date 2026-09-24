@@ -26,21 +26,24 @@ import {
   useExtensionUIContext,
 } from "@/lib/extensions/ui-context";
 import { cn } from "@/lib/utils";
+import { useDashboardConfig } from "@/lib/api/useDashboardConfig";
+import { extractHiddenFeatures, hiddenFeatureSet } from "@/lib/features/features";
 import type { SettingsTab } from "@/components/settings/types";
 
 const BUILTIN_TABS: {
   id: SettingsTab;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  featureId?: string;
 }[] = [
   { id: "general", label: "General", icon: SettingsIcon },
-  { id: "providers", label: "Providers", icon: ServerIcon },
-  { id: "infrastructure", label: "Infrastructure", icon: BoxesIcon },
-  { id: "caching", label: "Caching", icon: DatabaseIcon },
-  { id: "networking", label: "Networking", icon: GlobeIcon },
-  { id: "sessionhub", label: "Session Hub", icon: KeyIcon },
-  { id: "extensions", label: "Extensions", icon: PuzzleIcon },
-  { id: "sidecar", label: "Sidecar", icon: CpuIcon },
+  { id: "providers", label: "Providers", icon: ServerIcon, featureId: "providers" },
+  { id: "infrastructure", label: "Infrastructure", icon: BoxesIcon, featureId: "infrastructure" },
+  { id: "caching", label: "Caching", icon: DatabaseIcon, featureId: "caching" },
+  { id: "networking", label: "Networking", icon: GlobeIcon, featureId: "networking" },
+  { id: "sessionhub", label: "Session Hub", icon: KeyIcon, featureId: "sessionhub" },
+  { id: "extensions", label: "Extensions", icon: PuzzleIcon, featureId: "extensions" },
+  { id: "sidecar", label: "Sidecar", icon: CpuIcon, featureId: "sidecar" },
 ];
 
 type TabItem = {
@@ -54,9 +57,15 @@ function SettingsPageInner(): JSX.Element {
   const [activeTab, setActiveTab] = useState<string>("general");
   const { hideSettingsTabs } = useExtensionUIContext();
   const extTabs = useExtensionSettingsTabs();
+  const { data: config } = useDashboardConfig();
+  const hiddenFeatures = hiddenFeatureSet(extractHiddenFeatures(config));
 
   const visibleTabs: TabItem[] = [
-    ...BUILTIN_TABS.filter((t) => !hideSettingsTabs.has(t.id)).map((t) => ({
+    ...BUILTIN_TABS.filter(
+      (t) =>
+        !hideSettingsTabs.has(t.id) &&
+        !(t.featureId && hiddenFeatures.has(t.featureId)),
+    ).map((t) => ({
       id: t.id as string,
       label: t.label,
       icon: t.icon,

@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDashboardConfig } from "@/lib/api/useDashboardConfig";
 import { flagOn } from "@/lib/api/dashboard-config";
 import { apiFetch } from "@/lib/api/client";
+import { normalizeHiddenFeatures } from "@/lib/features/features";
 import type { DashboardSettingsFormState, DashboardSettingsSaveResponse, RuntimeRefreshResponse } from "./types";
 
 export function StatusChip({ enabled }: { enabled: boolean }): JSX.Element {
@@ -49,6 +50,7 @@ interface SettingsValue {
   autoRefreshEnabled: boolean;
   toggleAutoRefresh: () => void;
   handleAdminEndpointToggle: (checked: boolean) => void;
+  handleHiddenFeatureToggle: (featureId: string, hide: boolean) => void;
   handleDashboardSettingsSave: () => void;
   adminEndpointsEnabled: boolean;
   masterKeyConfigured: boolean;
@@ -86,6 +88,7 @@ function defaults(): DashboardSettingsFormState {
     token_saver: { enabled: false, apply_streaming: true, endpoints: ["chat_completions"], output_enabled: false, output_profile: "concise", output_level: "full", emit_headers: true, on_error: "allow", model_include: [], model_exclude: [], provider_include: [], provider_exclude: [], audit_enabled: true },
     proxy: { http_proxy: "", https_proxy: "", no_proxy: "", proxy_auth_enabled: false, ca_cert_pem: "" },
     response_headers: { enabled: false, mode: "success", include_fallback: true, include_non_fallback: true, actual_provider_header: true, actual_model_header: true, requested_model_header: true, fallback_chain_header: true, custom_headers: [] },
+    ui: { hidden_features: [] },
   };
 }
 
@@ -146,6 +149,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     next.token_saver = { ...next.token_saver, ...runtimeSettings.token_saver };
     next.proxy = { ...next.proxy, ...runtimeSettings.proxy };
     next.response_headers = { ...next.response_headers, ...runtimeSettings.response_headers };
+    next.ui = {
+      hidden_features: normalizeHiddenFeatures(runtimeSettings.ui?.hidden_features ?? []),
+    };
     setDashboardSettings(next);
     setPassthroughProvidersText((runtimeSettings.client?.enabled_passthrough_providers || []).join(", "));
   }, [auditLogsEnabled, batchGuardrailsEnabled, guardrailsEnabled, metricsEnabled, pricingRecalculationEnabled, runtimeSettings]);
@@ -162,8 +168,17 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     if (next) window.dispatchEvent(new Event("aurora_autorefresh_toggled"));
   };
   const handleAdminEndpointToggle = (checked: boolean) => setDashboardSettings(prev => ({ ...prev, client: { ...prev.client, admin_endpoints_enabled: checked } }));
+  const handleHiddenFeatureToggle = (featureId: string, hide: boolean) =>
+    setDashboardSettings(prev => {
+      const current = normalizeHiddenFeatures(prev.ui?.hidden_features ?? []);
+      const next = hide
+        ? [...new Set([...current, featureId])]
+        : current.filter(id => id !== featureId);
+      return { ...prev, ui: { hidden_features: next } };
+    });
   const handleDashboardSettingsSave = () => saveDashboardSettingsMutation.mutate({
     ...dashboardSettings,
+    ui: { hidden_features: normalizeHiddenFeatures(dashboardSettings.ui?.hidden_features ?? []) },
     client: { ...dashboardSettings.client, enabled_passthrough_providers: passthroughProvidersText.split(",").map(value => value.trim()).filter(Boolean) },
   });
 
@@ -179,6 +194,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     autoRefreshEnabled,
     toggleAutoRefresh,
     handleAdminEndpointToggle,
+    handleHiddenFeatureToggle,
     handleDashboardSettingsSave,
     adminEndpointsEnabled,
     masterKeyConfigured,

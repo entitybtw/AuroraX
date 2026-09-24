@@ -7,9 +7,10 @@ import { useModels } from "@/lib/api/useModels";
 import { useProviderStatus } from "@/lib/api/useProviders";
 import { modelDisplayName } from "@/lib/api/models-types";
 import { RuntimeStatusBadge, useSettings } from "./SettingsContext";
+import { HIDEABLE_FEATURES, normalizeHiddenFeatures } from "@/lib/features/features";
 import {
   ServerIcon, ArrowRightLeftIcon,
-  SaveIcon, GaugeIcon,
+  SaveIcon, GaugeIcon, EyeOffIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -53,7 +54,7 @@ export function GeneralTab(): JSX.Element {
     config, dashboardSettings, setDashboardSettings,
     passthroughProvidersText, setPassthroughProvidersText,
     timezoneOverride, handleTimezoneChange,
-    handleAdminEndpointToggle, handleDashboardSettingsSave,
+    handleAdminEndpointToggle, handleHiddenFeatureToggle, handleDashboardSettingsSave,
     mutations,
   } = useSettings();
 
@@ -77,6 +78,7 @@ export function GeneralTab(): JSX.Element {
   const adminEndpointsEnabled = Boolean(runtimeSettings?.client.admin_endpoints_enabled);
   const adminUIEnabled = Boolean(runtimeSettings?.client.admin_ui_enabled);
   const passthroughRoutesEnabled = runtimeFeatureConfigured("passthrough") || Boolean(runtimeSettings?.client.enable_passthrough_routes);
+  const hiddenFeatureIds = new Set(normalizeHiddenFeatures(dashboardSettings.ui?.hidden_features ?? []));
 
   const [detectedTz, setDetectedTz] = useState("UTC");
 
@@ -420,6 +422,53 @@ export function GeneralTab(): JSX.Element {
         </div>
       </Surface>
 
+
+      <Surface id="feature-visibility" className="p-6 scroll-mt-20">
+        <div className="flex flex-col gap-6">
+          <div className="flex items-start gap-3">
+            <div className="border border-border/40 bg-background/80 p-2">
+              <EyeOffIcon className="h-4 w-4 text-accent" />
+            </div>
+            <SectionHeader
+              title="Feature visibility"
+              subtitle="Hide optional dashboard surfaces without deleting config, pools, logs, or keys. Hidden features leave the nav; direct URLs show a disabled banner until re-enabled."
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            {HIDEABLE_FEATURES.map((feature) => {
+              const hidden = hiddenFeatureIds.has(feature.id);
+              return (
+                <div
+                  key={feature.id}
+                  className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      {feature.label}
+                    </div>
+                    <StatusChip enabled={!hidden} />
+                  </div>
+                  <ToggleField
+                    label={hidden ? "Hidden" : "Visible"}
+                    description={feature.description}
+                    checked={!hidden}
+                    onCheckedChange={(checked) => handleHiddenFeatureToggle(feature.id, !checked)}
+                    aria-label={`${hidden ? "Show" : "Hide"} ${feature.label}`}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-3 mt-2 border-t border-border/50 pt-4">
+            <Button onClick={handleDashboardSettingsSave} disabled={mutations.saveDashboardSettingsMutation.isPending}>
+              <SaveIcon className="mr-2 h-4 w-4" />
+              {mutations.saveDashboardSettingsMutation.isPending ? "Saving..." : "Save Feature Visibility"}
+            </Button>
+            {mutations.saveDashboardSettingsMutation.isSuccess && <span className="text-[13px] font-medium text-success">Saved</span>}
+            {mutations.saveDashboardSettingsMutation.isError && <span className="text-[13px] font-medium text-destructive">{mutations.saveDashboardSettingsMutation?.error?.message}</span>}
+          </div>
+        </div>
+      </Surface>
 
       <Surface className="p-6">
         <div className="flex flex-col gap-6">
