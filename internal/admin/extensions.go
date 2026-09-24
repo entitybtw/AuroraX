@@ -157,8 +157,9 @@ type ExtensionTool struct {
 	InlineJSON json.RawMessage `json:"inline,omitempty"`
 }
 
-// ExtensionOAuth carries device-flow wiring an extension supplies so the
-// gateway and dashboard do not hardcode provider-specific OAuth endpoints.
+// ExtensionOAuth carries device-flow or authorization-code+PKCE wiring an
+// extension supplies so the gateway and dashboard do not hardcode
+// provider-specific OAuth endpoints.
 type ExtensionOAuth struct {
 	// Server is the OAuth authorization server base URL (device authorization).
 	Server string `json:"server,omitempty"`
@@ -171,6 +172,21 @@ type ExtensionOAuth struct {
 	UserAgent string `json:"user_agent,omitempty"`
 	// Scope is an optional OAuth scope string.
 	Scope string `json:"scope,omitempty"`
+	// Grant selects the flow: "device" (default) or "authorization_code".
+	Grant string `json:"grant,omitempty"`
+	// AuthorizeURL is the browser authorize endpoint (authorization_code).
+	AuthorizeURL string `json:"authorize_url,omitempty"`
+	// TokenURL is the token endpoint for code exchange / refresh (JSON body
+	// unless TokenStyle is "form").
+	TokenURL string `json:"token_url,omitempty"`
+	// TokenStyle: "json" (default) or "form".
+	TokenStyle string `json:"token_style,omitempty"`
+	// Scopes is the space-delimited scope list for authorization_code.
+	Scopes string `json:"scopes,omitempty"`
+	// StateIsVerifier: when true, state equals the PKCE code_verifier.
+	StateIsVerifier bool `json:"state_is_verifier,omitempty"`
+	// RedirectURI overrides the loopback redirect (default 127.0.0.1 callback).
+	RedirectURI string `json:"redirect_uri,omitempty"`
 }
 
 // ExtensionProvides declares optional capabilities that are not built into the
@@ -1008,6 +1024,20 @@ func (h *Handler) buildApplyResponse(c *echo.Context) (map[string]any, Extension
 			next.OAuthClientID = v
 		case "oauth_verification_base":
 			next.OAuthVerificationBase = v
+		case "oauth_grant":
+			next.OAuthGrant = v
+		case "oauth_authorize_url":
+			next.OAuthAuthorizeURL = v
+		case "oauth_token_url":
+			next.OAuthTokenURL = v
+		case "oauth_token_style":
+			next.OAuthTokenStyle = v
+		case "oauth_scopes":
+			next.OAuthScopes = v
+		case "oauth_redirect_uri":
+			next.OAuthRedirectURI = v
+		case "oauth_state_is_verifier":
+			next.OAuthStateIsVerifier = strings.EqualFold(strings.TrimSpace(v), "true")
 		case "path_template":
 			next.PathTemplate = v
 		case "models_path":
@@ -1024,7 +1054,8 @@ func (h *Handler) buildApplyResponse(c *echo.Context) (map[string]any, Extension
 			next.ToolsPath = toolsPath
 		}
 	}
-	// Extension OAuth becomes the sidecar/global defaults for device flow.
+	// Extension OAuth becomes the sidecar/global defaults for device or
+	// authorization-code (+ PKCE) flow.
 	if ext.OAuth != nil {
 		if ext.OAuth.Server != "" {
 			next.OAuthServer = ext.OAuth.Server
@@ -1034,6 +1065,25 @@ func (h *Handler) buildApplyResponse(c *echo.Context) (map[string]any, Extension
 		}
 		if ext.OAuth.VerificationBase != "" {
 			next.OAuthVerificationBase = ext.OAuth.VerificationBase
+		}
+		if ext.OAuth.Grant != "" {
+			next.OAuthGrant = ext.OAuth.Grant
+		}
+		if ext.OAuth.AuthorizeURL != "" {
+			next.OAuthAuthorizeURL = ext.OAuth.AuthorizeURL
+		}
+		if ext.OAuth.TokenURL != "" {
+			next.OAuthTokenURL = ext.OAuth.TokenURL
+		}
+		if ext.OAuth.TokenStyle != "" {
+			next.OAuthTokenStyle = ext.OAuth.TokenStyle
+		}
+		if ext.OAuth.Scopes != "" {
+			next.OAuthScopes = ext.OAuth.Scopes
+		}
+		next.OAuthStateIsVerifier = ext.OAuth.StateIsVerifier
+		if ext.OAuth.RedirectURI != "" {
+			next.OAuthRedirectURI = ext.OAuth.RedirectURI
 		}
 	}
 	h.sidecarStore.update(next)

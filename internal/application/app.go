@@ -607,6 +607,26 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 					oauthHandler.WithVerificationBaseFunc(func() string {
 						return sc.Get().OAuthVerificationBase
 					})
+					// Authorization-code + PKCE from the same extension block.
+					oauthHandler.WithAuthCodeConfigFunc(func() oauth.AuthCodeConfig {
+						s := sc.Get()
+						return oauth.AuthCodeConfig{
+							AuthorizeURL:    s.OAuthAuthorizeURL,
+							TokenURL:        s.OAuthTokenURL,
+							ClientID:        s.OAuthClientID,
+							Scopes:          s.OAuthScopes,
+							RedirectURI:     s.OAuthRedirectURI,
+							TokenStyle:      s.OAuthTokenStyle,
+							StateIsVerifier: s.OAuthStateIsVerifier,
+						}
+					})
+					oauthHandler.WithFlowFunc(func() string {
+						s := sc.Get()
+						if strings.EqualFold(strings.TrimSpace(s.OAuthGrant), "authorization_code") {
+							return "authorization_code"
+						}
+						return "device"
+					})
 				}
 				serverCfg.OAuthHandler = oauthHandler
 				slog.Info("oauth device flow enabled", "providers", oauthReg.Len())

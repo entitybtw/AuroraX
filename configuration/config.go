@@ -186,6 +186,17 @@ type RawProviderConfig struct {
 	// OAuthClientID is the OAuth client_id used in the device flow.
 	// Set by the extension that provides the oauth feature.
 	OAuthClientID string `yaml:"oauth_client_id,omitempty"`
+	// OAuthGrant selects "device" (default) or "authorization_code" (+ PKCE).
+	OAuthGrant string `yaml:"oauth_grant,omitempty"`
+	// OAuthAuthorizeURL / OAuthTokenURL / OAuthScopes / OAuthTokenStyle /
+	// OAuthStateIsVerifier / OAuthRedirectURI are authorization-code + PKCE
+	// endpoints supplied by the extension (never hardcoded in core).
+	OAuthAuthorizeURL    string `yaml:"oauth_authorize_url,omitempty"`
+	OAuthTokenURL        string `yaml:"oauth_token_url,omitempty"`
+	OAuthScopes          string `yaml:"oauth_scopes,omitempty"`
+	OAuthTokenStyle      string `yaml:"oauth_token_style,omitempty"`
+	OAuthStateIsVerifier bool   `yaml:"oauth_state_is_verifier,omitempty"`
+	OAuthRedirectURI     string `yaml:"oauth_redirect_uri,omitempty"`
 	// DisableAPIKey keeps the stored api_key but never sends it upstream.
 	// Useful when an OAuth token supersedes the key.
 	DisableAPIKey bool `yaml:"disable_api_key,omitempty"`

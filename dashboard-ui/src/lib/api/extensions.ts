@@ -87,6 +87,8 @@ const ExtensionUISchema = z.object({
   help: z.string().optional(),
   fields: z.array(ExtensionFieldSchema).optional(),
   theme: z.record(z.string()).optional(),
+  theme_light: z.record(z.string()).optional(),
+  theme_dark: z.record(z.string()).optional(),
   nav: z.array(ExtensionNavEntrySchema).optional(),
   hide_nav: z.array(z.string()).optional(),
   banners: z.array(ExtensionBannerSchema).optional(),
@@ -122,6 +124,13 @@ const ExtensionOAuthSchema = z.object({
   verification_base: z.string().optional(),
   user_agent: z.string().optional(),
   scope: z.string().optional(),
+  grant: z.string().optional(),
+  authorize_url: z.string().optional(),
+  token_url: z.string().optional(),
+  token_style: z.string().optional(),
+  scopes: z.string().optional(),
+  state_is_verifier: z.boolean().optional(),
+  redirect_uri: z.string().optional(),
 });
 
 const ExtensionSchema = z.object({

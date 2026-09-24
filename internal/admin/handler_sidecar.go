@@ -16,17 +16,17 @@ import (
 // neutral — extensions supply base_url, user-agent, auth, tool scope and
 // optional OAuth device-flow endpoints.
 type SidecarSettings struct {
-	Enabled         bool              `json:"enabled"`
-	Port            int               `json:"port"`
-	InjectTools     bool              `json:"inject_tools"`
-	InjectToolTypes []string          `json:"inject_tool_types"`
-	DefaultAuth     string            `json:"default_auth"`
-	UserAgent       string            `json:"user_agent"`
-	BaseURL         string            `json:"base_url"`
-	MaxAttempts     int               `json:"max_attempts"`
-	RetryDelayMs    int               `json:"retry_delay_ms"`
-	BindIPs         []string          `json:"bind_ips"`
-	Proxies         []SidecarProxy    `json:"proxies"`
+	Enabled         bool           `json:"enabled"`
+	Port            int            `json:"port"`
+	InjectTools     bool           `json:"inject_tools"`
+	InjectToolTypes []string       `json:"inject_tool_types"`
+	DefaultAuth     string         `json:"default_auth"`
+	UserAgent       string         `json:"user_agent"`
+	BaseURL         string         `json:"base_url"`
+	MaxAttempts     int            `json:"max_attempts"`
+	RetryDelayMs    int            `json:"retry_delay_ms"`
+	BindIPs         []string       `json:"bind_ips"`
+	Proxies         []SidecarProxy `json:"proxies"`
 	// ToolsPath is an absolute or sidecar-relative path to a JSON tool schema
 	// file supplied by an extension (overrides the bundled default).
 	ToolsPath string `json:"tools_path,omitempty"`
@@ -34,6 +34,15 @@ type SidecarSettings struct {
 	OAuthServer           string `json:"oauth_server,omitempty"`
 	OAuthClientID         string `json:"oauth_client_id,omitempty"`
 	OAuthVerificationBase string `json:"oauth_verification_base,omitempty"`
+	// OAuthGrant selects the grant: "device" (default) or "authorization_code".
+	OAuthGrant string `json:"oauth_grant,omitempty"`
+	// Authorization-code + PKCE endpoints (extension-driven).
+	OAuthAuthorizeURL    string `json:"oauth_authorize_url,omitempty"`
+	OAuthTokenURL        string `json:"oauth_token_url,omitempty"`
+	OAuthTokenStyle      string `json:"oauth_token_style,omitempty"`
+	OAuthScopes          string `json:"oauth_scopes,omitempty"`
+	OAuthStateIsVerifier bool   `json:"oauth_state_is_verifier,omitempty"`
+	OAuthRedirectURI     string `json:"oauth_redirect_uri,omitempty"`
 	// PathTemplate is the upstream path appended to base_url for chat
 	// completions (default "/chat/completions"). Presets may point at
 	// alternative OpenAI-compatible routes.
@@ -62,9 +71,9 @@ type SidecarProxy struct {
 
 // SidecarStatus is the live status returned by the GET endpoint.
 type SidecarStatus struct {
-	Running  bool             `json:"running"`
-	Settings SidecarSettings  `json:"settings"`
-	Proxies  []SidecarProxy   `json:"proxies"`
+	Running  bool            `json:"running"`
+	Settings SidecarSettings `json:"settings"`
+	Proxies  []SidecarProxy  `json:"proxies"`
 }
 
 // SidecarOverrideStore persists sidecar settings to disk.
@@ -79,8 +88,8 @@ func NewSidecarOverrideStore() *SidecarOverrideStore {
 	s := &SidecarOverrideStore{
 		path: os.Getenv("AURORA_SIDECAR_OVERRIDES_PATH"),
 		settings: SidecarSettings{
-			Enabled: true,
-			Port:    8090,
+			Enabled:     true,
+			Port:        8090,
 			InjectTools: true,
 			// Empty inject_tool_types allows all provider types. vllm is
 			// listed because free-tier pool members report type "vllm".
@@ -145,6 +154,13 @@ func (s *SidecarOverrideStore) load() {
 	s.settings.OAuthServer = loaded.OAuthServer
 	s.settings.OAuthClientID = loaded.OAuthClientID
 	s.settings.OAuthVerificationBase = loaded.OAuthVerificationBase
+	s.settings.OAuthGrant = loaded.OAuthGrant
+	s.settings.OAuthAuthorizeURL = loaded.OAuthAuthorizeURL
+	s.settings.OAuthTokenURL = loaded.OAuthTokenURL
+	s.settings.OAuthTokenStyle = loaded.OAuthTokenStyle
+	s.settings.OAuthScopes = loaded.OAuthScopes
+	s.settings.OAuthStateIsVerifier = loaded.OAuthStateIsVerifier
+	s.settings.OAuthRedirectURI = loaded.OAuthRedirectURI
 	s.settings.PathTemplate = loaded.PathTemplate
 	s.settings.ModelsPath = loaded.ModelsPath
 	s.settings.ExtraHeaders = loaded.ExtraHeaders

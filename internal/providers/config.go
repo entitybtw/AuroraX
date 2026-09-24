@@ -56,6 +56,17 @@ type ProviderConfig struct {
 	OAuthServer string
 	// OAuthClientID is the OAuth client_id for the device flow.
 	OAuthClientID string
+	// OAuthAuthorizeURL / OAuthTokenURL / OAuthScopes / OAuthTokenStyle /
+	// OAuthStateIsVerifier / OAuthRedirectURI configure authorization-code + PKCE
+	// when oauth_grant is "authorization_code" (extension-supplied).
+	OAuthAuthorizeURL    string
+	OAuthTokenURL        string
+	OAuthScopes          string
+	OAuthTokenStyle      string
+	OAuthStateIsVerifier bool
+	OAuthRedirectURI     string
+	// OAuthGrant: "device" (default) or "authorization_code".
+	OAuthGrant string
 	// DisableAPIKey keeps the stored API key but never sends it upstream.
 	DisableAPIKey bool
 	// UseUTLS enables uTLS fingerprint impersonation for the HTTP client.
@@ -510,6 +521,13 @@ func buildProviderConfig(raw config.RawProviderConfig, global config.ResilienceC
 		AuthMethod:             strings.TrimSpace(raw.AuthMethod),
 		OAuthServer:            strings.TrimSpace(raw.OAuthServer),
 		OAuthClientID:          strings.TrimSpace(raw.OAuthClientID),
+		OAuthAuthorizeURL:      strings.TrimSpace(raw.OAuthAuthorizeURL),
+		OAuthTokenURL:          strings.TrimSpace(raw.OAuthTokenURL),
+		OAuthScopes:            strings.TrimSpace(raw.OAuthScopes),
+		OAuthTokenStyle:        strings.TrimSpace(raw.OAuthTokenStyle),
+		OAuthStateIsVerifier:   raw.OAuthStateIsVerifier,
+		OAuthRedirectURI:       strings.TrimSpace(raw.OAuthRedirectURI),
+		OAuthGrant:             strings.TrimSpace(raw.OAuthGrant),
 		DisableAPIKey:          raw.DisableAPIKey,
 		UseUTLS:                raw.UseUTLS,
 		SidecarURL:             strings.TrimSpace(raw.SidecarURL),

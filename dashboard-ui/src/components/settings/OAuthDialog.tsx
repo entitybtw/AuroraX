@@ -47,6 +47,11 @@ export function OAuthDialog({
   const [alreadyLinked, setAlreadyLinked] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(true);
   const [verificationBase, setVerificationBase] = useState("");
+  const [grant, setGrant] = useState<"device" | "authorization_code">("device");
+  const [authorizeUrl, setAuthorizeUrl] = useState("");
+  const [pkceState, setPkceState] = useState("");
+  const [manualCode, setManualCode] = useState("");
+  const [completing, setCompleting] = useState(false);
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
   const stepRef = useRef<"idle" | "waiting" | "polling" | "success" | "error">("idle");
@@ -71,9 +76,17 @@ export function OAuthDialog({
 
     const checkStatus = async () => {
       try {
-        const { fetchOAuthStatus } = await import("@/lib/api/oauth");
+        const { fetchOAuthStatus, fetchOAuthFlow } = await import("@/lib/api/oauth");
         const status = await fetchOAuthStatus(providerName);
         if (cancelled) return;
+        try {
+          const flow = await fetchOAuthFlow(providerName);
+          if (!cancelled) {
+            setGrant(flow.authorization_code ? "authorization_code" : "device");
+          }
+        } catch {
+          /* older backend without /flow — keep device */
+        }
         if (status.has_token && !status.expired) {
           setAlreadyLinked(true);
           setAccountInfo({
@@ -128,14 +141,28 @@ export function OAuthDialog({
     }
   };
 
-  // Start the device flow
+  // Start the device flow or authorization-code + PKCE authorize step.
   const handleStart = async () => {
     setStep("waiting");
     setError("");
     try {
       // Dynamic import to avoid SSR issues
-      const { startOAuthDeviceFlow } = await import("@/lib/api/oauth");
-      const res = await startOAuthDeviceFlow(providerName);
+      const oauth = await import("@/lib/api/oauth");
+
+      if (grant === "authorization_code") {
+        const res = await oauth.startOAuthAuthorize(providerName);
+        setAuthorizeUrl(res.authorize_url);
+        setPkceState(res.state);
+        setExpiresIn(res.expires_in);
+        setManualCode("");
+        startTimeRef.current = Date.now();
+        stepRef.current = "polling";
+        setStep("polling");
+        startPolling();
+        return;
+      }
+
+      const res = await oauth.startOAuthDeviceFlow(providerName);
       // Backend doesn't return device_code, but starts background polling
       setUserCode(res.user_code);
       setVerificationUri(res.verification_uri_complete);
@@ -150,6 +177,41 @@ export function OAuthDialog({
       const message = e instanceof Error ? e.message : "Failed to start OAuth flow";
       setError(message);
       setStep("error");
+    }
+  };
+
+  // Exchange a pasted CODE#STATE or full callback URL (manual redirect).
+  const handleCompleteAuthorize = async () => {
+    if (!manualCode.trim()) return;
+    setCompleting(true);
+    setError("");
+    try {
+      const { completeOAuthAuthorize } = await import("@/lib/api/oauth");
+      const raw = manualCode.trim();
+      const body = raw.includes("://") || raw.includes("code=")
+        ? { url: raw }
+        : raw.includes("#")
+          ? { code_and_state: raw }
+          : { code: raw, state: pkceState };
+      await completeOAuthAuthorize(providerName, body);
+      setManualCode("");
+      // Poll status to pick up email/account.
+      const { fetchOAuthStatus } = await import("@/lib/api/oauth");
+      const status = await fetchOAuthStatus(providerName);
+      stepRef.current = "success";
+      setStep("success");
+      setAccountInfo({
+        email: status.email ?? undefined,
+        account_id: status.account_id ?? undefined,
+        expires_at: status.expires_at ?? undefined,
+      });
+      onComplete?.();
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Failed to complete authorization";
+      setError(message);
+      setStep("error");
+    } finally {
+      setCompleting(false);
     }
   };
 
@@ -236,6 +298,10 @@ export function OAuthDialog({
       setAccountInfo(null);
       setAlreadyLinked(false);
       setCheckingStatus(true);
+      setAuthorizeUrl("");
+      setPkceState("");
+      setManualCode("");
+      setGrant("device");
       return;
     }
     if (!checkingStatus && !alreadyLinked && step === "idle") {
@@ -323,7 +389,16 @@ export function OAuthDialog({
               "This provider is already linked to an OAuth account."
             )}
             {!checkingStatus && step === "waiting" && "Starting device authorization flow..."}
-            {!checkingStatus && step === "polling" && (
+            {!checkingStatus && step === "polling" && grant === "authorization_code" && (
+              <>
+                Open the authorize link, then paste the redirect result below.
+                <br />
+                <span className="font-mono text-lg text-primary">{formatTime(displayTime)}</span>
+                {" "}
+                <span className="text-xs text-muted-foreground">remaining</span>
+              </>
+            )}
+            {!checkingStatus && step === "polling" && grant !== "authorization_code" && (
               <>
                 Authorize in browser, then wait for confirmation.
                 <br />
@@ -472,13 +547,93 @@ export function OAuthDialog({
           <Surface variant="elevated" className="p-4 border-destructive/30">
             <p className="text-destructive">{error}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              The device code may have expired. Try starting a new authorization.
+              {grant === "authorization_code"
+                ? "The authorize session may have expired. Start a new authorization."
+                : "The device code may have expired. Try starting a new authorization."}
             </p>
           </Surface>
         )}
 
         <DialogFooter className="gap-2">
-          {step === "polling" && (
+        {step === "polling" && grant === "authorization_code" && (
+          <Surface variant="subtle" className="p-4">
+            <div className="grid gap-3 text-sm">
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Authorize URL</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <Input
+                    readOnly
+                    value={authorizeUrl}
+                    className="text-xs truncate"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => copyToClipboard(authorizeUrl, "authorize URL")}
+                    aria-label="Copy authorize URL"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                  <a
+                    href={authorizeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Open authorize URL in browser"
+                  >
+                    <Button variant="ghost" size="icon">
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  </a>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">
+                  Redirect result (CODE#STATE or full callback URL)
+                </label>
+                <div className="flex items-center gap-2 mt-1">
+                  <Input
+                    value={manualCode}
+                    onChange={(e) => setManualCode(e.target.value)}
+                    placeholder="Paste code#state or callback URL"
+                    className="text-xs"
+                    autoComplete="off"
+                  />
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleCompleteAuthorize}
+                    disabled={completing || !manualCode.trim()}
+                  >
+                    {completing ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Complete"
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  After authorize, the browser may land on a localhost callback that
+                  does not open — copy the full URL (or CODE#STATE) and paste it here.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 h-2 bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full bg-primary transition-all duration-300"
+                style={{
+                  width: `${Math.max(0, (1 - timeRemaining / expiresIn) * 100)}%`,
+                }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground text-center mt-1">
+              Session expires in {formatTime(timeRemaining)}
+            </p>
+          </Surface>
+        )}
+
+        {step === "polling" && grant !== "authorization_code" && (
             <Button variant="secondary" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>

@@ -1,8 +1,10 @@
 package admin
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -11,18 +13,28 @@ import (
 	"aurora/internal/providers/oauth"
 )
 
-// OAuthHandler manages OAuth device flow for providers.
+// OAuthHandler manages OAuth device flow and authorization-code + PKCE for providers.
 type OAuthHandler struct {
 	registry         *oauth.Registry
 	verificationBase string
 	// baseFunc, when set, overrides verificationBase (reads live sidecar
 	// settings so extension apply updates the origin without restart).
 	baseFunc func() string
+	// authCodes tracks in-flight PKCE authorize sessions keyed by state.
+	authCodes *oauth.AuthCodeStore
+	// authCodeConfigFunc, when set, supplies the current extension-driven
+	// authorization-code config (authorize/token endpoints, client, scopes).
+	authCodeConfigFunc func() oauth.AuthCodeConfig
+	// flowFunc, when set, reports the active grant ("device" | "authorization_code").
+	flowFunc func() string
 }
 
 // NewOAuthHandler creates a new OAuth admin handler.
 func NewOAuthHandler(registry *oauth.Registry) *OAuthHandler {
-	return &OAuthHandler{registry: registry}
+	return &OAuthHandler{
+		registry:  registry,
+		authCodes: oauth.NewAuthCodeStore(),
+	}
 }
 
 // RegisterOAuthRoutes mounts the OAuth admin API routes.
@@ -34,6 +46,10 @@ func (h *OAuthHandler) RegisterOAuthRoutes(g RouteRegistrar) {
 	g.POST("/oauth/:provider/refresh", h.RefreshToken)
 	g.POST("/oauth/refresh", h.RefreshAllTokens)
 	g.DELETE("/oauth/:provider/token", h.ClearToken)
+	// Authorization-code + PKCE (extension-driven).
+	g.GET("/oauth/:provider/flow", h.FlowInfo)
+	g.POST("/oauth/:provider/authorize", h.StartAuthorize)
+	g.POST("/oauth/:provider/authorize/complete", h.CompleteAuthorize)
 }
 
 // StartDeviceFlowResponse is the response from starting a device flow.
@@ -55,6 +71,244 @@ func (h *OAuthHandler) SetVerificationBase(base string) {
 // verification origin (relative device-flow URIs).
 func (h *OAuthHandler) WithVerificationBaseFunc(fn func() string) {
 	h.baseFunc = fn
+}
+
+// WithAuthCodeConfigFunc wires a live resolver for authorization-code + PKCE
+// config (extension-supplied endpoints; never hardcoded in core).
+func (h *OAuthHandler) WithAuthCodeConfigFunc(fn func() oauth.AuthCodeConfig) {
+	h.authCodeConfigFunc = fn
+}
+
+// WithFlowFunc wires a live resolver for the active OAuth grant
+// ("device" or "authorization_code").
+func (h *OAuthHandler) WithFlowFunc(fn func() string) {
+	h.flowFunc = fn
+}
+
+// FlowInfo reports the active grant for the provider (extension-driven).
+// GET /admin/api/v1/oauth/:provider/flow
+func (h *OAuthHandler) FlowInfo(c *echo.Context) error {
+	providerName := strings.TrimSpace(c.Param("provider"))
+	grant := "device"
+	if h.flowFunc != nil {
+		if v := strings.TrimSpace(h.flowFunc()); v != "" {
+			grant = v
+		}
+	}
+	mgr := h.registry.Get(providerName)
+	hasAuthCode := false
+	if mgr != nil {
+		hasAuthCode = mgr.AuthCodeConfig().TokenURL != ""
+	}
+	return c.JSON(http.StatusOK, map[string]any{
+		"provider":           providerName,
+		"grant":              grant,
+		"has_token":          mgr != nil && mgr.HasToken(),
+		"authorization_code": hasAuthCode || strings.EqualFold(grant, "authorization_code"),
+	})
+}
+
+// StartAuthorizeRequest is the body for starting an authorization-code flow.
+type StartAuthorizeRequest struct {
+	// RedirectURI optionally overrides the extension/default loopback redirect.
+	RedirectURI string `json:"redirect_uri,omitempty"`
+	// Scope optionally overrides the extension-supplied scope list.
+	Scope string `json:"scope,omitempty"`
+}
+
+// StartAuthorizeResponse is returned after creating a PKCE session.
+type StartAuthorizeResponse struct {
+	AuthorizeURL string `json:"authorize_url"`
+	State        string `json:"state"`
+	RedirectURI  string `json:"redirect_uri"`
+	ExpiresIn    int    `json:"expires_in"`
+	Grant        string `json:"grant"`
+}
+
+// StartAuthorize creates a PKCE session and returns the browser authorize URL.
+// POST /admin/api/v1/oauth/:provider/authorize
+func (h *OAuthHandler) StartAuthorize(c *echo.Context) error {
+	providerName := strings.TrimSpace(c.Param("provider"))
+	if providerName == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "provider name is required"})
+	}
+	cfg, err := h.currentAuthCodeConfig(providerName)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+
+	var req StartAuthorizeRequest
+	_ = c.Bind(&req) // optional body
+	if v := strings.TrimSpace(req.RedirectURI); v != "" {
+		cfg.RedirectURI = v
+	}
+	if v := strings.TrimSpace(req.Scope); v != "" {
+		cfg.Scopes = v
+	}
+
+	if h.authCodes == nil {
+		h.authCodes = oauth.NewAuthCodeStore()
+	}
+	start, err := h.authCodes.Start(cfg)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, StartAuthorizeResponse{
+		AuthorizeURL: start.AuthorizeURL,
+		State:        start.State,
+		RedirectURI:  start.RedirectURI,
+		ExpiresIn:    start.ExpiresIn,
+		Grant:        "authorization_code",
+	})
+}
+
+// CompleteAuthorizeRequest exchanges a pasted/redirected authorization code.
+type CompleteAuthorizeRequest struct {
+	Code  string `json:"code"`
+	State string `json:"state"`
+	// CodeAndState accepts "CODE#STATE" (manual redirect paste) as a single field.
+	CodeAndState string `json:"code_and_state,omitempty"`
+	// URL accepts a full callback URL containing code/state query params.
+	URL string `json:"url,omitempty"`
+}
+
+// CompleteAuthorize exchanges the authorization code for tokens.
+// POST /admin/api/v1/oauth/:provider/authorize/complete
+func (h *OAuthHandler) CompleteAuthorize(c *echo.Context) error {
+	providerName := strings.TrimSpace(c.Param("provider"))
+	if providerName == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "provider name is required"})
+	}
+	mgr := h.registry.Get(providerName)
+	if mgr == nil {
+		return c.JSON(http.StatusNotFound, map[string]string{
+			"error": "provider not found or OAuth not configured",
+		})
+	}
+	if h.authCodes == nil {
+		h.authCodes = oauth.NewAuthCodeStore()
+	}
+
+	var req CompleteAuthorizeRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+	}
+	code, state := strings.TrimSpace(req.Code), strings.TrimSpace(req.State)
+	if code == "" || state == "" {
+		code, state = splitCodeState(req.CodeAndState)
+	}
+	if (code == "" || state == "") && strings.TrimSpace(req.URL) != "" {
+		code, state = parseCallbackURL(req.URL)
+	}
+	if code == "" || state == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "code and state are required (or code_and_state / url)",
+		})
+	}
+
+	token, _, err := h.authCodes.Complete(state, code)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	if err := mgr.SaveTokenFromResponse(token); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "failed to save token: " + err.Error(),
+		})
+	}
+	return c.JSON(http.StatusOK, map[string]any{
+		"status":       "authorized",
+		"access_token": token.AccessToken,
+	})
+}
+
+// currentAuthCodeConfig prefers live sidecar/extension PKCE settings, then the
+// provider manager's attached config, then values from the authorize request.
+func (h *OAuthHandler) currentAuthCodeConfig(providerName string) (oauth.AuthCodeConfig, error) {
+	var cfg oauth.AuthCodeConfig
+	if h.authCodeConfigFunc != nil {
+		cfg = h.authCodeConfigFunc()
+	}
+	if mgr := h.registry.Get(providerName); mgr != nil {
+		mcfg := mgr.AuthCodeConfig()
+		if cfg.TokenURL == "" {
+			cfg = mcfg
+		} else {
+			if cfg.ClientID == "" {
+				cfg.ClientID = mcfg.ClientID
+			}
+			if cfg.AuthorizeURL == "" {
+				cfg.AuthorizeURL = mcfg.AuthorizeURL
+			}
+			if cfg.TokenURL == "" {
+				cfg.TokenURL = mcfg.TokenURL
+			}
+			if cfg.Scopes == "" {
+				cfg.Scopes = mcfg.Scopes
+			}
+			if cfg.RedirectURI == "" {
+				cfg.RedirectURI = mcfg.RedirectURI
+			}
+			if cfg.TokenStyle == "" {
+				cfg.TokenStyle = mcfg.TokenStyle
+			}
+			cfg.StateIsVerifier = cfg.StateIsVerifier || mcfg.StateIsVerifier
+		}
+	}
+	if cfg.ClientID == "" {
+		if mgr := h.registry.Get(providerName); mgr != nil {
+			// Manager stores client_id internally; AuthCodeConfig may be empty
+			// when only device flow was configured.
+			if info := mgr.TokenInfo(); info != nil && info.ClientID != "" {
+				cfg.ClientID = info.ClientID
+			}
+		}
+	}
+	if cfg.AuthorizeURL == "" || cfg.TokenURL == "" || cfg.ClientID == "" {
+		return cfg, fmt.Errorf("authorization_code not configured (apply an extension that supplies authorize_url/token_url/client_id)")
+	}
+	return cfg, nil
+}
+
+// splitCodeState parses "CODE#STATE" (manual redirect paste).
+func splitCodeState(s string) (code, state string) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "", ""
+	}
+	parts := strings.SplitN(s, "#", 2)
+	if len(parts) == 2 {
+		return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
+	}
+	return "", ""
+}
+
+// parseCallbackURL extracts code and state from a full callback URL.
+func parseCallbackURL(raw string) (code, state string) {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return "", ""
+	}
+	q := u.Query()
+	code = strings.TrimSpace(q.Get("code"))
+	state = strings.TrimSpace(q.Get("state"))
+	// Some providers use fragment: .../callback#CODE#STATE or #code=...
+	if code == "" || state == "" {
+		if frag := u.Fragment; frag != "" {
+			if c, st := splitCodeState(frag); c != "" {
+				return c, st
+			}
+			fq, err := url.ParseQuery(frag)
+			if err == nil {
+				if code == "" {
+					code = strings.TrimSpace(fq.Get("code"))
+				}
+				if state == "" {
+					state = strings.TrimSpace(fq.Get("state"))
+				}
+			}
+		}
+	}
+	return code, state
 }
 
 func (h *OAuthHandler) currentVerificationBase() string {
@@ -208,13 +462,13 @@ func (h *OAuthHandler) PollToken(c *echo.Context) error {
 
 // TokenStatusResponse shows the current token state.
 type TokenStatusResponse struct {
-	HasToken    bool      `json:"has_token"`
-	Expired     bool      `json:"expired"`
-	ExpiresAt   time.Time `json:"expires_at,omitempty"`
-	Email       string    `json:"email,omitempty"`
-	AccountID   string    `json:"account_id,omitempty"`
-	Server      string    `json:"server,omitempty"`
-	ProviderName string  `json:"provider_name,omitempty"`
+	HasToken     bool      `json:"has_token"`
+	Expired      bool      `json:"expired"`
+	ExpiresAt    time.Time `json:"expires_at,omitempty"`
+	Email        string    `json:"email,omitempty"`
+	AccountID    string    `json:"account_id,omitempty"`
+	Server       string    `json:"server,omitempty"`
+	ProviderName string    `json:"provider_name,omitempty"`
 }
 
 // OAuthProviderStatus is a single provider's OAuth status for bulk listing.
@@ -249,12 +503,12 @@ func (h *OAuthHandler) TokenStatus(c *echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, TokenStatusResponse{
-		HasToken:    true,
-		Expired:     time.Now().After(info.ExpiresAt),
-		ExpiresAt:   info.ExpiresAt,
-		Email:       info.Email,
-		AccountID:   info.AccountID,
-		Server:      info.Server,
+		HasToken:     true,
+		Expired:      time.Now().After(info.ExpiresAt),
+		ExpiresAt:    info.ExpiresAt,
+		Email:        info.Email,
+		AccountID:    info.AccountID,
+		Server:       info.Server,
 		ProviderName: providerName,
 	})
 }

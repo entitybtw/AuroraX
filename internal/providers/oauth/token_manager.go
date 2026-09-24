@@ -1,7 +1,10 @@
-// Package oauth implements the RFC 8628 OAuth 2.0 device authorization grant
-// for providers that require browser-based authentication. Defaults below are
-// overridden per-provider via auth_method: oauth + oauth_server / oauth_client_id
-// (typically supplied by an extension that declares features: ["oauth"]).
+// Package oauth implements OAuth 2.0 token management for providers that
+// require browser-based authentication: the RFC 8628 device authorization
+// grant and the authorization-code grant with PKCE (RFC 7636). Defaults below
+// are overridden per-provider via auth_method: oauth + oauth_server /
+// oauth_client_id (device) or oauth_authorize_url / oauth_token_url /
+// oauth_client_id (authorization_code) — typically supplied by an extension
+// that declares features: ["oauth"].
 package oauth
 
 import (
@@ -26,8 +29,8 @@ const (
 	DefaultClientID = ""
 	// DefaultUserAgent is only used when a caller opts in via UserAgent on
 	// the manager config (not applied by default).
-	DefaultUserAgent    = "opencode/1.18.31"
-	refreshSkew       = 5 * time.Minute
+	DefaultUserAgent = "opencode/1.18.31"
+	refreshSkew      = 5 * time.Minute
 )
 
 // DeviceCodeResponse is the server's response to a device authorization request.
@@ -71,6 +74,9 @@ type Manager struct {
 	providerName     string
 	httpClient       *http.Client
 	tokenFileModTime time.Time
+	// authCode is optional authorization-code + PKCE config. When TokenURL is
+	// set, refresh uses RefreshAuthCode instead of the device token endpoint.
+	authCode AuthCodeConfig
 }
 
 // NewManager creates a new OAuth token manager. server/clientID must be
@@ -257,6 +263,24 @@ func (m *Manager) exchangeToken(deviceCode string) (*TokenResponse, string, erro
 	}
 }
 
+// SetAuthCodeConfig attaches authorization-code + PKCE wiring used for
+// refresh (and recorded on stored tokens). Zero value keeps device-flow refresh.
+func (m *Manager) SetAuthCodeConfig(cfg AuthCodeConfig) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.authCode = cfg
+	if cfg.ClientID != "" {
+		m.clientID = cfg.ClientID
+	}
+}
+
+// AuthCodeConfig returns a copy of the attached PKCE config (zero if unused).
+func (m *Manager) AuthCodeConfig() AuthCodeConfig {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.authCode
+}
+
 // RefreshToken refreshes the stored access token using the refresh token.
 func (m *Manager) RefreshToken() error {
 	m.mu.Lock()
@@ -264,6 +288,23 @@ func (m *Manager) RefreshToken() error {
 
 	if m.token == nil || m.token.RefreshToken == "" {
 		return fmt.Errorf("no refresh token available")
+	}
+
+	// Authorization-code providers refresh via TokenURL (JSON/form body).
+	if m.authCode.TokenURL != "" {
+		token, err := RefreshAuthCode(m.authCode, m.token.RefreshToken)
+		if err != nil {
+			return err
+		}
+		m.token.AccessToken = token.AccessToken
+		if token.RefreshToken != "" {
+			m.token.RefreshToken = token.RefreshToken
+		}
+		m.token.ExpiresAt = time.Now().Add(time.Duration(token.ExpiresIn) * time.Second)
+		if err := m.saveToken(); err != nil {
+			slog.Warn("oauth: failed to persist refreshed token", "provider", m.providerName, "error", err)
+		}
+		return nil
 	}
 
 	body, _ := json.Marshal(map[string]string{
@@ -295,7 +336,9 @@ func (m *Manager) RefreshToken() error {
 	}
 
 	m.token.AccessToken = token.AccessToken
-	m.token.RefreshToken = token.RefreshToken
+	if token.RefreshToken != "" {
+		m.token.RefreshToken = token.RefreshToken
+	}
 	m.token.ExpiresAt = time.Now().Add(time.Duration(token.ExpiresIn) * time.Second)
 
 	if err := m.saveToken(); err != nil {

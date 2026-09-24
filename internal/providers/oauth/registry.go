@@ -1,4 +1,5 @@
-// Package oauth provides RFC 8628 OAuth 2.0 device authorization grant support.
+// Package oauth provides OAuth 2.0 device authorization (RFC 8628) and
+// authorization-code + PKCE (RFC 7636) support.
 package oauth
 
 import (
@@ -10,7 +11,7 @@ import (
 // central lookup so the admin API can start device flows for any provider
 // that has OAuth configured.
 type Registry struct {
-	mu      sync.RWMutex
+	mu       sync.RWMutex
 	managers map[string]*Manager
 }
 

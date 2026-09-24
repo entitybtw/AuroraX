@@ -35,6 +35,16 @@ type ProviderOptions struct {
 	OAuthServer string
 	// OAuthClientID is the OAuth client_id for the device flow.
 	OAuthClientID string
+	// OAuthAuthorizeURL / OAuthTokenURL / OAuthScopes / OAuthTokenStyle /
+	// OAuthStateIsVerifier / OAuthRedirectURI / OAuthGrant configure
+	// authorization-code + PKCE when grant is "authorization_code".
+	OAuthAuthorizeURL    string
+	OAuthTokenURL        string
+	OAuthScopes          string
+	OAuthTokenStyle      string
+	OAuthStateIsVerifier bool
+	OAuthRedirectURI     string
+	OAuthGrant           string
 	// OAuthDataDir is the directory for persisting OAuth tokens.
 	OAuthDataDir string
 	// OAuthRegistry is the central registry for OAuth token managers.
@@ -161,20 +171,27 @@ func (f *ProviderFactory) Create(cfg ProviderConfig) (core.Provider, error) {
 	}
 
 	opts := ProviderOptions{
-		Hooks:         hooks,
-		Models:        cfg.Models,
-		Resilience:    cfg.Resilience,
-		BindIP:        cfg.BindIP,
-		UserAgent:     cfg.UserAgent,
-		ProviderName:  cfg.Name,
-		SessionHub:    f.sessionHub,
-		AuthMethod:    cfg.AuthMethod,
-		OAuthServer:   cfg.OAuthServer,
-		OAuthClientID: cfg.OAuthClientID,
-		OAuthDataDir:  f.oauthDataDir(),
-		OAuthRegistry: f.oauthRegistry,
-		DisableAPIKey: cfg.DisableAPIKey,
-		UseUTLS:       cfg.UseUTLS,
+		Hooks:                hooks,
+		Models:               cfg.Models,
+		Resilience:           cfg.Resilience,
+		BindIP:               cfg.BindIP,
+		UserAgent:            cfg.UserAgent,
+		ProviderName:         cfg.Name,
+		SessionHub:           f.sessionHub,
+		AuthMethod:           cfg.AuthMethod,
+		OAuthServer:          cfg.OAuthServer,
+		OAuthClientID:        cfg.OAuthClientID,
+		OAuthAuthorizeURL:    cfg.OAuthAuthorizeURL,
+		OAuthTokenURL:        cfg.OAuthTokenURL,
+		OAuthScopes:          cfg.OAuthScopes,
+		OAuthTokenStyle:      cfg.OAuthTokenStyle,
+		OAuthStateIsVerifier: cfg.OAuthStateIsVerifier,
+		OAuthRedirectURI:     cfg.OAuthRedirectURI,
+		OAuthGrant:           cfg.OAuthGrant,
+		OAuthDataDir:         f.oauthDataDir(),
+		OAuthRegistry:        f.oauthRegistry,
+		DisableAPIKey:        cfg.DisableAPIKey,
+		UseUTLS:              cfg.UseUTLS,
 	}
 
 	// Extension-applied sidecar defaults fill empty OAuth wiring so the
@@ -187,6 +204,25 @@ func (f *ProviderFactory) Create(cfg ProviderConfig) (core.Provider, error) {
 		if opts.OAuthClientID == "" {
 			opts.OAuthClientID = def.OAuthClientID
 		}
+		if opts.OAuthGrant == "" {
+			opts.OAuthGrant = def.OAuthGrant
+		}
+		if opts.OAuthAuthorizeURL == "" {
+			opts.OAuthAuthorizeURL = def.OAuthAuthorizeURL
+		}
+		if opts.OAuthTokenURL == "" {
+			opts.OAuthTokenURL = def.OAuthTokenURL
+		}
+		if opts.OAuthScopes == "" {
+			opts.OAuthScopes = def.OAuthScopes
+		}
+		if opts.OAuthTokenStyle == "" {
+			opts.OAuthTokenStyle = def.OAuthTokenStyle
+		}
+		if opts.OAuthRedirectURI == "" {
+			opts.OAuthRedirectURI = def.OAuthRedirectURI
+		}
+		opts.OAuthStateIsVerifier = opts.OAuthStateIsVerifier || def.OAuthStateIsVerifier
 	}
 	if strings.TrimSpace(cfg.BaseURL) == "" {
 		if def := LoadSidecarOAuthDefaults(); def.BaseURL != "" && cfg.Type == "opencode" {

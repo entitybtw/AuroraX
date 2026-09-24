@@ -86,11 +86,56 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 		if opts.OAuthClientID == "" {
 			opts.OAuthClientID = def.OAuthClientID
 		}
+		if opts.OAuthGrant == "" {
+			opts.OAuthGrant = def.OAuthGrant
+		}
+		if opts.OAuthAuthorizeURL == "" {
+			opts.OAuthAuthorizeURL = def.OAuthAuthorizeURL
+		}
+		if opts.OAuthTokenURL == "" {
+			opts.OAuthTokenURL = def.OAuthTokenURL
+		}
+		if opts.OAuthScopes == "" {
+			opts.OAuthScopes = def.OAuthScopes
+		}
+		if opts.OAuthTokenStyle == "" {
+			opts.OAuthTokenStyle = def.OAuthTokenStyle
+		}
+		if opts.OAuthRedirectURI == "" {
+			opts.OAuthRedirectURI = def.OAuthRedirectURI
+		}
+		opts.OAuthStateIsVerifier = opts.OAuthStateIsVerifier || def.OAuthStateIsVerifier
 	}
 
 	var oauthMgr *oauth.Manager
 	if opts.AuthMethod == "oauth" {
-		if opts.OAuthServer == "" || opts.OAuthClientID == "" {
+		// Device flow needs server+client_id; authorization_code needs
+		// authorize_url+token_url+client_id.
+		authCode := strings.EqualFold(opts.OAuthGrant, "authorization_code")
+		if authCode {
+			if opts.OAuthTokenURL == "" || opts.OAuthClientID == "" {
+				log.Printf("vllm: oauth authorization_code requires oauth_token_url/oauth_client_id (set via extension apply)")
+			} else {
+				oauthMgr = oauth.NewManager(
+					opts.OAuthServer,
+					opts.OAuthClientID,
+					opts.OAuthDataDir,
+					opts.ProviderName,
+				)
+				oauthMgr.SetAuthCodeConfig(oauth.AuthCodeConfig{
+					AuthorizeURL:    opts.OAuthAuthorizeURL,
+					TokenURL:        opts.OAuthTokenURL,
+					ClientID:        opts.OAuthClientID,
+					Scopes:          opts.OAuthScopes,
+					RedirectURI:     opts.OAuthRedirectURI,
+					TokenStyle:      opts.OAuthTokenStyle,
+					StateIsVerifier: opts.OAuthStateIsVerifier,
+				})
+				if opts.OAuthRegistry != nil {
+					opts.OAuthRegistry.Register(opts.ProviderName, oauthMgr)
+				}
+			}
+		} else if opts.OAuthServer == "" || opts.OAuthClientID == "" {
 			log.Printf("vllm: oauth requires oauth_server/oauth_client_id (set via extension apply)")
 		} else {
 			oauthMgr = oauth.NewManager(
@@ -99,6 +144,17 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 				opts.OAuthDataDir,
 				opts.ProviderName,
 			)
+			if opts.OAuthAuthorizeURL != "" && opts.OAuthTokenURL != "" {
+				oauthMgr.SetAuthCodeConfig(oauth.AuthCodeConfig{
+					AuthorizeURL:    opts.OAuthAuthorizeURL,
+					TokenURL:        opts.OAuthTokenURL,
+					ClientID:        opts.OAuthClientID,
+					Scopes:          opts.OAuthScopes,
+					RedirectURI:     opts.OAuthRedirectURI,
+					TokenStyle:      opts.OAuthTokenStyle,
+					StateIsVerifier: opts.OAuthStateIsVerifier,
+				})
+			}
 			if opts.OAuthRegistry != nil {
 				opts.OAuthRegistry.Register(opts.ProviderName, oauthMgr)
 			}

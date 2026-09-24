@@ -35,8 +35,8 @@ func envSidecarURL() string {
 // Only staged via providers.RegisterOptional — not Add()ed by default.
 // base_url must come from provider config or the extension (sidecar overrides).
 var Registration = providers.Registration{
-	Type:  "opencode",
-	New:   New,
+	Type: "opencode",
+	New:  New,
 	Discovery: providers.DiscoveryConfig{
 		DefaultBaseURL:  baseURLOverride,
 		RequireBaseURL:  false,
@@ -78,6 +78,25 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 		if opts.OAuthClientID == "" {
 			opts.OAuthClientID = def.OAuthClientID
 		}
+		if opts.OAuthGrant == "" {
+			opts.OAuthGrant = def.OAuthGrant
+		}
+		if opts.OAuthAuthorizeURL == "" {
+			opts.OAuthAuthorizeURL = def.OAuthAuthorizeURL
+		}
+		if opts.OAuthTokenURL == "" {
+			opts.OAuthTokenURL = def.OAuthTokenURL
+		}
+		if opts.OAuthScopes == "" {
+			opts.OAuthScopes = def.OAuthScopes
+		}
+		if opts.OAuthTokenStyle == "" {
+			opts.OAuthTokenStyle = def.OAuthTokenStyle
+		}
+		if opts.OAuthRedirectURI == "" {
+			opts.OAuthRedirectURI = def.OAuthRedirectURI
+		}
+		opts.OAuthStateIsVerifier = opts.OAuthStateIsVerifier || def.OAuthStateIsVerifier
 	}
 
 	// Signal provider type to the sidecar so it can scope inject_tools.
