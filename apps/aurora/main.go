@@ -350,7 +350,7 @@ func main() {
 
 	factory := providers.NewProviderFactory()
 
-	// Set up registry for device flow providers (e.g. )
+	// Set up registry for device-flow providers (activated by extensions).
 	:= .NewRegistry()
 	factory.Set()
 

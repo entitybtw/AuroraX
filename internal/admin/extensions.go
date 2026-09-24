@@ -158,8 +158,8 @@ type Extensionstruct {
 	Server string `json:"server,omitempty"`
 	// ClientID is the public client_id used in the device flow.
 	ClientID string `json:"client_id,omitempty"`
-	// VerificationBase is the origin used to expand relative verification URIs
-	// (e.g. "https://example.com"). Empty = treat verification URIs as absolute.
+	// VerificationBase is the origin used to expand relative verification URIs.
+	// Empty = treat verification URIs as absolute.
 	VerificationBase string `json:"verification_base,omitempty"`
 	// UserAgent is an optional UA for HTTP calls.
 	UserAgent string `json:"user_agent,omitempty"`
@@ -169,10 +169,10 @@ type Extensionstruct {
 
 // ExtensionProvides declares optional capabilities that are not built into the
 // gateway by default and are activated when the extension is installed —
-// for example the "" provider type or device-flow wiring.
+// for example optional provider types or device-flow wiring.
 type ExtensionProvides struct {
-	// ProviderTypes are factory provider types this extension activates
-	// (e.g. [""]). Types absent from this list stay unregistered.
+	// ProviderTypes are factory provider types this extension activates.
+	// Types absent from this list stay unregistered.
 	ProviderTypes []string `json:"provider_types,omitempty"`
 	// Features are optional capability flags surfaced to the operator
 	// (e.g. [""]).
@@ -534,8 +534,8 @@ func (p *Extension) Validate() error {
 		// Default to sidecar; explicit types such as "theme" are preserved.
 		p.Type = "sidecar"
 	}
-	// "" is a normal extension id (the store seed uses it). Provider
-	// types live in a separate namespace (provides.provider_types).
+	// An explicit extension id is a normal store id; provider types live in
+	// a separate namespace (provides.provider_types).
 	if p.Name == "" {
 		p.Name = p.ID
 	}
@@ -1077,7 +1077,7 @@ func extensionProvidesFeature(p *ExtensionProvides, name string) bool {
 
 // applyExtensionenables auth_method=on providers that this
 // extension targets: type ∈ provides.provider_types, or base_url equals the
-// extension base_url (e.g. vllm instances). server /
+// extension base_url (e.g. pool instances). server /
 // client_id come from extension.. Returns updated provider names.
 // No-op when the extension does not declare provides.features "".
 func (h *Handler) applyExtension(c *echo.Context, ext Extension) []string {

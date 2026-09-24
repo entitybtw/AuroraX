@@ -13,7 +13,7 @@ type inboundCtxKey struct{}
 // isCaptureHeader reports whether an inbound header is session/identity scoped
 // and relevant to the session hub. Filtering at capture keeps the snapshot tiny,
 // so the per-request hot path stays cheap.
-// Captures: x-* (all upstream client headers), x-session-*, x-*-session-*.
+// Captures: x-* (upstream identity headers), x-session-*, x-*-session-*.
 func isCaptureHeader(name string) bool {
 	lower := strings.ToLower(name)
 	if strings.HasPrefix(lower, "x-") {

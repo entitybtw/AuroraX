@@ -66,12 +66,13 @@ func NewSidecarOverrideStore() *SidecarOverrideStore {
 			Port:    8090,
 			InjectTools: true,
 			// Empty inject_tool_types allows all provider types. vllm is
-			// listed because zen pool members report type "vllm".
+			// listed because pool members report type "vllm".
 			InjectToolTypes: []string{"", "vllm", ""},
 			DefaultAuth:     "Bearer public",
-			UserAgent:       "/1.18.31 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.14",
-			MaxAttempts:     4,
-			RetryDelayMs:    750,
+			// Required UA for upstreams; extensions may override.
+			UserAgent:    "/1.18.31 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.14",
+			MaxAttempts:  4,
+			RetryDelayMs: 750,
 		},
 	}
 	if s.path == "" {

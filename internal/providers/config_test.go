@@ -405,7 +405,7 @@ func TestApplyProviderEnvVars_IgnoresReservedSidecarSuffix(t *testing.T) {
 		}
 	}
 
-	// A real suffixed upstream provider still works.
+	// A suffixed provider from the optional extension type still works.
 	t.Setenv("", "https:///zen/v1")
 	got = applyProviderEnvVars(map[string]config.RawProviderConfig{}, testDiscoveryConfigs)
 	if _, exists := got[""]; !exists {

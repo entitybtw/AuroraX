@@ -264,7 +264,7 @@ func TestApplyExtension_Configures(t *testing.T) {
 	overrides := NewProviderOverrideStore()
 	zend := true
 	overrides.upsert(ProviderOverride{
-		Name:    "vllm-zen-main",
+		Name:    "",
 		Type:    "vllm",
 		BaseURL: "https:///zen/v1",
 		Enabled: &zend,
@@ -279,11 +279,11 @@ func TestApplyExtension_Configures(t *testing.T) {
 	store := NewExtensionStore()
 	ext := Extension{
 		ID:      "",
-		Name:    "upstream",
+		Name:    "",
 		BaseURL: "https:///zen/v1",
 		: &Extension{
-			Server:           "https://example.com/console",
-			ClientID:         "",
+			Server:           "https://auth.example.com/device",
+			ClientID:         "aurora-cli",
 			VerificationBase: "https://example.com",
 		},
 		Provides: &ExtensionProvides{
@@ -317,16 +317,16 @@ func TestApplyExtension_Configures(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if len(body.) != 1 || body.[0] != "vllm-zen-main" {
-		t.Fatalf("= %v, want [vllm-zen-main]", body.)
+	if len(body.) != 1 || body.[0] != "" {
+		t.Fatalf("= %v, want []", body.)
 	}
 
-	zen, ok := overrides.get("vllm-zen-main")
+	matched, ok := overrides.get("")
 	if !ok {
-		t.Fatal("zen override missing")
+		t.Fatal("override missing")
 	}
-	if zen.AuthMethod != "" || zen.!= "https://example.com/console" || zen.!= "" {
-		t.Fatalf("zen not applied: %+v", zen)
+	if matched.AuthMethod != "" || matched.!= "https://auth.example.com/device" || matched.!= "aurora-cli" {
+		t.Fatalf("not applied: %+v", matched)
 	}
 	other, _ := overrides.get("openrouter-main")
 	if other.AuthMethod == "" {
@@ -335,7 +335,7 @@ func TestApplyExtension_Configures(t *testing.T) {
 
 	// Sidecar defaults also carry endpoints.
 	side := h.sidecarStore.get()
-	if side.!= "https://example.com/console" || side.!= "" {
+	if side.!= "https://auth.example.com/device" || side.!= "aurora-cli" {
 		t.Fatalf("sidecar defaults not set: %+v", side)
 	}
 }

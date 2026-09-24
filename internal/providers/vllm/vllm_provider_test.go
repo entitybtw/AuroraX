@@ -211,12 +211,12 @@ func TestPassthrough_UsesV1ForOpenAICompatibleEndpointsWhenBaseURLIncludesV1(t *
 	}
 }
 
-func TestResolveSidecarURL_ZenUsesEnvGenericDoesNot(t *testing.T) {
+func TestResolveSidecarURL_(t *testing.T) {
 	t.Setenv("AURORA_SIDECAR_BASE_URL", "http://127.0.0.1:8090/v1")
 
-	zen := resolveSidecarURL(providers.ProviderConfig{BaseURL: "https:///zen/v1"})
-	if zen != "http://127.0.0.1:8090/v1" {
-		t.Fatalf("sidecar = %q, want env sidecar", zen)
+	routed := resolveSidecarURL(providers.ProviderConfig{BaseURL: "https:///zen/v1"})
+	if routed != "http://127.0.0.1:8090/v1" {
+		t.Fatalf("sidecar = %q, want env sidecar", routed)
 	}
 
 	generic := resolveSidecarURL(providers.ProviderConfig{BaseURL: "https://cheapvibecode.ru/v1"})
