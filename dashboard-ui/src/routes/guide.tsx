@@ -53,6 +53,104 @@ const DEFAULT_CURL_BODY = buildPlaygroundRequestBody({
 
 const POOL_MODEL_PLACEHOLDER = "your-model-id";
 
+const SNIPPET_LABELS: Record<string, string> = {
+  env: "Shell (export)",
+  config: "Config file",
+  command: "Command",
+};
+
+function snippetLabel(kind: string): string {
+  return SNIPPET_LABELS[kind] ?? kind;
+}
+
+interface SnippetToken {
+  text: string;
+  cls: string;
+}
+
+function highlightSnippet(value: string, kind: string): SnippetToken[] {
+  const tokens: SnippetToken[] = [];
+  if (kind === "config") {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      const pretty = JSON.stringify(parsed, null, 2);
+      const re = /("(?:\\.|[^"\\])*")(\s*:)?|(\btrue\b|\bfalse\b|\bnull\b)|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
+      let last = 0;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(pretty)) !== null) {
+        if (m.index > last) tokens.push({ text: pretty.slice(last, m.index), cls: "text-foreground/70" });
+        if (m[1] !== undefined) {
+          if (m[2] !== undefined) {
+            tokens.push({ text: m[1], cls: "text-accent" });
+            tokens.push({ text: m[2], cls: "text-foreground/70" });
+          } else {
+            tokens.push({ text: m[1], cls: "text-emerald-400/90" });
+          }
+        } else if (m[3] !== undefined) {
+          tokens.push({ text: m[3], cls: "text-amber-400/90" });
+        } else if (m[4] !== undefined) {
+          tokens.push({ text: m[4], cls: "text-sky-400/90" });
+        }
+        last = re.lastIndex;
+      }
+      if (last < pretty.length) tokens.push({ text: pretty.slice(last), cls: "text-foreground/70" });
+      return tokens;
+    } catch {
+      return [{ text: value, cls: "text-foreground" }];
+    }
+  }
+  const lines = value.split("\n");
+  lines.forEach((line, i) => {
+    if (i > 0) tokens.push({ text: "\n", cls: "text-foreground" });
+    const m = line.match(/^(\s*#.*$)|^(\s*)([A-Za-z_][A-Za-z0-9_]*)(=)(.*)$|^(\s*)(export\s+)([A-Za-z_][A-Za-z0-9_]*)(=)(.*)$/);
+    if (m) {
+      if (m[1] !== undefined) {
+        tokens.push({ text: m[1], cls: "text-muted-foreground italic" });
+        return;
+      }
+      if (m[2] !== undefined && m[3] !== undefined) {
+        tokens.push({ text: m[2], cls: "text-foreground" });
+        tokens.push({ text: m[3], cls: "text-accent" });
+        tokens.push({ text: m[4] ?? "", cls: "text-foreground/60" });
+        tokens.push({ text: m[5] ?? "", cls: "text-emerald-400/90" });
+        return;
+      }
+      if (m[6] !== undefined && m[7] !== undefined) {
+        tokens.push({ text: m[6], cls: "text-foreground" });
+        tokens.push({ text: m[7], cls: "text-amber-400/90" });
+        tokens.push({ text: m[8] ?? "", cls: "text-accent" });
+        tokens.push({ text: m[9] ?? "", cls: "text-foreground/60" });
+        tokens.push({ text: m[10] ?? "", cls: "text-emerald-400/90" });
+        return;
+      }
+    }
+    const cmd = line.match(/^(\s*)([A-Za-z0-9_./-]+)(.*)$/);
+    if (cmd && kind === "command") {
+      tokens.push({ text: cmd[1] ?? "", cls: "text-foreground" });
+      tokens.push({ text: cmd[2] ?? "", cls: "text-accent" });
+      tokens.push({ text: cmd[3] ?? "", cls: "text-emerald-400/80" });
+      return;
+    }
+    tokens.push({ text: line, cls: "text-foreground" });
+  });
+  return tokens;
+}
+
+function SnippetCode({ value, kind }: { value: string; kind: string }): JSX.Element {
+  const tokens = useMemo(() => highlightSnippet(value, kind), [value, kind]);
+  return (
+    <pre className="max-h-80 max-w-full overflow-auto p-3 text-xs leading-5 sm:p-4">
+      <code>
+        {tokens.map((t, i) => (
+          <span key={`${i}-${t.cls}`} className={t.cls}>
+            {t.text}
+          </span>
+        ))}
+      </code>
+    </pre>
+  );
+}
+
 interface CLIFormState {
   base_url: string;
   api_key: string;
@@ -466,12 +564,12 @@ function CLIToolsGuideSection(): JSX.Element {
           </div>
 
           <Dialog open={Boolean(current && configOpen)} onOpenChange={setConfigOpen}>
-            <DialogContent className="max-h-[90vh] min-w-0 max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-[920px]">
+            <DialogContent className="max-h-[90dvh] min-w-0 w-full max-w-full overflow-y-auto overscroll-contain sm:max-w-[920px] sm:w-[calc(100%-2rem)]">
               {current ? (
-                <div className="flex min-w-0 flex-col gap-5">
+                <div className="flex min-w-0 flex-col gap-5 pb-2">
                   <DialogHeader className="min-w-0">
                     <div className="flex min-w-0 items-start gap-3 pr-8">
-                      <span className="grid h-16 w-16 shrink-0 place-items-center rounded-xl border border-border/50 bg-muted/20">
+                      <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl border border-border/50 bg-muted/20">
                         <ToolMark tool={current} />
                       </span>
                       <div className="min-w-0 space-y-2">
@@ -482,7 +580,7 @@ function CLIToolsGuideSection(): JSX.Element {
                           {current.default_command ? <Pill tone="accent">{current.default_command}</Pill> : null}
                           {current.can_apply ? <Pill tone="accent">Host apply available</Pill> : <Pill tone="muted">Preview only</Pill>}
                           {current.docs_url ? (
-                            <a className="inline-flex items-center gap-1 text-xs text-accent hover:underline" href={current.docs_url} target="_blank" rel="noreferrer">
+                            <a className="inline-flex min-h-[32px] items-center gap-1 text-xs text-accent hover:underline" href={current.docs_url} target="_blank" rel="noreferrer">
                               Docs
                               <ExternalLink className="h-3 w-3" />
                             </a>
@@ -493,7 +591,7 @@ function CLIToolsGuideSection(): JSX.Element {
                     </div>
                   </DialogHeader>
 
-                  <div className="grid min-w-0 gap-4 rounded-xl border border-border bg-background/25 p-4 md:grid-cols-3">
+                  <div className="grid min-w-0 gap-4 rounded-xl border border-border bg-background/25 p-3 sm:p-4 md:grid-cols-3">
                     <CLIField label="Gateway base URL">
                       <input className="field-input min-w-0 font-mono" value={form.base_url} onChange={(e) => updateForm({ base_url: e.target.value })} />
                     </CLIField>
@@ -574,12 +672,12 @@ function CLIToolsGuideSection(): JSX.Element {
                     {current.can_apply && preview && !canApply ? (
                       <p className="min-w-0 break-words text-xs text-warning md:col-span-3">Preview again after changing the tool, URL, key, or model before applying on the host.</p>
                     ) : null}
-                    <div className="flex min-w-0 flex-wrap items-center gap-2 md:col-span-3">
-                      <Button onClick={() => void runPreview()} disabled={busy || !current}>
+                    <div className="sticky bottom-0 z-10 -mx-3 -mb-3 flex min-w-0 flex-wrap items-center gap-2 border-t border-border/40 bg-surface/95 px-3 py-3 backdrop-blur md:col-span-3 md:-mx-4 md:-mb-4 md:px-4">
+                      <Button onClick={() => void runPreview()} disabled={busy || !current} className="min-h-[40px]">
                         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                         Preview
                       </Button>
-                      <Button variant="secondary" onClick={() => void runApply()} disabled={busy || !canApply}>Apply on host</Button>
+                      <Button variant="secondary" onClick={() => void runApply()} disabled={busy || !canApply} className="min-h-[40px]">Apply on host</Button>
                       {!canApply && applyDisabledReason ? <span className="min-w-0 flex-1 break-words text-xs leading-5 text-muted-foreground">{applyDisabledReason}</span> : null}
                     </div>
                   </div>
@@ -588,14 +686,21 @@ function CLIToolsGuideSection(): JSX.Element {
                     <div className="grid min-w-0 gap-4">
                       {Object.entries(preview.snippets).map(([kind, value]) => (
                         <div key={kind} className="min-w-0 overflow-hidden rounded-lg border border-border bg-background/20">
-                          <div className="flex min-w-0 items-center justify-between gap-2 border-b border-border/40 px-4 py-2">
-                            <span className="min-w-0 truncate text-sm font-medium uppercase tracking-wide text-muted-foreground">{kind}</span>
-                            <Button variant="ghost" size="sm" onClick={() => void copySnippet(value)} className="shrink-0">
+                          <div className="flex min-w-0 items-center justify-between gap-2 border-b border-border/40 px-3 py-2 sm:px-4">
+                            <span className="min-w-0 truncate text-sm font-medium text-muted-foreground">
+                              {snippetLabel(kind)}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => void copySnippet(value)}
+                              className="shrink-0 min-h-[36px]"
+                            >
                               <Copy className="h-4 w-4" />
                               Copy
                             </Button>
                           </div>
-                          <pre className="max-h-80 max-w-full overflow-auto p-4 text-xs text-foreground"><code>{value}</code></pre>
+                          <SnippetCode value={value} kind={kind} />
                         </div>
                       ))}
                     </div>
@@ -626,7 +731,7 @@ function PoolUsageSection(): JSX.Element {
 
   let body: JSX.Element;
   if (pools.isLoading) {
-    body = <p className="text-sm text-muted-foreground">Loading configured pools�</p>;
+    body = <p className="text-sm text-muted-foreground">Loading configured pools…</p>;
   } else if (pools.error) {
     body = (
       <p className="text-sm text-destructive">
@@ -636,7 +741,7 @@ function PoolUsageSection(): JSX.Element {
   } else if (poolsList.length === 0) {
     body = (
       <div className="rounded-lg border border-dashed border-border bg-background/20 p-4 text-sm text-muted-foreground">
-        No provider pools are configured on this gateway. Pools group two or more configured providers that share an upstream and can serve the same models � define them under <code className="font-mono">pools</code> in the gateway config to enable load balancing and automatic failover. See the docs for examples.
+        No provider pools are configured on this gateway. Pools group two or more configured providers that share an upstream and can serve the same models — define them under <code className="font-mono">pools</code> in the gateway config to enable load balancing and automatic failover. See the docs for examples.
       </div>
     );
   } else {
