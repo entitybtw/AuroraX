@@ -40,11 +40,45 @@ function MultiModelSelect({
     }
   }
 
+  function selectAllVisible(): void {
+    const visible = new Set(available);
+    const allVisibleSelected =
+      available.length > 0 && available.every((m) => selectedModels.includes(m));
+    if (allVisibleSelected) {
+      onModelsChange(selectedModels.filter((m) => !visible.has(m)));
+      return;
+    }
+    const set = new Set(selectedModels);
+    for (const m of available) set.add(m);
+    onModelsChange(Array.from(set));
+  }
+
+  function clearAll(): void {
+    if (normalizedQuery) {
+      const visible = new Set(available);
+      onModelsChange(selectedModels.filter((m) => !visible.has(m)));
+    } else {
+      onModelsChange([]);
+    }
+  }
+
+  function invertVisible(): void {
+    const set = new Set(selectedModels);
+    for (const m of available) {
+      if (set.has(m)) set.delete(m);
+      else set.add(m);
+    }
+    onModelsChange(Array.from(set));
+  }
+
   const empty = allModels.length === 0;
+  const visibleAllSelected =
+    available.length > 0 && available.every((m) => selectedModels.includes(m));
+  const shownSelected = available.filter((m) => selectedModels.includes(m)).length;
 
   return (
     <div className="min-w-0 space-y-2">
-      <div className="flex items-center gap-2 rounded-lg border border-border bg-background/40 px-3 py-1.5">
+      <div className="flex items-center gap-2 rounded-lg border border-border bg-background/40 px-3 py-2">
         <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <input
           className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
@@ -53,7 +87,40 @@ function MultiModelSelect({
           placeholder="Search models..."
         />
         {selectedModels.length > 0 ? (
-          <span className="shrink-0 rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-medium text-accent">{selectedModels.length}</span>
+          <span className="shrink-0 rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-medium text-accent">
+            {selectedModels.length}
+          </span>
+        ) : null}
+      </div>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={selectAllVisible}
+          disabled={empty}
+          className="min-h-[36px] rounded-full border border-border bg-background/40 px-3 py-1.5 text-xs text-foreground transition hover:border-accent/50 hover:bg-surface-hover disabled:opacity-40 touch-manipulation"
+        >
+          {visibleAllSelected ? `Deselect shown (${available.length})` : `Select all${normalizedQuery ? " filtered" : ""} (${available.length})`}
+        </button>
+        <button
+          type="button"
+          onClick={invertVisible}
+          disabled={empty}
+          className="min-h-[36px] rounded-full border border-border bg-background/40 px-3 py-1.5 text-xs text-foreground transition hover:border-accent/50 hover:bg-surface-hover disabled:opacity-40 touch-manipulation"
+        >
+          Invert shown
+        </button>
+        <button
+          type="button"
+          onClick={clearAll}
+          disabled={selectedModels.length === 0}
+          className="min-h-[36px] rounded-full border border-border bg-background/40 px-3 py-1.5 text-xs text-muted-foreground transition hover:border-danger/50 hover:text-danger disabled:opacity-40 touch-manipulation"
+        >
+          Clear
+        </button>
+        {normalizedQuery ? (
+          <span className="ml-auto text-[11px] text-muted-foreground">
+            {shownSelected}/{available.length} shown selected
+          </span>
         ) : null}
       </div>
       {empty ? (
@@ -61,13 +128,13 @@ function MultiModelSelect({
           No models found. Select a fallback model above.
         </p>
       ) : (
-        <div className="max-h-48 min-w-0 overflow-y-auto rounded-lg border border-border bg-background/20">
+        <div className="max-h-56 min-w-0 overflow-y-auto overscroll-contain rounded-lg border border-border bg-background/20">
           {available.map((model) => {
             const checked = selectedModels.includes(model);
             return (
               <label
                 key={model}
-                className={`flex min-w-0 cursor-pointer items-center gap-2 border-b border-border/30 px-3 py-2 text-xs transition last:border-b-0 hover:bg-background/40 ${checked ? "bg-accent/5" : ""}`}
+                className={`flex min-h-[44px] min-w-0 cursor-pointer items-center gap-2 border-b border-border/30 px-3 py-2.5 text-xs transition last:border-b-0 hover:bg-background/40 ${checked ? "bg-accent/5" : ""}`}
               >
                 <Switch
                   checked={checked}
@@ -75,21 +142,44 @@ function MultiModelSelect({
                   onCheckedChange={() => toggleModel(model)}
                   aria-label={model}
                 />
-                <span className="min-w-0 flex-1 truncate font-mono text-foreground">{model}</span>
-                {checked ? <Check className="h-3 w-3 shrink-0 text-accent" /> : null}
+                <span className="min-w-0 flex-1 break-all font-mono text-foreground">{model}</span>
+                {checked ? <Check className="h-3.5 w-3.5 shrink-0 text-accent" /> : null}
               </label>
             );
           })}
           {available.length === 0 ? (
-            <p className="p-3 text-xs text-muted-foreground">No models match &quot;{query}&quot;. Try a different search term.</p>
+            <p className="p-3 text-xs text-muted-foreground">
+              No models match &quot;{query}&quot;. Try a different search term.
+            </p>
           ) : null}
         </div>
       )}
-      <p className="text-[10px] leading-4 text-muted-foreground">
-        {selectedModels.length === 0
-          ? `No models selected. The fallback model "${fallbackModel}" will be used.`
-          : `Selected: ${selectedModels.join(", ")}`}
-      </p>
+      <div className="min-w-0">
+        {selectedModels.length === 0 ? (
+          <p className="text-xs leading-4 text-muted-foreground">
+            No models selected. The fallback model &quot;{fallbackModel}&quot; will be used.
+          </p>
+        ) : (
+          <div className="flex min-w-0 flex-wrap gap-1.5">
+            {selectedModels.slice(0, 24).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => toggleModel(m)}
+                title={`Remove ${m}`}
+                className="max-w-full truncate rounded-md border border-accent/30 bg-accent/10 px-2 py-1 font-mono text-[11px] text-accent touch-manipulation"
+              >
+                {m}
+              </button>
+            ))}
+            {selectedModels.length > 24 ? (
+              <span className="px-1 py-1 text-[11px] text-muted-foreground">
+                +{selectedModels.length - 24} more
+              </span>
+            ) : null}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -111,7 +201,7 @@ export function CLIModelFieldGrid({ modelFields, modelOverrides, fallbackModel, 
           if (field.multi && onSelectedModelsChange) {
             return (
               <div key={field.key} className="min-w-0 space-y-2 rounded-lg border border-border bg-background/25 p-3 md:col-span-3">
-                <span className="block truncate text-xs font-medium text-muted-foreground">{field.label}</span>
+                <span className="block text-xs font-medium text-muted-foreground">{field.label}</span>
                 <MultiModelSelect
                   allModels={modelOptions}
                   selectedModels={selectedModels ?? []}

@@ -132,6 +132,7 @@ func toolDefinitions(applyEnabled bool, home string) []toolDefinition {
 				{Key: "ANTHROPIC_DEFAULT_HAIKU_MODEL", Label: "Haiku default", Description: "Fast, low-latency Claude Code default model."},
 				{Key: "ANTHROPIC_DEFAULT_SONNET_MODEL", Label: "Sonnet default", Description: "Balanced Claude Code default model."},
 				{Key: "ANTHROPIC_DEFAULT_OPUS_MODEL", Label: "Opus default", Description: "Highest-capability Claude Code default model."},
+				{Key: "AVAILABLE_MODELS", Label: "Available models", Description: "Models listed in availableModels (multi-select). Empty = primary + tier defaults.", Multi: true},
 			}},
 			Snippet: claudeCodeSnippets,
 		},
@@ -279,10 +280,17 @@ func claudeCodeSnippets(req PreviewRequest) map[string]string {
 		"ANTHROPIC_MODEL":                primaryModel,
 		"API_TIMEOUT_MS":                 "600000",
 	}
+	// availableModels: explicit multi-select list wins; otherwise tier defaults.
+	available := req.Models
+	if len(available) == 0 {
+		available = uniqueStrings(primaryModel, haikuModel, sonnetModel, opusModel)
+	} else {
+		available = uniqueStrings(append([]string{primaryModel}, available...)...)
+	}
 	cfg := map[string]any{
 		"$schema":         "https://json.schemastore.org/claude-code-settings.json",
 		"model":           primaryModel,
-		"availableModels": uniqueStrings(primaryModel, haikuModel, sonnetModel, opusModel),
+		"availableModels": available,
 		"env":             env,
 		"permissions": map[string]any{
 			"defaultMode": "default",
@@ -427,7 +435,13 @@ func normalizeModelOverrides(tool Tool, overrides map[string]string) (map[string
 	if len(overrides) > 20 {
 		return nil, fmt.Errorf("model_overrides must contain 20 or fewer entries")
 	}
-	allowedKeys := modelFieldKeys(tool.ModelFields)
+		allowedKeys := modelFieldKeys(tool.ModelFields)
+	// Multi fields only receive models via PreviewRequest.Models, not overrides.
+	for _, f := range tool.ModelFields {
+		if f.Multi {
+			delete(allowedKeys, f.Key)
+		}
+	}
 	normalized := make(map[string]string, len(overrides))
 	for rawKey, rawValue := range overrides {
 		key := strings.TrimSpace(rawKey)
@@ -466,6 +480,10 @@ func modelFieldKeys(fields []ModelField) map[string]bool {
 func modelForField(req PreviewRequest, key string) string {
 	if value := strings.TrimSpace(req.ModelOverrides[key]); value != "" {
 		return value
+	}
+	// Multi-select list: first entry becomes the fallback when no override.
+	if key == "AVAILABLE_MODELS" && len(req.Models) > 0 {
+		return req.Models[0]
 	}
 	return req.Model
 }
