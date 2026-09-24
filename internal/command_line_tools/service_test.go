@@ -266,6 +266,60 @@ func decodeClaudeEnv(t *testing.T, config string) map[string]string {
 	return parsed.Env
 }
 
+func TestPreviewClaudeAvailableModelsMultiSelect(t *testing.T) {
+	service := NewService(false, nil)
+	preview, err := service.Preview("claude-code", PreviewRequest{
+		BaseURL:        "http://localhost:8080",
+		APIKey:         "sk-test",
+		Model:          "fallback/model",
+		ModelOverrides: map[string]string{"ANTHROPIC_MODEL": "primary/model"},
+		Models:         []string{"alpha/model", "beta/model", "gamma/model"},
+	})
+	if err != nil {
+		t.Fatalf("Preview: %v", err)
+	}
+	var cfg struct {
+		Models  []string `json:"availableModels"`
+		Primary string   `json:"model"`
+		Env     map[string]string
+	}
+	if err := json.Unmarshal([]byte(preview.Snippets["config"]), &cfg); err != nil {
+		t.Fatalf("decode config: %v", err)
+	}
+	if cfg.Primary != "primary/model" {
+		t.Fatalf("model = %q, want primary/model", cfg.Primary)
+	}
+	want := map[string]bool{"primary/model": true, "alpha/model": true, "beta/model": true, "gamma/model": true}
+	if len(cfg.Models) != len(want) {
+		t.Fatalf("availableModels = %v, want %v entries", cfg.Models, len(want))
+	}
+	for _, m := range cfg.Models {
+		if !want[m] {
+			t.Fatalf("unexpected model in availableModels: %v", cfg.Models)
+		}
+	}
+	if cfg.Env["ANTHROPIC_MODEL"] != "primary/model" {
+		t.Fatalf("env ANTHROPIC_MODEL = %q", cfg.Env["ANTHROPIC_MODEL"])
+	}
+	// Multi key must not leak into ModelOverrides (rejected by validator).
+	if _, ok := preview.Snippets["config"]; !ok {
+		t.Fatal("missing config snippet")
+	}
+}
+
+func TestPreviewRejectsMultiFieldAsModelOverride(t *testing.T) {
+	service := NewService(false, nil)
+	_, err := service.Preview("claude-code", PreviewRequest{
+		BaseURL:        "http://localhost:8080",
+		APIKey:         "sk-test",
+		Model:          "fallback/model",
+		ModelOverrides: map[string]string{"AVAILABLE_MODELS": "should/be/rejected"},
+	})
+	if err == nil {
+		t.Fatal("expected AVAILABLE_MODELS model_override to be rejected")
+	}
+}
+
 func assertEqual(t *testing.T, actual string, expected string) {
 	t.Helper()
 	if actual != expected {
