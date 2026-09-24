@@ -73,6 +73,7 @@ func (a *App) RefreshRuntime(ctx context.Context) (admin.RuntimeRefreshReport, e
 				err:     err,
 			}
 		}
+		registerSessionHubPoolMemberships(a.sessionHub, a.providers.Pools)
 		registry = a.modelRegistry()
 		return runtimeRefreshStepResult{message: fmt.Sprintf("rebuilt %d provider%s from current config", count, pluralSuffix(count))}
 	}); err != nil {
@@ -360,6 +361,7 @@ func (a *App) rebuildWithOverrides(ctx context.Context) error {
 	if _, err := a.providers.Rebuild(rebuildCtx, rawProviders, a.runtimeRawPools(), a.config, a.providers.Factory); err != nil {
 		return err
 	}
+	registerSessionHubPoolMemberships(a.sessionHub, a.providers.Pools)
 	return nil
 }
 

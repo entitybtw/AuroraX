@@ -2044,6 +2044,8 @@ func registerSessionHubPoolMemberships(hub *sessionhub.Hub, pools *pool.Registry
 		}
 		if snap.Name != "" && len(members) > 0 {
 			hub.SetPoolMembership(snap.Name, members)
+			slog.Info("session hub pool membership registered",
+				"pool", snap.Name, "members", members)
 		}
 	}
 }
