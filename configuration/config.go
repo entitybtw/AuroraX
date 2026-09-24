@@ -169,7 +169,7 @@ type RawProviderConfig struct {
 	// device authorization grant to obtain and refresh bearer tokens.
 	AuthMethod string `yaml:"auth_method,omitempty"`
 	// is the base URL of the authorization server.
-	// Set by the extension that provides the feature (e.g. ).
+	// Set by the extension that provides the feature.
 	string `yaml:",omitempty"`
 	// is the client_id used in the device flow.
 	// Set by the extension that provides the feature.
@@ -318,7 +318,7 @@ type SessionHubProviderRule struct {
 
 // SessionHubHeaderRule defines how a single header is transformed.
 type SessionHubHeaderRule struct {
-	// Name is the header name (e.g. "x-").
+	// Name is the header name (e.g. a session identity header).
 	Name string `yaml:"name"`
 
 	// Mode defines the transformation mode:

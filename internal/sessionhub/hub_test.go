@@ -133,7 +133,7 @@ func TestHubPersistenceRoundTrip(t *testing.T) {
 	h := NewWithPersistence(path, path+".map", cfg)
 	h.SetProviderRule("acc2", ProviderRule{
 		Enabled: true,
-		Headers: []HeaderRule{{Name: "user-agent", Mode: HeaderModeStatic, Value: "/1.0"}},
+		Headers: []HeaderRule{{Name: "user-agent", Mode: HeaderModeStatic, Value: "client/1.0"}},
 	})
 
 	// Load into a fresh hub from disk
@@ -142,7 +142,7 @@ func TestHubPersistenceRoundTrip(t *testing.T) {
 		t.Fatal("persisted rule missing after reload")
 	}
 	rule, ok := h2.Config().Providers["acc2"]
-	if !ok || len(rule.Headers) == 0 || rule.Headers[0].Value != "/1.0" {
+	if !ok || len(rule.Headers) == 0 || rule.Headers[0].Value != "client/1.0" {
 		t.Fatalf("persisted rule acc2 not correctly reloaded: %+v", h2.Config().Providers)
 	}
 }

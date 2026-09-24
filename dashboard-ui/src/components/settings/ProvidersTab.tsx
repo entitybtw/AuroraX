@@ -483,7 +483,7 @@ export function ProvidersTab(): JSX.Element {
 
   // is an extension feature (provides.features includes ""); show
   // the link control for any provider with auth_method=or the optional
-  // type activated by extension.
+  // extension-provided type.
   const supports= (provider: any) => {
     const auth = provider.config?.auth_method || "";
     if (auth === "") return true;

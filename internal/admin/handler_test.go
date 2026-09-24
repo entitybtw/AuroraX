@@ -2068,9 +2068,9 @@ func TestProviderStatus_DistinguishesProvidersWithSameTypeByName(t *testing.T) {
 func TestProviderStatus_ReportsPoolOnlyFromUIOverride(t *testing.T) {
 	store := NewProviderOverrideStore()
 	store.upsert(ProviderOverride{
-		Name:     "zen-acc-1",
+		Name:     "ft-acc-1",
 		Type:     "openai",
-		BaseURL:  "https://zen.example.com/v1",
+		BaseURL:  "https://ft.example.com/v1",
 		Enabled:  boolPtr(true),
 		PoolOnly: boolPtr(true),
 	})
@@ -2091,13 +2091,13 @@ func TestProviderStatus_ReportsPoolOnlyFromUIOverride(t *testing.T) {
 
 	var found *providerStatusItemResponse
 	for i := range body.Providers {
-		if body.Providers[i].Name == "zen-acc-1" {
+		if body.Providers[i].Name == "ft-acc-1" {
 			found = &body.Providers[i]
 			break
 		}
 	}
 	if found == nil {
-		t.Fatalf("missing zen-acc-1 in %#v", body.Providers)
+		t.Fatalf("missing ft-acc-1 in %#v", body.Providers)
 	}
 	if !found.Config.PoolOnly {
 		t.Fatalf("pool_only = false for UI-created provider, want true: %+v", found.Config)
