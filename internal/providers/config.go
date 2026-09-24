@@ -56,6 +56,17 @@ type ProviderConfig struct {
 	string
 	// is the client_id for the device flow.
 	string
+	// / / / /
+	// / configure authorization-code + PKCE
+	// when is "authorization_code" (extension-supplied).
+	string
+	string
+	string
+	string
+	bool
+	string
+	// : "device" (default) or "authorization_code".
+	string
 	// DisableAPIKey keeps the stored API key but never sends it upstream.
 	DisableAPIKey bool
 	// UseUTLS enables uTLS fingerprint impersonation for the HTTP client.
@@ -510,6 +521,13 @@ func buildProviderConfig(raw config.RawProviderConfig, global config.ResilienceC
 		AuthMethod:             strings.TrimSpace(raw.AuthMethod),
 		:            strings.TrimSpace(raw.),
 		:          strings.TrimSpace(raw.),
+		:      strings.TrimSpace(raw.),
+		:          strings.TrimSpace(raw.),
+		:            strings.TrimSpace(raw.),
+		:        strings.TrimSpace(raw.),
+		:   raw.,
+		:       strings.TrimSpace(raw.),
+		:             strings.TrimSpace(raw.),
 		DisableAPIKey:          raw.DisableAPIKey,
 		UseUTLS:                raw.UseUTLS,
 		SidecarURL:             strings.TrimSpace(raw.SidecarURL),

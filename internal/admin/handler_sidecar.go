@@ -16,23 +16,32 @@ import (
 // neutral — extensions supply base_url, user-agent, auth, tool scope and
 // optional device-flow endpoints.
 type SidecarSettings struct {
-	Enabled         bool              `json:"enabled"`
-	Port            int               `json:"port"`
-	InjectTools     bool              `json:"inject_tools"`
-	InjectToolTypes []string          `json:"inject_tool_types"`
-	DefaultAuth     string            `json:"default_auth"`
-	UserAgent       string            `json:"user_agent"`
-	BaseURL         string            `json:"base_url"`
-	MaxAttempts     int               `json:"max_attempts"`
-	RetryDelayMs    int               `json:"retry_delay_ms"`
-	BindIPs         []string          `json:"bind_ips"`
-	Proxies         []SidecarProxy    `json:"proxies"`
+	Enabled         bool           `json:"enabled"`
+	Port            int            `json:"port"`
+	InjectTools     bool           `json:"inject_tools"`
+	InjectToolTypes []string       `json:"inject_tool_types"`
+	DefaultAuth     string         `json:"default_auth"`
+	UserAgent       string         `json:"user_agent"`
+	BaseURL         string         `json:"base_url"`
+	MaxAttempts     int            `json:"max_attempts"`
+	RetryDelayMs    int            `json:"retry_delay_ms"`
+	BindIPs         []string       `json:"bind_ips"`
+	Proxies         []SidecarProxy `json:"proxies"`
 	// ToolsPath is an absolute or sidecar-relative path to a JSON tool schema
 	// file supplied by an extension (overrides the bundled default).
 	ToolsPath string `json:"tools_path,omitempty"`
 	// defaults installed by the active extension (device flow).
 	string `json:",omitempty"`
 	string `json:",omitempty"`
+	string `json:",omitempty"`
+	// selects the grant: "device" (default) or "authorization_code".
+	string `json:",omitempty"`
+	// Authorization-code + PKCE endpoints (extension-driven).
+	string `json:",omitempty"`
+	string `json:",omitempty"`
+	string `json:",omitempty"`
+	string `json:",omitempty"`
+	bool   `json:",omitempty"`
 	string `json:",omitempty"`
 	// PathTemplate is the upstream path appended to base_url for chat
 	// completions (default "/chat/completions"). Presets may point at
@@ -62,9 +71,9 @@ type SidecarProxy struct {
 
 // SidecarStatus is the live status returned by the GET endpoint.
 type SidecarStatus struct {
-	Running  bool             `json:"running"`
-	Settings SidecarSettings  `json:"settings"`
-	Proxies  []SidecarProxy   `json:"proxies"`
+	Running  bool            `json:"running"`
+	Settings SidecarSettings `json:"settings"`
+	Proxies  []SidecarProxy  `json:"proxies"`
 }
 
 // SidecarOverrideStore persists sidecar settings to disk.
@@ -79,8 +88,8 @@ func NewSidecarOverrideStore() *SidecarOverrideStore {
 	s := &SidecarOverrideStore{
 		path: os.Getenv("AURORA_SIDECAR_OVERRIDES_PATH"),
 		settings: SidecarSettings{
-			Enabled: true,
-			Port:    8090,
+			Enabled:     true,
+			Port:        8090,
 			InjectTools: true,
 			// Empty inject_tool_types allows all provider types. vllm is
 			// listed because pool members report type "vllm".
@@ -142,6 +151,13 @@ func (s *SidecarOverrideStore) load() {
 		s.settings.InjectToolTypes = loaded.InjectToolTypes
 	}
 	s.settings.ToolsPath = loaded.ToolsPath
+	s.settings.= loaded.
+	s.settings.= loaded.
+	s.settings.= loaded.
+	s.settings.= loaded.
+	s.settings.= loaded.
+	s.settings.= loaded.
+	s.settings.= loaded.
 	s.settings.= loaded.
 	s.settings.= loaded.
 	s.settings.= loaded.

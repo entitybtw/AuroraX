@@ -1,0 +1,2 @@
+# Operator-dropped single-file Go addons (Yaegi). Directory is ignored by
+# the image build; keep a .gitkeep so the path exists after clone.

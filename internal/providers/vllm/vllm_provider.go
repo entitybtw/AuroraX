@@ -86,11 +86,56 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 		if opts.== "" {
 			opts.= def.
 		}
+		if opts.== "" {
+			opts.= def.
+		}
+		if opts.== "" {
+			opts.= def.
+		}
+		if opts.== "" {
+			opts.= def.
+		}
+		if opts.== "" {
+			opts.= def.
+		}
+		if opts.== "" {
+			opts.= def.
+		}
+		if opts.== "" {
+			opts.= def.
+		}
+		opts.= opts.|| def.
 	}
 
 	var *.Manager
 	if opts.AuthMethod == "" {
-		if opts.== "" || opts.== "" {
+		// Device flow needs server+client_id; authorization_code needs
+		// authorize_url+token_url+client_id.
+		authCode := strings.EqualFold(opts., "authorization_code")
+		if authCode {
+			if opts.== "" || opts.== "" {
+				log.Printf("vllm: authorization_code requires /(set via extension apply)")
+			} else {
+				= .NewManager(
+					opts.,
+					opts.,
+					opts.,
+					opts.ProviderName,
+				)
+				.SetAuthCodeConfig(.AuthCodeConfig{
+					AuthorizeURL:    opts.,
+					TokenURL:        opts.,
+					ClientID:        opts.,
+					Scopes:          opts.,
+					RedirectURI:     opts.,
+					TokenStyle:      opts.,
+					StateIsVerifier: opts.,
+				})
+				if opts.!= nil {
+					opts..Register(opts.ProviderName, )
+				}
+			}
+		} else if opts.== "" || opts.== "" {
 			log.Printf("vllm: requires /(set via extension apply)")
 		} else {
 			= .NewManager(
@@ -99,6 +144,17 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 				opts.,
 				opts.ProviderName,
 			)
+			if opts.!= "" && opts.!= "" {
+				.SetAuthCodeConfig(.AuthCodeConfig{
+					AuthorizeURL:    opts.,
+					TokenURL:        opts.,
+					ClientID:        opts.,
+					Scopes:          opts.,
+					RedirectURI:     opts.,
+					TokenStyle:      opts.,
+					StateIsVerifier: opts.,
+				})
+			}
 			if opts.!= nil {
 				opts..Register(opts.ProviderName, )
 			}
