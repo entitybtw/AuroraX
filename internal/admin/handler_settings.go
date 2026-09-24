@@ -14,29 +14,36 @@ import (
 )
 
 type DashboardSettingsUpdateRequest struct {
-	Client               DashboardSettingsUpdateClient               `json:"client"`
-	Caching              DashboardSettingsUpdateCaching              `json:"caching"`
-	Logging              DashboardSettingsUpdateLogging              `json:"logging"`
-	Observability        DashboardSettingsUpdateObservability        `json:"observability"`
+	Client        DashboardSettingsUpdateClient        `json:"client"`
+	Caching       DashboardSettingsUpdateCaching       `json:"caching"`
+	Logging       DashboardSettingsUpdateLogging       `json:"logging"`
+	Observability DashboardSettingsUpdateObservability `json:"observability"`
 
-	Performance          DashboardSettingsUpdatePerformance          `json:"performance"`
-	Security             DashboardSettingsUpdateSecurity             `json:"security"`
-	Pricing              DashboardSettingsUpdatePricing              `json:"pricing"`
-	TokenSaver           DashboardSettingsUpdateTokenSaver           `json:"token_saver"`
-	Proxy                DashboardSettingsUpdateProxy                `json:"proxy"`
-	ResponseHeaders      DashboardSettingsUpdateResponseHeaders      `json:"response_headers"`
+	Performance     DashboardSettingsUpdatePerformance     `json:"performance"`
+	Security        DashboardSettingsUpdateSecurity        `json:"security"`
+	Pricing         DashboardSettingsUpdatePricing         `json:"pricing"`
+	TokenSaver      DashboardSettingsUpdateTokenSaver      `json:"token_saver"`
+	Proxy           DashboardSettingsUpdateProxy           `json:"proxy"`
+	ResponseHeaders DashboardSettingsUpdateResponseHeaders `json:"response_headers"`
+	UI              DashboardSettingsUpdateUI              `json:"ui"`
+}
+
+// DashboardSettingsUpdateUI toggles which dashboard features are visible.
+// Hidden features keep their on-disk config and historical data.
+type DashboardSettingsUpdateUI struct {
+	HiddenFeatures []string `json:"hidden_features"`
 }
 
 type DashboardSettingsUpdateResponseHeaders struct {
-	Enabled               bool                            `json:"enabled"`
-	Mode                  string                          `json:"mode"`
-	IncludeFallback       bool                            `json:"include_fallback"`
-	IncludeNonFallback    bool                            `json:"include_non_fallback"`
-	ActualProviderHeader  bool                            `json:"actual_provider_header"`
-	ActualModelHeader     bool                            `json:"actual_model_header"`
-	RequestedModelHeader  bool                            `json:"requested_model_header"`
-	FallbackChainHeader   bool                            `json:"fallback_chain_header"`
-	CustomHeaders         []DashboardUpdateCustomResponseHeader `json:"custom_headers"`
+	Enabled              bool                                  `json:"enabled"`
+	Mode                 string                                `json:"mode"`
+	IncludeFallback      bool                                  `json:"include_fallback"`
+	IncludeNonFallback   bool                                  `json:"include_non_fallback"`
+	ActualProviderHeader bool                                  `json:"actual_provider_header"`
+	ActualModelHeader    bool                                  `json:"actual_model_header"`
+	RequestedModelHeader bool                                  `json:"requested_model_header"`
+	FallbackChainHeader  bool                                  `json:"fallback_chain_header"`
+	CustomHeaders        []DashboardUpdateCustomResponseHeader `json:"custom_headers"`
 }
 
 type DashboardUpdateCustomResponseHeader struct {
@@ -69,20 +76,20 @@ type DashboardSettingsUpdateCachingPromptCache struct {
 }
 
 type DashboardSettingsUpdateCaching struct {
-	ModelRefreshIntervalSeconds     int                                      `json:"model_refresh_interval_seconds"`
-	ModelListURL                    string                                   `json:"model_list_url"`
-	ExactCacheEnabled               *bool                                    `json:"exact_cache_enabled,omitempty"`
-	ExactCacheTTLSeconds            *int                                     `json:"exact_cache_ttl_seconds,omitempty"`
-	ExactCacheRedisKey              string                                   `json:"exact_cache_redis_key,omitempty"`
-	SemanticCacheEnabled            *bool                                    `json:"semantic_cache_enabled,omitempty"`
-	SemanticSimilarityThreshold     *float64                                 `json:"semantic_similarity_threshold,omitempty"`
-	SemanticPromptSimilarityMin     *float64                                 `json:"semantic_prompt_similarity_min,omitempty"`
-	SemanticTTLSeconds              *int                                     `json:"semantic_ttl_seconds,omitempty"`
-	SemanticMaxConversationMessages *int                                     `json:"semantic_max_conversation_messages,omitempty"`
-	SemanticExcludeSystemPrompt     *bool                                    `json:"semantic_exclude_system_prompt,omitempty"`
-	SemanticEmbedderProvider        string                                   `json:"semantic_embedder_provider,omitempty"`
-	SemanticEmbedderModel           string                                   `json:"semantic_embedder_model,omitempty"`
-	SemanticVectorStoreType         string                                   `json:"semantic_vector_store_type,omitempty"`
+	ModelRefreshIntervalSeconds     int                                       `json:"model_refresh_interval_seconds"`
+	ModelListURL                    string                                    `json:"model_list_url"`
+	ExactCacheEnabled               *bool                                     `json:"exact_cache_enabled,omitempty"`
+	ExactCacheTTLSeconds            *int                                      `json:"exact_cache_ttl_seconds,omitempty"`
+	ExactCacheRedisKey              string                                    `json:"exact_cache_redis_key,omitempty"`
+	SemanticCacheEnabled            *bool                                     `json:"semantic_cache_enabled,omitempty"`
+	SemanticSimilarityThreshold     *float64                                  `json:"semantic_similarity_threshold,omitempty"`
+	SemanticPromptSimilarityMin     *float64                                  `json:"semantic_prompt_similarity_min,omitempty"`
+	SemanticTTLSeconds              *int                                      `json:"semantic_ttl_seconds,omitempty"`
+	SemanticMaxConversationMessages *int                                      `json:"semantic_max_conversation_messages,omitempty"`
+	SemanticExcludeSystemPrompt     *bool                                     `json:"semantic_exclude_system_prompt,omitempty"`
+	SemanticEmbedderProvider        string                                    `json:"semantic_embedder_provider,omitempty"`
+	SemanticEmbedderModel           string                                    `json:"semantic_embedder_model,omitempty"`
+	SemanticVectorStoreType         string                                    `json:"semantic_vector_store_type,omitempty"`
 	PromptCache                     DashboardSettingsUpdateCachingPromptCache `json:"prompt_cache"`
 }
 
@@ -224,7 +231,5 @@ func (h *Handler) auditDashboardSettingsChange(c *echo.Context, req DashboardSet
 }
 
 func dashboardSettingsAuditSummary(req DashboardSettingsUpdateRequest) map[string]any {
-	return map[string]any{
-
-	}
+	return map[string]any{}
 }

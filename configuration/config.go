@@ -48,7 +48,19 @@ type Config struct {
 	TokenSaver      TokenSaverConfig      `yaml:"token_saver"`
 	Edition         EditionConfig         `yaml:"edition"`
 	ResponseHeaders ResponseHeadersConfig `yaml:"response_headers"`
-	SessionHub      SessionHubConfig       `yaml:"session_hub"`
+	SessionHub      SessionHubConfig      `yaml:"session_hub"`
+	// UI holds dashboard feature-visibility toggles. Hidden features stay on
+	// disk (pools, audit rows, workflows, …) — they only leave the nav/UI and
+	// their pages refuse to render until re-enabled.
+	UI UIConfig `yaml:"ui"`
+}
+
+// UIConfig is operator-controlled dashboard feature visibility.
+type UIConfig struct {
+	// HiddenFeatures lists stable feature ids (e.g. pools, audit_logs) that
+	// are removed from the sidebar/bottom nav and whose routes show a
+	// disabled banner. Config and stored data are never deleted.
+	HiddenFeatures []string `yaml:"hidden_features,omitempty" env:"UI_HIDDEN_FEATURES"`
 }
 
 // LoadResult is returned by Load and bundles the application config with the raw

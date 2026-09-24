@@ -71,6 +71,6 @@ export default defineConfig(({ command }) => ({
     environment: "happy-dom",
     globals: true,
     css: false,
-    setupFiles: ["./src/test/setup.ts"],
+    setupFiles: ["./src/tests/setup.ts"],
   },
 }));
