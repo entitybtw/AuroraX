@@ -23,7 +23,7 @@
 //	AURORA_SIDECAR_DEFAULT_AUTH   fallback Authorization (default "Bearer public")
 //	AURORA_SIDECAR_USER_AGENT     upstream User-Agent   (default empty)
 //	AURORA_SIDECAR_BIND_PROXIES   ip:port[,ip:port...]  (default empty)
-//	AURORA_SIDECAR_OVERRIDES_PATH sidecar-overrides.json (mtime-cached inject_tool_types, tools_path, base_url)
+//	AURORA_SIDECAR_OVERRIDES_PATH sidecar-overrides.json (mtime-cached)
 //	AURORA_SIDECAR_TOOLS_PATH     extension tool schema JSON (optional)
 //
 // Note: AURORA_SIDECAR_BASE_URL is the sidecar's own listen URL for the
@@ -35,68 +35,33 @@
 //	GET  /v1/models             proxied directly
 //	GET  /health                liveness probe
 //	GET  /proxies               configured bind proxies
+//
+// Overrides (sidecar-overrides.json, mtime-cached, hot-reloaded):
+//
+//	base_url, path_template, models_path, default_auth, user_agent,
+//	inject_tools, inject_tool_types, tools_path, max_attempts,
+//	retry_delay_ms, extra_headers, forward_headers, retry_statuses,
+//	force_stream
 
 const env = (name, fallback) => process.env[name] ?? fallback;
 
 const ONESHOT = new URL("./one-shot.js", import.meta.url).pathname;
-const PORT = Number(
-  process.env.AURORA_SIDECAR_PORT ?? "8090",
-);
-const HOST =
-  process.env.AURORA_SIDECAR_HOST ?? "127.0.0.1";
-const DEFAULT_AUTH =
-  process.env.AURORA_SIDECAR_DEFAULT_AUTH ??
-  "Bearer public";
-const USER_AGENT =
-  process.env.AURORA_SIDECAR_USER_AGENT ??
-  "";
-const INJECT_TYPES_RAW =
-  process.env.AURORA_SIDECAR_INJECT_TYPES ?? "";
+const PORT = Number(process.env.AURORA_SIDECAR_PORT ?? "8090");
+const HOST = process.env.AURORA_SIDECAR_HOST ?? "127.0.0.1";
 const OVERRIDES_PATH =
   process.env.AURORA_SIDECAR_OVERRIDES_PATH ?? "configs/sidecar-overrides.json";
 
-// UPSTREAM is the real origin, never AURORA_SIDECAR_BASE_URL (our own bind
-// URL — using it self-proxies and hangs). Prefer explicit UPSTREAM_URL, then
-// extension-applied sidecar-overrides.base_url.
-function resolveUpstreamSync() {
-  const explicit =
-    process.env.AURORA_SIDECAR_UPSTREAM_URL;
-  if (explicit && explicit.trim()) return explicit.trim();
-  try {
-    const text = require("node:fs").readFileSync(OVERRIDES_PATH, "utf8");
-    const parsed = JSON.parse(text);
-    if (typeof parsed.base_url === "string" && parsed.base_url.trim()) {
-      return parsed.base_url.trim();
-    }
-  } catch {
-    // no overrides — leave unset so /v1/models returns 503 instead of hanging
-  }
-  return "";
-}
-const UPSTREAM = resolveUpstreamSync();
-
-// Map of local IP -> CONNECT proxy URL (http://127.0.0.1:port).
-const BIND_PROXIES = new Map();
-const proxiesRaw =
-  process.env.AURORA_SIDECAR_BIND_PROXIES ?? "";
-for (const entry of proxiesRaw.split(",")) {
-  const trimmed = entry.trim();
-  if (!trimmed) continue;
-  const idx = trimmed.lastIndexOf(":");
-  if (idx === -1) continue;
-  const ip = trimmed.slice(0, idx).trim();
-  const port = trimmed.slice(idx + 1).trim();
-  if (ip && port) BIND_PROXIES.set(ip, `http://127.0.0.1:${port}`);
-}
-
 // Static inject-type scope from env (comma-separated). Empty = all types.
 const INJECT_TYPES = new Set(
-  INJECT_TYPES_RAW.split(",")
+  (process.env.AURORA_SIDECAR_INJECT_TYPES ?? "")
+    .split(",")
     .map((s) => s.trim())
     .filter(Boolean),
 );
 
 // Identity headers forwarded to one-shot (extension/session hub driven).
+// Always includes the well-known free-tier identity set; extra names can be
+// added via overrides.forward_headers.
 const IDENTITY_HEADERS = [
   "x-opencode-session",
   "x-opencode-client",
@@ -108,14 +73,72 @@ const IDENTITY_HEADERS = [
 
 let overridesCache = {
   mtimeMs: -1,
+  baseUrl: "",
+  pathTemplate: "/chat/completions",
+  modelsPath: "/models",
   injectToolTypes: [],
   injectTools: null,
   toolsPath: "",
   userAgent: "",
+  defaultAuth: "",
+  maxAttempts: null,
+  retryDelayMs: null,
+  extraHeaders: {},
+  forwardHeaders: [],
+  retryStatuses: [403, 429],
+  forceStream: null,
 };
 
-// Load inject_tool_types / inject_tools / tools_path from the gateway's
-// sidecar overrides JSON (mtime-cached). Falls back to env when absent.
+function parseOverrides(parsed) {
+  return {
+    mtimeMs: -1,
+    baseUrl:
+      typeof parsed.base_url === "string" && parsed.base_url.trim()
+        ? parsed.base_url.trim()
+        : "",
+    pathTemplate:
+      typeof parsed.path_template === "string" && parsed.path_template.trim()
+        ? parsed.path_template.trim()
+        : "/chat/completions",
+    modelsPath:
+      typeof parsed.models_path === "string" && parsed.models_path.trim()
+        ? parsed.models_path.trim()
+        : "/models",
+    injectToolTypes: Array.isArray(parsed.inject_tool_types)
+      ? parsed.inject_tool_types
+      : [],
+    injectTools:
+      typeof parsed.inject_tools === "boolean" ? parsed.inject_tools : null,
+    toolsPath:
+      typeof parsed.tools_path === "string" ? parsed.tools_path : "",
+    userAgent:
+      typeof parsed.user_agent === "string" ? parsed.user_agent.trim() : "",
+    defaultAuth:
+      typeof parsed.default_auth === "string" ? parsed.default_auth : "",
+    maxAttempts:
+      typeof parsed.max_attempts === "number" && parsed.max_attempts >= 1
+        ? parsed.max_attempts
+        : null,
+    retryDelayMs:
+      typeof parsed.retry_delay_ms === "number" && parsed.retry_delay_ms >= 0
+        ? parsed.retry_delay_ms
+        : null,
+    extraHeaders:
+      parsed.extra_headers && typeof parsed.extra_headers === "object"
+        ? parsed.extra_headers
+        : {},
+    forwardHeaders: Array.isArray(parsed.forward_headers)
+      ? parsed.forward_headers.map((s) => String(s).toLowerCase()).filter(Boolean)
+      : [],
+    retryStatuses: Array.isArray(parsed.retry_statuses)
+      ? parsed.retry_statuses.filter((n) => typeof n === "number")
+      : [403, 429],
+    forceStream:
+      typeof parsed.force_stream === "boolean" ? parsed.force_stream : null,
+  };
+}
+
+// Load sidecar-overrides.json (mtime-cached). Falls back to env when absent.
 async function loadOverridesAsync() {
   try {
     const st = Bun.statSync(OVERRIDES_PATH);
@@ -130,18 +153,46 @@ async function loadOverridesAsync() {
     } catch {
       return overridesCache;
     }
-    overridesCache = {
-      mtimeMs: st.mtimeMs,
-      injectToolTypes: Array.isArray(parsed.inject_tool_types) ? parsed.inject_tool_types : [],
-      injectTools: typeof parsed.inject_tools === "boolean" ? parsed.inject_tools : null,
-      toolsPath: typeof parsed.tools_path === "string" ? parsed.tools_path : "",
-      userAgent:
-        typeof parsed.user_agent === "string" ? parsed.user_agent.trim() : "",
-    };
+    overridesCache = parseOverrides(parsed);
+    overridesCache.mtimeMs = st.mtimeMs;
   } catch {
     // keep last good cache
   }
   return overridesCache;
+}
+
+// Sync bootstrap so UPSTREAM exists before first request; later requests
+// re-read mtime so base_url changes apply without restarting the process.
+function loadOverridesSync() {
+  try {
+    const text = require("node:fs").readFileSync(OVERRIDES_PATH, "utf8");
+    const parsed = JSON.parse(text);
+    overridesCache = parseOverrides(parsed);
+  } catch {
+    // keep defaults
+  }
+  return overridesCache;
+}
+
+loadOverridesSync();
+
+// Map of local IP -> CONNECT proxy URL (http://127.0.0.1:port).
+const BIND_PROXIES = new Map();
+const proxiesRaw = process.env.AURORA_SIDECAR_BIND_PROXIES ?? "";
+for (const entry of proxiesRaw.split(",")) {
+  const trimmed = entry.trim();
+  if (!trimmed) continue;
+  const idx = trimmed.lastIndexOf(":");
+  if (idx === -1) continue;
+  const ip = trimmed.slice(0, idx).trim();
+  const port = trimmed.slice(idx + 1).trim();
+  if (ip && port) BIND_PROXIES.set(ip, `http://127.0.0.1:${port}`);
+}
+
+function resolveUpstream() {
+  const explicit = process.env.AURORA_SIDECAR_UPSTREAM_URL;
+  if (explicit && explicit.trim()) return explicit.trim();
+  return overridesCache.baseUrl || "";
 }
 
 function scopeAllows(providerType) {
@@ -159,11 +210,13 @@ function overridesAllow(providerType, overrides) {
   return scopeAllows(providerType);
 }
 
-function upstream(path) {
-  if (!UPSTREAM) {
-    throw new Error("sidecar upstream not configured (AURORA_SIDECAR_UPSTREAM_URL)");
+function upstream(base, path) {
+  if (!base) {
+    throw new Error(
+      "sidecar upstream not configured (AURORA_SIDECAR_UPSTREAM_URL)",
+    );
   }
-  return UPSTREAM.replace(/\/+$/, "") + path;
+  return base.replace(/\/+$/, "") + path;
 }
 
 function json(data, status = 200) {
@@ -185,39 +238,60 @@ Bun.serve({
     }
 
     if (url.pathname === "/proxies") {
-      return json(Array.from(BIND_PROXIES.entries()).map(([ip, proxy]) => ({ ip, proxy })));
+      return json(
+        Array.from(BIND_PROXIES.entries()).map(([ip, proxy]) => ({
+          ip,
+          proxy,
+        })),
+      );
     }
+
+    const overrides = await loadOverridesAsync();
+    const UPSTREAM = resolveUpstream();
 
     if (!UPSTREAM) {
       return json({ error: { message: "sidecar upstream not configured" } }, 503);
     }
 
+    const defaultAuth =
+      overrides.defaultAuth ||
+      process.env.AURORA_SIDECAR_DEFAULT_AUTH ||
+      "Bearer public";
+
     if (url.pathname === "/v1/models") {
-      const auth = req.headers.get("authorization") || DEFAULT_AUTH;
-      const overrides = await loadOverridesAsync();
-      const ua = overrides.userAgent || USER_AGENT;
-      const upstreamResp = await fetch(upstream("/models"), {
-        headers: {
-          Authorization: auth,
-          ...(ua ? { "User-Agent": ua } : {}),
+      const auth = req.headers.get("authorization") || defaultAuth;
+      const ua = overrides.userAgent || process.env.AURORA_SIDECAR_USER_AGENT || "";
+      const upstreamResp = await fetch(
+        upstream(UPSTREAM, overrides.modelsPath),
+        {
+          headers: {
+            Authorization: auth,
+            ...(ua ? { "User-Agent": ua } : {}),
+          },
         },
-      });
+      );
       return new Response(await upstreamResp.text(), {
         status: upstreamResp.status,
         headers: { "content-type": "application/json" },
       });
     }
 
+    // Gateway ingress always posts to /v1/chat/completions; upstream path
+    // may differ via overrides.path_template.
     if (!url.pathname.endsWith("/chat/completions")) {
-      return json({ error: { message: `unsupported path: ${url.pathname}` } }, 404);
+      return json(
+        { error: { message: `unsupported path: ${url.pathname}` } },
+        404,
+      );
     }
 
-    const authorization = req.headers.get("authorization") || DEFAULT_AUTH;
+    const authorization = req.headers.get("authorization") || defaultAuth;
     const bindIP = (req.headers.get("x-aurora-bind-ip") || "").trim();
-    const providerType = (req.headers.get("x-aurora-provider-type") || "").trim();
+    const providerType = (
+      req.headers.get("x-aurora-provider-type") || ""
+    ).trim();
     const proxy = BIND_PROXIES.get(bindIP) || "";
 
-    const overrides = await loadOverridesAsync();
     const injectTools =
       overrides.injectTools !== null
         ? overrides.injectTools
@@ -226,8 +300,12 @@ Bun.serve({
 
     // Forward identity headers so operator-managed (extension) rules drive
     // the upstream identity. one-shot validates/falls back as needed.
+    const forwardNames = new Set([
+      ...IDENTITY_HEADERS,
+      ...overrides.forwardHeaders,
+    ]);
     const headers = {};
-    for (const name of IDENTITY_HEADERS) {
+    for (const name of forwardNames) {
       const value = req.headers.get(name);
       if (value) headers[name] = value;
     }
@@ -237,7 +315,9 @@ Bun.serve({
       overrides.toolsPath ||
       process.env.AURORA_SIDECAR_TOOLS_PATH ||
       "";
-    const userAgent = overrides.userAgent || USER_AGENT;
+    const userAgent =
+      overrides.userAgent || process.env.AURORA_SIDECAR_USER_AGENT || "";
+
     const proc = Bun.spawn([process.execPath, ONESHOT], {
       stdin: "pipe",
       stdout: "pipe",
@@ -246,18 +326,33 @@ Bun.serve({
         ...process.env,
         AURORA_SIDECAR_UPSTREAM_URL: UPSTREAM,
         AURORA_SIDECAR_USER_AGENT: userAgent,
-        AURORA_SIDECAR_DEFAULT_AUTH: DEFAULT_AUTH,
+        AURORA_SIDECAR_DEFAULT_AUTH: defaultAuth,
         AURORA_SIDECAR_PROXY: proxy,
         AURORA_SIDECAR_INJECT_TOOLS: inject ? "true" : "false",
         AURORA_SIDECAR_TOOLS_PATH: toolsPath,
-        AURORA_SIDECAR_MAX_ATTEMPTS:
-          process.env.AURORA_SIDECAR_MAX_ATTEMPTS ?? "4",
-        AURORA_SIDECAR_RETRY_DELAY_MS:
-          process.env.AURORA_SIDECAR_RETRY_DELAY_MS ?? "750",
+        AURORA_SIDECAR_PATH_TEMPLATE: overrides.pathTemplate,
+        AURORA_SIDECAR_MAX_ATTEMPTS: String(
+          overrides.maxAttempts ??
+            Number(process.env.AURORA_SIDECAR_MAX_ATTEMPTS ?? "4"),
+        ),
+        AURORA_SIDECAR_RETRY_DELAY_MS: String(
+          overrides.retryDelayMs ??
+            Number(process.env.AURORA_SIDECAR_RETRY_DELAY_MS ?? "750"),
+        ),
+        AURORA_SIDECAR_RETRY_STATUSES: overrides.retryStatuses.join(","),
+        AURORA_SIDECAR_EXTRA_HEADERS: JSON.stringify(overrides.extraHeaders),
+        AURORA_SIDECAR_FORCE_STREAM:
+          overrides.forceStream === null || overrides.forceStream === undefined
+            ? ""
+            : overrides.forceStream
+              ? "true"
+              : "false",
       },
     });
 
-    proc.stdin.write(JSON.stringify({ authorization, headers, payload: JSON.parse(body) }));
+    proc.stdin.write(
+      JSON.stringify({ authorization, headers, payload: JSON.parse(body) }),
+    );
     proc.stdin.end();
 
     const [out, exitCode] = await Promise.all([
@@ -268,7 +363,9 @@ Bun.serve({
     if (exitCode !== 0 && out.trim() === "") {
       const err = await new Response(proc.stderr).text();
       return json(
-        { error: { message: `sidecar process failed: ${err || exitCode}` } },
+        {
+          error: { message: `sidecar process failed: ${err || exitCode}` },
+        },
         502,
       );
     }
@@ -302,6 +399,6 @@ Bun.serve({
 });
 
 console.log(
-  `sidecar listening on http://${HOST}:${PORT} -> ${UPSTREAM || "(unset)"}` +
+  `sidecar listening on http://${HOST}:${PORT} -> ${resolveUpstream() || "(unset)"}` +
     (BIND_PROXIES.size ? ` (${BIND_PROXIES.size} bind proxies)` : ""),
 );

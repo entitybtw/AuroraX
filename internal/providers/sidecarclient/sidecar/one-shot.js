@@ -39,6 +39,22 @@ const MAX_ATTEMPTS = Number(process.env.AURORA_SIDECAR_MAX_ATTEMPTS ?? "4");
 const RETRY_DELAY_MS = Number(
   process.env.AURORA_SIDECAR_RETRY_DELAY_MS ?? "750",
 );
+const PATH_TEMPLATE = (
+  process.env.AURORA_SIDECAR_PATH_TEMPLATE ?? "/chat/completions"
+).trim();
+const RETRY_STATUSES = (
+  process.env.AURORA_SIDECAR_RETRY_STATUSES ?? "403,429"
+)
+  .split(",")
+  .map((s) => Number(s.trim()))
+  .filter((n) => Number.isFinite(n) && n > 0);
+let EXTRA_HEADERS = {};
+try {
+  EXTRA_HEADERS = JSON.parse(process.env.AURORA_SIDECAR_EXTRA_HEADERS ?? "{}");
+} catch {
+  EXTRA_HEADERS = {};
+}
+const FORCE_STREAM_RAW = process.env.AURORA_SIDECAR_FORCE_STREAM ?? "";
 // Optional CONNECT proxy used to egress from a specific IP (multi-IP support).
 const PROXY = (process.env.AURORA_SIDECAR_PROXY ?? "").trim();
 const input = await Bun.stdin.text();
@@ -103,13 +119,21 @@ const authorization =
 
 // Free tiers often require the full tool schema and streaming, else they
 // respond with FreeTierError regardless of the TLS fingerprint.
+// force_stream: overrides.force_stream (via env) wins; empty = force only
+// when tools are injected (legacy free-tier behaviour).
 if (INJECT_TOOLS && (!Array.isArray(payload.tools) || payload.tools.length === 0)) {
   payload.tools = tools;
 }
 if (INJECT_TOOLS && payload.tool_choice === undefined) {
   payload.tool_choice = "auto";
 }
-if (INJECT_TOOLS) {
+const forceStream =
+  FORCE_STREAM_RAW === "true"
+    ? true
+    : FORCE_STREAM_RAW === "false"
+      ? false
+      : INJECT_TOOLS;
+if (forceStream) {
   payload.stream = true;
 }
 
@@ -118,8 +142,13 @@ function buildHeaders() {
     Authorization: authorization,
     "Content-Type": "application/json",
     ...identityHeaders(envelope.headers ?? {}),
+    // Preset extra headers (anthropic-beta, cookies, org ids, …).
+    // Identity / Authorization above win if keys collide after string keys.
   };
   if (USER_AGENT) h["User-Agent"] = USER_AGENT;
+  for (const [k, v] of Object.entries(EXTRA_HEADERS)) {
+    if (typeof v === "string" && v && !(k in h)) h[k] = v;
+  }
   return h;
 }
 
@@ -127,7 +156,10 @@ if (!UPSTREAM) {
   emitError(503, "sidecar upstream not configured");
 }
 
-const url = UPSTREAM.replace(/\/+$/, "") + "/chat/completions";
+const pathTemplate = PATH_TEMPLATE.startsWith("/")
+  ? PATH_TEMPLATE
+  : "/" + PATH_TEMPLATE;
+const url = UPSTREAM.replace(/\/+$/, "") + pathTemplate;
 let resp;
 let raw = "";
 for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -139,8 +171,8 @@ for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
   if (PROXY) opts.proxy = PROXY;
   resp = await fetch(url, opts);
   raw = await resp.text();
-  // 403/429 are transient here (rate limiting / edge rejection).
-  if (resp.status !== 403 && resp.status !== 429) break;
+  // Transient statuses come from overrides.retry_statuses (default 403/429).
+  if (!RETRY_STATUSES.includes(resp.status)) break;
   if (attempt < MAX_ATTEMPTS) {
     await new Promise((r) => setTimeout(r, RETRY_DELAY_MS * attempt));
   }
