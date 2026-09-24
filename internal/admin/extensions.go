@@ -192,7 +192,6 @@ type Extension struct {
 	Homepage     string            `json:"homepage,omitempty"`
 	License      string            `json:"license,omitempty"`
 	Type         string            `json:"type,omitempty"`
-	Tags         []string          `json:"tags,omitempty"`
 	Schema       int               `json:"schema,omitempty"`
 	BaseURL      string            `json:"base_url,omitempty"`
 	UserAgent    string            `json:"user_agent,omitempty"`
@@ -621,22 +620,17 @@ func WithExtensionStore(store *ExtensionStore) Option {
 	}
 }
 
-// ListExtensions returns all imported extensions. Tags are stripped from
-// every response copy; theme detection uses type/ui.theme in the dashboard.
+// ListExtensions returns all imported extensions. Theme detection uses
+// type/ui.theme in the dashboard.
 func (h *Handler) ListExtensions(c *echo.Context) error {
 	if h.extensions == nil {
 		return c.JSON(http.StatusOK, map[string]any{"extensions": []any{}, "presets": []any{}})
 	}
-	list := h.extensions.List()
-	for i := range list {
-		list[i].Tags = nil
-	}
 	// "presets" is a temporary alias for older dashboard builds.
-	return c.JSON(http.StatusOK, map[string]any{"extensions": list, "presets": list})
+	return c.JSON(http.StatusOK, map[string]any{"extensions": h.extensions.List(), "presets": h.extensions.List()})
 }
 
-// GetExtension returns a single extension by id. Tags are stripped from the
-// response copy (see ListExtensions).
+// GetExtension returns a single extension by id.
 func (h *Handler) GetExtension(c *echo.Context) error {
 	if h.extensions == nil {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "extensions unavailable"})
@@ -645,7 +639,6 @@ func (h *Handler) GetExtension(c *echo.Context) error {
 	if !ok {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "extension not found"})
 	}
-	ext.Tags = nil
 	return c.JSON(http.StatusOK, ext)
 }
 
@@ -659,7 +652,6 @@ func (h *Handler) ExportExtension(c *echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "extension not found"})
 	}
 	ext.Builtin = false
-	ext.Tags = nil
 	data, err := json.MarshalIndent(ext, "", "  ")
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -697,7 +689,6 @@ func (h *Handler) ImportExtension(c *echo.Context) error {
 	if err := json.Unmarshal([]byte(raw), &ext); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid extension JSON: " + err.Error()})
 	}
-	ext.Tags = nil
 	if sourceURL != "" {
 		ext.Source = sourceURL
 	}
@@ -748,7 +739,6 @@ func (h *Handler) UpdateExtension(c *echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "name or order is required"})
 	}
 	h.extensions.Upsert(ext)
-	ext.Tags = nil
 	return c.JSON(http.StatusOK, map[string]any{
 		"status":    "ok",
 		"extension": ext,
@@ -770,13 +760,9 @@ func (h *Handler) ReorderExtensions(c *echo.Context) error {
 	if err := h.extensions.Reorder(req.IDs); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
-	list := h.extensions.List()
-	for i := range list {
-		list[i].Tags = nil
-	}
 	return c.JSON(http.StatusOK, map[string]any{
 		"status":     "ok",
-		"extensions": list,
+		"extensions": h.extensions.List(),
 	})
 }
 
@@ -1409,7 +1395,6 @@ func (h *Handler) UpdateExtensionFromSource(c *echo.Context) error {
 	updated := strings.TrimSpace(remote.Version) != strings.TrimSpace(ext.Version)
 	h.extensions.Import(remote)
 	saved, _ := h.extensions.Get(ext.ID)
-	saved.Tags = nil
 	return c.JSON(http.StatusOK, map[string]any{
 		"status":    "ok",
 		"updated":   updated,
