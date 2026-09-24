@@ -35,8 +35,8 @@ func envSidecarURL() string {
 // Only staged via providers.RegisterOptional — not Add()ed by default.
 // base_url must come from provider config or the extension (sidecar overrides).
 var Registration = providers.Registration{
-	Type:  "",
-	New:   New,
+	Type: "",
+	New:  New,
 	Discovery: providers.DiscoveryConfig{
 		DefaultBaseURL:  baseURLOverride,
 		RequireBaseURL:  false,
@@ -78,6 +78,25 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 		if opts.== "" {
 			opts.= def.
 		}
+		if opts.== "" {
+			opts.= def.
+		}
+		if opts.== "" {
+			opts.= def.
+		}
+		if opts.== "" {
+			opts.= def.
+		}
+		if opts.== "" {
+			opts.= def.
+		}
+		if opts.== "" {
+			opts.= def.
+		}
+		if opts.== "" {
+			opts.= def.
+		}
+		opts.= opts.|| def.
 	}
 
 	// Signal provider type to the sidecar so it can scope inject_tools.

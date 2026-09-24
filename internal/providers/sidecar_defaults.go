@@ -6,12 +6,21 @@ import (
 	"strings"
 )
 
-// Sidecarare extension-supplied device-flow values loaded from
-// the sidecar overrides JSON (written when an extension is applied).
+// Sidecarare extension-supplied values loaded from the
+// sidecar overrides JSON (written when an extension is applied). Covers both
+// the device flow and authorization-code + PKCE when present.
 type Sidecarstruct {
 	string
 	string
 	BaseURL       string
+	// Authorization-code + PKCE (empty grant = device when server is set).
+	string
+	string
+	string
+	string
+	string
+	bool
+	string
 }
 
 // LoadSidecarreads sidecar-overrides.json. Empty path env falls
@@ -28,14 +37,28 @@ func LoadSidecar() Sidecar{
 	var raw struct {
 		string `json:""`
 		string `json:""`
-		BaseURL       string `json:"base_url"`
+		BaseURL              string `json:"base_url"`
+		string `json:""`
+		string `json:""`
+		string `json:""`
+		string `json:""`
+		string `json:""`
+		bool   `json:""`
+		string `json:""`
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return Sidecar{}
 	}
 	return Sidecar{
-		:   strings.TrimSpace(raw.),
-		: strings.TrimSpace(raw.),
-		BaseURL:       strings.TrimSpace(raw.BaseURL),
+		:          strings.TrimSpace(raw.),
+		:        strings.TrimSpace(raw.),
+		BaseURL:              strings.TrimSpace(raw.BaseURL),
+		:           strings.TrimSpace(raw.),
+		:    strings.TrimSpace(raw.),
+		:        strings.TrimSpace(raw.),
+		:      strings.TrimSpace(raw.),
+		:          strings.TrimSpace(raw.),
+		: raw.,
+		:     strings.TrimSpace(raw.),
 	}
 }

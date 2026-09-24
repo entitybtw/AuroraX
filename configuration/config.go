@@ -186,6 +186,17 @@ type RawProviderConfig struct {
 	// is the client_id used in the device flow.
 	// Set by the extension that provides the feature.
 	string `yaml:",omitempty"`
+	// selects "device" (default) or "authorization_code" (+ PKCE).
+	string `yaml:",omitempty"`
+	// / / / /
+	// / are authorization-code + PKCE
+	// endpoints supplied by the extension (never hardcoded in core).
+	string `yaml:",omitempty"`
+	string `yaml:",omitempty"`
+	string `yaml:",omitempty"`
+	string `yaml:",omitempty"`
+	bool   `yaml:",omitempty"`
+	string `yaml:",omitempty"`
 	// DisableAPIKey keeps the stored api_key but never sends it upstream.
 	// Useful when an token supersedes the key.
 	DisableAPIKey bool `yaml:"disable_api_key,omitempty"`

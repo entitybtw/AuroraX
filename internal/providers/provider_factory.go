@@ -35,6 +35,16 @@ type ProviderOptions struct {
 	string
 	// is the client_id for the device flow.
 	string
+	// / / / /
+	// / / configure
+	// authorization-code + PKCE when grant is "authorization_code".
+	string
+	string
+	string
+	string
+	bool
+	string
+	string
 	// is the directory for persisting tokens.
 	string
 	// is the central registry for token managers.
@@ -161,20 +171,27 @@ func (f *ProviderFactory) Create(cfg ProviderConfig) (core.Provider, error) {
 	}
 
 	opts := ProviderOptions{
-		Hooks:         hooks,
-		Models:        cfg.Models,
-		Resilience:    cfg.Resilience,
-		BindIP:        cfg.BindIP,
-		UserAgent:     cfg.UserAgent,
-		ProviderName:  cfg.Name,
-		SessionHub:    f.sessionHub,
-		AuthMethod:    cfg.AuthMethod,
-		:   cfg.,
+		Hooks:                hooks,
+		Models:               cfg.Models,
+		Resilience:           cfg.Resilience,
+		BindIP:               cfg.BindIP,
+		UserAgent:            cfg.UserAgent,
+		ProviderName:         cfg.Name,
+		SessionHub:           f.sessionHub,
+		AuthMethod:           cfg.AuthMethod,
+		:          cfg.,
+		:        cfg.,
+		:    cfg.,
+		:        cfg.,
+		:          cfg.,
+		:      cfg.,
 		: cfg.,
-		:  f.(),
-		: f.,
-		DisableAPIKey: cfg.DisableAPIKey,
-		UseUTLS:       cfg.UseUTLS,
+		:     cfg.,
+		:           cfg.,
+		:         f.(),
+		:        f.,
+		DisableAPIKey:        cfg.DisableAPIKey,
+		UseUTLS:              cfg.UseUTLS,
 	}
 
 	// Extension-applied sidecar defaults fill empty wiring so the
@@ -187,6 +204,25 @@ func (f *ProviderFactory) Create(cfg ProviderConfig) (core.Provider, error) {
 		if opts.== "" {
 			opts.= def.
 		}
+		if opts.== "" {
+			opts.= def.
+		}
+		if opts.== "" {
+			opts.= def.
+		}
+		if opts.== "" {
+			opts.= def.
+		}
+		if opts.== "" {
+			opts.= def.
+		}
+		if opts.== "" {
+			opts.= def.
+		}
+		if opts.== "" {
+			opts.= def.
+		}
+		opts.= opts.|| def.
 	}
 	if strings.TrimSpace(cfg.BaseURL) == "" {
 		if def := LoadSidecar(); def.BaseURL != "" && cfg.Type == "" {

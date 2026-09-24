@@ -607,6 +607,26 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 					.WithVerificationBaseFunc(func() string {
 						return sc.Get().
 					})
+					// Authorization-code + PKCE from the same extension block.
+					.WithAuthCodeConfigFunc(func() .AuthCodeConfig {
+						s := sc.Get()
+						return .AuthCodeConfig{
+							AuthorizeURL:    s.,
+							TokenURL:        s.,
+							ClientID:        s.,
+							Scopes:          s.,
+							RedirectURI:     s.,
+							TokenStyle:      s.,
+							StateIsVerifier: s.,
+						}
+					})
+					.WithFlowFunc(func() string {
+						s := sc.Get()
+						if strings.EqualFold(strings.TrimSpace(s.), "authorization_code") {
+							return "authorization_code"
+						}
+						return "device"
+					})
 				}
 				serverCfg.= 
 				slog.Info("device flow enabled", "providers", .Len())

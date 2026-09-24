@@ -157,8 +157,9 @@ type ExtensionTool struct {
 	InlineJSON json.RawMessage `json:"inline,omitempty"`
 }
 
-// Extensioncarries device-flow wiring an extension supplies so the
-// gateway and dashboard do not hardcode provider-specific endpoints.
+// Extensioncarries device-flow or authorization-code+PKCE wiring an
+// extension supplies so the gateway and dashboard do not hardcode
+// provider-specific endpoints.
 type Extensionstruct {
 	// Server is the authorization server base URL (device authorization).
 	Server string `json:"server,omitempty"`
@@ -171,6 +172,21 @@ type Extensionstruct {
 	UserAgent string `json:"user_agent,omitempty"`
 	// Scope is an optional scope string.
 	Scope string `json:"scope,omitempty"`
+	// Grant selects the flow: "device" (default) or "authorization_code".
+	Grant string `json:"grant,omitempty"`
+	// AuthorizeURL is the browser authorize endpoint (authorization_code).
+	AuthorizeURL string `json:"authorize_url,omitempty"`
+	// TokenURL is the token endpoint for code exchange / refresh (JSON body
+	// unless TokenStyle is "form").
+	TokenURL string `json:"token_url,omitempty"`
+	// TokenStyle: "json" (default) or "form".
+	TokenStyle string `json:"token_style,omitempty"`
+	// Scopes is the space-delimited scope list for authorization_code.
+	Scopes string `json:"scopes,omitempty"`
+	// StateIsVerifier: when true, state equals the PKCE code_verifier.
+	StateIsVerifier bool `json:"state_is_verifier,omitempty"`
+	// RedirectURI overrides the loopback redirect (default 127.0.0.1 callback).
+	RedirectURI string `json:"redirect_uri,omitempty"`
 }
 
 // ExtensionProvides declares optional capabilities that are not built into the
@@ -1008,6 +1024,20 @@ func (h *Handler) buildApplyResponse(c *echo.Context) (map[string]any, Extension
 			next.= v
 		case "":
 			next.= v
+		case "":
+			next.= v
+		case "":
+			next.= v
+		case "":
+			next.= v
+		case "":
+			next.= v
+		case "":
+			next.= v
+		case "":
+			next.= v
+		case "":
+			next.= strings.EqualFold(strings.TrimSpace(v), "true")
 		case "path_template":
 			next.PathTemplate = v
 		case "models_path":
@@ -1024,7 +1054,8 @@ func (h *Handler) buildApplyResponse(c *echo.Context) (map[string]any, Extension
 			next.ToolsPath = toolsPath
 		}
 	}
-	// Extension becomes the sidecar/global defaults for device flow.
+	// Extension becomes the sidecar/global defaults for device or
+	// authorization-code (+ PKCE) flow.
 	if ext.!= nil {
 		if ext..Server != "" {
 			next.= ext..Server
@@ -1034,6 +1065,25 @@ func (h *Handler) buildApplyResponse(c *echo.Context) (map[string]any, Extension
 		}
 		if ext..VerificationBase != "" {
 			next.= ext..VerificationBase
+		}
+		if ext..Grant != "" {
+			next.= ext..Grant
+		}
+		if ext..AuthorizeURL != "" {
+			next.= ext..AuthorizeURL
+		}
+		if ext..TokenURL != "" {
+			next.= ext..TokenURL
+		}
+		if ext..TokenStyle != "" {
+			next.= ext..TokenStyle
+		}
+		if ext..Scopes != "" {
+			next.= ext..Scopes
+		}
+		next.= ext..StateIsVerifier
+		if ext..RedirectURI != "" {
+			next.= ext..RedirectURI
 		}
 	}
 	h.sidecarStore.update(next)
