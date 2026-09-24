@@ -119,8 +119,14 @@ type ExtensionUI struct {
 	DocsURL string           `json:"docs_url,omitempty"`
 	Help    string           `json:"help,omitempty"`
 	Fields  []ExtensionField `json:"fields,omitempty"`
-	// Theme maps restricted CSS custom properties (e.g. --accent, --radius).
+	// Theme maps CSS custom properties applied as the base/dark palette.
 	Theme map[string]string `json:"theme,omitempty"`
+	// ThemeLight overrides applied when the dashboard is in light mode
+	// (data-theme="light" or prefers-color-scheme: light). Merged on top of Theme.
+	ThemeLight map[string]string `json:"theme_light,omitempty"`
+	// ThemeDark overrides applied when the dashboard is in dark mode.
+	// Merged on top of Theme (usually redundant with Theme alone).
+	ThemeDark map[string]string `json:"theme_dark,omitempty"`
 	// Nav adds sidebar entries (usually pointing at ui.pages paths).
 	Nav []ExtensionNavEntry `json:"nav,omitempty"`
 	// HideNav hides built-in sidebar labels or path suffixes (case-insensitive).
@@ -962,6 +968,29 @@ func (h *Handler) buildApplyResponse(c *echo.Context) (map[string]any, Extension
 	if ext.RetryDelayMs > 0 {
 		next.RetryDelayMs = ext.RetryDelayMs
 	}
+	// Optional flexible sidecar routing / header policy from settings JSON.
+	if raw, ok := ext.Settings["extra_headers"]; ok && strings.TrimSpace(raw) != "" {
+		var m map[string]string
+		if json.Unmarshal([]byte(raw), &m) == nil && len(m) > 0 {
+			next.ExtraHeaders = m
+		}
+	}
+	if raw, ok := ext.Settings["forward_headers"]; ok && strings.TrimSpace(raw) != "" {
+		var list []string
+		if json.Unmarshal([]byte(raw), &list) == nil && len(list) > 0 {
+			next.ForwardHeaders = list
+		}
+	}
+	if raw, ok := ext.Settings["retry_statuses"]; ok && strings.TrimSpace(raw) != "" {
+		var list []int
+		if json.Unmarshal([]byte(raw), &list) == nil && len(list) > 0 {
+			next.RetryStatuses = list
+		}
+	}
+	if raw, ok := ext.Settings["force_stream"]; ok {
+		v := strings.EqualFold(strings.TrimSpace(raw), "true")
+		next.ForceStream = &v
+	}
 	// Free-form extension settings keyed onto known sidecar knobs.
 	for k, v := range ext.Settings {
 		switch strings.ToLower(k) {
@@ -979,6 +1008,10 @@ func (h *Handler) buildApplyResponse(c *echo.Context) (map[string]any, Extension
 			next.OAuthClientID = v
 		case "oauth_verification_base":
 			next.OAuthVerificationBase = v
+		case "path_template":
+			next.PathTemplate = v
+		case "models_path":
+			next.ModelsPath = v
 		}
 	}
 	// Materialise extension payload files (tool schemas, scripts, …).
@@ -1164,6 +1197,27 @@ func extensionUIWithConfig(e Extension) ExtensionUI {
 		theme[key] = value
 	}
 	e.UI.Theme = theme
+	// Config overrides also apply to the light/dark variants when present.
+	if len(e.UI.ThemeLight) > 0 {
+		light := make(map[string]string, len(e.UI.ThemeLight)+len(overrides))
+		for key, value := range e.UI.ThemeLight {
+			light[key] = value
+		}
+		for key, value := range overrides {
+			light[key] = value
+		}
+		e.UI.ThemeLight = light
+	}
+	if len(e.UI.ThemeDark) > 0 {
+		dark := make(map[string]string, len(e.UI.ThemeDark)+len(overrides))
+		for key, value := range e.UI.ThemeDark {
+			dark[key] = value
+		}
+		for key, value := range overrides {
+			dark[key] = value
+		}
+		e.UI.ThemeDark = dark
+	}
 	return e.UI
 }
 
@@ -1184,7 +1238,8 @@ func (h *Handler) ListExtensionUI(c *echo.Context) error {
 			len(ui.Banners) == 0 && len(ui.Widgets) == 0 &&
 			len(ui.SettingsTabs) == 0 && len(ui.HideNav) == 0 &&
 			len(ui.HideSettingsTabs) == 0 && ui.Help == "" &&
-			len(ui.Theme) == 0 && ui.LogoText == "" && ui.LogoURL == "" {
+			len(ui.Theme) == 0 && len(ui.ThemeLight) == 0 && len(ui.ThemeDark) == 0 &&
+			ui.LogoText == "" && ui.LogoURL == "" {
 			continue
 		}
 		out = append(out, ExtensionUIContribution{ID: e.ID, Name: e.Name, Type: e.Type, UI: ui})

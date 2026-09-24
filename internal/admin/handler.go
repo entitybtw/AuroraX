@@ -58,7 +58,9 @@ type Handler struct {
 	providerOverrides    *ProviderOverrideStore
 	poolWeights          *PoolOverrideStore
 	oauthRegistry        *oauth.Registry
-	sessionHub           interface{ Apply(map[string][]string, string) map[string]string }
+	sessionHub           interface {
+		Apply(map[string][]string, string) map[string]string
+	}
 	sessionHeaderEnsurer SessionHeaderEnsurer
 	sidecarStore         *SidecarOverrideStore
 	extensions           *ExtensionStore
@@ -100,35 +102,43 @@ const statusClientClosedRequest = 499
 
 // DashboardConfigResponse is the allowlisted runtime config contract exposed to the dashboard UI.
 type DashboardConfigResponse struct {
-	Edition               string                    `json:"EDITION,omitempty"`
-	Capabilities          []string                  `json:"CAPABILITIES,omitempty"`
-	CapabilityMap         map[string]bool           `json:"capabilities,omitempty"`
-	FeatureFallbackMode   string                    `json:"FEATURE_FALLBACK_MODE,omitempty"`
-	LoggingEnabled        string                    `json:"LOGGING_ENABLED,omitempty"`
-	UsageEnabled          string                    `json:"USAGE_ENABLED,omitempty"`
-	BudgetsEnabled        string                    `json:"BUDGETS_ENABLED,omitempty"`
-	GuardrailsEnabled     string                    `json:"GUARDRAILS_ENABLED,omitempty"`
-	CacheEnabled          string                    `json:"CACHE_ENABLED,omitempty"`
-	RedisURL              string                    `json:"REDIS_URL,omitempty"`
-	SemanticCacheEnabled  string                    `json:"SEMANTIC_CACHE_ENABLED,omitempty"`
-	PricingRecalculation  string                    `json:"USAGE_PRICING_RECALCULATION_ENABLED,omitempty"`
-	Fallback              FallbackConfigSnapshot    `json:"fallback"`
-	Settings              DashboardSettingsSnapshot `json:"settings,omitempty"`
-	RuntimeFeatures       []RuntimeFeatureSnapshot  `json:"runtime_features,omitempty"`
+	Edition              string                    `json:"EDITION,omitempty"`
+	Capabilities         []string                  `json:"CAPABILITIES,omitempty"`
+	CapabilityMap        map[string]bool           `json:"capabilities,omitempty"`
+	FeatureFallbackMode  string                    `json:"FEATURE_FALLBACK_MODE,omitempty"`
+	LoggingEnabled       string                    `json:"LOGGING_ENABLED,omitempty"`
+	UsageEnabled         string                    `json:"USAGE_ENABLED,omitempty"`
+	BudgetsEnabled       string                    `json:"BUDGETS_ENABLED,omitempty"`
+	GuardrailsEnabled    string                    `json:"GUARDRAILS_ENABLED,omitempty"`
+	CacheEnabled         string                    `json:"CACHE_ENABLED,omitempty"`
+	RedisURL             string                    `json:"REDIS_URL,omitempty"`
+	SemanticCacheEnabled string                    `json:"SEMANTIC_CACHE_ENABLED,omitempty"`
+	PricingRecalculation string                    `json:"USAGE_PRICING_RECALCULATION_ENABLED,omitempty"`
+	Fallback             FallbackConfigSnapshot    `json:"fallback"`
+	Settings             DashboardSettingsSnapshot `json:"settings,omitempty"`
+	RuntimeFeatures      []RuntimeFeatureSnapshot  `json:"runtime_features,omitempty"`
 }
 
 type DashboardSettingsSnapshot struct {
-	Client               DashboardClientSettingsSnapshot               `json:"client"`
-	Caching              DashboardCachingSettingsSnapshot              `json:"caching"`
-	Logging              DashboardLoggingSettingsSnapshot              `json:"logging"`
-	Observability        DashboardObservabilitySettingsSnapshot        `json:"observability"`
-	Storage              DashboardStorageSettingsSnapshot              `json:"storage"`
-	Performance          DashboardPerformanceSettingsSnapshot          `json:"performance"`
-	Security             DashboardSecuritySettingsSnapshot             `json:"security"`
-	Pricing              DashboardPricingSettingsSnapshot              `json:"pricing"`
-	TokenSaver           DashboardTokenSaverSettingsSnapshot           `json:"token_saver"`
-	Proxy                DashboardProxySettingsSnapshot                `json:"proxy"`
-	ResponseHeaders      DashboardResponseHeadersSettingsSnapshot      `json:"response_headers"`
+	Client          DashboardClientSettingsSnapshot          `json:"client"`
+	Caching         DashboardCachingSettingsSnapshot         `json:"caching"`
+	Logging         DashboardLoggingSettingsSnapshot         `json:"logging"`
+	Observability   DashboardObservabilitySettingsSnapshot   `json:"observability"`
+	Storage         DashboardStorageSettingsSnapshot         `json:"storage"`
+	Performance     DashboardPerformanceSettingsSnapshot     `json:"performance"`
+	Security        DashboardSecuritySettingsSnapshot        `json:"security"`
+	Pricing         DashboardPricingSettingsSnapshot         `json:"pricing"`
+	TokenSaver      DashboardTokenSaverSettingsSnapshot      `json:"token_saver"`
+	Proxy           DashboardProxySettingsSnapshot           `json:"proxy"`
+	ResponseHeaders DashboardResponseHeadersSettingsSnapshot `json:"response_headers"`
+	UI              DashboardUISettingsSnapshot              `json:"ui"`
+}
+
+// DashboardUISettingsSnapshot reports which features are hidden from the
+// dashboard. Hidden features are not deleted — only their UI surfaces and
+// routes are gated until the operator re-enables them.
+type DashboardUISettingsSnapshot struct {
+	HiddenFeatures []string `json:"hidden_features"`
 }
 
 type DashboardStorageSettingsSnapshot struct {
@@ -141,13 +151,13 @@ type DashboardStorageSettingsSnapshot struct {
 }
 
 type DashboardClientSettingsSnapshot struct {
-	Port                            string   `json:"port,omitempty"`
-	BasePath                        string   `json:"base_path,omitempty"`
-	BodySizeLimit                   string   `json:"body_size_limit,omitempty"`
-	SwaggerEnabled                  bool     `json:"swagger_enabled"`
-	PprofEnabled                    bool     `json:"pprof_enabled"`
-	AdminEndpointsEnabled           bool     `json:"admin_endpoints_enabled"`
-	AdminUIEnabled                  bool     `json:"admin_ui_enabled"`
+	Port                  string `json:"port,omitempty"`
+	BasePath              string `json:"base_path,omitempty"`
+	BodySizeLimit         string `json:"body_size_limit,omitempty"`
+	SwaggerEnabled        bool   `json:"swagger_enabled"`
+	PprofEnabled          bool   `json:"pprof_enabled"`
+	AdminEndpointsEnabled bool   `json:"admin_endpoints_enabled"`
+	AdminUIEnabled        bool   `json:"admin_ui_enabled"`
 
 	EnableAnthropicIngress          bool     `json:"enable_anthropic_ingress"`
 	EnablePassthroughRoutes         bool     `json:"enable_passthrough_routes"`
@@ -236,15 +246,15 @@ type DashboardProxySettingsSnapshot struct {
 }
 
 type DashboardResponseHeadersSettingsSnapshot struct {
-	Enabled               bool                                `json:"enabled"`
-	Mode                  string                              `json:"mode"`
-	IncludeFallback       bool                                `json:"include_fallback"`
-	IncludeNonFallback    bool                                `json:"include_non_fallback"`
-	ActualProviderHeader  bool                                `json:"actual_provider_header"`
-	ActualModelHeader     bool                                `json:"actual_model_header"`
-	RequestedModelHeader  bool                                `json:"requested_model_header"`
-	FallbackChainHeader   bool                                `json:"fallback_chain_header"`
-	CustomHeaders         []DashboardCustomResponseHeader      `json:"custom_headers"`
+	Enabled              bool                            `json:"enabled"`
+	Mode                 string                          `json:"mode"`
+	IncludeFallback      bool                            `json:"include_fallback"`
+	IncludeNonFallback   bool                            `json:"include_non_fallback"`
+	ActualProviderHeader bool                            `json:"actual_provider_header"`
+	ActualModelHeader    bool                            `json:"actual_model_header"`
+	RequestedModelHeader bool                            `json:"requested_model_header"`
+	FallbackChainHeader  bool                            `json:"fallback_chain_header"`
+	CustomHeaders        []DashboardCustomResponseHeader `json:"custom_headers"`
 }
 
 type DashboardCustomResponseHeader struct {
@@ -363,9 +373,9 @@ type providerStatusItemResponse struct {
 }
 
 type providerOAuthStatus struct {
-	HasToken bool   `json:"has_token"`
-	Expired  bool   `json:"expired"`
-	Email    string `json:"email,omitempty"`
+	HasToken  bool   `json:"has_token"`
+	Expired   bool   `json:"expired"`
+	Email     string `json:"email,omitempty"`
 	AccountID string `json:"account_id,omitempty"`
 }
 
@@ -687,34 +697,34 @@ func NewHandler(reader usage.UsageReader, registry *providers.ModelRegistry, opt
 
 func normalizeDashboardRuntimeConfig(values DashboardConfigResponse) DashboardConfigResponse {
 	return DashboardConfigResponse{
-		Edition:               strings.TrimSpace(values.Edition),
-		Capabilities:          normalizeStringSlice(values.Capabilities),
-		CapabilityMap:         normalizeCapabilityMap(values.CapabilityMap),
-		FeatureFallbackMode:   strings.TrimSpace(values.FeatureFallbackMode),
-		LoggingEnabled:        strings.TrimSpace(values.LoggingEnabled),
-		UsageEnabled:          strings.TrimSpace(values.UsageEnabled),
-		BudgetsEnabled:        strings.TrimSpace(values.BudgetsEnabled),
-		GuardrailsEnabled:     strings.TrimSpace(values.GuardrailsEnabled),
-		CacheEnabled:          strings.TrimSpace(values.CacheEnabled),
-		RedisURL:              strings.TrimSpace(values.RedisURL),
-		SemanticCacheEnabled:  strings.TrimSpace(values.SemanticCacheEnabled),
-		PricingRecalculation:  strings.TrimSpace(values.PricingRecalculation),
-		Fallback:              normalizeFallbackConfigSnapshot(values.Fallback),
-		Settings:              normalizeDashboardSettingsSnapshot(values.Settings),
-		RuntimeFeatures:       normalizeRuntimeFeatureSnapshots(values.RuntimeFeatures),
+		Edition:              strings.TrimSpace(values.Edition),
+		Capabilities:         normalizeStringSlice(values.Capabilities),
+		CapabilityMap:        normalizeCapabilityMap(values.CapabilityMap),
+		FeatureFallbackMode:  strings.TrimSpace(values.FeatureFallbackMode),
+		LoggingEnabled:       strings.TrimSpace(values.LoggingEnabled),
+		UsageEnabled:         strings.TrimSpace(values.UsageEnabled),
+		BudgetsEnabled:       strings.TrimSpace(values.BudgetsEnabled),
+		GuardrailsEnabled:    strings.TrimSpace(values.GuardrailsEnabled),
+		CacheEnabled:         strings.TrimSpace(values.CacheEnabled),
+		RedisURL:             strings.TrimSpace(values.RedisURL),
+		SemanticCacheEnabled: strings.TrimSpace(values.SemanticCacheEnabled),
+		PricingRecalculation: strings.TrimSpace(values.PricingRecalculation),
+		Fallback:             normalizeFallbackConfigSnapshot(values.Fallback),
+		Settings:             normalizeDashboardSettingsSnapshot(values.Settings),
+		RuntimeFeatures:      normalizeRuntimeFeatureSnapshots(values.RuntimeFeatures),
 	}
 }
 
 func normalizeDashboardSettingsSnapshot(values DashboardSettingsSnapshot) DashboardSettingsSnapshot {
 	return DashboardSettingsSnapshot{
 		Client: DashboardClientSettingsSnapshot{
-			Port:                            strings.TrimSpace(values.Client.Port),
-			BasePath:                        strings.TrimSpace(values.Client.BasePath),
-			BodySizeLimit:                   strings.TrimSpace(values.Client.BodySizeLimit),
-			SwaggerEnabled:                  values.Client.SwaggerEnabled,
-			PprofEnabled:                    values.Client.PprofEnabled,
-			AdminEndpointsEnabled:           values.Client.AdminEndpointsEnabled,
-			AdminUIEnabled:                  values.Client.AdminUIEnabled,
+			Port:                  strings.TrimSpace(values.Client.Port),
+			BasePath:              strings.TrimSpace(values.Client.BasePath),
+			BodySizeLimit:         strings.TrimSpace(values.Client.BodySizeLimit),
+			SwaggerEnabled:        values.Client.SwaggerEnabled,
+			PprofEnabled:          values.Client.PprofEnabled,
+			AdminEndpointsEnabled: values.Client.AdminEndpointsEnabled,
+			AdminUIEnabled:        values.Client.AdminUIEnabled,
 
 			EnableAnthropicIngress:          values.Client.EnableAnthropicIngress,
 			EnablePassthroughRoutes:         values.Client.EnablePassthroughRoutes,
@@ -832,7 +842,33 @@ func normalizeDashboardSettingsSnapshot(values DashboardSettingsSnapshot) Dashbo
 			ConfiguredBudgetUserPathCount: values.Pricing.ConfiguredBudgetUserPathCount,
 		},
 		TokenSaver: normalizeTokenSaverSettingsSnapshot(values.TokenSaver),
+		UI: DashboardUISettingsSnapshot{
+			HiddenFeatures: normalizeHiddenFeatureIDs(values.UI.HiddenFeatures),
+		},
 	}
+}
+
+func normalizeHiddenFeatureIDs(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.ToLower(strings.TrimSpace(value))
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func normalizeTokenSaverSettingsSnapshot(values DashboardTokenSaverSettingsSnapshot) DashboardTokenSaverSettingsSnapshot {
@@ -847,8 +883,8 @@ func normalizeTokenSaverSettingsSnapshot(values DashboardTokenSaverSettingsSnaps
 		OnError:         strings.TrimSpace(values.OnError),
 		ModelInclude:    normalizeStringSlice(values.ModelInclude),
 		ModelExclude:    normalizeStringSlice(values.ModelExclude),
-		ProviderInclude:       normalizeStringSlice(values.ProviderInclude),
-		ProviderExclude:       normalizeStringSlice(values.ProviderExclude),
+		ProviderInclude: normalizeStringSlice(values.ProviderInclude),
+		ProviderExclude: normalizeStringSlice(values.ProviderExclude),
 		AuditEnabled:    values.AuditEnabled,
 	}
 }

@@ -34,6 +34,23 @@ type SidecarSettings struct {
 	OAuthServer           string `json:"oauth_server,omitempty"`
 	OAuthClientID         string `json:"oauth_client_id,omitempty"`
 	OAuthVerificationBase string `json:"oauth_verification_base,omitempty"`
+	// PathTemplate is the upstream path appended to base_url for chat
+	// completions (default "/chat/completions"). Presets may point at
+	// alternative OpenAI-compatible routes.
+	PathTemplate string `json:"path_template,omitempty"`
+	// ModelsPath overrides the upstream path for GET /v1/models (default "/models").
+	ModelsPath string `json:"models_path,omitempty"`
+	// ExtraHeaders are static headers always sent upstream (merged after
+	// envelope headers; Authorization/Content-Type/User-Agent win if set).
+	ExtraHeaders map[string]string `json:"extra_headers,omitempty"`
+	// ForwardHeaders lists additional inbound header names to forward
+	// upstream (in addition to identity headers).
+	ForwardHeaders []string `json:"forward_headers,omitempty"`
+	// RetryStatuses replaces the default retry status set (403, 429).
+	RetryStatuses []int `json:"retry_statuses,omitempty"`
+	// ForceStream when true forces stream=true on upstream chat requests.
+	// Null/absent: stream forced only when inject_tools is on.
+	ForceStream *bool `json:"force_stream,omitempty"`
 }
 
 // SidecarProxy represents a single per-IP CONNECT proxy entry.
@@ -128,6 +145,12 @@ func (s *SidecarOverrideStore) load() {
 	s.settings.OAuthServer = loaded.OAuthServer
 	s.settings.OAuthClientID = loaded.OAuthClientID
 	s.settings.OAuthVerificationBase = loaded.OAuthVerificationBase
+	s.settings.PathTemplate = loaded.PathTemplate
+	s.settings.ModelsPath = loaded.ModelsPath
+	s.settings.ExtraHeaders = loaded.ExtraHeaders
+	s.settings.ForwardHeaders = loaded.ForwardHeaders
+	s.settings.RetryStatuses = loaded.RetryStatuses
+	s.settings.ForceStream = loaded.ForceStream
 }
 
 func (s *SidecarOverrideStore) save() {
