@@ -94,11 +94,24 @@ function isAllowedThemeVar(key: string): boolean {
   return /^--chart-cat-\d+$/.test(key);
 }
 
+function isValidAccent(value: unknown): value is string {
+  return typeof value === "string" && /^#[0-9a-fA-F]{3,8}$/.test(value);
+}
+
+function isThemeContribution(c: ExtensionUIContribution): boolean {
+  if (c.type === "theme") return true;
+  const theme = c.ui.theme;
+  return theme != null && Object.keys(theme).length > 0;
+}
+
 function sanitizeThemeVars(
   contributions: ExtensionUIContribution[],
 ): Record<string, string> {
   const out: Record<string, string> = {};
   for (const c of contributions) {
+    if (isThemeContribution(c) && isValidAccent(c.ui.accent)) {
+      out["--accent"] = c.ui.accent;
+    }
     const theme = c.ui.theme;
     if (theme) {
       for (const [k, v] of Object.entries(theme)) {
@@ -107,9 +120,6 @@ function sanitizeThemeVars(
         if (/[;{}<>]/.test(v)) continue;
         out[k] = v;
       }
-    }
-    if (c.ui.accent && /^#[0-9a-fA-F]{3,8}$/.test(c.ui.accent)) {
-      out["--accent"] = c.ui.accent;
     }
   }
   return out;
@@ -165,14 +175,12 @@ export function ExtensionUIProvider({ children }: { children: React.ReactNode })
 
   React.useEffect(() => {
     const root = document.documentElement;
-    const applied: string[] = [];
+    for (const key of THEME_VAR_ALLOWLIST) {
+      if (themeVars[key] === undefined) root.style.removeProperty(key);
+    }
     for (const [k, v] of Object.entries(themeVars)) {
       root.style.setProperty(k, v);
-      applied.push(k);
     }
-    return () => {
-      for (const k of applied) root.style.removeProperty(k);
-    };
   }, [themeVars]);
 
   const value = React.useMemo<ExtensionUIContextValue>(

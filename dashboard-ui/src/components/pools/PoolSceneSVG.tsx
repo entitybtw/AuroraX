@@ -22,7 +22,7 @@ export function PoolSceneSVG({ pool, onMemberHover }: PoolSceneSVGProps) {
   return (
     <div
       ref={containerRef}
-      className="relative h-[520px] w-full overflow-hidden border border-border/40 bg-surface"
+      className="relative h-[300px] sm:h-[400px] md:h-[520px] w-full overflow-hidden border border-border/40 bg-surface"
     >
       <svg
         width={dims.width}

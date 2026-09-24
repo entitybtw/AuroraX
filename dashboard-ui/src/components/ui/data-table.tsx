@@ -15,7 +15,7 @@ export function TableWrap({
         className,
       )}
     >
-      <div className="overflow-x-auto -webkit-overflow-scrolling-touch">{children}</div>
+      <div className="overflow-x-auto [-webkit-overflow-scrolling:touch]">{children}</div>
     </div>
   );
 }

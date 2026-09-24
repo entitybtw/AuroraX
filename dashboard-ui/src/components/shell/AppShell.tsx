@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Outlet, useRouterState, useNavigate } from "@tanstack/react-router";
 import { Sidebar } from "./Sidebar";
+import { BottomNav } from "./BottomNav";
 import { AuthDialog } from "./AuthDialog";
 import { useDashboardConfig } from "@/lib/api/useDashboardConfig";
 import { flagOn, hasCapability } from "@/lib/api/dashboard-config";
@@ -194,17 +195,18 @@ export function AppShell(): JSX.Element {
         />
         {mobileOpen && (
           <div
-            className="fixed inset-0 z-30 bg-black/50 md:hidden"
+            className="fixed inset-0 z-[45] bg-black/50 md:hidden"
             onClick={() => setMobileOpen(false)}
           />
         )}
-        <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden p-4 pt-16 md:p-6 md:pt-6 lg:p-10 mx-auto w-full transition-all duration-300 ease-[var(--ease-ios)]">
+        <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden p-4 pt-16 pb-24 md:p-6 md:pt-6 md:pb-6 lg:p-10 mx-auto w-full transition-all duration-300 ease-[var(--ease-ios)]">
           <div className="fixed top-0 left-0 right-0 z-40 h-14 bg-surface/95 backdrop-blur-xl border-b border-border md:hidden flex items-center px-4 gap-3">
             <button
               type="button"
               onClick={() => setMobileOpen((prev) => !prev)}
-              className="relative w-10 h-10 flex items-center justify-center rounded-lg bg-background border border-border text-foreground active:scale-95 transition-all overflow-hidden shrink-0"
+              className="relative w-11 h-11 flex items-center justify-center rounded-lg bg-background border border-border text-foreground active:scale-95 transition-all overflow-hidden shrink-0"
               aria-label="Toggle sidebar"
+              aria-expanded={mobileOpen}
             >
               <span className={cn("absolute h-[2px] w-5 bg-current transition-all duration-300 ease-[var(--ease-ios)]", mobileOpen ? "rotate-45 translate-y-0" : "-translate-y-[7px]")} />
               <span className={cn("absolute h-[2px] w-5 bg-current transition-all duration-300 ease-[var(--ease-ios)]", mobileOpen ? "opacity-0 scale-x-0" : "opacity-100 scale-x-100")} />
@@ -212,11 +214,12 @@ export function AppShell(): JSX.Element {
             </button>
             <MobileBrand />
           </div>
-          <div className="mx-auto w-full max-w-9xl flex-1">
+          <div className="mx-auto w-full max-w-[1600px] flex-1">
             <ExtensionBanners />
             <Outlet />
           </div>
         </main>
+        <BottomNav />
         <AuthDialog
           open={authOpen}
           needsAuth={needsAuth}

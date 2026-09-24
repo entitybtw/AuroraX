@@ -263,10 +263,10 @@ export function CachePage(): JSX.Element {
               <tr>
                 <Th>Date</Th>
                 <Th className="text-right">Hits</Th>
-                <Th className="text-right">Exact</Th>
-                <Th className="text-right">Semantic</Th>
-                <Th className="text-right">Input Tokens</Th>
-                <Th className="text-right">Output Tokens</Th>
+                <Th className="hidden md:table-cell text-right">Exact</Th>
+                <Th className="hidden md:table-cell text-right">Semantic</Th>
+                <Th className="hidden sm:table-cell text-right">Input Tokens</Th>
+                <Th className="hidden sm:table-cell text-right">Output Tokens</Th>
                 <Th className="text-right">Saved Cost</Th>
               </tr>
             </thead>
@@ -280,10 +280,10 @@ export function CachePage(): JSX.Element {
                   <tr key={row.date}>
                     <Td>{row.date}</Td>
                     <Td className="text-right">{formatRequests(row.hits)}</Td>
-                    <Td className="text-right">{formatRequests(row.exact_hits)}</Td>
-                    <Td className="text-right">{formatRequests(row.semantic_hits)}</Td>
-                    <Td className="text-right">{formatTokens(row.input_tokens)}</Td>
-                    <Td className="text-right">{formatTokens(row.output_tokens)}</Td>
+                    <Td className="hidden md:table-cell text-right">{formatRequests(row.exact_hits)}</Td>
+                    <Td className="hidden md:table-cell text-right">{formatRequests(row.semantic_hits)}</Td>
+                    <Td className="hidden sm:table-cell text-right">{formatTokens(row.input_tokens)}</Td>
+                    <Td className="hidden sm:table-cell text-right">{formatTokens(row.output_tokens)}</Td>
                     <Td className="text-right">{formatCost(row.saved_cost)}</Td>
                   </tr>
                 ))
