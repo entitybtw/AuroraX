@@ -115,7 +115,8 @@ RUN chmod +x /docker-entrypoint.sh
 # Operators can set AURORA_SIDECAR_ENABLED=false to disable it at runtime
 ENV AURORA_SIDECAR_ENABLED=true \
 	AURORA_SIDECAR_PORT=8090 \
-	AURORA_SIDECAR_BASE_URL=http://127.0.0.1:8090/v1
+	AURORA_SIDECAR_BASE_URL=http://127.0.0.1:8090/v1 \
+	AURORA_SIDECAR_USER_AGENT="opencode/1.18.31 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.14"
 
 USER 65532:65532
 

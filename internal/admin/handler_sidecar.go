@@ -62,12 +62,16 @@ func NewSidecarOverrideStore() *SidecarOverrideStore {
 	s := &SidecarOverrideStore{
 		path: os.Getenv("AURORA_SIDECAR_OVERRIDES_PATH"),
 		settings: SidecarSettings{
-			Enabled:      true,
-			Port:         8090,
-			InjectTools:  true,
-			DefaultAuth:  "Bearer public",
-			MaxAttempts:  4,
-			RetryDelayMs: 750,
+			Enabled: true,
+			Port:    8090,
+			InjectTools: true,
+			// Empty inject_tool_types allows all provider types. vllm is
+			// listed because opencode zen pool members report type "vllm".
+			InjectToolTypes: []string{"opencode", "vllm", ""},
+			DefaultAuth:     "Bearer public",
+			UserAgent:       "opencode/1.18.31 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.14",
+			MaxAttempts:     4,
+			RetryDelayMs:    750,
 		},
 	}
 	if s.path == "" {
@@ -116,7 +120,9 @@ func (s *SidecarOverrideStore) load() {
 	}
 	s.settings.BindIPs = loaded.BindIPs
 	s.settings.Proxies = loaded.Proxies
-	s.settings.InjectToolTypes = loaded.InjectToolTypes
+	if len(loaded.InjectToolTypes) > 0 {
+		s.settings.InjectToolTypes = loaded.InjectToolTypes
+	}
 	s.settings.ToolsPath = loaded.ToolsPath
 	s.settings.OAuthServer = loaded.OAuthServer
 	s.settings.OAuthClientID = loaded.OAuthClientID

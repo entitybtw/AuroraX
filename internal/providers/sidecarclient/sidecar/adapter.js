@@ -106,7 +106,13 @@ const IDENTITY_HEADERS = [
   "x-client-id",
 ];
 
-let overridesCache = { mtimeMs: -1, injectToolTypes: [], injectTools: null, toolsPath: "" };
+let overridesCache = {
+  mtimeMs: -1,
+  injectToolTypes: [],
+  injectTools: null,
+  toolsPath: "",
+  userAgent: "",
+};
 
 // Load inject_tool_types / inject_tools / tools_path from the gateway's
 // sidecar overrides JSON (mtime-cached). Falls back to env when absent.
@@ -129,6 +135,8 @@ async function loadOverridesAsync() {
       injectToolTypes: Array.isArray(parsed.inject_tool_types) ? parsed.inject_tool_types : [],
       injectTools: typeof parsed.inject_tools === "boolean" ? parsed.inject_tools : null,
       toolsPath: typeof parsed.tools_path === "string" ? parsed.tools_path : "",
+      userAgent:
+        typeof parsed.user_agent === "string" ? parsed.user_agent.trim() : "",
     };
   } catch {
     // keep last good cache
@@ -186,10 +194,12 @@ Bun.serve({
 
     if (url.pathname === "/v1/models") {
       const auth = req.headers.get("authorization") || DEFAULT_AUTH;
+      const overrides = await loadOverridesAsync();
+      const ua = overrides.userAgent || USER_AGENT;
       const upstreamResp = await fetch(upstream("/models"), {
         headers: {
           Authorization: auth,
-          ...(USER_AGENT ? { "User-Agent": USER_AGENT } : {}),
+          ...(ua ? { "User-Agent": ua } : {}),
         },
       });
       return new Response(await upstreamResp.text(), {
@@ -227,6 +237,7 @@ Bun.serve({
       overrides.toolsPath ||
       process.env.AURORA_SIDECAR_TOOLS_PATH ||
       "";
+    const userAgent = overrides.userAgent || USER_AGENT;
     const proc = Bun.spawn([process.execPath, ONESHOT], {
       stdin: "pipe",
       stdout: "pipe",
@@ -234,7 +245,7 @@ Bun.serve({
       env: {
         ...process.env,
         AURORA_SIDECAR_UPSTREAM_URL: UPSTREAM,
-        AURORA_SIDECAR_USER_AGENT: USER_AGENT,
+        AURORA_SIDECAR_USER_AGENT: userAgent,
         AURORA_SIDECAR_DEFAULT_AUTH: DEFAULT_AUTH,
         AURORA_SIDECAR_PROXY: proxy,
         AURORA_SIDECAR_INJECT_TOOLS: inject ? "true" : "false",
