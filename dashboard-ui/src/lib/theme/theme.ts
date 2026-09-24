@@ -38,6 +38,16 @@ function apply(theme: Theme): void {
   } else {
     root.setAttribute("data-theme", theme);
   }
+  // Keep the browser UI color in sync with the active scheme.
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) {
+    if (theme === "light") meta.setAttribute("content", "#fafafa");
+    else if (theme === "dark") meta.setAttribute("content", "#0f0f0f");
+    else {
+      const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      meta.setAttribute("content", dark ? "#0f0f0f" : "#fafafa");
+    }
+  }
 }
 
 export function setTheme(theme: Theme): void {

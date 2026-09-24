@@ -1,5 +1,6 @@
 import * as React from "react";
 import { useExtensionUI } from "@/lib/api/useExtensionUI";
+import { useTheme } from "@/lib/theme/theme";
 import type {
   ExtensionBanner,
   ExtensionNavLink,
@@ -13,8 +14,10 @@ import type {
 
 interface ExtensionUIContextValue {
   contributions: ExtensionUIContribution[];
-  /** CSS custom properties from applied extensions (allowlisted keys). */
+  /** CSS custom properties from applied extensions (sanitized). */
   themeVars: Record<string, string>;
+  themeVarsLight: Record<string, string>;
+  themeVarsDark: Record<string, string>;
   /** Union of hide_nav tokens from all contributions. */
   hideNav: Set<string>;
   /** Union of hide_settings_tabs from all contributions. */
@@ -31,6 +34,8 @@ interface ExtensionUIContextValue {
 const ExtensionUIContext = React.createContext<ExtensionUIContextValue>({
   contributions: [],
   themeVars: {},
+  themeVarsLight: {},
+  themeVarsDark: {},
   hideNav: new Set(),
   hideSettingsTabs: new Set(),
   accent: undefined,
@@ -39,59 +44,21 @@ const ExtensionUIContext = React.createContext<ExtensionUIContextValue>({
   isLoading: false,
 });
 
-const THEME_VAR_ALLOWLIST = new Set([
-  "--accent",
-  "--accent-hover",
-  "--accent-foreground",
-  "--bg",
-  "--bg-surface",
-  "--bg-surface-hover",
-  "--bg-elevated",
-  "--text",
-  "--text-muted",
-  "--text-inverse",
-  "--border",
-  "--border-subtle",
-  "--success",
-  "--success-bg",
-  "--warning",
-  "--warning-bg",
-  "--danger",
-  "--danger-bg",
-  "--info",
-  "--info-bg",
-  "--radius-sm",
-  "--radius-md",
-  "--radius-lg",
-  "--radius-control",
-  "--radius-card",
-  "--radius-sheet",
-  "--font-display",
-  "--font-sans",
-  "--font-mono",
-  "--sidebar-width",
-  "--space-page",
-  "--chart-input",
-  "--chart-output",
-  "--chart-cat-1",
-  "--chart-cat-2",
-  "--chart-cat-3",
-  "--chart-cat-4",
-  "--chart-cat-5",
-  "--chart-cat-6",
-  "--chart-cat-7",
-  "--chart-cat-8",
-  "--chart-cat-9",
-  "--chart-cat-10",
-  "--glass-bg",
-  "--glass-border",
-  "--shadow-tint",
-  "--ring-highlight",
-]);
-
+/**
+ * Theme variables may use any safe CSS custom-property name (max customization).
+ * Values are validated separately: no CSS injection characters.
+ */
 function isAllowedThemeVar(key: string): boolean {
-  if (THEME_VAR_ALLOWLIST.has(key)) return true;
-  return /^--chart-cat-\d+$/.test(key);
+  return /^--[a-z0-9][a-z0-9-]{0,62}$/i.test(key);
+}
+
+function isSafeThemeValue(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  if (value.length === 0 || value.length > 512) return false;
+  if (/[;{}<>]/.test(value)) return false;
+  if (/url\s*\(/i.test(value) || /expression\s*\(/i.test(value)) return false;
+  if (value.includes("\\") || value.includes("`")) return false;
+  return true;
 }
 
 function isValidAccent(value: unknown): value is string {
@@ -104,32 +71,85 @@ function isThemeContribution(c: ExtensionUIContribution): boolean {
   return theme != null && Object.keys(theme).length > 0;
 }
 
-function sanitizeThemeVars(
-  contributions: ExtensionUIContribution[],
-): Record<string, string> {
+function sanitizeMap(map: Record<string, string> | undefined): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const c of contributions) {
-    if (isThemeContribution(c) && isValidAccent(c.ui.accent)) {
-      out["--accent"] = c.ui.accent;
-    }
-    const theme = c.ui.theme;
-    if (theme) {
-      for (const [k, v] of Object.entries(theme)) {
-        if (!isAllowedThemeVar(k)) continue;
-        if (typeof v !== "string") continue;
-        if (/[;{}<>]/.test(v)) continue;
-        out[k] = v;
-      }
-    }
+  if (!map) return out;
+  for (const [k, v] of Object.entries(map)) {
+    if (!isAllowedThemeVar(k)) continue;
+    if (!isSafeThemeValue(v)) continue;
+    out[k] = v;
   }
   return out;
 }
 
+interface SanitizedThemes {
+  base: Record<string, string>;
+  light: Record<string, string>;
+  dark: Record<string, string>;
+  accent?: string | undefined;
+}
+
+function sanitizeThemeVars(contributions: ExtensionUIContribution[]): SanitizedThemes {
+  const base: Record<string, string> = {};
+  const light: Record<string, string> = {};
+  const dark: Record<string, string> = {};
+  let accent: string | undefined;
+  for (const c of contributions) {
+    if (isThemeContribution(c) && isValidAccent(c.ui.accent)) {
+      accent = c.ui.accent;
+    }
+    Object.assign(base, sanitizeMap(c.ui.theme));
+    Object.assign(light, sanitizeMap(c.ui.theme_light));
+    Object.assign(dark, sanitizeMap(c.ui.theme_dark));
+  }
+  // Accent fix: accent only counts for theme contributions and is applied
+  // after the theme map so ui.theme["--accent"] still wins when present.
+  if (accent && base["--accent"] === undefined) {
+    base["--accent"] = accent;
+  }
+  if (accent) {
+    if (light["--accent"] === undefined) light["--accent"] = accent;
+    if (dark["--accent"] === undefined) dark["--accent"] = accent;
+  }
+  return { base, light, dark, accent };
+}
+
+const STYLE_ID = "aurora-ext-theme";
+
+function buildThemeCss(
+  base: Record<string, string>,
+  light: Record<string, string>,
+  dark: Record<string, string>,
+): string {
+  const rules: string[] = [];
+  const decls = (m: Record<string, string>): string =>
+    Object.entries(m)
+      .map(([k, v]) => `${k}: ${v};`)
+      .join(" ");
+  if (Object.keys(base).length > 0) {
+    rules.push(`:root{${decls(base)}}`);
+  }
+  if (Object.keys(light).length > 0) {
+    const merged = { ...base, ...light };
+    rules.push(`[data-theme="light"]{${decls(merged)}}`);
+    rules.push(
+      `@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){${decls(merged)}}}`,
+    );
+  }
+  if (Object.keys(dark).length > 0) {
+    const merged = { ...base, ...dark };
+    rules.push(`[data-theme="dark"]{${decls(merged)}}`);
+  }
+  return rules.join("\n");
+}
+
 export function ExtensionUIProvider({ children }: { children: React.ReactNode }): JSX.Element {
   const query = useExtensionUI();
+  const preference = useTheme();
   const contributions = React.useMemo(() => query.data ?? [], [query.data]);
 
-  const themeVars = React.useMemo(() => sanitizeThemeVars(contributions), [contributions]);
+  const { base: themeVars, light: themeVarsLight, dark: themeVarsDark, accent } =
+    React.useMemo(() => sanitizeThemeVars(contributions), [contributions]);
 
   const hideNav = React.useMemo(() => {
     const s = new Set<string>();
@@ -145,14 +165,6 @@ export function ExtensionUIProvider({ children }: { children: React.ReactNode })
       for (const h of c.ui.hide_settings_tabs ?? []) s.add(h.toLowerCase());
     }
     return s;
-  }, [contributions]);
-
-  const accent = React.useMemo(() => {
-    let a: string | undefined;
-    for (const c of contributions) {
-      if (c.ui.accent) a = c.ui.accent;
-    }
-    return a;
   }, [contributions]);
 
   const logoText = React.useMemo(() => {
@@ -173,20 +185,51 @@ export function ExtensionUIProvider({ children }: { children: React.ReactNode })
     return undefined;
   }, [contributions]);
 
+  // Inject theme CSS via a <style> tag so [data-theme] / prefers-color-scheme
+  // selectors keep working (inline element styles would beat those selectors).
   React.useEffect(() => {
-    const root = document.documentElement;
-    for (const key of THEME_VAR_ALLOWLIST) {
-      if (themeVars[key] === undefined) root.style.removeProperty(key);
+    const hasVars =
+      Object.keys(themeVars).length > 0 ||
+      Object.keys(themeVarsLight).length > 0 ||
+      Object.keys(themeVarsDark).length > 0;
+    let el = document.getElementById(STYLE_ID) as HTMLStyleElement | null;
+    if (!hasVars) {
+      el?.remove();
+      return;
     }
-    for (const [k, v] of Object.entries(themeVars)) {
-      root.style.setProperty(k, v);
+    const css = buildThemeCss(themeVars, themeVarsLight, themeVarsDark);
+    if (!el) {
+      el = document.createElement("style");
+      el.id = STYLE_ID;
+      document.head.appendChild(el);
     }
-  }, [themeVars]);
+    el.textContent = css;
+    return () => {
+      // Keep style until contributions change; cleaned on unmount below.
+    };
+  }, [themeVars, themeVarsLight, themeVarsDark, preference]);
+
+  React.useEffect(() => {
+    return () => {
+      document.getElementById(STYLE_ID)?.remove();
+    };
+  }, []);
+
+  // Update theme-color meta with the dominant background when possible.
+  React.useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) return;
+    const computed = getComputedStyle(document.documentElement);
+    const bg = themeVars["--bg"] || computed.getPropertyValue("--bg").trim();
+    if (bg) meta.setAttribute("content", bg);
+  }, [themeVars, themeVarsLight, themeVarsDark, preference]);
 
   const value = React.useMemo<ExtensionUIContextValue>(
     () => ({
       contributions,
       themeVars,
+      themeVarsLight,
+      themeVarsDark,
       hideNav,
       hideSettingsTabs,
       accent,
@@ -194,7 +237,18 @@ export function ExtensionUIProvider({ children }: { children: React.ReactNode })
       logoURL,
       isLoading: query.isLoading,
     }),
-    [contributions, themeVars, hideNav, hideSettingsTabs, accent, logoText, logoURL, query.isLoading],
+    [
+      contributions,
+      themeVars,
+      themeVarsLight,
+      themeVarsDark,
+      hideNav,
+      hideSettingsTabs,
+      accent,
+      logoText,
+      logoURL,
+      query.isLoading,
+    ],
   );
 
   return (

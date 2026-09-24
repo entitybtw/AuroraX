@@ -694,7 +694,9 @@ func TestHandler_ListExtensionUI_MergesConfigTheme(t *testing.T) {
 		Name:    "UI Cfg",
 		Applied: true,
 		UI: ExtensionUI{
-			Theme: map[string]string{"--accent": "#112233"},
+			Theme:      map[string]string{"--accent": "#112233"},
+			ThemeLight: map[string]string{"--bg": "#fafafa", "--accent": "#aa00cc"},
+			ThemeDark:  map[string]string{"--bg": "#0a0a0a", "--accent": "#aa00cc"},
 			Fields: []ExtensionField{
 				{Key: "accent", Label: "Accent", Type: "color"},
 				{Key: "region", Label: "Region", Type: "select"},
@@ -725,17 +727,94 @@ func TestHandler_ListExtensionUI_MergesConfigTheme(t *testing.T) {
 	if len(body.Contributions) != 1 {
 		t.Fatalf("contributions = %d, want 1 (%s)", len(body.Contributions), rec.Body.String())
 	}
-	theme := body.Contributions[0].UI.Theme
-	if theme["--accent"] != "#aabbcc" {
-		t.Fatalf("color accent field must override --accent, theme=%v", theme)
+	ui := body.Contributions[0].UI
+	if ui.Theme["--accent"] != "#aabbcc" {
+		t.Fatalf("color accent field must override --accent, theme=%v", ui.Theme)
 	}
-	if theme["--radius"] != "12px" {
-		t.Fatalf("-- config key must land in theme, theme=%v", theme)
+	if ui.Theme["--radius"] != "12px" {
+		t.Fatalf("-- config key must land in theme, theme=%v", ui.Theme)
+	}
+	if ui.ThemeLight == nil || ui.ThemeLight["--bg"] != "#fafafa" {
+		t.Fatalf("theme_light base keys must survive: %v", ui.ThemeLight)
+	}
+	if ui.ThemeLight["--accent"] != "#aabbcc" {
+		t.Fatalf("config accent must override theme_light accent: %v", ui.ThemeLight)
+	}
+	if ui.ThemeDark == nil || ui.ThemeDark["--bg"] != "#0a0a0a" {
+		t.Fatalf("theme_dark base keys must survive: %v", ui.ThemeDark)
+	}
+	if ui.ThemeDark["--radius"] != "12px" {
+		t.Fatalf("config --radius must overlay theme_dark: %v", ui.ThemeDark)
+	}
+	if ui.ThemeLight["--radius"] != "12px" {
+		t.Fatalf("config --radius must overlay theme_light: %v", ui.ThemeLight)
 	}
 
 	stored, _ := store.Get("ui-cfg")
 	if stored.UI.Theme["--accent"] != "#112233" {
 		t.Fatalf("stored theme must not be mutated: %v", stored.UI.Theme)
+	}
+	if stored.UI.ThemeLight["--accent"] != "#aa00cc" {
+		t.Fatalf("stored theme_light must not be mutated: %v", stored.UI.ThemeLight)
+	}
+}
+
+func TestHandler_ExtensionUI_ThemeVariantsRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("AURORA_EXTENSIONS_PATH", filepath.Join(dir, "extensions.json"))
+
+	raw := `{
+	  "id": "variants",
+	  "name": "Variants",
+	  "type": "theme",
+	  "ui": {
+	    "accent": "#112233",
+	    "theme": {"--bg": "#000000"},
+	    "theme_light": {"--bg": "#ffffff", "--text": "#111111"},
+	    "theme_dark": {"--bg": "#000000", "--text": "#eeeeee"}
+	  }
+	}`
+	var ext Extension
+	if err := json.Unmarshal([]byte(raw), &ext); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if err := ext.Validate(); err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	out, err := json.Marshal(ext)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if !strings.Contains(string(out), `"theme_light"`) || !strings.Contains(string(out), `"theme_dark"`) {
+		t.Fatalf("theme variants must round-trip: %s", out)
+	}
+
+	store := NewExtensionStore()
+	store.Upsert(ext)
+	applied, _ := store.Get("variants")
+	applied.Applied = true
+	store.Upsert(applied)
+
+	h := NewHandler(nil, nil, WithExtensionStore(store))
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/sidecar/extensions/ui", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	if err := h.ListExtensionUI(c); err != nil {
+		t.Fatalf("ListExtensionUI: %v", err)
+	}
+	var body struct {
+		Contributions []ExtensionUIContribution `json:"contributions"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(body.Contributions) != 1 {
+		t.Fatalf("contributions = %d, want 1", len(body.Contributions))
+	}
+	ui := body.Contributions[0].UI
+	if ui.ThemeLight["--bg"] != "#ffffff" || ui.ThemeDark["--bg"] != "#000000" {
+		t.Fatalf("list UI must expose variants: light=%v dark=%v", ui.ThemeLight, ui.ThemeDark)
 	}
 }
 
