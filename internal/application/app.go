@@ -1575,6 +1575,9 @@ func dashboardSettingsSnapshot(cfg *config.Config) admin.DashboardSettingsSnapsh
 			ProviderExclude: append([]string(nil), cfg.TokenSaver.Providers.Exclude...),
 			AuditEnabled:    cfg.TokenSaver.Audit.Enabled,
 		},
+		UI: admin.DashboardUISettingsSnapshot{
+			HiddenFeatures: append([]string(nil), cfg.UI.HiddenFeatures...),
+		},
 	}
 }
 

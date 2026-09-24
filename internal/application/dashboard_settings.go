@@ -17,20 +17,25 @@ import (
 )
 
 type dashboardSettingsOverlay struct {
-	Server               *dashboardServerOverlay               `yaml:"server,omitempty"`
-	Models               *dashboardModelsOverlay               `yaml:"models,omitempty"`
-	Cache                *dashboardCacheOverlay                `yaml:"cache,omitempty"`
-	Logging              *dashboardLoggingOverlay              `yaml:"logging,omitempty"`
-	Usage                *dashboardUsageOverlay                `yaml:"usage,omitempty"`
-	Metrics              *dashboardMetricsOverlay              `yaml:"metrics,omitempty"`
+	Server  *dashboardServerOverlay  `yaml:"server,omitempty"`
+	Models  *dashboardModelsOverlay  `yaml:"models,omitempty"`
+	Cache   *dashboardCacheOverlay   `yaml:"cache,omitempty"`
+	Logging *dashboardLoggingOverlay `yaml:"logging,omitempty"`
+	Usage   *dashboardUsageOverlay   `yaml:"usage,omitempty"`
+	Metrics *dashboardMetricsOverlay `yaml:"metrics,omitempty"`
 
-	HTTP                 *dashboardHTTPOverlay                 `yaml:"http,omitempty"`
-	Proxy                *dashboardProxyOverlay                `yaml:"proxy,omitempty"`
-	ResponseHeaders      *dashboardResponseHeadersOverlay      `yaml:"response_headers,omitempty"`
-	Resilience           *dashboardResilienceOverlay           `yaml:"resilience,omitempty"`
-	Guardrails           *dashboardGuardrailsOverlay           `yaml:"guardrails,omitempty"`
-	Workflows            *dashboardWorkflowsOverlay            `yaml:"workflows,omitempty"`
-	TokenSaver           *tokenSaverOverlay                    `yaml:"token_saver,omitempty"`
+	HTTP            *dashboardHTTPOverlay            `yaml:"http,omitempty"`
+	Proxy           *dashboardProxyOverlay           `yaml:"proxy,omitempty"`
+	ResponseHeaders *dashboardResponseHeadersOverlay `yaml:"response_headers,omitempty"`
+	Resilience      *dashboardResilienceOverlay      `yaml:"resilience,omitempty"`
+	Guardrails      *dashboardGuardrailsOverlay      `yaml:"guardrails,omitempty"`
+	Workflows       *dashboardWorkflowsOverlay       `yaml:"workflows,omitempty"`
+	TokenSaver      *tokenSaverOverlay               `yaml:"token_saver,omitempty"`
+	UI              *dashboardUIOverlay              `yaml:"ui,omitempty"`
+}
+
+type dashboardUIOverlay struct {
+	HiddenFeatures []string `yaml:"hidden_features,omitempty"`
 }
 
 type dashboardServerOverlay struct {
@@ -136,15 +141,15 @@ type dashboardProxyOverlay struct {
 }
 
 type dashboardResponseHeadersOverlay struct {
-	Enabled              *bool                             `yaml:"enabled,omitempty"`
-	Mode                 *string                           `yaml:"mode,omitempty"`
-	IncludeFallback      *bool                             `yaml:"include_fallback,omitempty"`
-	IncludeNonFallback   *bool                             `yaml:"include_non_fallback,omitempty"`
-	ActualProviderHeader *bool                             `yaml:"actual_provider_header,omitempty"`
-	ActualModelHeader    *bool                             `yaml:"actual_model_header,omitempty"`
-	RequestedModelHeader *bool                             `yaml:"requested_model_header,omitempty"`
-	FallbackChainHeader  *bool                             `yaml:"fallback_chain_header,omitempty"`
-	CustomHeaders        []dashboardCustomHeaderOverlay     `yaml:"custom_headers,omitempty"`
+	Enabled              *bool                          `yaml:"enabled,omitempty"`
+	Mode                 *string                        `yaml:"mode,omitempty"`
+	IncludeFallback      *bool                          `yaml:"include_fallback,omitempty"`
+	IncludeNonFallback   *bool                          `yaml:"include_non_fallback,omitempty"`
+	ActualProviderHeader *bool                          `yaml:"actual_provider_header,omitempty"`
+	ActualModelHeader    *bool                          `yaml:"actual_model_header,omitempty"`
+	RequestedModelHeader *bool                          `yaml:"requested_model_header,omitempty"`
+	FallbackChainHeader  *bool                          `yaml:"fallback_chain_header,omitempty"`
+	CustomHeaders        []dashboardCustomHeaderOverlay `yaml:"custom_headers,omitempty"`
 }
 
 type dashboardCustomHeaderOverlay struct {
@@ -479,6 +484,7 @@ func applyDashboardSettingsToConfig(cfg *config.Config, req admin.DashboardSetti
 	cfg.ResponseHeaders.RequestedModelHeader = req.ResponseHeaders.RequestedModelHeader
 	cfg.ResponseHeaders.FallbackChainHeader = req.ResponseHeaders.FallbackChainHeader
 	cfg.ResponseHeaders.CustomHeaders = mapDashboardUpdateCustomHeaders(req.ResponseHeaders.CustomHeaders)
+	cfg.UI.HiddenFeatures = normalizeHiddenFeatures(req.UI.HiddenFeatures)
 }
 
 func mapDashboardUpdateCustomHeaders(values []admin.DashboardUpdateCustomResponseHeader) []config.CustomResponseHeaderConfig {
@@ -588,6 +594,9 @@ func applyDashboardSettingsToOverlay(overlay *dashboardSettingsOverlay, req admi
 	}
 	if overlay.TokenSaver.Providers == nil {
 		overlay.TokenSaver.Providers = &tokenSaverScopeOverlay{}
+	}
+	if overlay.UI == nil {
+		overlay.UI = &dashboardUIOverlay{}
 	}
 
 	overlay.Server.Port = stringPtr(strings.TrimSpace(req.Client.Port))
@@ -750,6 +759,7 @@ func applyDashboardSettingsToOverlay(overlay *dashboardSettingsOverlay, req admi
 	overlay.Cache.Prompt.MinTokens = intPtr(req.Caching.PromptCache.MinTokens)
 
 	applyDashboardTokenSaverToOverlay(overlay.TokenSaver, req.TokenSaver)
+	overlay.UI.HiddenFeatures = normalizeHiddenFeatures(req.UI.HiddenFeatures)
 }
 
 func applyDashboardTokenSaverToOverlay(overlay *tokenSaverOverlay, values admin.DashboardSettingsUpdateTokenSaver) {
@@ -836,6 +846,31 @@ func validateDashboardProxyURL(label, value string) error {
 		return fmt.Errorf("%s must use http, https, or socks5 scheme", label)
 	}
 	return nil
+}
+
+// normalizeHiddenFeatures trims, lowercases, and de-duplicates feature ids.
+// Values are only used for UI visibility gates — never to delete stored data.
+func normalizeHiddenFeatures(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.ToLower(strings.TrimSpace(value))
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func normalizeDashboardStringSlice(values []string) []string {

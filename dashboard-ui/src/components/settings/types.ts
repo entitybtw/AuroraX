@@ -128,6 +128,9 @@ export interface DashboardSettingsFormState {
       enabled: boolean;
     }[];
   };
+  ui: {
+    hidden_features: string[];
+  };
 }
 
 export interface DashboardSettingsSaveResponse {

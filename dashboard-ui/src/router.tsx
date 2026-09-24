@@ -64,10 +64,15 @@ const dashboardLayout = createRoute({
   },
 });
 
-function protectedComponent(Component: () => JSX.Element, resource?: string, capability?: string): () => JSX.Element {
+function protectedComponent(
+  Component: () => JSX.Element,
+  resource?: string,
+  capability?: string,
+  featureId?: string,
+): () => JSX.Element {
   return function ProtectedRoute(): JSX.Element {
     return (
-      <RequirePermission resource={resource} capability={capability}>
+      <RequirePermission resource={resource} capability={capability} featureId={featureId}>
         <Component />
       </RequirePermission>
     );
@@ -84,13 +89,13 @@ const overviewRoute = createRoute({
 const guideRoute = createRoute({
   getParentRoute: () => dashboardLayout,
   path: "guide",
-  component: protectedComponent(GuidePage, "admin/dashboard"),
+  component: protectedComponent(GuidePage, "admin/dashboard", undefined, "guide"),
 });
 
 const playgroundRoute = createRoute({
   getParentRoute: () => dashboardLayout,
   path: "playground",
-  component: PlaygroundPage,
+  component: protectedComponent(PlaygroundPage, undefined, undefined, "playground"),
 });
 
 const modelsRoute = createRoute({
@@ -102,25 +107,25 @@ const modelsRoute = createRoute({
 const auditLogsRoute = createRoute({
   getParentRoute: () => dashboardLayout,
   path: "audit-logs",
-  component: protectedComponent(AuditLogsPage, "admin/audit"),
+  component: protectedComponent(AuditLogsPage, "admin/audit", undefined, "audit_logs"),
 });
 
 const consoleRoute = createRoute({
   getParentRoute: () => dashboardLayout,
   path: "console",
-  component: protectedComponent(ConsolePage, "admin/audit"),
+  component: protectedComponent(ConsolePage, "admin/audit", undefined, "console"),
 });
 
 const combosRoute = createRoute({
   getParentRoute: () => dashboardLayout,
   path: "combos",
-  component: protectedComponent(CombosPage, "admin/models"),
+  component: protectedComponent(CombosPage, "admin/models", undefined, "combos"),
 });
 
 const fallbackRoute = createRoute({
   getParentRoute: () => dashboardLayout,
   path: "fallback",
-  component: protectedComponent(FallbackPage, "admin/models"),
+  component: protectedComponent(FallbackPage, "admin/models", undefined, "fallback"),
 });
 
 const cliToolsRoute = createRoute({
@@ -134,33 +139,33 @@ const cliToolsRoute = createRoute({
 const usageRoute = createRoute({
   getParentRoute: () => dashboardLayout,
   path: "usage",
-  component: protectedComponent(UsagePage, "admin/usage"),
+  component: protectedComponent(UsagePage, "admin/usage", undefined, "usage"),
 });
 
 
 const authKeysRoute = createRoute({
   getParentRoute: () => dashboardLayout,
   path: "auth-keys",
-  component: protectedComponent(AuthKeysPage, "admin/keys"),
+  component: protectedComponent(AuthKeysPage, "admin/keys", undefined, "auth_keys"),
 });
 
 
 const workflowsRoute = createRoute({
   getParentRoute: () => dashboardLayout,
   path: "workflows",
-  component: protectedComponent(WorkflowsPage, "admin/workflows"),
+  component: protectedComponent(WorkflowsPage, "admin/workflows", undefined, "workflows"),
 });
 
 const guardrailsRoute = createRoute({
   getParentRoute: () => dashboardLayout,
   path: "guardrails",
-  component: protectedComponent(GuardrailsPage, "admin/guardrails"),
+  component: protectedComponent(GuardrailsPage, "admin/guardrails", undefined, "guardrails"),
 });
 
 const cacheRoute = createRoute({
   getParentRoute: () => dashboardLayout,
   path: "cache",
-  component: protectedComponent(CachePage, "admin/cache"),
+  component: protectedComponent(CachePage, "admin/cache", undefined, "cache"),
 });
 
 const settingsRoute = createRoute({
@@ -174,7 +179,7 @@ const settingsRoute = createRoute({
 const poolsRoute = createRoute({
   getParentRoute: () => dashboardLayout,
   path: "pools",
-  component: protectedComponent(PoolsPage, "admin/pools"),
+  component: protectedComponent(PoolsPage, "admin/pools", undefined, "pools"),
 });
 
 /** Catch-all for extension-provided pages under /admin/dashboard/ext/{path}. */

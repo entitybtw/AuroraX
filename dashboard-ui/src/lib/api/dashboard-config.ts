@@ -141,6 +141,12 @@ const DashboardSettingsSnapshotSchema = z
       })
       .optional()
       .default({}),
+    ui: z
+      .object({
+        hidden_features: z.array(z.string()).optional().default([]),
+      })
+      .optional()
+      .default({}),
   })
   .passthrough();
 
