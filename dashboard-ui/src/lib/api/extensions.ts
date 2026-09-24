@@ -101,6 +101,7 @@ const ExtensionUISchema = z.object({
 const ExtensionUIContributionSchema = z.object({
   id: z.string(),
   name: z.string(),
+  type: z.string().optional(),
   ui: ExtensionUISchema,
 });
 
@@ -133,7 +134,6 @@ const ExtensionSchema = z.object({
   homepage: z.string().optional(),
   license: z.string().optional(),
   type: z.string().optional(),
-  tags: z.array(z.string()).optional(),
   schema: z.number().optional(),
   base_url: z.string().optional(),
   user_agent: z.string().optional(),
@@ -154,6 +154,8 @@ const ExtensionSchema = z.object({
   ui: ExtensionUISchema.optional(),
   applied: z.boolean().optional(),
   builtin: z.boolean(),
+  order: z.number().optional(),
+  source: z.string().optional(),
 });
 
 export type Extension = z.infer<typeof ExtensionSchema>;
@@ -263,6 +265,24 @@ export async function updateExtensionConfig(
   });
 }
 
+/** Rename an extension (operator-custom display name). */
+export async function renameExtension(id: string, name: string): Promise<Extension> {
+  const res = await apiFetch<{ extension?: unknown }>(
+    `/admin/api/v1/sidecar/extensions/${encodeURIComponent(id)}`,
+    { method: "PUT", json: { name } },
+  );
+  return ExtensionSchema.parse(res.extension);
+}
+
+/** Persist list order by posting the full id sequence. */
+export async function reorderExtensions(ids: string[]): Promise<Extension[]> {
+  const res = await apiFetch<{ extensions?: unknown[] }>(
+    "/admin/api/v1/sidecar/extensions/reorder",
+    { method: "POST", json: { ids } },
+  );
+  return z.array(ExtensionSchema).parse(res.extensions ?? []);
+}
+
 /** Apply everywhere: activate the extension and optionally bind session hub headers. */
 export async function fullApplyExtension(
   id: string,
@@ -313,10 +333,45 @@ export async function listExtensionStores(): Promise<string[]> {
   return res.stores ?? [];
 }
 
+export async function addExtensionStore(url: string): Promise<string[]> {
+  const res = await apiFetch<{ stores?: string[] }>(
+    "/admin/api/v1/sidecar/extensions/stores",
+    { method: "POST", json: { url } },
+  );
+  return res.stores ?? [];
+}
+
+export async function deleteExtensionStore(url: string): Promise<string[]> {
+  const res = await apiFetch<{ stores?: string[] }>(
+    `/admin/api/v1/sidecar/extensions/stores?url=${encodeURIComponent(url)}`,
+    { method: "DELETE" },
+  );
+  return res.stores ?? [];
+}
+
+export async function checkExtensionUpdate(id: string): Promise<{
+  id: string;
+  source: string;
+  current_version: string;
+  remote_version: string;
+  update_available: boolean;
+}> {
+  return apiFetch(
+    `/admin/api/v1/sidecar/extensions/${encodeURIComponent(id)}/check-update`,
+  );
+}
+
+export async function updateExtensionFromSource(id: string): Promise<Extension> {
+  const res = await apiFetch<{ extension?: unknown }>(
+    `/admin/api/v1/sidecar/extensions/${encodeURIComponent(id)}/update`,
+    { method: "POST" },
+  );
+  return ExtensionSchema.parse(res.extension);
+}
+
 export async function browseExtensionStore(params: {
   url: string;
   q?: string;
-  tag?: string;
   type?: string;
 }): Promise<unknown> {
   const qs = new URLSearchParams();

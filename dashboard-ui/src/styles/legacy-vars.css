@@ -1,95 +1,95 @@
 /*
  * ── AuroraX Design Tokens ──────────────────────────────────────────────
- * Catppuccin Frappe palette. Medium darkness, pleasant and readable.
+ * Minimal theme (core default). Neutral grays, warm sand accent,
+ * zero radius, system fonts. Catppuccin ships as optional extensions.
  *
- * Frappe:  Base #303446  Surface0 #414559  Text #c6d0f5
- *          Mauve #ca9ee6  Blue #8caaee  Green #a6d189
- *          Red #e78284  Yellow #e5c890  Peach #ef9f76
+ * Dark:   bg #0f0f0f  surface #1a1a1a  text #dddddd  accent #d4a574
+ * Light:  bg #fafafa  surface #ffffff  text #1a1a1a  accent #b8865a
  */
 
 /* ── Dark mode (default) ─────────────────────────────────────────── */
 :root {
   /* Backgrounds */
-  --bg: #1e1e2e;
-  --bg-surface: #313244;
-  --bg-surface-hover: #45475a;
-  --bg-elevated: #585b70;
+  --bg: #0f0f0f;
+  --bg-surface: #1a1a1a;
+  --bg-surface-hover: #252525;
+  --bg-elevated: #222222;
 
   /* Text */
-  --text: #cdd6f4;
-  --text-muted: #a6adc8;
-  --text-inverse: #1e1e2e;
+  --text: #dddddd;
+  --text-muted: #999999;
+  --text-inverse: #0f0f0f;
 
   /* Borders */
-  --border: #45475a;
-  --border-subtle: rgba(205, 214, 244, 0.06);
+  --border: #333333;
+  --border-subtle: #2a2a2a;
 
   /* Accent */
-  --accent: #cba6f7;
-  --accent-hover: #b4befe;
-  --accent-foreground: #1e1e2e;
+  --accent: #d4a574;
+  --accent-hover: #e0b685;
+  --accent-foreground: #0f0f0f;
 
   /* Semantic */
-  --success: #a6e3a1;
-  --success-bg: rgba(166, 227, 161, 0.12);
-  --warning: #f9e2af;
-  --warning-bg: rgba(249, 226, 175, 0.15);
-  --danger: #f38ba8;
-  --danger-bg: rgba(243, 139, 168, 0.12);
-  --info: #89b4fa;
-  --info-bg: rgba(137, 180, 250, 0.12);
+  --success: #77aa99;
+  --success-bg: rgba(119, 170, 153, 0.12);
+  --warning: #e6a23c;
+  --warning-bg: rgba(230, 162, 60, 0.15);
+  --danger: #dd7777;
+  --danger-bg: rgba(221, 119, 119, 0.12);
+  --info: #7a9db8;
+  --info-bg: rgba(122, 157, 184, 0.12);
 
   /* Chart */
-  --chart-grid: rgba(205, 214, 244, 0.06);
-  --chart-text: #a6adc8;
-  --chart-tooltip-bg: #313244;
-  --chart-tooltip-border: #585b70;
-  --chart-tooltip-text: #cdd6f4;
-  --chart-colors: #cba6f7, #89b4fa, #f9e2af, #a6e3a1, #f38ba8, #fab387;
+  --chart-grid: rgba(221, 221, 221, 0.06);
+  --chart-text: #999999;
+  --chart-tooltip-bg: #1a1a1a;
+  --chart-tooltip-border: #333333;
+  --chart-tooltip-text: #dddddd;
+  --chart-colors: #d4a574, #7a9db8, #e6a23c, #77aa99, #dd7777, #e0b685;
 
   /* Chart series colors */
-  --chart-input: #cba6f7;
-  --chart-output: #89b4fa;
-  --chart-cache-input: #f9e2af;
-  --chart-cache-output: #a6e3a1;
-  --chart-requests: #cba6f7;
-  --chart-cache-hits: #89b4fa;
-  --chart-palette-5: #f9e2af;
-  --chart-palette-6: #a6e3a1;
-  --chart-palette-7: #fab387;
-  --chart-palette-8: #89dceb;
+  --chart-input: #d4a574;
+  --chart-output: #7a9db8;
+  --chart-cache-input: #e6a23c;
+  --chart-cache-output: #77aa99;
+  --chart-requests: #d4a574;
+  --chart-cache-hits: #7a9db8;
+  --chart-palette-5: #e6a23c;
+  --chart-palette-6: #77aa99;
+  --chart-palette-7: #e0b685;
+  --chart-palette-8: #999999;
 
   /* Qualitative palette */
-  --chart-cat-1: #cba6f7;
-  --chart-cat-2: #89b4fa;
-  --chart-cat-3: #74c7ec;
-  --chart-cat-4: #94e2d5;
-  --chart-cat-5: #a6e3a1;
-  --chart-cat-6: #f9e2af;
-  --chart-cat-7: #fab387;
-  --chart-cat-8: #f38ba8;
-  --chart-cat-9: #eba0ac;
-  --chart-cat-10: #f5c2e7;
+  --chart-cat-1: #d4a574;
+  --chart-cat-2: #7a9db8;
+  --chart-cat-3: #77aa99;
+  --chart-cat-4: #e6a23c;
+  --chart-cat-5: #dd7777;
+  --chart-cat-6: #e0b685;
+  --chart-cat-7: #999999;
+  --chart-cat-8: #b8865a;
+  --chart-cat-9: #5a7f9e;
+  --chart-cat-10: #aa8866;
 
   /* Calendar heatmap */
-  --cal-level-0: #313244;
-  --cal-level-1: #45475a;
-  --cal-level-2: #585b70;
-  --cal-level-3: #cba6f7;
-  --cal-level-4: #b4befe;
+  --cal-level-0: #1a1a1a;
+  --cal-level-1: #252525;
+  --cal-level-2: #333333;
+  --cal-level-3: #d4a574;
+  --cal-level-4: #e0b685;
 
-  --prompt-cache-color: #89b4fa;
-  --prompt-cache-color-bg: rgba(137, 180, 250, 0.09);
-  --alias-row-valid-bg: rgba(49, 50, 68, 0.9);
-  --alias-row-valid-bg-hover: rgba(69, 71, 90, 0.95);
+  --prompt-cache-color: #7a9db8;
+  --prompt-cache-color-bg: rgba(122, 157, 184, 0.09);
+  --alias-row-valid-bg: rgba(26, 26, 26, 0.9);
+  --alias-row-valid-bg-hover: rgba(37, 37, 37, 0.95);
 
-  /* Glass — flat surfaces for Catppuccin look */
-  --glass-bg: #313244;
-  --glass-border: #45475a;
+  /* Glass — flat surfaces for the minimal look */
+  --glass-bg: #1a1a1a;
+  --glass-border: #333333;
   --glass-shadow: none;
   --glass-highlight: none;
 
-  --ring-highlight: rgba(203, 166, 247, 0.06);
+  --ring-highlight: rgba(212, 165, 116, 0.06);
   --shadow-tint: rgba(0, 0, 0, 0.2);
 
   color-scheme: dark;
@@ -97,77 +97,77 @@
 
 /* ── Light mode (pinned) ──────────────────────────────────────────── */
 [data-theme="light"] {
-  --bg: #f8f9fc;
+  --bg: #fafafa;
   --bg-surface: #ffffff;
-  --bg-surface-hover: #f0f2f5;
+  --bg-surface-hover: #f0f0f0;
   --bg-elevated: #ffffff;
 
-  --text: #1a1d2e;
-  --text-muted: #6b7280;
-  --text-inverse: #f8f9fc;
+  --text: #1a1a1a;
+  --text-muted: #666666;
+  --text-inverse: #fafafa;
 
-  --border: #e2e5ea;
-  --border-subtle: rgba(26, 29, 46, 0.04);
+  --border: #e0e0e0;
+  --border-subtle: rgba(26, 26, 26, 0.04);
 
-  --accent: #7c3aed;
-  --accent-hover: #6d28d9;
+  --accent: #b8865a;
+  --accent-hover: #a67549;
   --accent-foreground: #ffffff;
 
-  --success: #059669;
-  --success-bg: rgba(5, 150, 105, 0.08);
-  --warning: #d97706;
-  --warning-bg: rgba(217, 119, 6, 0.08);
-  --danger: #dc2626;
-  --danger-bg: rgba(220, 38, 38, 0.08);
-  --info: #2563eb;
-  --info-bg: rgba(37, 99, 235, 0.08);
+  --success: #4a8f7c;
+  --success-bg: rgba(74, 143, 124, 0.08);
+  --warning: #c4841d;
+  --warning-bg: rgba(196, 132, 29, 0.08);
+  --danger: #c45c5c;
+  --danger-bg: rgba(196, 92, 92, 0.08);
+  --info: #5a87a8;
+  --info-bg: rgba(90, 135, 168, 0.08);
 
-  --chart-grid: rgba(26, 29, 46, 0.06);
-  --chart-text: #6b7280;
+  --chart-grid: rgba(26, 26, 26, 0.06);
+  --chart-text: #666666;
   --chart-tooltip-bg: #ffffff;
-  --chart-tooltip-border: #e2e5ea;
-  --chart-tooltip-text: #1a1d2e;
-  --chart-colors: #7c3aed, #2563eb, #d97706, #059669, #dc2626, #f59e0b;
+  --chart-tooltip-border: #e0e0e0;
+  --chart-tooltip-text: #1a1a1a;
+  --chart-colors: #b8865a, #5a87a8, #c4841d, #4a8f7c, #c45c5c, #d4a574;
 
-  --chart-input: #7c3aed;
-  --chart-output: #2563eb;
-  --chart-cache-input: #d97706;
-  --chart-cache-output: #059669;
-  --chart-requests: #7c3aed;
-  --chart-cache-hits: #2563eb;
-  --chart-palette-5: #d97706;
-  --chart-palette-6: #059669;
-  --chart-palette-7: #f59e0b;
-  --chart-palette-8: #0ea5e9;
+  --chart-input: #b8865a;
+  --chart-output: #5a87a8;
+  --chart-cache-input: #c4841d;
+  --chart-cache-output: #4a8f7c;
+  --chart-requests: #b8865a;
+  --chart-cache-hits: #5a87a8;
+  --chart-palette-5: #c4841d;
+  --chart-palette-6: #4a8f7c;
+  --chart-palette-7: #d4a574;
+  --chart-palette-8: #666666;
 
-  --chart-cat-1: #7c3aed;
-  --chart-cat-2: #2563eb;
-  --chart-cat-3: #0891b2;
-  --chart-cat-4: #0d9488;
-  --chart-cat-5: #059669;
-  --chart-cat-6: #d97706;
-  --chart-cat-7: #f59e0b;
-  --chart-cat-8: #dc2626;
-  --chart-cat-9: #e11d48;
-  --chart-cat-10: #d946ef;
+  --chart-cat-1: #b8865a;
+  --chart-cat-2: #5a87a8;
+  --chart-cat-3: #4a8f7c;
+  --chart-cat-4: #c4841d;
+  --chart-cat-5: #c45c5c;
+  --chart-cat-6: #d4a574;
+  --chart-cat-7: #666666;
+  --chart-cat-8: #8a6a45;
+  --chart-cat-9: #3d6b8a;
+  --chart-cat-10: #a07850;
 
-  --cal-level-0: #e5e7eb;
-  --cal-level-1: #d1d5db;
-  --cal-level-2: #9ca3af;
-  --cal-level-3: #7c3aed;
-  --cal-level-4: #6d28d9;
+  --cal-level-0: #f0f0f0;
+  --cal-level-1: #e0e0e0;
+  --cal-level-2: #cccccc;
+  --cal-level-3: #b8865a;
+  --cal-level-4: #a67549;
 
-  --prompt-cache-color: #2563eb;
-  --prompt-cache-color-bg: rgba(37, 99, 235, 0.06);
-  --alias-row-valid-bg: #f0fdf4;
-  --alias-row-valid-bg-hover: #dcfce7;
+  --prompt-cache-color: #5a87a8;
+  --prompt-cache-color-bg: rgba(90, 135, 168, 0.06);
+  --alias-row-valid-bg: #f5faf8;
+  --alias-row-valid-bg-hover: #e8f3ef;
 
   --glass-bg: #ffffff;
-  --glass-border: #e2e5ea;
+  --glass-border: #e0e0e0;
   --glass-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 
-  --ring-highlight: rgba(124, 58, 237, 0.08);
+  --ring-highlight: rgba(184, 134, 90, 0.08);
   --shadow-tint: rgba(0, 0, 0, 0.06);
 
   color-scheme: light;
@@ -176,77 +176,77 @@
 /* ── System light (no pinned theme) ───────────────────────────────── */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
-    --bg: #f8f9fc;
+    --bg: #fafafa;
     --bg-surface: #ffffff;
-    --bg-surface-hover: #f0f2f5;
+    --bg-surface-hover: #f0f0f0;
     --bg-elevated: #ffffff;
 
-    --text: #1a1d2e;
-    --text-muted: #6b7280;
-    --text-inverse: #f8f9fc;
+    --text: #1a1a1a;
+    --text-muted: #666666;
+    --text-inverse: #fafafa;
 
-    --border: #e2e5ea;
-    --border-subtle: rgba(26, 29, 46, 0.04);
+    --border: #e0e0e0;
+    --border-subtle: rgba(26, 26, 26, 0.04);
 
-    --accent: #7c3aed;
-    --accent-hover: #6d28d9;
+    --accent: #b8865a;
+    --accent-hover: #a67549;
     --accent-foreground: #ffffff;
 
-    --success: #059669;
-    --success-bg: rgba(5, 150, 105, 0.08);
-    --warning: #d97706;
-    --warning-bg: rgba(217, 119, 6, 0.08);
-    --danger: #dc2626;
-    --danger-bg: rgba(220, 38, 38, 0.08);
-    --info: #2563eb;
-    --info-bg: rgba(37, 99, 235, 0.08);
+    --success: #4a8f7c;
+    --success-bg: rgba(74, 143, 124, 0.08);
+    --warning: #c4841d;
+    --warning-bg: rgba(196, 132, 29, 0.08);
+    --danger: #c45c5c;
+    --danger-bg: rgba(196, 92, 92, 0.08);
+    --info: #5a87a8;
+    --info-bg: rgba(90, 135, 168, 0.08);
 
-    --chart-grid: rgba(26, 29, 46, 0.06);
-    --chart-text: #6b7280;
+    --chart-grid: rgba(26, 26, 26, 0.06);
+    --chart-text: #666666;
     --chart-tooltip-bg: #ffffff;
-    --chart-tooltip-border: #e2e5ea;
-    --chart-tooltip-text: #1a1d2e;
-    --chart-colors: #7c3aed, #2563eb, #d97706, #059669, #dc2626, #f59e0b;
+    --chart-tooltip-border: #e0e0e0;
+    --chart-tooltip-text: #1a1a1a;
+    --chart-colors: #b8865a, #5a87a8, #c4841d, #4a8f7c, #c45c5c, #d4a574;
 
-    --chart-input: #7c3aed;
-    --chart-output: #2563eb;
-    --chart-cache-input: #d97706;
-    --chart-cache-output: #059669;
-    --chart-requests: #7c3aed;
-    --chart-cache-hits: #2563eb;
-    --chart-palette-5: #d97706;
-    --chart-palette-6: #059669;
-    --chart-palette-7: #f59e0b;
-    --chart-palette-8: #0ea5e9;
+    --chart-input: #b8865a;
+    --chart-output: #5a87a8;
+    --chart-cache-input: #c4841d;
+    --chart-cache-output: #4a8f7c;
+    --chart-requests: #b8865a;
+    --chart-cache-hits: #5a87a8;
+    --chart-palette-5: #c4841d;
+    --chart-palette-6: #4a8f7c;
+    --chart-palette-7: #d4a574;
+    --chart-palette-8: #666666;
 
-    --chart-cat-1: #7c3aed;
-    --chart-cat-2: #2563eb;
-    --chart-cat-3: #0891b2;
-    --chart-cat-4: #0d9488;
-    --chart-cat-5: #059669;
-    --chart-cat-6: #d97706;
-    --chart-cat-7: #f59e0b;
-    --chart-cat-8: #dc2626;
-    --chart-cat-9: #e11d48;
-    --chart-cat-10: #d946ef;
+    --chart-cat-1: #b8865a;
+    --chart-cat-2: #5a87a8;
+    --chart-cat-3: #4a8f7c;
+    --chart-cat-4: #c4841d;
+    --chart-cat-5: #c45c5c;
+    --chart-cat-6: #d4a574;
+    --chart-cat-7: #666666;
+    --chart-cat-8: #8a6a45;
+    --chart-cat-9: #3d6b8a;
+    --chart-cat-10: #a07850;
 
-    --cal-level-0: #e5e7eb;
-    --cal-level-1: #d1d5db;
-    --cal-level-2: #9ca3af;
-    --cal-level-3: #7c3aed;
-    --cal-level-4: #6d28d9;
+    --cal-level-0: #f0f0f0;
+    --cal-level-1: #e0e0e0;
+    --cal-level-2: #cccccc;
+    --cal-level-3: #b8865a;
+    --cal-level-4: #a67549;
 
-    --prompt-cache-color: #2563eb;
-    --prompt-cache-color-bg: rgba(37, 99, 235, 0.06);
-    --alias-row-valid-bg: #f0fdf4;
-    --alias-row-valid-bg-hover: #dcfce7;
+    --prompt-cache-color: #5a87a8;
+    --prompt-cache-color-bg: rgba(90, 135, 168, 0.06);
+    --alias-row-valid-bg: #f5faf8;
+    --alias-row-valid-bg-hover: #e8f3ef;
 
     --glass-bg: #ffffff;
-    --glass-border: #e2e5ea;
+    --glass-border: #e0e0e0;
     --glass-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
     --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 
-    --ring-highlight: rgba(124, 58, 237, 0.08);
+    --ring-highlight: rgba(184, 134, 90, 0.08);
     --shadow-tint: rgba(0, 0, 0, 0.06);
 
     color-scheme: light;

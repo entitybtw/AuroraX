@@ -15,7 +15,10 @@ export function BottomNav(): JSX.Element {
   const path = location.pathname;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-surface/95 backdrop-blur-xl md:hidden safe-area-inset-bottom">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-surface/95 backdrop-blur-xl md:hidden safe-area-inset-bottom"
+      aria-label="Primary mobile navigation"
+    >
       <div className="flex items-center justify-around h-16">
         {TABS.map(({ to, label, Icon }) => {
           const active = path === to || path.startsWith(to + "/");
@@ -23,8 +26,9 @@ export function BottomNav(): JSX.Element {
             <Link
               key={to}
               to={to}
+              aria-current={active ? "page" : undefined}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 w-full h-full text-[11px] font-medium transition-all active:scale-95",
+                "flex flex-col items-center justify-center gap-1 w-full h-full min-h-[44px] text-[11px] font-medium transition-all active:scale-95 touch-manipulation",
                 active ? "text-accent" : "text-muted-foreground active:text-foreground"
               )}
             >

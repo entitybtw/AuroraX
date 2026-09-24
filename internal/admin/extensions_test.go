@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -339,85 +340,7 @@ func TestApplyExtension_ConfiguresOAuthOnMatchingProviders(t *testing.T) {
 	}
 }
 
-func containsTag(tags []string, want string) bool {
-	for _, t := range tags {
-		if strings.EqualFold(t, want) {
-			return true
-		}
-	}
-	return false
-}
-
-func TestExtension_EffectiveTags(t *testing.T) {
-	themeExt := Extension{
-		ID:   "theme-ext",
-		Type: "theme",
-		Tags: []string{"custom", "theme"},
-	}
-	tags := themeExt.EffectiveTags()
-	for _, want := range []string{"custom", "theme"} {
-		if !containsTag(tags, want) {
-			t.Fatalf("themeExt tags = %v, missing %q", tags, want)
-		}
-	}
-	if count := countFold(tags, "theme"); count != 1 {
-		t.Fatalf("theme tag should appear once, got %d in %v", count, tags)
-	}
-	if len(themeExt.Tags) != 2 {
-		t.Fatalf("EffectiveTags must not mutate stored tags: %v", themeExt.Tags)
-	}
-
-	inject := true
-	full := Extension{
-		ID:          "full-ext",
-		BaseURL:     "https://example.test/v1",
-		InjectTools: &inject,
-		Headers:     []ExtensionHeader{{Name: "x-session", Mode: "generate"}},
-		Tags:        []string{"tls"},
-		UI: ExtensionUI{
-			Accent: "#112233",
-			Nav:    []ExtensionNavEntry{{ID: "n", Label: "N", To: "n"}},
-		},
-		Provides: &ExtensionProvides{
-			ProviderTypes: []string{"demo"},
-			Features:      []string{"oauth"},
-		},
-		OAuth: &ExtensionOAuth{Server: "https://auth.example.test"},
-	}
-	tags = full.EffectiveTags()
-	for _, want := range []string{"tls", "sessionhub", "sidecar", "ui", "oauth", "providers"} {
-		if !containsTag(tags, want) {
-			t.Fatalf("full tags = %v, missing %q", tags, want)
-		}
-	}
-	if len(full.Tags) != 1 || full.Tags[0] != "tls" {
-		t.Fatalf("stored tags mutated: %v", full.Tags)
-	}
-
-	colorField := Extension{
-		ID: "color-ext",
-		UI: ExtensionUI{Fields: []ExtensionField{{Key: "brand", Type: "color"}}},
-	}
-	tags = colorField.EffectiveTags()
-	if !containsTag(tags, "theme") {
-		t.Fatalf("color ui.fields should imply theme tag, got %v", tags)
-	}
-	if containsTag(tags, "ui") {
-		t.Fatalf("color field alone must not imply ui tag: %v", tags)
-	}
-}
-
-func countFold(tags []string, want string) int {
-	n := 0
-	for _, t := range tags {
-		if strings.EqualFold(t, want) {
-			n++
-		}
-	}
-	return n
-}
-
-func TestHandler_ListAndGetExtensions_EffectiveTags(t *testing.T) {
+func TestHandler_ListAndGetExtensions_StripsTags(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("AURORA_EXTENSIONS_PATH", filepath.Join(dir, "extensions.json"))
 
@@ -426,6 +349,7 @@ func TestHandler_ListAndGetExtensions_EffectiveTags(t *testing.T) {
 		ID:      "theme-ext",
 		Name:    "Theme Ext",
 		Type:    "theme",
+		Tags:    []string{"official", "theme"},
 		Headers: []ExtensionHeader{{Name: "x-session", Mode: "generate"}},
 	})
 
@@ -448,8 +372,8 @@ func TestHandler_ListAndGetExtensions_EffectiveTags(t *testing.T) {
 		t.Fatalf("extensions = %d, want 1", len(listBody.Extensions))
 	}
 	listed := listBody.Extensions[0]
-	if !containsTag(listed.Tags, "theme") || !containsTag(listed.Tags, "sessionhub") {
-		t.Fatalf("list response tags = %v, want theme+sessionhub", listed.Tags)
+	if len(listed.Tags) != 0 {
+		t.Fatalf("list response tags = %v, want empty", listed.Tags)
 	}
 
 	req = httptest.NewRequest(http.MethodGet, "/sidecar/extensions/theme-ext", nil)
@@ -463,16 +387,196 @@ func TestHandler_ListAndGetExtensions_EffectiveTags(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if !containsTag(got.Tags, "theme") || !containsTag(got.Tags, "sessionhub") {
-		t.Fatalf("get response tags = %v, want theme+sessionhub", got.Tags)
+	if len(got.Tags) != 0 {
+		t.Fatalf("get response tags = %v, want empty", got.Tags)
+	}
+}
+
+func TestExtensionStore_ImportPreservesOperatorState(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("AURORA_EXTENSIONS_PATH", filepath.Join(dir, "extensions.json"))
+
+	store := NewExtensionStore()
+	store.Upsert(Extension{
+		ID:      "ext",
+		Name:    "Custom Name",
+		Version: "1",
+		Applied: true,
+		Order:   3,
+		Config:  map[string]string{"accent": "#112233"},
+		Source:  "https://store.example.com/extensions/ext.extension.json",
+	})
+
+	store.Import(Extension{
+		ID:          "ext",
+		Name:        "Upstream Name",
+		Version:     "2",
+		Description: "updated",
+		Config:      map[string]string{"accent": "#445566", "extra": "x"},
+	})
+
+	got, ok := store.Get("ext")
+	if !ok {
+		t.Fatal("extension missing after re-import")
+	}
+	if got.Name != "Custom Name" {
+		t.Fatalf("Name = %q, want Custom Name", got.Name)
+	}
+	if !got.Applied {
+		t.Fatal("Applied must be preserved")
+	}
+	if got.Order != 3 {
+		t.Fatalf("Order = %d, want 3", got.Order)
+	}
+	if got.Version != "2" {
+		t.Fatalf("Version = %q, want 2 (metadata should update)", got.Version)
+	}
+	if got.Source != "https://store.example.com/extensions/ext.extension.json" {
+		t.Fatalf("Source = %q, want preserved source URL", got.Source)
+	}
+	if got.Config["accent"] != "#112233" || got.Config["extra"] != "x" {
+		t.Fatalf("Config merge = %v, want accent kept + extra added", got.Config)
+	}
+}
+
+func TestHandler_ExtensionStoreURLsCRUD(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("AURORA_EXTENSION_STORES_PATH", filepath.Join(dir, "stores.json"))
+	t.Setenv("AURORA_EXTENSIONS_PATH", filepath.Join(dir, "extensions.json"))
+
+	h := NewHandler(nil, nil)
+	e := echo.New()
+
+	req := httptest.NewRequest(http.MethodGet, "/sidecar/extensions/stores", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	if err := h.ListExtensionStores(c); err != nil {
+		t.Fatalf("ListExtensionStores: %v", err)
+	}
+	var listBody struct {
+		Stores []string `json:"stores"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &listBody); err != nil {
+		t.Fatalf("decode list: %v", err)
+	}
+	if len(listBody.Stores) != 0 {
+		t.Fatalf("stores = %v, want empty", listBody.Stores)
 	}
 
-	stored, ok := store.Get("theme-ext")
-	if !ok {
-		t.Fatal("extension missing from store")
+	req = httptest.NewRequest(http.MethodPost, "/sidecar/extensions/stores", strings.NewReader(
+		`{"url":"https://store.example.com"}`,
+	))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	c = e.NewContext(req, rec)
+	if err := h.AddExtensionStore(c); err != nil {
+		t.Fatalf("AddExtensionStore: %v", err)
 	}
-	if len(stored.Tags) != 0 {
-		t.Fatalf("stored tags must stay empty, got %v", stored.Tags)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("add status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/sidecar/extensions/stores", nil)
+	rec = httptest.NewRecorder()
+	c = e.NewContext(req, rec)
+	if err := h.ListExtensionStores(c); err != nil {
+		t.Fatalf("ListExtensionStores after add: %v", err)
+	}
+	listBody.Stores = nil
+	if err := json.Unmarshal(rec.Body.Bytes(), &listBody); err != nil {
+		t.Fatalf("decode list after add: %v", err)
+	}
+	if len(listBody.Stores) != 1 || listBody.Stores[0] != "https://store.example.com" {
+		t.Fatalf("stores = %v, want [https://store.example.com]", listBody.Stores)
+	}
+
+	req = httptest.NewRequest(http.MethodDelete, "/sidecar/extensions/stores?url="+
+		url.QueryEscape("https://store.example.com"), nil)
+	rec = httptest.NewRecorder()
+	c = e.NewContext(req, rec)
+	if err := h.DeleteExtensionStore(c); err != nil {
+		t.Fatalf("DeleteExtensionStore: %v", err)
+	}
+	listBody.Stores = []string{"sentinel"}
+	if err := json.Unmarshal(rec.Body.Bytes(), &listBody); err != nil {
+		t.Fatalf("decode delete: %v", err)
+	}
+	if len(listBody.Stores) != 0 {
+		t.Fatalf("stores after delete = %v, want empty", listBody.Stores)
+	}
+}
+
+func TestHandler_CheckAndUpdateExtensionFromSource(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("AURORA_EXTENSIONS_PATH", filepath.Join(dir, "extensions.json"))
+
+	remote := `{"id":"src-ext","name":"Src","version":"2","type":"sidecar","base_url":"https://api.example.com/v1"}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(remote))
+	}))
+	defer srv.Close()
+
+	store := NewExtensionStore()
+	store.Upsert(Extension{
+		ID:      "src-ext",
+		Name:    "My Rename",
+		Version: "1",
+		Applied: true,
+		Order:   5,
+		Config:  map[string]string{"k": "v"},
+		Source:  srv.URL + "/ext.json",
+	})
+	h := NewHandler(nil, nil, WithExtensionStore(store))
+	e := echo.New()
+
+	req := httptest.NewRequest(http.MethodGet, "/sidecar/extensions/src-ext/check-update", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: "src-ext"}})
+	if err := h.CheckExtensionUpdate(c); err != nil {
+		t.Fatalf("CheckExtensionUpdate: %v", err)
+	}
+	var check struct {
+		UpdateAvailable bool   `json:"update_available"`
+		RemoteVersion   string `json:"remote_version"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &check); err != nil {
+		t.Fatalf("decode check: %v", err)
+	}
+	if !check.UpdateAvailable || check.RemoteVersion != "2" {
+		t.Fatalf("check = %+v, want update available v2", check)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/sidecar/extensions/src-ext/update", nil)
+	rec = httptest.NewRecorder()
+	c = e.NewContext(req, rec)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: "src-ext"}})
+	if err := h.UpdateExtensionFromSource(c); err != nil {
+		t.Fatalf("UpdateExtensionFromSource: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("update status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	got, ok := store.Get("src-ext")
+	if !ok {
+		t.Fatal("extension missing after update")
+	}
+	if got.Version != "2" {
+		t.Fatalf("Version = %q, want 2", got.Version)
+	}
+	if got.Name != "My Rename" {
+		t.Fatalf("Name = %q, want preserved custom name", got.Name)
+	}
+	if !got.Applied || got.Order != 5 {
+		t.Fatalf("state not preserved: applied=%v order=%d", got.Applied, got.Order)
+	}
+	if got.Config["k"] != "v" {
+		t.Fatalf("Config = %v, want preserved", got.Config)
+	}
+	if got.Source != srv.URL+"/ext.json" {
+		t.Fatalf("Source = %q, want preserved", got.Source)
 	}
 }
 

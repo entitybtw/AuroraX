@@ -224,7 +224,9 @@ type Extension struct {
 	// ListExtensionUI.
 	Config map[string]string `json:"config,omitempty"`
 	// Applied marks that the operator activated this extension (UI + sidecar).
-	Applied bool   `json:"applied,omitempty"`
+	Applied bool `json:"applied,omitempty"`
+	// Order is the operator-controlled sort position in the extensions list.
+	Order   int    `json:"order,omitempty"`
 	Builtin bool   `json:"builtin"`
 	Source  string `json:"source,omitempty"`
 }
@@ -343,13 +345,15 @@ func (s *ExtensionStore) Get(id string) (Extension, bool) {
 }
 
 // Upsert stores (or replaces) an imported extension and activates any
-// optional provider types it provides.
+// optional provider types it provides. When a record with the same id
+// already exists, Config is merged so operator overrides survive.
 func (s *ExtensionStore) Upsert(ext Extension) []string {
 	s.mu.Lock()
 	ext.Builtin = false
 	replaced := false
 	for i, e := range s.imported {
 		if e.ID == ext.ID {
+			ext.Config = mergeConfig(e.Config, ext.Config)
 			s.imported[i] = ext
 			replaced = true
 			break
@@ -366,6 +370,112 @@ func (s *ExtensionStore) Upsert(ext Extension) []string {
 		return activator(ext.Provides)
 	}
 	return nil
+}
+
+// Import inserts or re-imports an extension, preserving operator state on
+// re-import: existing Config is merged, Applied and a custom Name are kept,
+// and Order is kept when the incoming record does not set one.
+func (s *ExtensionStore) Import(ext Extension) []string {
+	s.mu.Lock()
+	ext.Builtin = false
+	replaced := false
+	for i, e := range s.imported {
+		if e.ID == ext.ID {
+			ext.Name = e.Name
+			ext.Applied = e.Applied
+			if ext.Order == 0 {
+				ext.Order = e.Order
+			}
+			// Existing operator Config wins over incoming keys; new keys are added.
+			ext.Config = mergeConfig(ext.Config, e.Config)
+			if ext.Source == "" {
+				ext.Source = e.Source
+			}
+			s.imported[i] = ext
+			replaced = true
+			break
+		}
+	}
+	if !replaced {
+		s.imported = append(s.imported, ext)
+	}
+	s.saveLocked()
+	activator := s.activator
+	s.mu.Unlock()
+
+	if activator != nil && ext.Provides != nil {
+		return activator(ext.Provides)
+	}
+	return nil
+}
+
+// mergeConfig overlays incoming onto existing (incoming keys win).
+func mergeConfig(existing, incoming map[string]string) map[string]string {
+	if len(existing) == 0 {
+		return incoming
+	}
+	if len(incoming) == 0 {
+		return existing
+	}
+	merged := make(map[string]string, len(existing)+len(incoming))
+	for k, v := range existing {
+		merged[k] = v
+	}
+	for k, v := range incoming {
+		merged[k] = v
+	}
+	return merged
+}
+
+// Reorder assigns Order from an explicit id sequence. Ids not listed keep
+// their relative order after the listed ones.
+func (s *ExtensionStore) Reorder(ids []string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	pos := make(map[string]int, len(ids))
+	for i, id := range ids {
+		if _, ok := pos[id]; ok {
+			return fmt.Errorf("duplicate id %q", id)
+		}
+		found := false
+		for _, e := range s.imported {
+			if e.ID == id {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("extension %q not found", id)
+		}
+		pos[id] = i
+	}
+	for i := range s.imported {
+		if p, ok := pos[s.imported[i].ID]; ok {
+			s.imported[i].Order = p
+			continue
+		}
+		s.imported[i].Order = len(ids) + i
+	}
+	s.saveLocked()
+	return nil
+}
+
+// UnapplyThemesExcept deactivates every applied theme extension except id.
+// Exactly one theme may stay active at a time.
+func (s *ExtensionStore) UnapplyThemesExcept(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	changed := false
+	for i := range s.imported {
+		e := &s.imported[i]
+		if e.Applied && e.Type == "theme" && e.ID != id {
+			e.Applied = false
+			changed = true
+		}
+	}
+	if changed {
+		s.saveLocked()
+	}
 }
 
 // Delete removes an imported extension.
@@ -460,64 +570,6 @@ func safeExtRelPath(rel string) bool {
 	return !strings.ContainsAny(rel, ":")
 }
 
-// EffectiveTags returns the stored tags unioned with auto-detected capability
-// tags derived from the extension's shape. List/Get responses surface this
-// derived list so the dashboard's tag filters see capabilities (theme,
-// sessionhub, sidecar, ui, oauth, providers) without the tags being persisted.
-func (e Extension) EffectiveTags() []string {
-	seen := make(map[string]bool, len(e.Tags)+6)
-	out := make([]string, 0, len(e.Tags)+6)
-	add := func(t string) {
-		if t == "" {
-			return
-		}
-		key := strings.ToLower(t)
-		if seen[key] {
-			return
-		}
-		seen[key] = true
-		out = append(out, t)
-	}
-	for _, t := range e.Tags {
-		add(t)
-	}
-
-	hasThemeTag := false
-	for _, t := range e.Tags {
-		if strings.EqualFold(strings.TrimSpace(t), "theme") {
-			hasThemeTag = true
-			break
-		}
-	}
-	hasColorField := false
-	for _, f := range e.UI.Fields {
-		if strings.EqualFold(f.Type, "color") {
-			hasColorField = true
-			break
-		}
-	}
-	if e.Type == "theme" || hasThemeTag || len(e.UI.Theme) > 0 || hasColorField {
-		add("theme")
-	}
-	if len(e.Headers) > 0 {
-		add("sessionhub")
-	}
-	if e.BaseURL != "" || e.InjectTools != nil || e.Type == "sidecar" {
-		add("sidecar")
-	}
-	if e.UI.Accent != "" || len(e.UI.Nav) > 0 || len(e.UI.Pages) > 0 ||
-		len(e.UI.Banners) > 0 || len(e.UI.Widgets) > 0 || len(e.UI.SettingsTabs) > 0 {
-		add("ui")
-	}
-	if e.OAuth != nil || extensionProvidesFeature(e.Provides, "oauth") {
-		add("oauth")
-	}
-	if e.Provides != nil && len(e.Provides.ProviderTypes) > 0 {
-		add("providers")
-	}
-	return out
-}
-
 // MaterializeFiles writes ext.Files under dir (creating subdirs). Returns the
 // absolute path of the first *.json tool schema file suitable as a sidecar
 // tools path, or "" when none was written.
@@ -569,23 +621,22 @@ func WithExtensionStore(store *ExtensionStore) Option {
 	}
 }
 
-// ListExtensions returns all imported extensions. Tags on each response copy
-// are replaced with EffectiveTags() so the dashboard sees auto-detected
-// capability tags without them being persisted.
+// ListExtensions returns all imported extensions. Tags are stripped from
+// every response copy; theme detection uses type/ui.theme in the dashboard.
 func (h *Handler) ListExtensions(c *echo.Context) error {
 	if h.extensions == nil {
 		return c.JSON(http.StatusOK, map[string]any{"extensions": []any{}, "presets": []any{}})
 	}
 	list := h.extensions.List()
 	for i := range list {
-		list[i].Tags = list[i].EffectiveTags()
+		list[i].Tags = nil
 	}
 	// "presets" is a temporary alias for older dashboard builds.
 	return c.JSON(http.StatusOK, map[string]any{"extensions": list, "presets": list})
 }
 
-// GetExtension returns a single extension by id. Tags on the response copy
-// are replaced with EffectiveTags() (see ListExtensions).
+// GetExtension returns a single extension by id. Tags are stripped from the
+// response copy (see ListExtensions).
 func (h *Handler) GetExtension(c *echo.Context) error {
 	if h.extensions == nil {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "extensions unavailable"})
@@ -594,7 +645,7 @@ func (h *Handler) GetExtension(c *echo.Context) error {
 	if !ok {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "extension not found"})
 	}
-	ext.Tags = ext.EffectiveTags()
+	ext.Tags = nil
 	return c.JSON(http.StatusOK, ext)
 }
 
@@ -608,6 +659,7 @@ func (h *Handler) ExportExtension(c *echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "extension not found"})
 	}
 	ext.Builtin = false
+	ext.Tags = nil
 	data, err := json.MarshalIndent(ext, "", "  ")
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -631,28 +683,100 @@ func (h *Handler) ImportExtension(c *echo.Context) error {
 	var envelope struct {
 		URL string `json:"url"`
 	}
+	sourceURL := ""
 	if err := json.Unmarshal(body, &envelope); err == nil && envelope.URL != "" {
 		fetched, ferr := fetchExtensionFromURL(envelope.URL)
 		if ferr != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": ferr.Error()})
 		}
 		raw = fetched
+		sourceURL = envelope.URL
 	}
 
 	var ext Extension
 	if err := json.Unmarshal([]byte(raw), &ext); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid extension JSON: " + err.Error()})
 	}
+	ext.Tags = nil
+	if sourceURL != "" {
+		ext.Source = sourceURL
+	}
 	if err := ext.Validate(); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
-	activated := h.extensions.Upsert(ext)
+	activated := h.extensions.Import(ext)
 	saved, _ := h.extensions.Get(ext.ID)
 	return c.JSON(http.StatusOK, map[string]any{
 		"status":                   "ok",
 		"extension":                saved,
 		"preset":                   saved,
 		"activated_provider_types": activated,
+	})
+}
+
+// UpdateExtension renames an extension and/or sets its list order.
+// PUT /sidecar/extensions/:id {"name":"...","order":2}
+func (h *Handler) UpdateExtension(c *echo.Context) error {
+	if h.extensions == nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "extensions unavailable"})
+	}
+	ext, ok := h.extensions.Get(c.Param("id"))
+	if !ok {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "extension not found"})
+	}
+	var req struct {
+		Name  *string `json:"name"`
+		Order *int    `json:"order"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+	}
+	changed := false
+	if req.Name != nil {
+		name := strings.TrimSpace(*req.Name)
+		if name == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "name must not be empty"})
+		}
+		ext.Name = name
+		changed = true
+	}
+	if req.Order != nil {
+		ext.Order = *req.Order
+		changed = true
+	}
+	if !changed {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "name or order is required"})
+	}
+	h.extensions.Upsert(ext)
+	ext.Tags = nil
+	return c.JSON(http.StatusOK, map[string]any{
+		"status":    "ok",
+		"extension": ext,
+	})
+}
+
+// ReorderExtensions assigns list order from an explicit id sequence.
+// POST /sidecar/extensions/reorder {"ids":["a","b"]}
+func (h *Handler) ReorderExtensions(c *echo.Context) error {
+	if h.extensions == nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "extensions unavailable"})
+	}
+	var req struct {
+		IDs []string `json:"ids"`
+	}
+	if err := c.Bind(&req); err != nil || len(req.IDs) == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ids is required"})
+	}
+	if err := h.extensions.Reorder(req.IDs); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	list := h.extensions.List()
+	for i := range list {
+		list[i].Tags = nil
+	}
+	return c.JSON(http.StatusOK, map[string]any{
+		"status":     "ok",
+		"extensions": list,
 	})
 }
 
@@ -899,6 +1023,9 @@ func (h *Handler) buildApplyResponse(c *echo.Context) (map[string]any, Extension
 	if h.extensions != nil {
 		ext.Applied = true
 		activated = h.extensions.Upsert(ext)
+		if ext.Type == "theme" {
+			h.extensions.UnapplyThemesExcept(ext.ID)
+		}
 	}
 
 	// provides.features "oauth" wires device-flow OAuth onto matching providers.
@@ -1010,6 +1137,7 @@ func (h *Handler) applyExtensionOAuth(c *echo.Context, ext Extension) []string {
 type ExtensionUIContribution struct {
 	ID   string      `json:"id"`
 	Name string      `json:"name"`
+	Type string      `json:"type,omitempty"`
 	UI   ExtensionUI `json:"ui"`
 }
 
@@ -1073,15 +1201,233 @@ func (h *Handler) ListExtensionUI(c *echo.Context) error {
 			len(ui.Theme) == 0 && ui.LogoText == "" && ui.LogoURL == "" {
 			continue
 		}
-		out = append(out, ExtensionUIContribution{ID: e.ID, Name: e.Name, UI: ui})
+		out = append(out, ExtensionUIContribution{ID: e.ID, Name: e.Name, Type: e.Type, UI: ui})
 	}
 	return c.JSON(http.StatusOK, map[string]any{"contributions": out})
 }
 
-// ListExtensionStores returns configured store base URLs. Operators type a
-// store URL in the dashboard; extensions do not ship catalog URLs.
+// ListExtensionStores returns configured store base URLs persisted under
+// AURORA_EXTENSION_STORES_PATH (default configs/extension-stores.json).
 func (h *Handler) ListExtensionStores(c *echo.Context) error {
-	return c.JSON(http.StatusOK, map[string]any{"stores": []string{}})
+	return c.JSON(http.StatusOK, map[string]any{"stores": h.extensionStores().List()})
+}
+
+// AddExtensionStore persists a store base URL (POST {"url":"https://…"}).
+func (h *Handler) AddExtensionStore(c *echo.Context) error {
+	var req struct {
+		URL string `json:"url"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+	}
+	base := strings.TrimSpace(req.URL)
+	u, err := url.Parse(base)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "url must be http or https"})
+	}
+	return c.JSON(http.StatusOK, map[string]any{
+		"status": "ok",
+		"stores": h.extensionStores().Add(strings.TrimRight(base, "/")),
+	})
+}
+
+// DeleteExtensionStore removes a persisted store base URL (DELETE ?url=…).
+func (h *Handler) DeleteExtensionStore(c *echo.Context) error {
+	base := strings.TrimSpace(c.QueryParam("url"))
+	if base == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "url is required"})
+	}
+	return c.JSON(http.StatusOK, map[string]any{
+		"status": "ok",
+		"stores": h.extensionStores().Remove(base),
+	})
+}
+
+// ExtensionStoreURLStore persists the operator-configured store base URLs.
+type ExtensionStoreURLStore struct {
+	mu     sync.RWMutex
+	path   string
+	stores []string
+}
+
+// NewExtensionStoreURLStore loads persisted store URLs from disk.
+func NewExtensionStoreURLStore() *ExtensionStoreURLStore {
+	s := &ExtensionStoreURLStore{path: os.Getenv("AURORA_EXTENSION_STORES_PATH")}
+	if s.path == "" {
+		s.path = "configs/extension-stores.json"
+	}
+	s.load()
+	return s
+}
+
+func (s *ExtensionStoreURLStore) load() {
+	data, err := os.ReadFile(s.path)
+	if err != nil {
+		return
+	}
+	var loaded []string
+	if err := json.Unmarshal(data, &loaded); err != nil {
+		return
+	}
+	s.stores = loaded
+}
+
+func (s *ExtensionStoreURLStore) saveLocked() {
+	data, err := json.MarshalIndent(s.stores, "", "  ")
+	if err != nil {
+		return
+	}
+	_ = os.MkdirAll(filepath.Dir(s.path), 0o755)
+	_ = os.WriteFile(s.path, data, 0o644)
+}
+
+// List returns a copy of the configured store base URLs.
+func (s *ExtensionStoreURLStore) List() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]string, len(s.stores))
+	copy(out, s.stores)
+	return out
+}
+
+// Add appends a store base URL (idempotent) and persists the list.
+func (s *ExtensionStoreURLStore) Add(base string) []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, existing := range s.stores {
+		if existing == base {
+			out := make([]string, len(s.stores))
+			copy(out, s.stores)
+			return out
+		}
+	}
+	s.stores = append(s.stores, base)
+	s.saveLocked()
+	out := make([]string, len(s.stores))
+	copy(out, s.stores)
+	return out
+}
+
+// Remove drops a store base URL and persists the list.
+func (s *ExtensionStoreURLStore) Remove(base string) []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	trimmed := strings.TrimRight(strings.TrimSpace(base), "/")
+	next := s.stores[:0]
+	for _, existing := range s.stores {
+		if existing == base || existing == trimmed {
+			continue
+		}
+		next = append(next, existing)
+	}
+	s.stores = next
+	s.saveLocked()
+	out := make([]string, len(s.stores))
+	copy(out, s.stores)
+	return out
+}
+
+// extensionStores returns the handler's store-URL registry, creating it on
+// first use so handlers work without an explicit option in tests.
+func (h *Handler) extensionStores() *ExtensionStoreURLStore {
+	h.extensionStoresOnce.Do(func() {
+		if h.extensionStoreURLs == nil {
+			h.extensionStoreURLs = NewExtensionStoreURLStore()
+		}
+	})
+	return h.extensionStoreURLs
+}
+
+// WithExtensionStoreURLs sets the store-URL registry on the handler.
+func WithExtensionStoreURLs(store *ExtensionStoreURLStore) Option {
+	return func(h *Handler) {
+		h.extensionStoreURLs = store
+	}
+}
+
+// CheckExtensionUpdate re-fetches the extension's Source URL and reports
+// whether the remote version differs from the installed one.
+// GET /sidecar/extensions/:id/check-update
+func (h *Handler) CheckExtensionUpdate(c *echo.Context) error {
+	if h.extensions == nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "extensions unavailable"})
+	}
+	ext, ok := h.extensions.Get(c.Param("id"))
+	if !ok {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "extension not found"})
+	}
+	if strings.TrimSpace(ext.Source) == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "extension has no source url"})
+	}
+	remote, ferr := h.fetchRemoteExtension(ext.Source)
+	if ferr != nil {
+		return c.JSON(http.StatusBadGateway, map[string]string{"error": ferr.Error()})
+	}
+	if remote.ID != ext.ID {
+		return c.JSON(http.StatusBadGateway, map[string]string{
+			"error": fmt.Sprintf("source id %q does not match extension %q", remote.ID, ext.ID),
+		})
+	}
+	current := strings.TrimSpace(ext.Version)
+	latest := strings.TrimSpace(remote.Version)
+	return c.JSON(http.StatusOK, map[string]any{
+		"id":               ext.ID,
+		"source":           ext.Source,
+		"current_version":  current,
+		"remote_version":   latest,
+		"update_available": latest != current,
+	})
+}
+
+// UpdateExtensionFromSource re-fetches Source and replaces metadata while
+// preserving operator state (Config, Applied, Order, custom Name).
+// POST /sidecar/extensions/:id/update
+func (h *Handler) UpdateExtensionFromSource(c *echo.Context) error {
+	if h.extensions == nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "extensions unavailable"})
+	}
+	ext, ok := h.extensions.Get(c.Param("id"))
+	if !ok {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "extension not found"})
+	}
+	if strings.TrimSpace(ext.Source) == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "extension has no source url"})
+	}
+	remote, ferr := h.fetchRemoteExtension(ext.Source)
+	if ferr != nil {
+		return c.JSON(http.StatusBadGateway, map[string]string{"error": ferr.Error()})
+	}
+	if remote.ID != ext.ID {
+		return c.JSON(http.StatusBadGateway, map[string]string{
+			"error": fmt.Sprintf("source id %q does not match extension %q", remote.ID, ext.ID),
+		})
+	}
+	remote.Source = ext.Source
+	if err := remote.Validate(); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	updated := strings.TrimSpace(remote.Version) != strings.TrimSpace(ext.Version)
+	h.extensions.Import(remote)
+	saved, _ := h.extensions.Get(ext.ID)
+	saved.Tags = nil
+	return c.JSON(http.StatusOK, map[string]any{
+		"status":    "ok",
+		"updated":   updated,
+		"extension": saved,
+	})
+}
+
+// fetchRemoteExtension downloads and parses an extension JSON document.
+func (h *Handler) fetchRemoteExtension(source string) (Extension, error) {
+	var remote Extension
+	raw, err := fetchExtensionFromURL(source)
+	if err != nil {
+		return remote, err
+	}
+	if err := json.Unmarshal([]byte(raw), &remote); err != nil {
+		return remote, fmt.Errorf("invalid extension JSON: %w", err)
+	}
+	return remote, nil
 }
 
 // storeCatalogURLs returns candidate catalog URLs for a store base. The first

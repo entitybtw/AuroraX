@@ -173,8 +173,8 @@ export function AuditLogsPage(): JSX.Element {
     <div className="flex flex-col gap-6">
       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 pt-4 border-b border-border/60">
         <div className="min-w-0 flex-1">
-          <h1 className="font-display text-[34px] font-normal leading-tight tracking-tight text-foreground">Audit Logs</h1>
-          <p className="mt-1.5 text-[15px] text-muted-foreground">View detailed request logs and conversations.</p>
+          <h1 className="font-display text-[28px] md:text-[34px] font-normal leading-tight tracking-tight text-foreground">Audit Logs</h1>
+          <p className="mt-1.5 text-sm md:text-[15px] text-muted-foreground">View detailed request logs and conversations.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <TenantScopeSelect />
@@ -207,13 +207,13 @@ export function AuditLogsPage(): JSX.Element {
 
       <LogVolumeChart entries={displayEntries} isConnected={liveTail ? isConnected : undefined} />
 
-      <div className="flex gap-0 border border-border/60 overflow-hidden bg-surface">
+      <div className="flex flex-col md:flex-row border border-border/60 overflow-hidden bg-surface">
         <LogSidebarFilters filters={sidebarFilters} onChange={setSidebarFilters} onClear={clearFilters} entryCount={total} />
 
         <div className="flex-1 flex flex-col min-w-0">
-          <div className="flex items-center justify-between gap-3 border-b border-border/40 bg-muted/20 px-4 py-2.5">
-            <div className="flex items-center gap-2">
-              <select className="field-input h-8 w-40 bg-background text-xs" value={sort} onChange={(e) => { setSort(e.target.value); setOffset(0); }}>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 bg-muted/20 px-4 py-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <select className="field-input h-10 md:h-8 w-40 bg-background text-xs" value={sort} onChange={(e) => { setSort(e.target.value); setOffset(0); }}>
                 <option value="-timestamp">Newest</option>
                 <option value="timestamp">Oldest</option>
                 <option value="-duration_ns">Slowest</option>
@@ -223,27 +223,27 @@ export function AuditLogsPage(): JSX.Element {
                 <option value="provider">Provider A-Z</option>
                 <option value="requested_model">Model A-Z</option>
               </select>
-              <div className="h-5 w-px bg-border/40" />
+              <div className="hidden sm:block h-5 w-px bg-border/40" />
               <span className="text-xs text-muted-foreground tabular-nums">
                 {offset + 1}-{Math.min(offset + PAGE_LIMIT, total)} of {total}
               </span>
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={handleRefresh}>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" className="h-8 md:h-7 text-[10px]" onClick={handleRefresh}>
                 <RefreshCwIcon className="mr-1 h-3 w-3" />
                 Refresh
               </Button>
-              <Button variant={liveTail ? "default" : "outline"} size="sm" className="h-7 text-[10px] font-bold uppercase tracking-wider" onClick={() => setLiveTail(!liveTail)}>
+              <Button variant={liveTail ? "default" : "outline"} size="sm" className="h-8 md:h-7 text-[10px] font-bold uppercase tracking-wider" onClick={() => setLiveTail(!liveTail)}>
                 {liveTail ? "Live" : "Live tail"}
               </Button>
-              <Button variant="outline" size="sm" className="h-7 text-[10px]" disabled={exporting} onClick={exportCSV}>
+              <Button variant="outline" size="sm" className="h-8 md:h-7 text-[10px]" disabled={exporting} onClick={exportCSV}>
                 <DownloadIcon className="mr-1 h-3 w-3" />
                 CSV
               </Button>
             </div>
           </div>
 
-          <div className="flex-1 overflow-auto min-h-[400px] max-h-[600px]">
+          <div className="flex-1 overflow-auto min-h-[300px] md:min-h-[400px] md:max-h-[600px]">
             {isLoading ? (
               <div className="flex items-center justify-center p-12 text-sm text-muted-foreground">Loading audit logs </div>
             ) : displayEntries.length === 0 ? (
@@ -302,13 +302,13 @@ export function AuditLogsPage(): JSX.Element {
           </div>
 
           {total > PAGE_LIMIT && (
-            <div className="flex items-center justify-between border-t bg-muted/10 px-4 py-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t bg-muted/10 px-4 py-2.5">
               <div className="text-xs text-muted-foreground">{total} total</div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="h-7 text-xs" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_LIMIT))}>
+                <Button variant="outline" size="sm" className="h-9 md:h-7 text-xs" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_LIMIT))}>
                   Previous
                 </Button>
-                <Button variant="outline" size="sm" className="h-7 text-xs" disabled={offset + PAGE_LIMIT >= total} onClick={() => setOffset(offset + PAGE_LIMIT)}>
+                <Button variant="outline" size="sm" className="h-9 md:h-7 text-xs" disabled={offset + PAGE_LIMIT >= total} onClick={() => setOffset(offset + PAGE_LIMIT)}>
                   Next
                 </Button>
               </div>

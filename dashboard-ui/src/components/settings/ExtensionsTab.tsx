@@ -7,9 +7,12 @@ import { ToggleField } from "@/components/ui/toggle-field";
 import { Switch } from "@/components/ui/switch";
 import {
   AlertTriangleIcon,
+  ArrowDownIcon,
+  ArrowUpIcon,
   CheckCircleIcon,
   DownloadIcon,
   GlobeIcon,
+  PencilIcon,
   PlugZapIcon,
   PuzzleIcon,
   RefreshCwIcon,
@@ -20,36 +23,41 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@/lib/api/client";
 import {
+  addExtensionStore,
   applyExtension,
+  checkExtensionUpdate,
   deleteExtension,
+  deleteExtensionStore,
   ensureExtensionHeaders,
   exportExtensionUrl,
   fetchExtensions,
   fullApplyExtension,
   importExtension,
+  listExtensionStores,
+  renameExtension,
+  reorderExtensions,
   unapplyExtension,
   updateExtensionConfig,
+  updateExtensionFromSource,
   type Extension,
 } from "@/lib/api/extensions";
 import { SidecarPresetImportDialog } from "@/components/settings/SidecarPresetImportDialog";
 
-const TAG_STYLES: Record<string, string> = {
-  theme: "border-emerald-500/30 bg-emerald-500/10 text-emerald-500",
-  sessionhub: "border-blue-500/30 bg-blue-500/10 text-blue-500",
-  sidecar: "border-orange-500/30 bg-orange-500/10 text-orange-500",
-  ui: "border-purple-500/30 bg-purple-500/10 text-purple-500",
-  oauth: "border-teal-500/30 bg-teal-500/10 text-teal-500",
-  providers: "border-indigo-500/30 bg-indigo-500/10 text-indigo-500",
-  official: "border-border/60 bg-muted text-muted-foreground",
-};
-
-function tagStyle(tag: string): string {
-  return TAG_STYLES[tag.toLowerCase()] ?? "border-border/50 bg-surface/60 text-muted-foreground";
-}
-
 function isThemeOnly(ext: Extension): boolean {
   if (ext.type === "theme") return true;
-  return (ext.tags ?? []).some((t) => t.toLowerCase() === "theme");
+  return Boolean(ext.ui?.theme && Object.keys(ext.ui.theme).length > 0);
+}
+
+function compareExtensions(a: Extension, b: Extension): number {
+  const aTheme = isThemeOnly(a) ? 1 : 0;
+  const bTheme = isThemeOnly(b) ? 1 : 0;
+  if (aTheme !== bTheme) return aTheme - bTheme;
+  if (aTheme === 1) {
+    const aApplied = a.applied ? 1 : 0;
+    const bApplied = b.applied ? 1 : 0;
+    if (aApplied !== bApplied) return aApplied - bApplied;
+  }
+  return (a.order ?? 0) - (b.order ?? 0) || a.name.localeCompare(b.name);
 }
 
 function fieldValue(
@@ -100,21 +108,53 @@ export function ExtensionsTab(): JSX.Element {
   const [importBusy, setImportBusy] = useState(false);
   const [importError, setImportError] = useState("");
 
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+
   const [storeURL, setStoreURL] = useState("");
   const [storeBusy, setStoreBusy] = useState(false);
   const [storeError, setStoreError] = useState("");
   const [storeResults, setStoreResults] = useState<
     Array<{ id: string; name: string; tagline?: string | undefined; url: string }>
   >([]);
+  const [savedStores, setSavedStores] = useState<string[]>([]);
+  const [newStoreURL, setNewStoreURL] = useState("");
+  const [updateBusy, setUpdateBusy] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<
+    { remote_version: string; update_available: boolean } | null
+  >(null);
 
   const selected = useMemo(
     () => extensions.find((e) => e.id === selectedId) ?? extensions[0],
     [extensions, selectedId],
   );
 
+  const sorted = useMemo(() => [...extensions].sort(compareExtensions), [extensions]);
+
+  useEffect(() => {
+    listExtensionStores().then(setSavedStores).catch(() => setSavedStores([]));
+  }, []);
+
+  useEffect(() => {
+    setUpdateInfo(null);
+    if (!selected?.source) return;
+    let cancelled = false;
+    checkExtensionUpdate(selected.id)
+      .then((info) => {
+        if (!cancelled) setUpdateInfo(info);
+      })
+      .catch(() => {
+        if (!cancelled) setUpdateInfo(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selected?.id, selected?.source]);
+
   useEffect(() => {
     if (!selected) {
       setConfigDraft({});
+      setRenaming(false);
       return;
     }
     const draft: Record<string, string> = {};
@@ -123,6 +163,7 @@ export function ExtensionsTab(): JSX.Element {
     }
     setConfigDraft(draft);
     setResult(null);
+    setRenaming(false);
   }, [selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const invalidateExtensionQueries = async () => {
@@ -306,8 +347,64 @@ export function ExtensionsTab(): JSX.Element {
     });
   };
 
-  const handleBrowseStore = () => {
-    const base = storeURL.trim();
+  const handleRename = async () => {
+    if (!selected) return;
+    const name = renameValue.trim();
+    if (!name || name === selected.name) {
+      setRenaming(false);
+      return;
+    }
+    setBusy(true);
+    try {
+      await renameExtension(selected.id, name);
+      await qc.invalidateQueries({ queryKey: ["extensions"] });
+      setRenaming(false);
+      setResult({
+        ok: true,
+        message: `Renamed to "${name}".`,
+        added: [],
+        kept: [],
+      });
+    } catch (err) {
+      setResult({
+        ok: false,
+        message: `Could not rename: ${err instanceof Error ? err.message : String(err)}`,
+        added: [],
+        kept: [],
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleMove = async (direction: -1 | 1) => {
+    if (!selected) return;
+    const list = [...extensions].sort(compareExtensions);
+    const idx = list.findIndex((e) => e.id === selected.id);
+    const next = idx + direction;
+    if (idx < 0 || next < 0 || next >= list.length) return;
+    const ids = list.map((e) => e.id);
+    const moved = ids.splice(idx, 1)[0];
+    if (moved == null) return;
+    ids.splice(next, 0, moved);
+    setBusy(true);
+    try {
+      await reorderExtensions(ids);
+      await qc.invalidateQueries({ queryKey: ["extensions"] });
+    } catch (err) {
+      setResult({
+        ok: false,
+        message: `Could not reorder: ${err instanceof Error ? err.message : String(err)}`,
+        added: [],
+        kept: [],
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleBrowseStore = (baseOverride?: string) => {
+    const base = (baseOverride ?? storeURL).trim();
     if (!base) return;
     setStoreBusy(true);
     setStoreError("");
@@ -336,6 +433,62 @@ export function ExtensionsTab(): JSX.Element {
       .finally(() => setStoreBusy(false));
   };
 
+  const handleAddStore = async () => {
+    const base = newStoreURL.trim();
+    if (!base) return;
+    setStoreBusy(true);
+    setStoreError("");
+    try {
+      const stores = await addExtensionStore(base);
+      setSavedStores(stores);
+      setNewStoreURL("");
+    } catch (err) {
+      setStoreError(err instanceof Error ? err.message : "Could not save store");
+    } finally {
+      setStoreBusy(false);
+    }
+  };
+
+  const handleRemoveStore = async (url: string) => {
+    setStoreBusy(true);
+    setStoreError("");
+    try {
+      const stores = await deleteExtensionStore(url);
+      setSavedStores(stores);
+    } catch (err) {
+      setStoreError(err instanceof Error ? err.message : "Could not remove store");
+    } finally {
+      setStoreBusy(false);
+    }
+  };
+
+  const handleUpdateFromSource = async () => {
+    if (!selected?.source) return;
+    setUpdateBusy(true);
+    setStoreError("");
+    try {
+      await updateExtensionFromSource(selected.id);
+      await invalidateExtensionQueries();
+      const info = await checkExtensionUpdate(selected.id).catch(() => null);
+      setUpdateInfo(info);
+      setResult({
+        ok: true,
+        message: `Updated "${selected.name}" from source.`,
+        added: [],
+        kept: [],
+      });
+    } catch (err) {
+      setResult({
+        ok: false,
+        message: `Could not update: ${err instanceof Error ? err.message : String(err)}`,
+        added: [],
+        kept: [],
+      });
+    } finally {
+      setUpdateBusy(false);
+    }
+  };
+
   const handleInstallFromStore = (url: string, id: string) => {
     setStoreBusy(true);
     setStoreError("");
@@ -358,6 +511,18 @@ export function ExtensionsTab(): JSX.Element {
 
   return (
     <div className="flex flex-col gap-4 sm:gap-6">
+      <div
+        className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400"
+        role="alert"
+      >
+        <AlertTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" />
+        <span>
+          <strong className="font-semibold">Experimental.</strong> Extensions can change the
+          dashboard UI, sidecar settings, and Session Hub rules. Install only extensions you
+          trust and use them at your own risk.
+        </span>
+      </div>
+
       {/* Header + toolbar */}
       <Surface id="extensions-list" className="p-4 sm:p-6 scroll-mt-20">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -407,7 +572,7 @@ export function ExtensionsTab(): JSX.Element {
 
         {/* Extension cards */}
         <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {extensions.map((ext) => {
+          {sorted.map((ext) => {
             const active = selected?.id === ext.id;
             return (
               <button
@@ -422,7 +587,7 @@ export function ExtensionsTab(): JSX.Element {
               >
                 <span className="flex items-start justify-between gap-2">
                   <span className="flex min-w-0 items-center gap-2">
-                    {ext.ui?.accent ? (
+                    {ext.applied && ext.ui?.accent ? (
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: ext.ui.accent }} />
                     ) : (
                       <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${active ? "bg-primary" : "bg-muted-foreground/30"}`} />
@@ -440,18 +605,6 @@ export function ExtensionsTab(): JSX.Element {
                   </span>
                 </span>
                 <span className="text-xs text-muted-foreground line-clamp-2">{ext.tagline}</span>
-                {(ext.tags?.length ?? 0) > 0 ? (
-                  <span className="flex flex-wrap gap-1">
-                    {(ext.tags ?? []).map((tag) => (
-                      <span
-                        key={tag}
-                        className={`rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${tagStyle(tag)}`}
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </span>
-                ) : null}
               </button>
             );
           })}
@@ -477,7 +630,7 @@ export function ExtensionsTab(): JSX.Element {
             <Button
               variant="outline"
               size="sm"
-              onClick={handleBrowseStore}
+              onClick={() => handleBrowseStore()}
               disabled={storeBusy || !storeURL.trim()}
               className="h-11 gap-1.5 sm:h-9"
             >
@@ -489,6 +642,57 @@ export function ExtensionsTab(): JSX.Element {
               Browse
             </Button>
           </div>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Input
+              value={newStoreURL}
+              onChange={(e) => setNewStoreURL(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void handleAddStore();
+              }}
+              placeholder="Save a store URL…"
+              className="h-11 sm:h-9 font-mono text-sm flex-1"
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void handleAddStore()}
+              disabled={storeBusy || !newStoreURL.trim()}
+              className="h-11 gap-1.5 sm:h-9"
+            >
+              Save store
+            </Button>
+          </div>
+          {savedStores.length > 0 ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {savedStores.map((url) => (
+                <span
+                  key={url}
+                  className="inline-flex items-center gap-1 rounded-full border border-border/50 bg-surface/60 px-2 py-0.5 text-[11px] font-mono text-muted-foreground"
+                >
+                  <button
+                    type="button"
+                    className="hover:text-foreground"
+                    onClick={() => {
+                      setStoreURL(url);
+                      handleBrowseStore(url);
+                    }}
+                    title="Browse this store"
+                  >
+                    {url}
+                  </button>
+                  <button
+                    type="button"
+                    className="ml-0.5 text-destructive/70 hover:text-destructive"
+                    onClick={() => void handleRemoveStore(url)}
+                    aria-label={`Remove store ${url}`}
+                    disabled={storeBusy}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : null}
           {storeError ? <p className="mt-2 text-xs text-destructive">{storeError}</p> : null}
           {storeResults.length > 0 ? (
             <div className="mt-2 flex flex-col gap-1.5">
@@ -543,22 +747,93 @@ export function ExtensionsTab(): JSX.Element {
                 <PlugZapIcon className="h-5 w-5 text-primary" />
               </div>
               <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-base font-semibold truncate">{selected.name}</h3>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                      selected.applied
-                        ? "bg-emerald-500/10 text-emerald-500"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {selected.applied ? "Active" : "Inactive"}
-                  </span>
-                </div>
+                {renaming ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") void handleRename();
+                        if (e.key === "Escape") setRenaming(false);
+                      }}
+                      className="h-9 w-56 text-sm"
+                      autoFocus
+                      aria-label="Extension name"
+                    />
+                    <Button size="sm" onClick={() => void handleRename()} disabled={busy} className="h-8 gap-1">
+                      <CheckCircleIcon className="h-3.5 w-3.5" />
+                      Save
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setRenaming(false)} disabled={busy} className="h-8">
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-base font-semibold truncate">{selected.name}</h3>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setRenameValue(selected.name);
+                        setRenaming(true);
+                      }}
+                      disabled={busy}
+                      aria-label={`Rename ${selected.name}`}
+                      className="h-7 w-7"
+                    >
+                      <PencilIcon className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => void handleMove(-1)}
+                      disabled={busy}
+                      aria-label="Move up"
+                      className="h-7 w-7"
+                    >
+                      <ArrowUpIcon className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => void handleMove(1)}
+                      disabled={busy}
+                      aria-label="Move down"
+                      className="h-7 w-7"
+                    >
+                      <ArrowDownIcon className="h-3.5 w-3.5" />
+                    </Button>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                        selected.applied
+                          ? "bg-emerald-500/10 text-emerald-500"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {selected.applied ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+                )}
                 <p className="text-sm text-muted-foreground mt-1">{selected.tagline}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 shrink-0">
+              {selected.source ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void handleUpdateFromSource()}
+                  disabled={busy || updateBusy}
+                  className="h-9 gap-1.5"
+                  title={selected.source}
+                >
+                  <RefreshCwIcon className={`h-3.5 w-3.5 ${updateBusy ? "animate-spin" : ""}`} />
+                  {updateInfo?.update_available
+                    ? `Update available (v${updateInfo.remote_version || "?"})`
+                    : "Update from source"}
+                </Button>
+              ) : null}
               <span className="text-xs text-muted-foreground">
                 {selected.applied ? "Disable" : "Enable"}
               </span>
@@ -569,17 +844,6 @@ export function ExtensionsTab(): JSX.Element {
                 aria-label={`Toggle ${selected.name}`}
               />
             </div>
-          </div>
-
-          <div className="flex flex-wrap gap-1.5 mt-3">
-            {(selected.tags ?? []).map((tag) => (
-              <span
-                key={tag}
-                className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${tagStyle(tag)}`}
-              >
-                {tag}
-              </span>
-            ))}
           </div>
 
           {selected.description ? (

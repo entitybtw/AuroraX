@@ -113,7 +113,7 @@ export function LogDetailSheet({ entry, open, onOpenChange, onNavigate, hasPrev,
 
       <div className={cn(
         "fixed inset-y-0 right-0 z-50 flex flex-col",
-        "w-full sm:w-[120vw] lg:w-[1400px]",
+        "w-full sm:w-[min(100vw-2rem,1400px)] lg:w-[1400px]",
         "border-l border-border/40 bg-surface/90 shadow-2xl backdrop-blur-xl",
       )}>
         <div className="flex items-center justify-between border-b border-border/30 px-5 py-3.5 bg-background/40">

@@ -562,10 +562,10 @@ function MemberTable({
               <th className="px-4 py-2.5">Provider</th>
               <th className="px-4 py-2.5">Status</th>
               <th className="px-4 py-2.5 text-right">Active</th>
-              <th className="px-4 py-2.5 text-right">Total</th>
-              <th className="px-4 py-2.5 text-right">Errors</th>
+              <th className="hidden sm:table-cell px-4 py-2.5 text-right">Total</th>
+              <th className="hidden md:table-cell px-4 py-2.5 text-right">Errors</th>
               <th className="px-4 py-2.5 text-right">Latency</th>
-              {strategy === "weighted" && <th className="px-4 py-2.5 text-right">Weight</th>}
+              {strategy === "weighted" && <th className="hidden sm:table-cell px-4 py-2.5 text-right">Weight</th>}
             </tr>
           </thead>
           <tbody>
@@ -591,13 +591,13 @@ function MemberTable({
                   </span>
                 </td>
                 <td className="px-4 py-2.5 text-right font-mono tabular-nums text-foreground">{m.active_requests}</td>
-                <td className="px-4 py-2.5 text-right font-mono tabular-nums text-foreground">{formatRequests(m.total_requests)}</td>
-                <td className={cn("px-4 py-2.5 text-right font-mono tabular-nums", m.total_errors > 0 ? "text-destructive" : "text-foreground")}>
+                <td className="hidden sm:table-cell px-4 py-2.5 text-right font-mono tabular-nums text-foreground">{formatRequests(m.total_requests)}</td>
+                <td className={cn("hidden md:table-cell px-4 py-2.5 text-right font-mono tabular-nums", m.total_errors > 0 ? "text-destructive" : "text-foreground")}>
                   {formatRequests(m.total_errors)}
                 </td>
                 <td className="px-4 py-2.5 text-right font-mono tabular-nums text-foreground">{formatLatency(m.latency_ewma_us)}</td>
                 {strategy === "weighted" && (
-                  <td className="px-4 py-2.5 text-right font-mono tabular-nums text-foreground">{m.weight ?? "-"}</td>
+                  <td className="hidden sm:table-cell px-4 py-2.5 text-right font-mono tabular-nums text-foreground">{m.weight ?? "-"}</td>
                 )}
               </tr>
             ))}

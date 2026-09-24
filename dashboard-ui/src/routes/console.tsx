@@ -105,18 +105,18 @@ export function ConsolePage(): JSX.Element {
       ) : (
         <TableWrap>
           <DataTable>
-            <thead><tr><Th>Time</Th><Th>Level</Th><Th>Route</Th><Th>Status</Th><Th>Model</Th><Th>Provider</Th><Th>Message</Th><Th>Latency</Th></tr></thead>
+            <thead><tr><Th>Time</Th><Th>Level</Th><Th className="hidden sm:table-cell">Route</Th><Th>Status</Th><Th className="hidden md:table-cell">Model</Th><Th className="hidden lg:table-cell">Provider</Th><Th>Message</Th><Th className="hidden sm:table-cell text-right">Latency</Th></tr></thead>
             <tbody>
               {events.map((event) => (
                 <tr key={`${event.id}-${event.time}`}>
                   <Td className="font-mono text-xs">{formatTime(event.time)}</Td>
                   <Td><Pill tone={event.level === "error" ? "danger" : event.level === "warn" ? "warning" : "success"}>{event.level}</Pill></Td>
-                  <Td><span className="font-mono text-xs">{event.method ?? "-"} {event.path ?? "-"}</span></Td>
+                  <Td className="hidden sm:table-cell"><span className="font-mono text-xs">{event.method ?? "-"} {event.path ?? "-"}</span></Td>
                   <Td>{event.status ?? "-"}</Td>
-                  <Td className="font-mono text-xs">{event.model ?? "-"}</Td>
-                  <Td>{event.provider ?? "-"}</Td>
+                  <Td className="hidden md:table-cell font-mono text-xs">{event.model ?? "-"}</Td>
+                  <Td className="hidden lg:table-cell">{event.provider ?? "-"}</Td>
                   <Td className="max-w-xl text-sm text-muted-foreground">{event.message}{event.fallback?.target_model ? <span className="ml-2 text-accent">→ {event.fallback.target_model}</span> : null}</Td>
-                  <Td className="font-mono text-xs">{event.duration_ms ?? 0}ms</Td>
+                  <Td className="hidden sm:table-cell font-mono text-xs">{event.duration_ms ?? 0}ms</Td>
                 </tr>
               ))}
             </tbody>

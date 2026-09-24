@@ -1123,6 +1123,7 @@ func initAdmin(
 		admin.WithPoolWeights(poolOverrides),
 		admin.WithSidecarStore(sidecarOverrides),
 		admin.WithExtensionStore(extensions),
+		admin.WithExtensionStoreURLs(admin.NewExtensionStoreURLStore()),
 		admin.WithOAuthRegistry(oauthReg),
 		admin.WithDashboardRuntimeConfig(runtimeConfig),
 	)

@@ -1,7 +1,6 @@
 /*
  * AuroraX dashboard global styles.
- * Custom warm theme with Unbounded display font.
- * Flat surfaces, border-based design, no glass/blur effects.
+ * Minimal core theme: system fonts, zero radius, flat border-based surfaces.
  */
 
 @import "./legacy-vars.css";
@@ -10,7 +9,8 @@
 @theme inline {
   --font-sans: system-ui, -apple-system, "Segoe UI",
     Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-display: "Unbounded", system-ui, sans-serif;
+  --font-display: system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas,
     "Liberation Mono", monospace;
 
@@ -69,24 +69,25 @@
   --color-prompt-cache: var(--prompt-cache-color);
   --color-prompt-cache-bg: var(--prompt-cache-color-bg);
 
-  --radius-sm: 2px;
-  --radius-md: 2px;
-  --radius-lg: 2px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
 
   --spacing-sidebar: var(--sidebar-width);
 }
 
 @layer base {
   :root {
+    --sidebar-width: 260px;
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
     --safe-left: env(safe-area-inset-left, 0px);
     --safe-right: env(safe-area-inset-right, 0px);
     --space-page: 16px;
     --tap-target: 44px;
-    --radius-control: 2px;
-    --radius-card: 2px;
-    --radius-sheet: 2px;
+    --radius-control: 0px;
+    --radius-card: 0px;
+    --radius-sheet: 0px;
     --motion-fast: 160ms;
     --motion-normal: 260ms;
     --motion-slow: 400ms;
@@ -280,6 +281,11 @@
 
 /* ── Mobile responsive utilities ─────────────────────────────────── */
 @media (max-width: 767px) {
+  /* Sidebar drawer: keep it inside narrow viewports */
+  :root {
+    --sidebar-width: min(280px, 86vw);
+  }
+
   /* Sidebar mobile overlay */
   .sidebar-backdrop {
     position: fixed;
