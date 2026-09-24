@@ -14,7 +14,6 @@ import hermesImage from "@/assets/providers/hermes.png";
 import jcodeImage from "@/assets/providers/jcode.png";
 import kilocodeImage from "@/assets/providers/kilocode.png";
 import openclawImage from "@/assets/providers/openclaw.png";
-import opencodeImage from "@/assets/providers/opencode.png";
 import qwenImage from "@/assets/providers/qwen.png";
 import rooImage from "@/assets/providers/roo.png";
 import { CLIModelFieldGrid } from "@/components/cli-tools/CLIModelFieldGrid";
@@ -75,7 +74,6 @@ const TOOL_IMAGE_BY_ID: Record<string, string> = {
   jcode: jcodeImage,
   kilo: kilocodeImage,
   openclaw: openclawImage,
-  opencode: opencodeImage,
   qwen: qwenImage,
   roo: rooImage,
 };

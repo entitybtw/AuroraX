@@ -9,13 +9,13 @@ func BenchmarkApplyHit(b *testing.B) {
 	cfg := &HubConfig{
 		Enabled: true,
 		Providers: map[string]ProviderRule{
-			"opencode-zen": {Enabled: true, Headers: []HeaderRule{{
+			"free-tier": {Enabled: true, Headers: []HeaderRule{{
 				Name: "x-opencode-session", Mode: HeaderModeMap, Prefix: "ses_", Length: 28,
 			}}},
 		},
 	}
 	h := New(cfg)
-	h.SetPoolMembership("opencode-zen", []string{"acc1", "acc2", "acc3"})
+	h.SetPoolMembership("free-tier", []string{"acc1", "acc2", "acc3"})
 	inbound := "ses_hello"
 	b.ReportAllocs()
 	b.ResetTimer()

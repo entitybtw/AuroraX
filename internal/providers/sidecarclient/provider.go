@@ -1,4 +1,4 @@
-// Package sidecarclient provides the optional "opencode" provider type.
+// Package sidecarclient provides an optional extension-provided provider type.
 // It is NOT registered by default: extensions declare it under
 // provides.provider_types and the gateway activates it when that
 // extension is installed. OAuth device flow is an extension feature and
@@ -31,7 +31,7 @@ func envSidecarURL() string {
 	return strings.TrimSpace(os.Getenv(sidecarEnvURL))
 }
 
-// Registration provides factory registration for the optional opencode type.
+// Registration provides factory registration for the optional extension type.
 // Only staged via providers.RegisterOptional — not Add()ed by default.
 // base_url must come from provider config or the extension (sidecar overrides).
 var Registration = providers.Registration{
@@ -50,7 +50,7 @@ type Provider struct {
 	oauthMgr *oauth.Manager
 }
 
-// New creates a provider for the optional opencode type.
+// New creates a provider for the optional extension-provided type.
 // OAuth runs only when auth_method is explicitly "oauth" (extension feature);
 // sk-* keys alone do not force OAuth. Server/client_id come from provider
 // config or extension-applied sidecar defaults — never from gateway hardcode.

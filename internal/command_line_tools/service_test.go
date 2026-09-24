@@ -139,7 +139,6 @@ func TestToolsIncludeModelFields(t *testing.T) {
 	}{
 		{toolID: "claude-code", keys: []string{"ANTHROPIC_MODEL", "ANTHROPIC_DEFAULT_HAIKU_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL"}},
 		{toolID: "codex", keys: []string{"CODEX_MODEL", "CODEX_SUBAGENT_MODEL"}},
-		{toolID: "opencode", keys: []string{"OPENCODE_MODEL"}},
 		{toolID: "generic", keys: []string{"OPENAI_MODEL"}},
 	}
 

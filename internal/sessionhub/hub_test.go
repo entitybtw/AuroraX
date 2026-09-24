@@ -86,7 +86,7 @@ func TestHubApply_PoolBoundRuleAppliesToMember(t *testing.T) {
 	h := New(&HubConfig{
 		Enabled: true,
 		Providers: map[string]ProviderRule{
-			"opencode-pool": {
+			"free-tier-pool": {
 				Enabled: true,
 				Headers: []HeaderRule{{
 					Name:   "x-opencode-session",
@@ -97,7 +97,7 @@ func TestHubApply_PoolBoundRuleAppliesToMember(t *testing.T) {
 			},
 		},
 	})
-	h.SetPoolMembership("opencode-pool", []string{"acc1", "acc2"})
+	h.SetPoolMembership("free-tier-pool", []string{"acc1", "acc2"})
 
 	hd := http.Header{}
 	hd.Set("x-opencode-session", "ses_inbound_pool")
@@ -119,7 +119,7 @@ func TestHubPersistenceRoundTrip(t *testing.T) {
 	cfg := &HubConfig{
 		Enabled: true,
 		Providers: map[string]ProviderRule{
-			"opencode-zen": {
+			"free-tier": {
 				Enabled: true,
 				Headers: []HeaderRule{{
 					Name:   "x-opencode-session",
@@ -133,16 +133,16 @@ func TestHubPersistenceRoundTrip(t *testing.T) {
 	h := NewWithPersistence(path, path+".map", cfg)
 	h.SetProviderRule("acc2", ProviderRule{
 		Enabled: true,
-		Headers: []HeaderRule{{Name: "user-agent", Mode: HeaderModeStatic, Value: "opencode-cli/1.0"}},
+		Headers: []HeaderRule{{Name: "user-agent", Mode: HeaderModeStatic, Value: "client/1.0"}},
 	})
 
 	// Load into a fresh hub from disk
 	h2 := NewWithPersistence(path, path+".map", nil)
-	if _, ok := h2.Config().Providers["opencode-zen"]; !ok {
-		t.Fatal("persisted rule opencode-zen missing after reload")
+	if _, ok := h2.Config().Providers["free-tier"]; !ok {
+		t.Fatal("persisted rule free-tier missing after reload")
 	}
 	rule, ok := h2.Config().Providers["acc2"]
-	if !ok || len(rule.Headers) == 0 || rule.Headers[0].Value != "opencode-cli/1.0" {
+	if !ok || len(rule.Headers) == 0 || rule.Headers[0].Value != "client/1.0" {
 		t.Fatalf("persisted rule acc2 not correctly reloaded: %+v", h2.Config().Providers)
 	}
 }

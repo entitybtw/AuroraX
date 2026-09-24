@@ -350,7 +350,7 @@ func main() {
 
 	factory := providers.NewProviderFactory()
 
-	// Set up OAuth registry for device flow providers (e.g. free tier)
+	// Set up OAuth registry for device-flow providers (activated by extensions).
 	oauthRegistry := oauth.NewRegistry()
 	factory.SetOAuthRegistry(oauthRegistry)
 

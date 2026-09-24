@@ -483,7 +483,7 @@ export function ProvidersTab(): JSX.Element {
 
   // OAuth is an extension feature (provides.features includes "oauth"); show
   // the link control for any provider with auth_method=oauth or the optional
-  // opencode type activated by extension.
+  // extension-provided type.
   const supportsOAuth = (provider: any) => {
     const auth = provider.config?.auth_method || "";
     if (auth === "oauth") return true;

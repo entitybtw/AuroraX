@@ -63,7 +63,7 @@ ENTRYPOINT ["/aurora"]
 
 # ---------------------------------------------------------------------------
 # Bun stage — downloads the Bun runtime used by the TLS sidecar.
-# The zen free tier fingerprints the TLS handshake and only accepts Bun's
+# Some free tiers fingerprint the TLS handshake and only accept Bun's
 # BoringSSL ClientHello, which a Go binary cannot reproduce.
 # ---------------------------------------------------------------------------
 FROM alpine:3.23 AS bun
@@ -85,7 +85,7 @@ RUN apk add --no-cache curl unzip ca-certificates && \
 # ---------------------------------------------------------------------------
 # Runtime stage with TLS sidecar — debian-slim + Bun.
 # Build with: docker build --target runtime-sidecar ...
-# (extension-driven TLS sidecar sidecar)
+# (extension-driven TLS sidecar)
 FROM debian:bookworm-slim AS runtime-sidecar
 
 # ca-certificates lets the sidecar verify upstream TLS certificates.

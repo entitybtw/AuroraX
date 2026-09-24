@@ -169,7 +169,7 @@ type RawProviderConfig struct {
 	// device authorization grant to obtain and refresh bearer tokens.
 	AuthMethod string `yaml:"auth_method,omitempty"`
 	// OAuthServer is the base URL of the OAuth authorization server.
-	// Set by the extension that provides the oauth feature (e.g. opencode).
+	// Set by the extension that provides the oauth feature.
 	OAuthServer string `yaml:"oauth_server,omitempty"`
 	// OAuthClientID is the OAuth client_id used in the device flow.
 	// Set by the extension that provides the oauth feature.
@@ -318,7 +318,7 @@ type SessionHubProviderRule struct {
 
 // SessionHubHeaderRule defines how a single header is transformed.
 type SessionHubHeaderRule struct {
-	// Name is the header name (e.g. "x-opencode-session").
+	// Name is the header name (e.g. a session identity header).
 	Name string `yaml:"name"`
 
 	// Mode defines the transformation mode:

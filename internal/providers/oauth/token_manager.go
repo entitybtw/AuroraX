@@ -24,9 +24,9 @@ const (
 	// Kept as named constants for tests and explicit wiring.
 	DefaultServer   = ""
 	DefaultClientID = ""
-	// upstreamUserAgent is only used when a caller opts in via UserAgent on
+	// DefaultUserAgent is only used when a caller opts in via UserAgent on
 	// the manager config (not applied by default).
-	upstreamUserAgent = "opencode/1.18.31"
+	DefaultUserAgent    = "opencode/1.18.31"
 	refreshSkew       = 5 * time.Minute
 )
 

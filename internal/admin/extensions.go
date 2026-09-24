@@ -158,8 +158,8 @@ type ExtensionOAuth struct {
 	Server string `json:"server,omitempty"`
 	// ClientID is the public client_id used in the device flow.
 	ClientID string `json:"client_id,omitempty"`
-	// VerificationBase is the origin used to expand relative verification URIs
-	// (e.g. "https://example.com"). Empty = treat verification URIs as absolute.
+	// VerificationBase is the origin used to expand relative verification URIs.
+	// Empty = treat verification URIs as absolute.
 	VerificationBase string `json:"verification_base,omitempty"`
 	// UserAgent is an optional UA for OAuth HTTP calls.
 	UserAgent string `json:"user_agent,omitempty"`
@@ -169,10 +169,10 @@ type ExtensionOAuth struct {
 
 // ExtensionProvides declares optional capabilities that are not built into the
 // gateway by default and are activated when the extension is installed —
-// for example the "opencode" provider type or OAuth device-flow wiring.
+// for example optional provider types or OAuth device-flow wiring.
 type ExtensionProvides struct {
-	// ProviderTypes are factory provider types this extension activates
-	// (e.g. ["opencode"]). Types absent from this list stay unregistered.
+	// ProviderTypes are factory provider types this extension activates.
+	// Types absent from this list stay unregistered.
 	ProviderTypes []string `json:"provider_types,omitempty"`
 	// Features are optional capability flags surfaced to the operator
 	// (e.g. ["oauth"]).
@@ -534,8 +534,8 @@ func (p *Extension) Validate() error {
 		// Default to sidecar; explicit types such as "theme" are preserved.
 		p.Type = "sidecar"
 	}
-	// "opencode" is a normal extension id (the store seed uses it). Provider
-	// types live in a separate namespace (provides.provider_types).
+	// An explicit extension id is a normal store id; provider types live in
+	// a separate namespace (provides.provider_types).
 	if p.Name == "" {
 		p.Name = p.ID
 	}
@@ -1077,7 +1077,7 @@ func extensionProvidesFeature(p *ExtensionProvides, name string) bool {
 
 // applyExtensionOAuth enables auth_method=oauth on providers that this
 // extension targets: type ∈ provides.provider_types, or base_url equals the
-// extension base_url (e.g. free tier free-tier vllm instances). OAuth server /
+// extension base_url (e.g. free-tier pool instances). OAuth server /
 // client_id come from extension.oauth. Returns updated provider names.
 // No-op when the extension does not declare provides.features "oauth".
 func (h *Handler) applyExtensionOAuth(c *echo.Context, ext Extension) []string {

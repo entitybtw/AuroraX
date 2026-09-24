@@ -143,12 +143,6 @@ func toolDefinitions(applyEnabled bool, home string) []toolDefinition {
 			Snippet: codexSnippets,
 		},
 		{
-			Tool: Tool{ID: "opencode", Name: "upstream", Description: "upstream AI terminal assistant provider configuration.", ConfigPath: filepath.Join(home, ".config", "opencode", "opencode.json"), CanApply: canApplyToHome, ConfigType: "custom", Color: "#E87040", DocsURL: "https://example.com/docs/configuration", Notes: []string{"Config path: ~/.config/opencode/opencode.json", "Adds Aurora as a multi-model provider.", "Select multiple models below — they'll all be available via the aurora/ prefix in upstream."}, ModelFields: []ModelField{
-				{Key: "OPENCODE_MODEL", Label: "Models", Description: "Select model(s) to make available in upstream under the AuroraX provider.", Multi: true},
-			}},
-			Snippet: opencodeSnippets,
-		},
-		{
 			Tool:    Tool{ID: "openclaw", Name: "Open Claw", Description: "Open Claw AI assistant using OpenAI-compatible environment variables.", CanApply: false, ConfigType: "custom", Color: "#FF6B35", ModelFields: singleModelFields("OPENCLAW_MODEL", "OpenClaw primary model", "Primary model configured for OpenClaw agents.")},
 			Snippet: openClawSnippets,
 		},
@@ -219,15 +213,6 @@ func builtInPresets() []ToolPreset {
 				"CODEX_MODEL":          "gpt-5-codex",
 				"CODEX_SUBAGENT_MODEL": "gpt-5-codex",
 			},
-			APIKeyPlaceholder: apiKeyPlaceholder,
-		},
-		{
-			ID:                "opencode-multi",
-			Label:             "upstream — multi-model",
-			Description:       "upstream with several Aurora models available under the aurora/ prefix.",
-			ToolID:            "opencode",
-			Models:            []string{"claude-sonnet", "gpt-4o-mini", "gemini-2.0-flash"},
-			Model:             "claude-sonnet",
 			APIKeyPlaceholder: apiKeyPlaceholder,
 		},
 		{
@@ -320,40 +305,6 @@ func codexSnippets(req PreviewRequest) map[string]string {
 	config := fmt.Sprintf("model = %s\nmodel_provider = \"aurora\"\n\n[model_providers.aurora]\nname = \"Aurora Gateway\"\nbase_url = %s\nwire_api = \"responses\"\n\n[agents.subagent]\nmodel = %s", tomlString(model), tomlString(baseV1(req)), tomlString(subagentModel))
 	auth := jsonBlock(map[string]string{"auth_mode": "apikey", "OPENAI_API_KEY": req.APIKey})
 	return map[string]string{"config": config, "auth": auth}
-}
-
-func opencodeSnippets(req PreviewRequest) map[string]string {
-	models := make(map[string]any)
-	primaryModel := req.Model
-	for _, m := range req.Models {
-		if primaryModel == "auto" || primaryModel == "" {
-			primaryModel = m
-		}
-		models[m] = map[string]any{
-			"name": m,
-			"modalities": map[string][]string{
-				"input":  {"text", "image"},
-				"output": {"text"},
-			},
-		}
-	}
-	cfg := map[string]any{
-		"provider": map[string]any{
-			"aurorax": map[string]any{
-				"npm":  "@ai-sdk/openai-compatible",
-				"name": "AuroraX Gateway",
-				"options": map[string]string{
-					"baseURL": baseV1(req),
-					"apiKey":  req.APIKey,
-				},
-				"models": models,
-			},
-		},
-	}
-	if primaryModel != "" && primaryModel != "auto" {
-		cfg["model"] = "aurora/" + primaryModel
-	}
-	return map[string]string{"config": jsonBlock(cfg)}
 }
 
 func cursorSnippets(req PreviewRequest) map[string]string {

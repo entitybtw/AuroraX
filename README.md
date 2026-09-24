@@ -243,7 +243,7 @@ AuroraX can route upstream traffic through a bundled **Bun sidecar** when an ext
 
 > **⚠️ Use at your own risk.** The sidecar emulates an upstream client. Upstream hardening can break it at any time, it may violate the provider's terms of service, and it relies on an actively maintained fingerprint. Review this section before enabling, and prefer a paid/API-key path for production workloads. Review third-party extensions before installing them from a store.
 
-Upstream-specific free-tier details live in the **opencode** store extension (not built into the gateway). Install via **Settings → Sidecar → Browse store** or import by URL.
+Upstream-specific free-tier details live in a **store extension** (not built into the gateway). Install via **Settings → Sidecar → Browse store** or import by URL.
 
 ### Why a sidecar exists
 
@@ -286,7 +286,7 @@ The sidecar always streams upstream; when the caller asked for a non-streaming r
 
 ### What works
 
-- **Extension-driven fingerprints** — install an extension (e.g. opencode from the store) to supply base URL, UA, headers, tools and retries
+- **Extension-driven fingerprints** — install a free-tier extension from the store to supply base URL, UA, headers, tools and retries
 - **Paid/OAuth traffic** — the sidecar forwards the incoming `Authorization` untouched, so OAuth tokens and API keys keep working through the same path
 - **Multi-IP egress** — one Go CONNECT proxy per configured IP (ports `8981+`), selected per provider via `bind_ip`, so rate limits can spread across IPs
 - **Streaming and non-streaming** — both, with SSE aggregation on the non-streaming path
@@ -309,7 +309,7 @@ docker run -d --name aurora \
   entbtw/aurora:sidecar
 ```
 
-Then configure a provider (`type: vllm` or `opencode` if the extension provides it) with:
+Then configure a provider (`type: vllm`, or the extension-provided type if the extension declares one) with:
 
 ```yaml
 providers:
@@ -366,11 +366,11 @@ The fingerprint is emulated, not inherent, so upstream changes can break it. To 
 
 ## Extensions & store
 
-AuroraX loads portable **extensions** (JSON) that configure the sidecar and Session Hub in one apply. Extensions ship tool schemas, identity headers, UA/auth defaults, and optional provider types (`provides.provider_types`, e.g. `opencode`).
+AuroraX loads portable **extensions** (JSON) that configure the sidecar and Session Hub in one apply. Extensions ship tool schemas, identity headers, UA/auth defaults, and optional provider types (`provides.provider_types`).
 
 - Install from **aurorax-store** (**Settings → Sidecar → Browse store**) or import by URL (`POST /sidecar/extensions/import`).
 - Apply activates sidecar settings + optional provider types; headers are installed via `ensure-headers`.
-- The gateway does **not** bundle third-party free-tier policy; use the matching store extension (e.g. **opencode**) if you need it.
+- The gateway does **not** bundle third-party free-tier policy; use the matching store extension if you need it.
 
 > **⚠️ Use at your own risk.** Review third-party extensions before installing them from a store.
 

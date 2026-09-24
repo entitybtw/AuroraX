@@ -264,7 +264,7 @@ func TestApplyExtension_ConfiguresOAuthOnMatchingProviders(t *testing.T) {
 	overrides := NewProviderOverrideStore()
 	zend := true
 	overrides.upsert(ProviderOverride{
-		Name:    "vllm-zen-main",
+		Name:    "free-tier-main",
 		Type:    "vllm",
 		BaseURL: "https://opencode.ai/zen/v1",
 		Enabled: &zend,
@@ -279,11 +279,11 @@ func TestApplyExtension_ConfiguresOAuthOnMatchingProviders(t *testing.T) {
 	store := NewExtensionStore()
 	ext := Extension{
 		ID:      "opencode",
-		Name:    "upstream",
+		Name:    "Free Tier Bypass",
 		BaseURL: "https://opencode.ai/zen/v1",
 		OAuth: &ExtensionOAuth{
-			Server:           "https://example.com/console",
-			ClientID:         "opencode-cli",
+			Server:           "https://auth.example.com/device",
+			ClientID:         "aurora-cli",
 			VerificationBase: "https://example.com",
 		},
 		Provides: &ExtensionProvides{
@@ -317,16 +317,16 @@ func TestApplyExtension_ConfiguresOAuthOnMatchingProviders(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if len(body.OAuthProviders) != 1 || body.OAuthProviders[0] != "vllm-zen-main" {
-		t.Fatalf("oauth_providers = %v, want [vllm-zen-main]", body.OAuthProviders)
+	if len(body.OAuthProviders) != 1 || body.OAuthProviders[0] != "free-tier-main" {
+		t.Fatalf("oauth_providers = %v, want [free-tier-main]", body.OAuthProviders)
 	}
 
-	zen, ok := overrides.get("vllm-zen-main")
+	matched, ok := overrides.get("free-tier-main")
 	if !ok {
-		t.Fatal("zen override missing")
+		t.Fatal("free-tier override missing")
 	}
-	if zen.AuthMethod != "oauth" || zen.OAuthServer != "https://example.com/console" || zen.OAuthClientID != "opencode-cli" {
-		t.Fatalf("zen oauth not applied: %+v", zen)
+	if matched.AuthMethod != "oauth" || matched.OAuthServer != "https://auth.example.com/device" || matched.OAuthClientID != "aurora-cli" {
+		t.Fatalf("free-tier oauth not applied: %+v", matched)
 	}
 	other, _ := overrides.get("openrouter-main")
 	if other.AuthMethod == "oauth" {
@@ -335,7 +335,7 @@ func TestApplyExtension_ConfiguresOAuthOnMatchingProviders(t *testing.T) {
 
 	// Sidecar defaults also carry OAuth endpoints.
 	side := h.sidecarStore.get()
-	if side.OAuthServer != "https://example.com/console" || side.OAuthClientID != "opencode-cli" {
+	if side.OAuthServer != "https://auth.example.com/device" || side.OAuthClientID != "aurora-cli" {
 		t.Fatalf("sidecar oauth defaults not set: %+v", side)
 	}
 }

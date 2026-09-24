@@ -9,7 +9,7 @@ func TestPoolBypass_AppliesHeadersToMembers(t *testing.T) {
 	hubCfg := &HubConfig{
 		Enabled: true,
 		Providers: map[string]ProviderRule{
-			"opencode-zen": {
+			"free-tier": {
 				Enabled: true,
 				Headers: []HeaderRule{
 					{Name: "x-opencode-session", Mode: HeaderModeMapOrGenerate, Prefix: "ses_", Length: 26, Charset: "hex"},
@@ -19,16 +19,16 @@ func TestPoolBypass_AppliesHeadersToMembers(t *testing.T) {
 		},
 	}
 	h := New(hubCfg)
-	h.SetPoolMembership("opencode-zen", []string{
-		"vllm-zen-main", "vllm-zen-backup", "vllm-zen-backup-2",
-		"vllm-zen-backup-3", "vllm-zen-backup-4", "vllm-zen-backup-5",
+	h.SetPoolMembership("free-tier", []string{
+		"vllm-ft-main", "vllm-ft-backup", "vllm-ft-backup-2",
+		"vllm-ft-backup-3", "vllm-ft-backup-4", "vllm-ft-backup-5",
 	})
 
 	// Apply for a pool member
 	headers := http.Header{}
-	result := h.Apply(headers, "vllm-zen-main")
+	result := h.Apply(headers, "vllm-ft-main")
 	if result == nil {
-		t.Fatal("Apply returned nil for pool member vllm-zen-main — pool rule not expanded")
+		t.Fatal("Apply returned nil for pool member vllm-ft-main — pool rule not expanded")
 	}
 	if headers.Get("X-Opencode-Client") != "cli" {
 		t.Errorf("x-opencode-client = %q, want cli", headers.Get("X-Opencode-Client"))
@@ -39,9 +39,9 @@ func TestPoolBypass_AppliesHeadersToMembers(t *testing.T) {
 
 	// Apply for the pool itself
 	headers2 := http.Header{}
-	result2 := h.Apply(headers2, "opencode-zen")
+	result2 := h.Apply(headers2, "free-tier")
 	if result2 == nil {
-		t.Fatal("Apply returned nil for pool name opencode-zen")
+		t.Fatal("Apply returned nil for pool name free-tier")
 	}
 
 	// Apply for an unrelated provider
