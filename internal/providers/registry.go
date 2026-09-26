@@ -64,6 +64,12 @@ type ModelRegistry struct {
 	// does matching, never regex compilation.
 	providerAutoFetchFilters map[string]*compiledAutoFetchFilter
 
+	// lastRefreshFailed stores the failed-provider count of the most recent
+	// fetch sweep. Read by the background refresh loop to schedule an early
+	// retry after a partial failure. Written under the refresh semaphore and
+	// accessed atomically.
+	lastRefreshFailed int32
+
 	// userOverridesPath, when non-empty, points at a YAML file of per-field
 	// metadata overrides applied on top of the model list every time the list
 	// is loaded or refreshed. Operator values win per-field. See

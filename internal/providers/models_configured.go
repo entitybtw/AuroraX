@@ -17,6 +17,10 @@ const (
 	configuredProviderModelsUpstreamError configuredProviderModelsApplyReason = "upstream_error"
 	configuredProviderModelsUpstreamNil   configuredProviderModelsApplyReason = "upstream_nil"
 	configuredProviderModelsUpstreamEmpty configuredProviderModelsApplyReason = "upstream_empty"
+	// configuredProviderModelsAutoFetchDisabled marks the intentional path where
+	// auto_fetch_models is off: the configured list is the whole inventory, no
+	// upstream call was attempted, and the refresh is healthy.
+	configuredProviderModelsAutoFetchDisabled configuredProviderModelsApplyReason = "auto_fetch_disabled"
 )
 
 func normalizeConfiguredProviderModels(models []string) []string {

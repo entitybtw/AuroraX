@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"aurora/configuration"
@@ -46,6 +47,9 @@ func (r *ModelRegistry) initialize(ctx context.Context) error {
 		autoFetchModels,
 		autoFetchFilters,
 	)
+	// Expose the partial-failure count so the background refresh loop can
+	// retry soon instead of waiting a full interval for providers that failed.
+	atomic.StoreInt32(&r.lastRefreshFailed, int32(fetched.failedProviders))
 
 	if fetched.totalModels == 0 {
 		r.applyProviderRuntimeUpdates(fetched.runtimeUpdates)
@@ -84,6 +88,57 @@ type fetchedInventory struct {
 	failedProviders  int
 }
 
+// snapshotPreviousModelsByProvider copies the current per-provider inventory
+// under a read lock so a fetch sweep can fall back to it when a provider's
+// fetch fails (stale-while-revalidate instead of dropping the provider).
+func (r *ModelRegistry) snapshotPreviousModelsByProvider() map[string]map[string]*ModelInfo {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if len(r.modelsByProvider) == 0 {
+		return nil
+	}
+	out := make(map[string]map[string]*ModelInfo, len(r.modelsByProvider))
+	for providerName, models := range r.modelsByProvider {
+		out[providerName] = maps.Clone(models)
+	}
+	return out
+}
+
+// retainPreviousModels re-registers the last known inventory of a provider
+// whose fetch failed so a transient upstream error, empty response, or open
+// circuit breaker does not remove its models until the next successful
+// refresh. Entries are rebound to the current provider instance because a
+// Rebuild may have replaced it since the inventory was recorded. Returns
+// true when a previous inventory was found and retained.
+func retainPreviousModels(out *fetchedInventory, previous map[string]map[string]*ModelInfo, provider core.Provider, providerName, providerType string) bool {
+	prev := previous[providerName]
+	if len(prev) == 0 {
+		return false
+	}
+	retained := make(map[string]*ModelInfo, len(prev))
+	for modelID, info := range prev {
+		retained[modelID] = &ModelInfo{
+			Model:        info.Model,
+			Provider:     provider,
+			ProviderName: providerName,
+			ProviderType: providerType,
+		}
+	}
+	out.modelsByProvider[providerName] = retained
+	for modelID, info := range retained {
+		if _, exists := out.models[modelID]; exists {
+			continue
+		}
+		out.models[modelID] = info
+		out.totalModels++
+	}
+	slog.Info("retained last known models after refresh failure",
+		"provider", providerName,
+		"models", len(retained),
+	)
+	return true
+}
+
 // fetchAllProviderModels runs ListModels (or applies a configured allowlist)
 // for every registered provider and aggregates the results. Network calls
 // happen outside any registry lock so live readers keep serving the previous
@@ -103,6 +158,7 @@ func (r *ModelRegistry) fetchAllProviderModels(
 		modelsByProvider: make(map[string]map[string]*ModelInfo),
 		runtimeUpdates:   make(map[string]providerRuntimeState),
 	}
+	previousModels := r.snapshotPreviousModelsByProvider()
 
 	for _, provider := range providers {
 		providerName := providerNames[provider]
@@ -140,7 +196,8 @@ func (r *ModelRegistry) fetchAllProviderModels(
 				configuredUpstreamError = err.Error()
 				attrs = append(attrs, "error", err)
 				slog.Warn("upstream ListModels failed, using configured provider models", attrs...)
-			} else if configuredReason == configuredProviderModelsAllowlist {
+			} else if configuredReason == configuredProviderModelsAllowlist ||
+				configuredReason == configuredProviderModelsAutoFetchDisabled {
 				slog.Debug("using configured provider models", attrs...)
 			} else {
 				slog.Warn("using configured provider models", attrs...)
@@ -158,6 +215,7 @@ func (r *ModelRegistry) fetchAllProviderModels(
 				lastModelFetchAt:    fetchAt,
 				lastModelFetchError: err.Error(),
 			}
+			retainPreviousModels(&out, previousModels, provider, providerName, providerTypes[provider])
 			continue
 		}
 
@@ -173,6 +231,7 @@ func (r *ModelRegistry) fetchAllProviderModels(
 				lastModelFetchAt:    fetchAt,
 				lastModelFetchError: err.Error(),
 			}
+			retainPreviousModels(&out, previousModels, provider, providerName, providerTypes[provider])
 			continue
 		}
 
@@ -192,8 +251,13 @@ func (r *ModelRegistry) fetchAllProviderModels(
 				lastModelFetchAt:    fetchAt,
 				lastModelFetchError: err.Error(),
 			}
-			if _, ok := out.modelsByProvider[providerName]; !ok {
-				out.modelsByProvider[providerName] = make(map[string]*ModelInfo)
+			// An empty response is often a transient upstream hiccup: keep the
+			// last known inventory rather than dropping the provider's models
+			// for a whole refresh interval.
+			if !retainPreviousModels(&out, previousModels, provider, providerName, providerTypes[provider]) {
+				if _, ok := out.modelsByProvider[providerName]; !ok {
+					out.modelsByProvider[providerName] = make(map[string]*ModelInfo)
+				}
 			}
 			continue
 		}
@@ -204,12 +268,14 @@ func (r *ModelRegistry) fetchAllProviderModels(
 			lastModelFetchError: configuredUpstreamError,
 		}
 		// Stamp a successful refresh whenever the inventory resolved cleanly:
-		// either a live upstream ListModels call succeeded (NotApplied), or the
-		// configured allowlist was applied without an upstream error. Without
-		// this, allowlist-only providers (e.g., Jina with an explicit `models:`
-		// list) permanently report "Starting" in the admin UI because the
-		// success timestamp never gets set.
+		// a live upstream ListModels call succeeded (NotApplied), the
+		// configured allowlist was applied without an upstream error, or
+		// auto-fetch is intentionally off (AutoFetchDisabled). Without this,
+		// allowlist-only and auto-fetch-disabled providers (e.g., Jina with an
+		// explicit `models:` list) permanently report "Starting" in the admin
+		// UI because the success timestamp never gets set.
 		successfulRefresh := configuredReason == configuredProviderModelsNotApplied ||
+			configuredReason == configuredProviderModelsAutoFetchDisabled ||
 			(configuredReason == configuredProviderModelsAllowlist && configuredUpstreamError == "")
 		if successfulRefresh {
 			runtimeUpdate.lastModelFetchSuccessAt = fetchAt
@@ -320,10 +386,12 @@ func fetchProviderInventory(
 	}
 
 	// When auto_fetch_models is false, skip the upstream /models call and use
-	// only the configured model list (or return nil if none configured).
+	// only the configured model list (or report nothing configured). This is a
+	// healthy steady state, so it carries a dedicated reason instead of being
+	// indistinguishable from a nil upstream response.
 	if !autoFetch {
 		if len(configuredModels) > 0 {
-			resp, reason := applyConfiguredProviderModels(
+			resp, _ := applyConfiguredProviderModels(
 				providerName,
 				providerType,
 				effectiveMode,
@@ -332,7 +400,7 @@ func fetchProviderInventory(
 				nil,
 				fetchAt.Unix(),
 			)
-			return resp, reason, fetchAt, nil
+			return resp, configuredProviderModelsAutoFetchDisabled, fetchAt, nil
 		}
 		return nil, configuredProviderModelsNotApplied, fetchAt, nil
 	}
@@ -485,14 +553,14 @@ func (r *ModelRegistry) StartBackgroundRefresh(interval time.Duration, modelList
 
 	go func() {
 		defer close(done)
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
+		timer := time.NewTimer(interval)
+		defer timer.Stop()
 
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case <-ticker.C:
+			case <-timer.C:
 				refreshCtx, refreshCancel := context.WithTimeout(ctx, 30*time.Second)
 				err := r.Initialize(refreshCtx)
 				refreshCancel()
@@ -516,6 +584,15 @@ func (r *ModelRegistry) StartBackgroundRefresh(interval time.Duration, modelList
 				if modelListURL != "" {
 					r.refreshModelList(ctx, modelListURL)
 				}
+
+				// After a partial failure, retry within a minute instead of
+				// waiting the full interval, so recovered providers repopulate
+				// quickly. Never slows down a sub-minute interval.
+				next := interval
+				if r.lastFailedProviders() > 0 && partialRefreshRetryDelay < next {
+					next = partialRefreshRetryDelay
+				}
+				timer.Reset(next)
 			}
 		}
 	}()
@@ -526,6 +603,16 @@ func (r *ModelRegistry) StartBackgroundRefresh(interval time.Duration, modelList
 			<-done
 		})
 	}
+}
+
+// partialRefreshRetryDelay bounds how soon the background loop retries after
+// a refresh in which at least one provider failed.
+const partialRefreshRetryDelay = time.Minute
+
+// lastFailedProviders reports how many providers failed in the most recent
+// fetch sweep.
+func (r *ModelRegistry) lastFailedProviders() int {
+	return int(atomic.LoadInt32(&r.lastRefreshFailed))
 }
 
 // RefreshModelList fetches the external model metadata list and re-enriches all
