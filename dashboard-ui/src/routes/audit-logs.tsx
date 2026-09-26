@@ -187,8 +187,8 @@ export function AuditLogsPage(): JSX.Element {
           <div className="flex">
             <AlertTriangleIcon className="h-5 w-5 shrink-0 mt-0.5" />
             <div className="ml-3">
-              <h3 className="text-sm font-medium">Audit logging is disabled</h3>
-              <p className="mt-2 text-sm opacity-90">Enable LOGGING_ENABLED in your configuration to capture new request logs. Existing logs can still be viewed.</p>
+              <h3 className="text-sm font-medium">Audit logging is off</h3>
+              <p className="mt-2 text-sm opacity-90">Turn on “Request audit logging” in Settings → General to capture new request logs. Existing logs can still be viewed.</p>
             </div>
           </div>
         </div>
