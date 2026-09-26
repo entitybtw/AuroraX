@@ -2,8 +2,6 @@
 
 The Session Hub is a header-transformation engine used in API-integration setups where an upstream service expects each logical client to present a consistent, unique session identifier — especially across multiple accounts in a load-balanced pool.
 
-> **⚠️ Use at your own risk.** The Session Hub rewrites upstream headers to present client identities. This may violate a provider's terms of service, and upstream fingerprint hardening can break it at any time. A warning banner is shown on the dashboard tab.
-
 It is built to be fast: the hot path is a single lock-free map read (microns). Configuration persists, and session mappings can live in memory or on disk (toggleable).
 
 > For a complete end-to-end walkthrough (accounts in a pool, each with its own stable client session), see [MULTI_ACCOUNT.md](MULTI_ACCOUNT.md).

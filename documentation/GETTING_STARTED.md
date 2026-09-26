@@ -89,5 +89,7 @@ round-robin across its members.
 - [DEPLOYMENT.md](DEPLOYMENT.md) — production Docker, persistent state, multi-IP host networking, sidecar image variant.
 - [MULTI_ACCOUNT.md](MULTI_ACCOUNT.md) — end-to-end load-balanced accounts with distinct, stable client identities.
 - [SESSION_HUB.md](SESSION_HUB.md) — header transformation & per-account session mapping.
+- [SIDECAR.md](SIDECAR.md) — extension-driven TLS fingerprint proxy, multi-IP egress, configuration reference.
+- [ENVIRONMENT.md](ENVIRONMENT.md) — complete environment variable reference.
 - [DOCKER_PUSH.md](DOCKER_PUSH.md) — the published image, tags, targets, how to build/publish yourself.
-- **Sidecar + extensions** — use the `runtime-sidecar` image variant + **Settings → Sidecar** (see the README's **Sidecar** section; use at your own risk). Install upstream-specific behaviour from **aurorax-store**.
+- **Sidecar + extensions** — use the `runtime-sidecar` image variant + **Settings → Sidecar** (see [SIDECAR.md](SIDECAR.md)). Install upstream-specific behaviour from **aurorax-store**.
