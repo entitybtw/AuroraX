@@ -3,6 +3,7 @@ package admin
 import (
 	"bytes"
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"io"
@@ -1326,6 +1327,65 @@ func TestAuditLogExport_PaginatesUntilAllRowsExported(t *testing.T) {
 	}
 	if reader.queries[0].Offset != 0 || reader.queries[1].Offset != maxAuditLogExportPageSize {
 		t.Fatalf("export offsets = %+v, want 0 then %d", reader.queries, maxAuditLogExportPageSize)
+	}
+}
+
+// flakyAuditReader serves the first page, then fails every subsequent fetch
+// (mirrors SQLite busy errors under concurrent audit writes).
+type flakyAuditReader struct {
+	delegate *mockAuditReader
+	calls    int
+}
+
+func (f *flakyAuditReader) GetLogs(ctx context.Context, params auditlog.LogQueryParams) (*auditlog.LogListResult, error) {
+	f.calls++
+	if f.calls > 1 {
+		return nil, errors.New("database is locked")
+	}
+	return f.delegate.GetLogs(ctx, params)
+}
+
+func (f *flakyAuditReader) GetLogByID(ctx context.Context, id string) (*auditlog.LogEntry, error) {
+	return f.delegate.GetLogByID(ctx, id)
+}
+func (f *flakyAuditReader) GetConversation(ctx context.Context, logID string, limit int) (*auditlog.ConversationResult, error) {
+	return f.delegate.GetConversation(ctx, logID, limit)
+}
+func (f *flakyAuditReader) AggregateAuthKeyDaily(ctx context.Context, authKeyID string, start, end time.Time, location *time.Location) (*auditlog.AuthKeyDailyAggregate, error) {
+	return f.delegate.AggregateAuthKeyDaily(ctx, authKeyID, start, end, location)
+}
+
+// TestAuditLogExport_ReaderErrorEndsAtRowBoundary guards against the CSV
+// being cut mid-row (unflushed buffer on the error path): when a page fetch
+// keeps failing, the export must stop cleanly at a row boundary and still
+// return a parseable file with everything fetched so far.
+func TestAuditLogExport_ReaderErrorEndsAtRowBoundary(t *testing.T) {
+	page := make([]auditlog.LogEntry, maxAuditLogExportPageSize)
+	for i := range page {
+		page[i] = auditlog.LogEntry{ID: "log-page-1", Timestamp: time.Date(2026, 1, 16, 10, 0, 0, 0, time.UTC)}
+	}
+	reader := &flakyAuditReader{
+		delegate: &mockAuditReader{
+			logResults: []*auditlog.LogListResult{
+				{Entries: page, Total: 9000, Limit: maxAuditLogExportPageSize, Offset: 0},
+			},
+		},
+	}
+	h := NewHandler(nil, nil, WithAuditReader(reader))
+	c, rec := newHandlerContext("/admin/api/v1/audit/log/export?format=csv")
+
+	if err := h.AuditLogExport(c); err != nil {
+		t.Fatalf("export must end cleanly on reader errors, got %v", err)
+	}
+	records, err := csv.NewReader(strings.NewReader(rec.Body.String())).ReadAll()
+	if err != nil {
+		t.Fatalf("export must be parseable CSV with no mid-row cut: %v", err)
+	}
+	if len(records) != maxAuditLogExportPageSize+1 {
+		t.Fatalf("rows = %d, want %d (header + first page)", len(records), maxAuditLogExportPageSize+1)
+	}
+	if reader.calls <= 1 {
+		t.Fatalf("expected retried page fetches, calls=%d", reader.calls)
 	}
 }
 
