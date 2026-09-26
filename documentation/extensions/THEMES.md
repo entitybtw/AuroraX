@@ -80,16 +80,13 @@ system preference fallback. A theme should provide:
 1. Dark-oriented `theme` (or `theme_dark`) for dark mode  
 2. A light-oriented `theme_light` map for light mode  
 
-Example: Catppuccin Mocha ships Mocha as base/dark and Latte as `theme_light`.
+Example: a dark-flavor theme ships its light counterpart as `theme_light`.
 
 ## Store catalog themes
 
-| id | base | light variant |
-|----|------|----------------|
-| `theme-catppuccin-mocha` | Mocha (dark) | Latte palette in `theme_light` |
-| `theme-catppuccin-frappe` | Frappé (dark) | Latte palette in `theme_light` |
-| `theme-catppuccin-macchiato` | Macchiato (dark) | Latte palette in `theme_light` |
-| `theme-catppuccin-latte` | Latte (light) | Mocha palette in `theme_dark` |
+Store themes ship in flavor pairs: the dark flavor is the base theme and the
+light flavor rides in `theme_light` (and vice versa for light-base flavors).
+Browse the available theme extensions under **Settings → Sidecar → Browse store**.
 
 The core default without extensions is a flat minimal palette (dark base +
 system light override).
