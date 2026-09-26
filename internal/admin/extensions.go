@@ -30,7 +30,7 @@ type ExtensionHeader struct {
 }
 
 // ExtensionField is a UI hint describing one configurable value of an
-// extension. Extensions declare arbitrary fields so extensions
+// extension. Extensions declare arbitrary fields so external extensions
 // render coherently without gateway changes.
 type ExtensionField struct {
 	Key         string   `json:"key"`

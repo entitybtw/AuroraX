@@ -75,8 +75,8 @@ Sidecar `bind_ips` and per-IP CONNECT proxies are separate from the extension
 JSON (environment + Settings → Sidecar). Presets describe *where* to send
 traffic and *how* it looks upstream*; binding IPs stay an operator concern.
 
-## profiles
+## Custom profiles
 
-profiles are ordinary presets: they set `base_url`, UA, tool
+Custom profiles are ordinary presets: they set `base_url`, UA, tool
 injection, and Session Hub header rules. Keep credential material out of the
 JSON; use operator-configured keys on the host.

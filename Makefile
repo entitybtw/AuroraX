@@ -30,7 +30,7 @@ build-editions: ui-build build-oss
 	@echo "Built Aurora OSS artifact."
 
 package-editions:
-	powershell -ExecutionPolicy -File scripts/release/build-editions.ps1 -Package
+	powershell -ExecutionPolicy RemoteSigned -File scripts/release/build-editions.ps1 -Package
 
 # Run the application
 run:
@@ -158,7 +158,7 @@ bench-report: perf-bench-all
 
 # Load test via PowerShell script (requires bench-server running)
 bench-load:
-	powershell -ExecutionPolicy -File scripts/benchmarks/bench-load.ps1
+	powershell -ExecutionPolicy RemoteSigned -File scripts/benchmarks/bench-load.ps1
 
 # Full benchmark workflow: build server, run micro-benchmarks, run load test
 bench-all: bench-server-build perf-bench-all
@@ -234,7 +234,7 @@ bench-stress: bench-load-build
 #   make bench-oha-standalone CONCURRENCY="50,100,200,300"
 #   make bench-oha-standalone ENDPOINT=/v1/chat/completions USE_CHAT=1
 bench-oha-standalone:
-	powershell -ExecutionPolicy -File scripts/benchmarks/scenarios/aurora-standalone.ps1
+	powershell -ExecutionPolicy RemoteSigned -File scripts/benchmarks/scenarios/aurora-standalone.ps1
 		$(if $(CONCURRENCY),-ConcurrencyLevels $(CONCURRENCY)) \
 		$(if $(ENDPOINT),-Endpoint $(ENDPOINT)) \
 		$(if $(USE_CHAT),-UseChatCompletion)

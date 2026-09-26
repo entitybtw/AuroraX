@@ -38,7 +38,7 @@ COPY internal/providers/sidecarclient/sidecar /opt/sidecar
 # Prebuilt binary and dashboard assets (produced by the local build steps above).
 COPY build/aurora /aurora
 
-# Scrub incidental substring collisions with tool names: the Go
+# Scrub incidental substring collisions with external tool names: the Go
 # runtime symbol init("open-coded defers") matches a generic
 # product name. Same-length rename keeps every binary offset valid.
 RUN sed -i 's/init/initNullCodedDefers/g' /aurora

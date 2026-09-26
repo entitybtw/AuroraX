@@ -7,7 +7,7 @@ a client fingerprint Go cannot (BoringSSL ClientHello), runs inside the
 
 
 
-Upstream-specific details live in a **store extension** (not built into the gateway). Install via **Settings → Sidecar → Browse store** or import by URL.
+Upstream-specific endpoint details live in a **store extension** (not built into the gateway). Install via **Settings → Sidecar → Browse store** or import by URL.
 
 ### Why a sidecar exists
 
@@ -18,7 +18,7 @@ Some upstream edges apply **layered** client verification. A request must pass *
 | 1. TLS fingerprint | Ja3/Ja4 ClientHello must match the extension's expected profile (e.g. Bun BoringSSL) | Go `net/http` and even Chrome-impersonating uTLS may **not** match |
 | 2. HTTP headers | User-Agent + identity headers declared by the extension | Header shape must match exactly |
 | 3. Tool schema | Body must carry the extension's full tool schema + `tool_choice: auto` (if required) | Partial tool sets can be rejected |
-| 4. Streaming | Some only answer `stream: true` | Non-streaming requests must be re-aggregated |
+| 4. Streaming | Some upstream edges only answer `stream: true` | Non-streaming requests must be re-aggregated |
 | 5. Auth | Extension-supplied default auth or a real bearer token | Dashboard API keys may be rejected |
 | 6. Behaviour | Fresh connection per request; retry transient 403/429 | Connection reuse can trigger rejection |
 
@@ -50,7 +50,7 @@ The sidecar always streams upstream; when the caller asked for a non-streaming r
 
 ### What works
 
-- **Extension-driven fingerprints** — install a extension from the store to supply base URL, UA, headers, tools and retries
+- **Extension-driven fingerprints** — install a store extension to supply base URL, UA, headers, tools and retries
 - **Paid / API-key traffic** — the sidecar forwards the incoming `Authorization` untouched, so bearer tokens and API keys keep working through the same path
 - **Multi-IP egress** — one Go CONNECT proxy per configured IP (ports `8981+`), selected per provider via `bind_ip`, so rate limits can spread across IPs
 - **Streaming and non-streaming** — both, with SSE aggregation on the non-streaming path
@@ -123,7 +123,7 @@ The fingerprint is emulated, not inherent, so upstream changes can break it. To 
 ### Known limitations
 
 - The sidecar variant is **debian-slim + Bun** (~100 MB larger than the distroless default). Use `runtime` when the sidecar is not needed.
-- availability depends on the upstream's current policy and can change without notice.
+- Upstream availability depends on the current policy and can change without notice.
 - Full tool schemas add request-body size on every upstream call.
 
 ---
