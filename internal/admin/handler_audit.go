@@ -225,12 +225,15 @@ func (h *Handler) writeAuditCSVExportStreaming(c *echo.Context, params auditlog.
 	res.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	res.Header().Set("Content-Disposition", `attachment; filename="aurora-audit-log.csv"`)
 	writer := csv.NewWriter(res)
+	// Always push the buffer, whatever path the loop exits on: an early
+	// return used to drop the tail of the current page and cut the CSV
+	// mid-row with a 200 status.
+	defer writer.Flush()
 	if err := writer.Write([]string{"id", "timestamp", "duration_ns", "requested_model", "resolved_model", "provider", "provider_name", "status_code", "request_id", "auth_key_id", "auth_method", "method", "path", "user_path", "stream", "error_type", "error_message"}); err != nil {
 		return err
 	}
 
 	if h.auditReader == nil {
-		writer.Flush()
 		return writer.Error()
 	}
 
@@ -240,21 +243,28 @@ func (h *Handler) writeAuditCSVExportStreaming(c *echo.Context, params auditlog.
 	params.Limit = maxAuditLogExportPageSize
 	params.Offset = 0
 	written := 0
+	total := -1
 
 	for {
-		if ctx.Err() != nil {
-			return ctx.Err()
+		if err := ctx.Err(); err != nil {
+			slog.Warn("audit export: context finished, stopping at row boundary",
+				"offset", params.Offset, "written", written, "error", err)
+			break
 		}
-		result, err := h.auditReader.GetLogs(ctx, params)
+		result, err := h.getExportPage(ctx, params)
 		if err != nil {
-			return err
+			slog.Error("audit export: page fetch failed, stopping at row boundary",
+				"offset", params.Offset, "written", written, "error", err)
+			break
 		}
 		if result == nil || len(result.Entries) == 0 {
 			break
 		}
+		if total < 0 {
+			total = result.Total
+		}
 		for _, entry := range result.Entries {
 			if written >= maxAuditExportRows {
-				writer.Flush()
 				return writer.Error()
 			}
 			if err := writer.Write([]string{
@@ -276,16 +286,18 @@ func (h *Handler) writeAuditCSVExportStreaming(c *echo.Context, params auditlog.
 				sanitizeCSVCell(entry.ErrorType),
 				sanitizeCSVCell(safeAuditErrorMessage(entry)),
 			}); err != nil {
+				slog.Error("audit export: row write failed", "offset", params.Offset, "written", written, "error", err)
 				return err
 			}
 			written++
 		}
 		writer.Flush()
 		if err := writer.Error(); err != nil {
+			slog.Error("audit export: flush failed", "offset", params.Offset, "written", written, "error", err)
 			return err
 		}
 		params.Offset += params.Limit
-		if result.Total > 0 && params.Offset >= result.Total {
+		if total > 0 && params.Offset >= total {
 			break
 		}
 		if len(result.Entries) < params.Limit {
@@ -294,6 +306,28 @@ func (h *Handler) writeAuditCSVExportStreaming(c *echo.Context, params auditlog.
 	}
 	writer.Flush()
 	return writer.Error()
+}
+
+// getExportPage fetches one export page, retrying transient reader failures
+// (SQLite busy under concurrent audit writes) before giving up.
+func (h *Handler) getExportPage(ctx context.Context, params auditlog.LogQueryParams) (*auditlog.LogListResult, error) {
+	const attempts = 3
+	var lastErr error
+	for attempt := 1; attempt <= attempts; attempt++ {
+		if attempt > 1 {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(250 * time.Millisecond):
+			}
+		}
+		result, err := h.auditReader.GetLogs(ctx, params)
+		if err == nil {
+			return result, nil
+		}
+		lastErr = err
+	}
+	return nil, lastErr
 }
 
 func (h *Handler) writeAuditJSONLExportStreaming(c *echo.Context, params auditlog.LogQueryParams) error {
@@ -312,17 +346,25 @@ func (h *Handler) writeAuditJSONLExportStreaming(c *echo.Context, params auditlo
 	params.Limit = maxAuditLogExportPageSize
 	params.Offset = 0
 	written := 0
+	total := -1
 
 	for {
-		if ctx.Err() != nil {
-			return ctx.Err()
+		if err := ctx.Err(); err != nil {
+			slog.Warn("audit export: context finished, stopping at row boundary",
+				"offset", params.Offset, "written", written, "error", err)
+			break
 		}
-		result, err := h.auditReader.GetLogs(ctx, params)
+		result, err := h.getExportPage(ctx, params)
 		if err != nil {
-			return err
+			slog.Error("audit export: page fetch failed, stopping at row boundary",
+				"offset", params.Offset, "written", written, "error", err)
+			break
 		}
 		if result == nil || len(result.Entries) == 0 {
 			break
+		}
+		if total < 0 {
+			total = result.Total
 		}
 		for _, entry := range result.Entries {
 			if written >= maxAuditExportRows {
@@ -345,7 +387,7 @@ func (h *Handler) writeAuditJSONLExportStreaming(c *echo.Context, params auditlo
 			flusher.Flush()
 		}
 		params.Offset += params.Limit
-		if result.Total > 0 && params.Offset >= result.Total {
+		if total > 0 && params.Offset >= total {
 			break
 		}
 		if len(result.Entries) < params.Limit {
