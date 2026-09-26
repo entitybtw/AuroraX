@@ -14,6 +14,7 @@ import (
 
 	"github.com/labstack/echo/v5"
 
+	"aurora/internal/addon"
 	"aurora/internal/audit_logging"
 	"aurora/internal/authentication_keys"
 	"aurora/internal/command_line_tools"
@@ -66,6 +67,7 @@ type Handler struct {
 	extensions           *ExtensionStore
 	extensionStoreURLs   *ExtensionStoreURLStore
 	extensionStoresOnce  sync.Once
+	addonStore           *addon.Store
 
 	mutationMu sync.Mutex
 	pricingMu  sync.Mutex

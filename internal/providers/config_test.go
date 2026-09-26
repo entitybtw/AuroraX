@@ -58,8 +58,8 @@ var testDiscoveryConfigs = map[string]DiscoveryConfig{
 		DefaultBaseURL:  "http://localhost:11434/v1",
 		AllowAPIKeyless: true,
 	},
-	"": {
-		DefaultBaseURL:  "https:///zen/v1",
+	"cli-emulation": {
+		DefaultBaseURL:  "https://zen.example.com/v1",
 		AllowAPIKeyless: true,
 	},
 }
@@ -406,10 +406,10 @@ func TestApplyProviderEnvVars_IgnoresReservedSidecarSuffix(t *testing.T) {
 	}
 
 	// A suffixed provider from the optional extension type still works.
-	t.Setenv("", "https:///zen/v1")
+	t.Setenv("CLI_EMULATION_MAIN_BASE_URL", "https://zen.example.com/v1")
 	got = applyProviderEnvVars(map[string]config.RawProviderConfig{}, testDiscoveryConfigs)
-	if _, exists := got[""]; !exists {
-		t.Fatal("expected to be discovered from ")
+	if _, exists := got["cli-emulation-main"]; !exists {
+		t.Fatal("expected cli-emulation-main to be discovered from CLI_EMULATION_MAIN_BASE_URL")
 	}
 	for name := range got {
 		if strings.Contains(name, "sidecar") || strings.Contains(name, "bind") {

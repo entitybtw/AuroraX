@@ -225,7 +225,7 @@ func (f *ProviderFactory) Create(cfg ProviderConfig) (core.Provider, error) {
 		opts.= opts.|| def.
 	}
 	if strings.TrimSpace(cfg.BaseURL) == "" {
-		if def := LoadSidecar(); def.BaseURL != "" && cfg.Type == "" {
+		if def := LoadSidecar(); def.BaseURL != "" && cfg.Type == "cli-emulation" {
 			cfg.BaseURL = def.BaseURL
 		}
 	}
@@ -287,7 +287,7 @@ func (f *ProviderFactory) PassthroughSemanticEnrichers() []core.PassthroughSeman
 
 // optionalRegistrations holds provider types that are NOT registered by
 // default. Extensions declare them under provides.provider_types and they
-// are activated on import/apply (e.g. the "" type ships only with
+// are activated on import/apply (e.g. the "cli-emulation" type ships only with
 // the matching store extension).
 var (
 	optionalMu       sync.RWMutex

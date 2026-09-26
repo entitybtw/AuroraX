@@ -24,7 +24,8 @@ import { CodeBlock, Pill, SectionHeader, Surface } from "@/components/ui/surface
 import { DataTable, TableWrap, Td, Th } from "@/components/ui/data-table";
 import { RequirePermission } from "@/components/shell/RequirePermission";
 import { useClipboardButton } from "@/lib/clipboard/useClipboardButton";
-import { applyCLITool, fetchCLITools, previewCLITool, type CLIPreviewResponse, type CLITool, type CLIToolPreset } from "@/lib/api/cli-tools";
+import { applyCLITool, fetchCLITools, previewCLITool, resetCLITool, type CLIPreviewResponse, type CLITool, type CLIToolPreset } from "@/lib/api/cli-tools";
+import { getBasePath } from "@/lib/basepath";
 import { useAuthKeys } from "@/lib/api/useAuthKeys";
 import {
   ANTHROPIC_ENDPOINT_ROWS,
@@ -43,6 +44,7 @@ import { usePools } from "@/lib/api/usePools";
 import { useModels } from "@/lib/api/useModels";
 import type { PoolSnapshot } from "@/lib/api/pools-types";
 import { buildCLIPreviewRequest } from "@/lib/cli-tools/model-fields";
+import { isRedactedKey, snippetForCopy } from "@/lib/cli-tools/snippet-copy";
 import { modelDisplayName, type ModelInventoryItem } from "@/lib/api/models-types";
 
 const DEFAULT_CURL_BODY = buildPlaygroundRequestBody({
@@ -53,10 +55,19 @@ const DEFAULT_CURL_BODY = buildPlaygroundRequestBody({
 
 const POOL_MODEL_PLACEHOLDER = "your-model-id";
 
+/** Default gateway URL for the CLI form: origin + any configured base path. */
+function gatewayEndpointOrigin(): string {
+  const base = getBasePath();
+  const prefix = base === "/" ? "" : base.replace(/\/$/, "");
+  return window.location.origin + prefix;
+}
+
 const SNIPPET_LABELS: Record<string, string> = {
   env: "Shell (export)",
   config: "Config file",
   command: "Command",
+  auth: "Auth config (JSON)",
+  guide: "Setup guide",
 };
 
 function snippetLabel(kind: string): string {
@@ -68,36 +79,44 @@ interface SnippetToken {
   cls: string;
 }
 
+function highlightJSON(value: string): SnippetToken[] | null {
+  let pretty: string;
+  try {
+    pretty = JSON.stringify(JSON.parse(value) as unknown, null, 2);
+  } catch {
+    return null;
+  }
+  const tokens: SnippetToken[] = [];
+  const re = /("(?:\\.|[^"\\])*")(\s*:)?|(\btrue\b|\bfalse\b|\bnull\b)|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(pretty)) !== null) {
+    if (m.index > last) tokens.push({ text: pretty.slice(last, m.index), cls: "text-foreground/70" });
+    if (m[1] !== undefined) {
+      if (m[2] !== undefined) {
+        tokens.push({ text: m[1], cls: "text-accent" });
+        tokens.push({ text: m[2], cls: "text-foreground/70" });
+      } else {
+        tokens.push({ text: m[1], cls: "text-emerald-400/90" });
+      }
+    } else if (m[3] !== undefined) {
+      tokens.push({ text: m[3], cls: "text-amber-400/90" });
+    } else if (m[4] !== undefined) {
+      tokens.push({ text: m[4], cls: "text-sky-400/90" });
+    }
+    last = re.lastIndex;
+  }
+  if (last < pretty.length) tokens.push({ text: pretty.slice(last), cls: "text-foreground/70" });
+  return tokens;
+}
+
 function highlightSnippet(value: string, kind: string): SnippetToken[] {
   const tokens: SnippetToken[] = [];
-  if (kind === "config") {
-    try {
-      const parsed = JSON.parse(value) as unknown;
-      const pretty = JSON.stringify(parsed, null, 2);
-      const re = /("(?:\\.|[^"\\])*")(\s*:)?|(\btrue\b|\bfalse\b|\bnull\b)|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
-      let last = 0;
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(pretty)) !== null) {
-        if (m.index > last) tokens.push({ text: pretty.slice(last, m.index), cls: "text-foreground/70" });
-        if (m[1] !== undefined) {
-          if (m[2] !== undefined) {
-            tokens.push({ text: m[1], cls: "text-accent" });
-            tokens.push({ text: m[2], cls: "text-foreground/70" });
-          } else {
-            tokens.push({ text: m[1], cls: "text-emerald-400/90" });
-          }
-        } else if (m[3] !== undefined) {
-          tokens.push({ text: m[3], cls: "text-amber-400/90" });
-        } else if (m[4] !== undefined) {
-          tokens.push({ text: m[4], cls: "text-sky-400/90" });
-        }
-        last = re.lastIndex;
-      }
-      if (last < pretty.length) tokens.push({ text: pretty.slice(last), cls: "text-foreground/70" });
-      return tokens;
-    } catch {
-      return [{ text: value, cls: "text-foreground" }];
-    }
+  // JSON snippets (config files, auth.json) get key/string/number coloring
+  // regardless of the snippet kind — codex config is TOML and falls through.
+  if (kind === "config" || kind === "auth") {
+    const json = highlightJSON(value);
+    if (json) return json;
   }
   const lines = value.split("\n");
   lines.forEach((line, i) => {
@@ -121,6 +140,16 @@ function highlightSnippet(value: string, kind: string): SnippetToken[] {
         tokens.push({ text: m[8] ?? "", cls: "text-accent" });
         tokens.push({ text: m[9] ?? "", cls: "text-foreground/60" });
         tokens.push({ text: m[10] ?? "", cls: "text-emerald-400/90" });
+        return;
+      }
+    }
+    // TOML: [section] header or key = "value" pairs (codex aurora-config.toml).
+    if (kind === "config") {
+      const toml = line.match(/^(\s*)((?:\[[^\]]+\])|(?:[A-Za-z0-9_.-]+\s*=))(.*)$/);
+      if (toml) {
+        tokens.push({ text: toml[1] ?? "", cls: "text-foreground" });
+        tokens.push({ text: toml[2] ?? "", cls: "text-accent" });
+        tokens.push({ text: toml[3] ?? "", cls: "text-emerald-400/90" });
         return;
       }
     }
@@ -321,7 +350,7 @@ function CLIToolsGuideSection(): JSX.Element {
   const [presets, setPresets] = useState<CLIToolPreset[]>([]);
   const [selected, setSelected] = useState("");
   const [configOpen, setConfigOpen] = useState(false);
-  const [form, setForm] = useState<CLIFormState>({ base_url: window.location.origin, api_key: "", model: "", model_overrides: {} });
+  const [form, setForm] = useState<CLIFormState>({ base_url: gatewayEndpointOrigin(), api_key: "", model: "", model_overrides: {} });
   const [formVersion, setFormVersion] = useState(0);
   const [preview, setPreview] = useState<CLIPreviewResponse | null>(null);
   const [previewKey, setPreviewKey] = useState("");
@@ -420,12 +449,17 @@ function CLIToolsGuideSection(): JSX.Element {
 
   const current = tools.find((tool) => tool.id === selected) ?? null;
   const currentPreviewKey = `${selected}:${formVersion}`;
+  const apiKeyInput = form.api_key.trim();
+  // Auth keys are only ever exposed redacted; a masked value must never be
+  // written to a config file on the gateway host.
+  const apiKeyRedacted = isRedactedKey(apiKeyInput);
   const canApply = Boolean(
     current?.can_apply &&
       preview &&
       previewKey === currentPreviewKey &&
       keyMode === "paste" &&
-      form.api_key.trim(),
+      apiKeyInput &&
+      !apiKeyRedacted,
   );
   const applyDisabledReason = !current
     ? "Select a CLI tool first."
@@ -433,13 +467,15 @@ function CLIToolsGuideSection(): JSX.Element {
       ? "Host apply is disabled for this tool or this gateway. Enable CLI_TOOLS_APPLY_ENABLED=true to allow supported tools to write config on the gateway host."
       : keyMode === "placeholder"
         ? "Switch to Paste key and enter a full API key to apply on the host."
-        : !form.api_key.trim()
+        : !apiKeyInput
           ? "Enter a full API key to apply on the host."
-          : !preview
-            ? "Preview this configuration before applying it on the gateway host."
-            : previewKey !== currentPreviewKey
-              ? "Preview again after changing the URL, key, or model."
-              : "";
+          : apiKeyRedacted
+            ? "The selected auth key only exposes a redacted value — paste the full key to apply on the host."
+            : !preview
+              ? "Preview this configuration before applying it on the gateway host."
+              : previewKey !== currentPreviewKey
+                ? "Preview again after changing the URL, key, or model."
+                : "";
 
   async function runPreview(): Promise<void> {
     if (!selected) return;
@@ -477,9 +513,31 @@ function CLIToolsGuideSection(): JSX.Element {
     }
   }
 
-  async function copySnippet(value: string): Promise<void> {
+  async function runReset(): Promise<void> {
+    if (!current) return;
+    if (!window.confirm("Restore this tool's config from the AuroraX backup?")) return;
     try {
-      await navigator.clipboard.writeText(value);
+      setBusy(true);
+      setError("");
+      setNotice("");
+      const resp = await resetCLITool(current.id);
+      setNotice(`Restored ${resp.path} from ${resp.backup_path}.`);
+      invalidatePreview();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to restore the backup.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copySnippet(value: string): Promise<void> {
+    const payload = snippetForCopy(value, {
+      mode: keyMode,
+      apiKey: form.api_key,
+      maskedKey: preview?.masked_key,
+    });
+    try {
+      await navigator.clipboard.writeText(payload);
       setNotice("Copied snippet to clipboard.");
     } catch {
       setError("Unable to copy snippet. Select and copy it manually.");
@@ -616,10 +674,15 @@ function CLIToolsGuideSection(): JSX.Element {
                               <select
                                 className="field-input min-w-0 max-w-full truncate"
                                 value={selectedAuthKey}
-                                onChange={(e) => setSelectedAuthKey(e.target.value)}
-                                aria-label="Existing auth keys (reference only)"
+                                onChange={(e) => {
+                                  const id = e.target.value;
+                                  setSelectedAuthKey(id);
+                                  const picked = authKeys.find((key) => key.id === id);
+                                  updateForm({ api_key: picked?.redacted_value || "" });
+                                }}
+                                aria-label="Existing auth keys"
                               >
-                                <option value="">Existing keys (reference only)</option>
+                                <option value="">Existing auth keys</option>
                                 {authKeys.map((key) => (
                                   <option key={key.id} value={key.id}>
                                     {key.name} ({key.redacted_value || "no value"})
@@ -669,15 +732,15 @@ function CLIToolsGuideSection(): JSX.Element {
                         </ul>
                       </div>
                     ) : null}
-                    {current.can_apply && preview && !canApply ? (
-                      <p className="min-w-0 break-words text-xs text-warning md:col-span-3">Preview again after changing the tool, URL, key, or model before applying on the host.</p>
-                    ) : null}
                     <div className="sticky bottom-0 z-10 -mx-3 -mb-3 flex min-w-0 flex-wrap items-center gap-2 border-t border-border/40 bg-surface/95 px-3 py-3 backdrop-blur md:col-span-3 md:-mx-4 md:-mb-4 md:px-4">
                       <Button onClick={() => void runPreview()} disabled={busy || !current} className="min-h-[40px]">
                         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                         Preview
                       </Button>
                       <Button variant="secondary" onClick={() => void runApply()} disabled={busy || !canApply} className="min-h-[40px]">Apply on host</Button>
+                      {current.can_apply ? (
+                        <Button variant="ghost" onClick={() => void runReset()} disabled={busy} className="min-h-[40px]">Restore backup</Button>
+                      ) : null}
                       {!canApply && applyDisabledReason ? <span className="min-w-0 flex-1 break-words text-xs leading-5 text-muted-foreground">{applyDisabledReason}</span> : null}
                     </div>
                   </div>
