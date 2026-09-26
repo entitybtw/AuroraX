@@ -274,6 +274,13 @@ export async function updateExtensionConfig(
   });
 }
 
+/** Clear user-saved overrides so the extension falls back to shipped defaults. */
+export async function resetExtensionConfig(id: string): Promise<void> {
+  await apiFetch(`/admin/api/v1/sidecar/extensions/${encodeURIComponent(id)}/config/reset`, {
+    method: "POST",
+  });
+}
+
 /** Rename an extension (operator-custom display name). */
 export async function renameExtension(id: string, name: string): Promise<Extension> {
   const res = await apiFetch<{ extension?: unknown }>(

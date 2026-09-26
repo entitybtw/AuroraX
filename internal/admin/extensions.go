@@ -395,6 +395,23 @@ func (s *ExtensionStore) Upsert(ext Extension) []string {
 	return nil
 }
 
+// ResetConfig clears user-saved overrides for one extension, restoring the
+// shipped defaults (ui field values and theme variable overrides). Unlike
+// Upsert it does not merge, so the Config map is actually removed.
+func (s *ExtensionStore) ResetConfig(id string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, e := range s.imported {
+		if e.ID == id {
+			e.Config = nil
+			s.imported[i] = e
+			s.saveLocked()
+			return true
+		}
+	}
+	return false
+}
+
 // Import inserts or re-imports an extension, preserving operator state on
 // re-import: existing Config is merged, Applied and a custom Name are kept,
 // and Order is kept when the incoming record does not set one.
@@ -906,6 +923,33 @@ func (h *Handler) UpdateExtensionConfig(c *echo.Context) error {
 		ext.Config[key] = value
 	}
 	h.extensions.Upsert(ext)
+	saved, _ := h.extensions.Get(ext.ID)
+	return c.JSON(http.StatusOK, map[string]any{
+		"status":    "ok",
+		"extension": saved,
+	})
+}
+
+// ResetExtensionConfig clears user-saved overrides (ui field values and theme
+// variable overrides) so the extension falls back to its shipped defaults.
+// The reset is only offered while the extension has a resolvable sync source.
+// POST /sidecar/extensions/:id/config/reset
+func (h *Handler) ResetExtensionConfig(c *echo.Context) error {
+	if h.extensions == nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "extensions unavailable"})
+	}
+	ext, ok := h.extensions.Get(c.Param("id"))
+	if !ok {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "extension not found"})
+	}
+	if _, err := h.resolveExtensionSource(ext); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "cannot reset without a sync source: " + err.Error(),
+		})
+	}
+	if !h.extensions.ResetConfig(ext.ID) {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "extension not found"})
+	}
 	saved, _ := h.extensions.Get(ext.ID)
 	return c.JSON(http.StatusOK, map[string]any{
 		"status":    "ok",

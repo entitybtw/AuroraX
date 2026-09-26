@@ -911,6 +911,71 @@ func TestHandler_UpdateExtensionConfig(t *testing.T) {
 	}
 }
 
+func TestHandler_ResetExtensionConfig(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("AURORA_EXTENSIONS_PATH", filepath.Join(dir, "extensions.json"))
+	t.Setenv("AURORA_EXTENSION_STORES_PATH", filepath.Join(dir, "stores.json"))
+
+	store := NewExtensionStore()
+	store.Upsert(Extension{
+		ID:     "reset-ext",
+		Name:   "Reset",
+		Source: "https://store.example.com/extensions/reset-ext.extension.json",
+		UI: ExtensionUI{
+			Fields: []ExtensionField{
+				{Key: "accent", Label: "Accent", Type: "color", Default: "#5b8def"},
+			},
+		},
+		Config: map[string]string{"accent": "#ff0000"},
+	})
+	store.Upsert(Extension{
+		ID:     "no-source-ext",
+		Name:   "NoSource",
+		Config: map[string]string{"accent": "#00ff00"},
+	})
+
+	h := NewHandler(nil, nil, WithExtensionStore(store))
+	e := echo.New()
+
+	doReset := func(id string) *httptest.ResponseRecorder {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodPost, "/sidecar/extensions/"+id+"/config/reset", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{{Name: "id", Value: id}})
+		if err := h.ResetExtensionConfig(c); err != nil {
+			t.Fatalf("ResetExtensionConfig(%s): %v", id, err)
+		}
+		return rec
+	}
+
+	// With a sync source the overrides are cleared and defaults win again.
+	rec := doReset("reset-ext")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	got, _ := store.Get("reset-ext")
+	if got.Config != nil {
+		t.Fatalf("config must be cleared, got %+v", got.Config)
+	}
+
+	// Without any resolvable source the reset is refused and config is kept.
+	rec = doReset("no-source-ext")
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("no-source status = %d, want 400", rec.Code)
+	}
+	got, _ = store.Get("no-source-ext")
+	if got.Config["accent"] != "#00ff00" {
+		t.Fatalf("config must be preserved on refusal: %+v", got.Config)
+	}
+
+	// Unknown extension → 404.
+	rec = doReset("missing")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("missing status = %d, want 404", rec.Code)
+	}
+}
+
 func TestHandler_ListExtensionUI_MergesConfigTheme(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("AURORA_EXTENSIONS_PATH", filepath.Join(dir, "extensions.json"))
