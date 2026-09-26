@@ -5,9 +5,10 @@ import { Switch } from "@/components/ui/switch";
 import { RuntimeStatusBadge, useSettings, StatusChip } from "./SettingsContext";
 import { ServerIcon, RefreshCwIcon, PlusIcon, Edit3Icon, Trash2Icon, SaveIcon, XIcon, CheckIcon, SquareIcon, CheckSquareIcon, MinusIcon, KeyIcon } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchProviderStatus, createProvider, updateProvider, deleteProvider, setProviderEnabled, type ProviderFormData, type AutoFetchFilter, type ProviderStatusResponse } from "@/lib/api/providers";
+import { fetchProviderStatus, createProvider, updateProvider, deleteProvider, setProviderEnabled, refreshRuntime, type ProviderFormData, type AutoFetchFilter, type ProviderStatusResponse } from "@/lib/api/providers";
 import { withBasePath } from "@/lib/basepath";
 import { useState, useCallback, useMemo, useRef } from "react";
+import { cn } from "@/lib/utils";
 import { OAuthDialog } from "./OAuthDialog";
 import { fetchOAuthProviders } from "@/lib/api/oauth";
 import { fetchExtensions, type Extension } from "@/lib/api/extensions";
@@ -390,6 +391,27 @@ export function ProvidersTab(): JSX.Element {
     queryFn: fetchProviderStatus,
   });
 
+  // Manual model sync button per provider: refetches every provider catalog
+  // immediately (models removed upstream drop out of the registry), even
+  // when auto-fetch is enabled and also when it is disabled for that provider.
+  const [syncingProvider, setSyncingProvider] = useState<string | null>(null);
+  const syncModels = async (name: string) => {
+    if (syncingProvider) return;
+    setSyncingProvider(name);
+    try {
+      await refreshRuntime();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["models"] }),
+        queryClient.invalidateQueries({ queryKey: ["provider-status"] }),
+        queryClient.invalidateQueries({ queryKey: ["pools"] }),
+      ]);
+    } catch {
+      // Spinner stops; the models list simply keeps the previous snapshot.
+    } finally {
+      setSyncingProvider(null);
+    }
+  };
+
   // OAuth is extension-only: the gateway answers 404 on /oauth/* until an
   // extension providing the oauth feature is applied. A failed fetch hides
   // every OAuth control in this tab.
@@ -737,6 +759,15 @@ export function ProvidersTab(): JSX.Element {
                       </div>
                     </div>
                     <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+                      <button
+                        onClick={() => void syncModels(provider.name)}
+                        className="p-1.5 hover:bg-accent/10 transition-colors disabled:opacity-50"
+                        disabled={syncingProvider !== null}
+                        title="Sync models — fetch the model list now"
+                        aria-label={`Sync models for ${provider.name}`}
+                      >
+                        <RefreshCwIcon className={cn("h-3.5 w-3.5 text-muted-foreground", syncingProvider === provider.name && "animate-spin")} />
+                      </button>
                       <Switch
                         checked={provider.config?.enabled !== false}
                         size="sm"
