@@ -3,7 +3,7 @@
 </p>
 
 <h1 align="center">AuroraX</h1>
-<h2 align="center">One AI gateway. Every provider. Self-hosted.</h2>
+<p align="center">A self-hosted gateway that puts one OpenAI- and Anthropic-compatible API in front of many LLM providers.</p>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/entitybtw/aurora" alt="License" height="20"></a>
@@ -12,7 +12,7 @@
   <a href="https://hub.docker.com/r/entbtw/aurora"><img src="https://img.shields.io/docker/v/entbtw/aurora?sort=semver" alt="Docker Version" height="20"></a>
 </p>
 
-<p align="center">14 provider types &bull; OpenAI &amp; Anthropic compatible &bull; Go &bull; Apache 2.0 &bull; Built for raw speed</p>
+<p align="center">14 provider types &bull; OpenAI &amp; Anthropic compatible &bull; Go &bull; Apache 2.0</p>
 
 <p align="center"><b>Repositories</b></p>
 
@@ -102,6 +102,13 @@ No SDK changes. No format changes. Just swap the `base_url`.
 **Cost control**
 - Token saver — policy-driven output compression (concise, caveman, ultra, wenyan)
 - Per-model pricing overrides, usage budgets per key
+
+**Performance**
+- Streaming-first Go request paths; session mapping resolves in well under a
+  microsecond per request
+- Benchmarked against a mock OpenAI-compatible upstream at 5,000 RPS (60 s
+  runs, median of three, Intel i5-10300H): **4,986 req/s**, **100% success
+  rate**, **P50 17.7 ms**, **P99 47.2 ms**
 
 **Session Hub** — header transformation engine with per-provider/pool session
 mapping, 7 header modes (`map`, `map_or_generate`, `generate`, `passthrough`,
