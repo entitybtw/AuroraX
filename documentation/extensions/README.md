@@ -61,8 +61,8 @@ contributes at a time).
 
 ## Safety notes
 
-- Review third-party JSON before install: extensions can change base URLs,
-  headers, tool injection, and OAuth defaults.
+- Review extension JSON before install: extensions can change base URLs,
+  headers, tool injection, and auth defaults.
 - Theme CSS values are sanitized on the dashboard (`--` variable names, no
   `url()` / injection characters).
 - `files` content is written under the extension materialization directory on

@@ -132,8 +132,6 @@ If the Session Hub isn't transforming headers the way you expect, re-check the r
 
 The default image is distroless and has no sidecar. For extension-driven TLS fingerprinting, use the `runtime-sidecar` image variant, which ships the Bun sidecar + per-IP CONNECT proxies.
 
-> **⚠️ Use at your own risk.** The sidecar emulates an upstream client fingerprint. Upstream hardening can break it at any time, it may violate the provider's terms of service. Review third-party extensions before installing them from a store.
-
 ```bash
 docker pull entbtw/aurora:sidecar   # if published; otherwise build --target runtime-sidecar
 ```
