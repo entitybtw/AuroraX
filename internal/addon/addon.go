@@ -144,6 +144,34 @@ func (s *Store) loadDir(dir string) {
 	}
 }
 
+// RemoveDir drops a directory from the scan set and unloads every addon that
+// came from it. Disabling an extension calls this so its settings tabs,
+// hooks and UI contributions disappear without a gateway restart.
+func (s *Store) RemoveDir(dir string) {
+	dir = strings.TrimSpace(dir)
+	if dir == "" {
+		return
+	}
+	clean := filepath.Clean(dir)
+	prefix := clean + string(os.PathSeparator)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	kept := make([]string, 0, len(s.dirs))
+	for _, existing := range s.dirs {
+		if filepath.Clean(existing) != clean {
+			kept = append(kept, existing)
+		}
+	}
+	s.dirs = kept
+	for name, a := range s.addons {
+		p := filepath.Clean(a.Path)
+		if p == clean || strings.HasPrefix(p, prefix) {
+			delete(s.addons, name)
+			delete(s.lastErr, name)
+		}
+	}
+}
+
 // Load reads every *.go under every configured directory (non-recursive) and
 // evaluates each in a Yaegi interpreter. Returns names loaded successfully.
 // Evaluation failures are recorded via Status and skipped (never fatal).

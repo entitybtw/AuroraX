@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	"github.com/labstack/echo/v5"
+
+	"aurora/internal/addon"
 )
 
 func TestExtensionStore_ImportOnlyNoBuiltin(t *testing.T) {
@@ -145,6 +147,55 @@ func TestExtension_ValidateRejectsUnsafeFilesPath(t *testing.T) {
 	p.Files = map[string]string{"/abs.json": "[]"}
 	if err := p.Validate(); err == nil {
 		t.Fatal("expected error for absolute path")
+	}
+}
+
+// TestExtensionValidate_ReportsEveryBrokenField checks that an import failure
+// lists all problems at once (with field paths), not just the first one.
+func TestExtensionValidate_ReportsEveryBrokenField(t *testing.T) {
+	p := Extension{
+		ID:     "broken ext",
+		Schema: 9,
+		BaseURL: "not-a-url",
+		Headers: []ExtensionHeader{
+			{Name: "x-ok", Mode: "static", Length: 0},
+			{Name: "", Mode: "wobble", Charset: "base64"},
+			{Name: "x-gen", Mode: "generate", Length: 0, Charset: "hex"},
+		},
+		OAuth:    &ExtensionOAuth{Grant: "implicit", ClientID: ""},
+		Provides: &ExtensionProvides{ProviderTypes: []string{"bad type"}},
+		Tools:    []ExtensionTool{{}},
+		UI: ExtensionUI{Fields: []ExtensionField{
+			{Key: "a", Type: "wysiwyg"},
+			{Key: "a", Type: "text"},
+			{Key: "", Type: "select"},
+		}},
+		Settings: map[string]string{"forward_headers": "not-json"},
+	}
+	err := p.Validate()
+	if err == nil {
+		t.Fatal("expected validation errors")
+	}
+	msg := err.Error()
+	for _, want := range []string{
+		"id:",
+		"schema:",
+		"base_url:",
+		"headers[1].name:",
+		"headers[1].mode:",
+		"headers[2].length:",
+		"oauth.grant:",
+		"oauth.client_id:",
+		"provides.provider_types[0]:",
+		"tool_schemas[0]:",
+		"ui.fields[0].type:",
+		"ui.fields[1].key: duplicate",
+		"ui.fields[2].key:",
+		"settings.forward_headers:",
+	} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("error %q missing %q", msg, want)
+		}
 	}
 }
 
@@ -1268,4 +1319,54 @@ func TestHandler_FullApplyExtension(t *testing.T) {
 			t.Fatalf("ensurer must not be called, got %q", ensurer.target)
 		}
 	})
+}
+
+// TestUnapplyExtension_DetachesAddonTabs verifies that disabling an extension
+// unloads its shipped Go addons, so its settings tabs (e.g. the auth login
+// tabs) disappear from the dashboard right away instead of surviving until a
+// gateway restart.
+func TestUnapplyExtension_DetachesAddonTabs(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("AURORA_EXTENSIONS_PATH", filepath.Join(dir, "extensions.json"))
+	filesBase := filepath.Join(dir, "files")
+	t.Setenv("AURORA_EXTENSIONS_FILES_DIR", filesBase)
+	filesDir := filepath.Join(filesBase, "auth-ext")
+
+	if err := os.MkdirAll(filesDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	src := "package main\n\n// addon-kind: auth\nfunc UI() string { return `{\"settings_tabs\":[{\"id\":\"tab1\",\"label\":\"Tab\",\"blocks\":[]}]}` }\n"
+	if err := os.WriteFile(filepath.Join(filesDir, "auth-test.go"), []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	extStore := NewExtensionStore()
+	extStore.Upsert(Extension{ID: "auth-ext", Name: "AuthExt", Applied: true})
+	addonStore := addon.NewStore(filepath.Join(dir, "addons"))
+
+	h := NewHandler(nil, nil, WithExtensionStore(extStore), WithAddonStore(addonStore))
+	AttachExtensionAddons(addonStore, "auth-ext")
+	if got := addonStore.ByKind(addon.KindAuth); len(got) != 1 {
+		t.Fatalf("addons loaded = %d, want 1; filesDir=%s env=%s status=%+v", len(got), filesDir, os.Getenv("AURORA_EXTENSIONS_FILES_DIR"), addonStore.Status())
+	}
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/sidecar/extensions/auth-ext/unapply", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: "auth-ext"}})
+	if err := h.UnapplyExtension(c); err != nil {
+		t.Fatalf("UnapplyExtension: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if got := addonStore.ByKind(addon.KindAuth); len(got) != 0 {
+		t.Fatalf("addons after unapply = %d, want 0 (tabs must disappear)", len(got))
+	}
+	for _, d := range addonStore.Dirs() {
+		if d == filesDir {
+			t.Fatalf("extension dir must be dropped from scan set: %v", addonStore.Dirs())
+		}
+	}
 }

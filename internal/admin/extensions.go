@@ -560,15 +560,26 @@ func (s *ExtensionStore) ActivateOptionalTypes() []string {
 	return activated
 }
 
-// Validate normalizes and checks an extension.
+// Validate normalizes and checks an extension. Problems accumulate so an
+// import reports every broken field at once instead of one at a time.
 func (p *Extension) Validate() error {
 	p.ID = strings.TrimSpace(p.ID)
 	p.Name = strings.TrimSpace(p.Name)
-	if p.ID == "" {
-		return fmt.Errorf("extension id is required")
+	var errs []string
+	add := func(format string, args ...any) {
+		errs = append(errs, fmt.Sprintf(format, args...))
 	}
-	if strings.ContainsAny(p.ID, " /\\") {
-		return fmt.Errorf("extension id must not contain spaces or slashes")
+
+	if p.ID == "" {
+		add("id: required")
+	} else if strings.ContainsAny(p.ID, " /\\") {
+		add("id: must not contain spaces or slashes")
+	}
+	if p.Schema != 0 && p.Schema != 1 {
+		add("schema: unsupported version %d (supported: 1)", p.Schema)
+	}
+	if p.BaseURL != "" && !isHTTPURL(p.BaseURL) {
+		add("base_url: %q must be an absolute http(s) URL", p.BaseURL)
 	}
 	if p.Type == "" {
 		// Default to sidecar; explicit types such as "theme" are preserved.
@@ -588,14 +599,152 @@ func (p *Extension) Validate() error {
 	if p.RetryDelayMs <= 0 {
 		p.RetryDelayMs = 750
 	}
-	if p.Files != nil {
-		for rel := range p.Files {
-			if !safeExtRelPath(rel) {
-				return fmt.Errorf("files path %q is not allowed (must be relative and stay under the extension dir)", rel)
+
+	// Header rules must map onto a mode the session hub actually implements.
+	validModes := map[string]bool{
+		"generate": true, "map": true, "map_or_generate": true,
+		"passthrough": true, "static": true, "random_from_list": true, "remove": true,
+	}
+	validCharsets := map[string]bool{"": true, "alphanumeric": true, "hex": true, "digits": true}
+	for i, h := range p.Headers {
+		field := fmt.Sprintf("headers[%d]", i)
+		name := strings.TrimSpace(h.Name)
+		if name == "" {
+			add("%s.name: required", field)
+		} else if strings.ContainsAny(name, " \t") {
+			add("%s.name: %q is not a valid header name", field, h.Name)
+		}
+		if !validModes[h.Mode] {
+			add("%s.mode: %q is unknown (use generate, map, map_or_generate, passthrough, static, random_from_list or remove)", field, h.Mode)
+		}
+		if !validCharsets[h.Charset] {
+			add("%s.charset: %q is unknown (alphanumeric, hex or digits)", field, h.Charset)
+		}
+		switch h.Mode {
+		case "static":
+			if strings.TrimSpace(h.Value) == "" {
+				add("%s: static mode requires value", field)
+			}
+		case "random_from_list":
+			if len(h.Values) == 0 {
+				add("%s: random_from_list mode requires values", field)
+			}
+		case "generate", "map_or_generate":
+			if h.Length <= 0 {
+				add("%s.length: %s mode needs a positive length", field, h.Mode)
 			}
 		}
 	}
+
+	// Auth-flow wiring.
+	if p.OAuth != nil {
+		o := p.OAuth
+		for field, value := range map[string]string{
+			"server":            o.Server,
+			"authorize_url":     o.AuthorizeURL,
+			"token_url":         o.TokenURL,
+			"verification_base": o.VerificationBase,
+		} {
+			if value != "" && !isHTTPURL(value) {
+				add("oauth.%s: %q must be an absolute http(s) URL", field, value)
+			}
+		}
+		if strings.TrimSpace(o.ClientID) == "" {
+			add("oauth.client_id: required")
+		}
+		switch strings.TrimSpace(o.Grant) {
+		case "", "device":
+			if strings.TrimSpace(o.Server) == "" {
+				add("oauth.server: required for the device grant")
+			}
+		case "authorization_code":
+			if strings.TrimSpace(o.AuthorizeURL) == "" {
+				add("oauth.authorize_url: required for the authorization_code grant")
+			}
+			if strings.TrimSpace(o.TokenURL) == "" {
+				add("oauth.token_url: required for the authorization_code grant")
+			}
+			if o.TokenStyle != "" && o.TokenStyle != "json" && o.TokenStyle != "form" {
+				add("oauth.token_style: %q is unknown (json or form)", o.TokenStyle)
+			}
+		default:
+			add("oauth.grant: %q is unknown (device or authorization_code)", o.Grant)
+		}
+	}
+
+	if p.Provides != nil {
+		for i, t := range p.Provides.ProviderTypes {
+			if strings.TrimSpace(t) == "" || strings.ContainsAny(t, " \t") {
+				add("provides.provider_types[%d]: %q is not a valid type name", i, t)
+			}
+		}
+		for i, f := range p.Provides.Features {
+			if strings.TrimSpace(f) == "" {
+				add("provides.features[%d]: empty feature name", i)
+			}
+		}
+	}
+
+	for i, t := range p.Tools {
+		if strings.TrimSpace(t.Name) == "" && strings.TrimSpace(t.Source) == "" && len(t.InlineJSON) == 0 {
+			add("tool_schemas[%d]: needs a name, source or inline schema", i)
+		}
+	}
+
+	// UI form fields.
+	fieldKeys := map[string]bool{}
+	validFieldTypes := map[string]bool{"": true, "text": true, "number": true, "boolean": true, "select": true, "color": true}
+	for i, f := range p.UI.Fields {
+		field := fmt.Sprintf("ui.fields[%d]", i)
+		key := strings.TrimSpace(f.Key)
+		if key == "" {
+			add("%s.key: required", field)
+		} else if fieldKeys[key] {
+			add("%s.key: duplicate key %q", field, key)
+		} else {
+			fieldKeys[key] = true
+		}
+		if !validFieldTypes[strings.TrimSpace(f.Type)] {
+			add("%s.type: %q is unknown (text, number, boolean, select or color)", field, f.Type)
+		}
+		if f.Type == "select" && len(f.Options) == 0 {
+			add("%s: select field needs options", field)
+		}
+	}
+
+	// Settings keys that must carry JSON string arrays.
+	for _, key := range []string{"forward_headers", "inject_tool_types"} {
+		if v, ok := p.Settings[key]; ok && strings.TrimSpace(v) != "" {
+			var arr []string
+			if err := json.Unmarshal([]byte(v), &arr); err != nil {
+				add("settings.%s: must be a JSON array of strings", key)
+			}
+		}
+	}
+
+	if p.Files != nil {
+		for rel := range p.Files {
+			if !safeExtRelPath(rel) {
+				add("files: path %q is not allowed (must be relative and stay under the extension dir)", rel)
+			}
+		}
+	}
+
+	if len(errs) > 0 {
+		// Report everything; only a hostile input could produce thousands of
+		// problems, so clip at a generous bound.
+		if len(errs) > 30 {
+			errs = append(errs[:30:30], fmt.Sprintf("… and %d more problem(s)", len(errs)-30))
+		}
+		return fmt.Errorf("extension validation failed: %s", strings.Join(errs, "; "))
+	}
 	return nil
+}
+
+// isHTTPURL reports whether value is an absolute http:// or https:// URL.
+func isHTTPURL(value string) bool {
+	u, err := url.Parse(strings.TrimSpace(value))
+	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
 }
 
 // safeExtRelPath reports whether rel is a safe relative path for extension files.
@@ -862,12 +1011,16 @@ func (h *Handler) DeleteExtension(c *echo.Context) error {
 	if !h.extensions.Delete(c.Param("id")) {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "extension not found"})
 	}
+	// Remove the extension's Go addons so its settings tabs and hooks go away.
+	DetachExtensionAddons(h.addonStore, c.Param("id"))
 	return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 }
 
 // UnapplyExtension deactivates an extension (Applied=false). Sidecar settings
 // and session hub headers installed by a previous apply are left untouched;
 // the operator re-applies another extension or edits settings to replace them.
+// Extension-shipped Go addons are unloaded so their settings tabs disappear
+// immediately.
 func (h *Handler) UnapplyExtension(c *echo.Context) error {
 	if h.extensions == nil {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "extensions unavailable"})
@@ -878,6 +1031,7 @@ func (h *Handler) UnapplyExtension(c *echo.Context) error {
 	}
 	ext.Applied = false
 	h.extensions.Upsert(ext)
+	DetachExtensionAddons(h.addonStore, ext.ID)
 	return c.JSON(http.StatusOK, map[string]any{
 		"status":    "ok",
 		"extension": ext.ID,
@@ -1465,6 +1619,16 @@ func AttachExtensionAddons(addonStore *addon.Store, extID string) {
 			return
 		}
 	}
+}
+
+// DetachExtensionAddons unloads an extension's *.go addons so its settings
+// tabs, hooks and UI contributions disappear as soon as it is disabled or
+// deleted (the mirror of AttachExtensionAddons).
+func DetachExtensionAddons(addonStore *addon.Store, extID string) {
+	if addonStore == nil {
+		return
+	}
+	addonStore.RemoveDir(ExtensionFilesDir(extID))
 }
 
 // LoadExtensionAddons scans an applied extension's files directory for *.go
