@@ -53,10 +53,14 @@ Common variables used by the dashboard:
 - `--success`, `--warning`, `--danger`, `--info`
 
 ### Charts & analytics
-- `--chart-grid`, `--chart-text`, `--chart-tooltip-bg`, `--chart-tooltip-text`
-- `--chart-input`, `--chart-output`, `--chart-cache-hit`, `--chart-cache-miss`
-- `--chart-requests`, `--chart-palette-5` … `--chart-palette-8`
-- `--cat-1` … `--cat-10`
+- `--chart-grid`, `--chart-text`
+- `--chart-tooltip-bg`, `--chart-tooltip-border`, `--chart-tooltip-text`
+- `--chart-input`, `--chart-output`
+- `--chart-cache-input`, `--chart-cache-output`
+- `--chart-requests`, `--chart-cache-hits`
+- `--chart-palette-5` … `--chart-palette-8`
+- `--chart-cat-1` … `--chart-cat-10` (categorical series)
+- `--chart-colors` (comma-separated list for legends)
 
 ### Contribution calendar
 - `--cal-level-0` … `--cal-level-4`
@@ -69,8 +73,10 @@ Common variables used by the dashboard:
 - `--font-body`, `--font-mono`
 - `--sidebar-width`, `--space-page`
 
-Setting `--chart-*` / `--cal-level-*` recolors Overview charts and the
-contribution calendar without gateway code changes.
+Setting `--chart-*` / `--cal-level-*` recolors every Overview chart (token
+usage, throughput, splits) and the contribution calendar without gateway code
+changes. Ship them in both the dark map and `theme_light` so colors track the
+light/dark switch — the bundled store themes do exactly that.
 
 ## Light / dark switching
 
