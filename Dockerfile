@@ -63,7 +63,7 @@ ENTRYPOINT ["/aurora"]
 
 # ---------------------------------------------------------------------------
 # Bun stage — downloads the Bun runtime used by the TLS sidecar.
-# Some fingerprint the TLS handshake and only accept Bun's
+# Some upstream edges fingerprint the TLS handshake and only accept Bun's
 # BoringSSL ClientHello, which a Go binary cannot reproduce.
 # ---------------------------------------------------------------------------
 FROM alpine:3.23 AS bun

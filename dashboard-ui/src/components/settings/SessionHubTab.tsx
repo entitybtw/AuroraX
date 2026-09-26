@@ -399,13 +399,13 @@ export function SessionHubTab(): JSX.Element {
         <div className="text-sm">
           <p className="font-medium text-amber-600 dark:text-amber-400">Use at your own risk</p>
           <p className="mt-1 leading-snug text-muted-foreground">
-            The Session Hub rewrites upstream headers to present client identities. Depending on
-            the provider and upstream, some of these transformations may violate a provider&apos;s
-            terms of service, and upstream fingerprint hardening can break them at any time. Use
-            only the rules you need, and review the documentation before relying on them.
+            The Session Hub rewrites upstream headers to present client identities. Header handling
+            differs between providers and upstreams, and fingerprint hardening can break these
+            transformations at any time. Use only the rules you need, and review the documentation
+            before relying on them.
           </p>
           <p className="mt-2 leading-snug text-muted-foreground">
-            Rules imported from extensions are unreviewed modifications. Treat them as
+            Rules imported from other extensions are unreviewed modifications. Treat them as
             untrusted code: review the JSON before applying, and prefer sources you trust.
           </p>
         </div>

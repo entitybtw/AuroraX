@@ -61,7 +61,7 @@
   This OSS tree provides gateway routing, analytics, and provider operations. Report any path
   that lets a user enable restricted runtime behavior by changing config, env vars, license
   fields, dashboard overrides, build tags, or dropped-in files. Treat those as
-  security-sensitive boundary .
+  security-sensitive boundary violations.
 
   ## Disclosure Policy
 

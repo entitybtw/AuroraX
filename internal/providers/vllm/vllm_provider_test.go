@@ -213,7 +213,7 @@ func TestPassthrough_UsesV1ForOpenAICompatibleEndpointsWhenBaseURLIncludesV1(t *
 	}
 }
 
-func TestResolveSidecarURL_(t *testing.T) {
+func TestResolveSidecarURL_FreePlanUsesEnvGenericDoesNot(t *testing.T) {
 	t.Setenv("AURORA_SIDECAR_BASE_URL", "http://127.0.0.1:8090/v1")
 	// Upstream origins are detected via the extension-configured sidecar
 	// base_url (sidecar-overrides.json), never a hardcoded origin.

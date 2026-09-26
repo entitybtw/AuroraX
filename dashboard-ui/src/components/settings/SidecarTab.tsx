@@ -93,15 +93,14 @@ function RiskNotice() {
       <div className="text-sm">
         <p className="font-medium text-amber-600 dark:text-amber-400">Use at your own risk</p>
         <p className="text-muted-foreground mt-1 leading-snug">
-          The sidecar reproduces an upstream client signature (TLS fingerprint, headers and tool
-          schema) so requests look like they come from the official client. Upstream hardening can
-          break it at any time, and some of these techniques may violate a provider&apos;s terms of
-          service.
+          The sidecar aligns outbound requests with the upstream client signature (TLS
+          fingerprint, headers and tool schema). Upstream hardening can change or break this
+          at any time.
         </p>
         <p className="text-muted-foreground mt-2 leading-snug">
-          Import extensions only from sources you trust. extensions are unreviewed
+          Import extensions only from sources you trust. Community extensions are unreviewed
           modifications and may contain harmful instructions, data-exfiltration URLs, or
-          configuration that violates a provider&apos;s rules. Review an extension&apos;s JSON
+          configuration that conflicts with a provider&apos;s rules. Review an extension&apos;s JSON
           before importing and keep a copy of anything you import.
         </p>
       </div>
