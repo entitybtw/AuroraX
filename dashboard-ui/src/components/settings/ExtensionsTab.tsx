@@ -36,6 +36,7 @@ import {
   listExtensionStores,
   renameExtension,
   reorderExtensions,
+  setExtensionSource,
   unapplyExtension,
   updateExtensionConfig,
   updateExtensionFromSource,
@@ -110,6 +111,8 @@ export function ExtensionsTab(): JSX.Element {
 
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState("");
+  const [editingSource, setEditingSource] = useState(false);
+  const [sourceValue, setSourceValue] = useState("");
 
   const [storeURL, setStoreURL] = useState("");
   const [storeBusy, setStoreBusy] = useState(false);
@@ -121,7 +124,7 @@ export function ExtensionsTab(): JSX.Element {
   const [newStoreURL, setNewStoreURL] = useState("");
   const [updateBusy, setUpdateBusy] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<
-    { remote_version: string; update_available: boolean } | null
+    { current_version?: string; remote_version: string; update_available: boolean } | null
   >(null);
 
   const selected = useMemo(
@@ -137,7 +140,10 @@ export function ExtensionsTab(): JSX.Element {
 
   useEffect(() => {
     setUpdateInfo(null);
-    if (!selected?.source) return;
+    // Without an explicit source the backend still resolves one from the
+    // configured stores, so allow the check whenever either can answer.
+    if (!selected) return;
+    if (!selected.source && savedStores.length === 0) return;
     let cancelled = false;
     checkExtensionUpdate(selected.id)
       .then((info) => {
@@ -149,7 +155,7 @@ export function ExtensionsTab(): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [selected?.id, selected?.source]);
+  }, [savedStores.length, selected?.id, selected?.source]);
 
   useEffect(() => {
     if (!selected) {
@@ -164,6 +170,8 @@ export function ExtensionsTab(): JSX.Element {
     setConfigDraft(draft);
     setResult(null);
     setRenaming(false);
+    setEditingSource(false);
+    setSourceValue(selected.source ?? "");
   }, [selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const invalidateExtensionQueries = async () => {
@@ -377,6 +385,34 @@ export function ExtensionsTab(): JSX.Element {
     }
   };
 
+  const handleSaveSource = async () => {
+    if (!selected) return;
+    const next = sourceValue.trim();
+    setBusy(true);
+    try {
+      await setExtensionSource(selected.id, next);
+      await qc.invalidateQueries({ queryKey: ["extensions"] });
+      setEditingSource(false);
+      setResult({
+        ok: true,
+        message: next
+          ? `Sync source set to ${next}.`
+          : "Sync source cleared — it will resolve from configured stores.",
+        added: [],
+        kept: [],
+      });
+    } catch (err) {
+      setResult({
+        ok: false,
+        message: `Could not set source: ${err instanceof Error ? err.message : String(err)}`,
+        added: [],
+        kept: [],
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleMove = async (direction: -1 | 1) => {
     if (!selected) return;
     const list = [...extensions].sort(compareExtensions);
@@ -517,9 +553,8 @@ export function ExtensionsTab(): JSX.Element {
       >
         <AlertTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" />
         <span>
-          <strong className="font-semibold">Experimental.</strong> Extensions can change the
-          dashboard UI, sidecar settings, and Session Hub rules. Install only extensions you
-          trust and use them at your own risk.
+          Extensions can change the dashboard UI, sidecar settings, and Session Hub rules.
+          Install only extensions you trust and use them at your own risk.
         </span>
       </div>
 
@@ -819,14 +854,14 @@ export function ExtensionsTab(): JSX.Element {
               </div>
             </div>
             <div className="flex items-center gap-3 shrink-0">
-              {selected.source ? (
+              {selected.source || savedStores.length > 0 ? (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => void handleUpdateFromSource()}
                   disabled={busy || updateBusy}
                   className="h-9 gap-1.5"
-                  title={selected.source}
+                  title={selected.source || "source resolves from configured stores"}
                 >
                   <RefreshCwIcon className={`h-3.5 w-3.5 ${updateBusy ? "animate-spin" : ""}`} />
                   {updateInfo?.update_available
@@ -852,6 +887,87 @@ export function ExtensionsTab(): JSX.Element {
           {selected.ui?.help ? (
             <p className="mt-2 text-xs text-muted-foreground">{selected.ui.help}</p>
           ) : null}
+
+          {/* Sync source: where updates come from */}
+          <div className="mt-4 rounded-md border border-border/40 bg-background/40 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                Sync source
+              </p>
+              {!editingSource ? (
+                <div className="flex items-center gap-2">
+                  {updateInfo ? (
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                        updateInfo.update_available
+                          ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                          : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                      }`}
+                    >
+                      {updateInfo.update_available
+                        ? `Update available (v${updateInfo.remote_version || "?"})`
+                        : "Up to date"}
+                    </span>
+                  ) : null}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    disabled={busy}
+                    aria-label="Edit sync source"
+                    title="Edit sync source"
+                    onClick={() => {
+                      setSourceValue(selected.source ?? "");
+                      setEditingSource(true);
+                    }}
+                  >
+                    <PencilIcon className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+            {editingSource ? (
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <Input
+                  value={sourceValue}
+                  onChange={(e) => setSourceValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void handleSaveSource();
+                    if (e.key === "Escape") setEditingSource(false);
+                  }}
+                  placeholder="https://store.example.com/extensions/id.extension.json"
+                  className="h-9 flex-1 font-mono text-xs"
+                  autoFocus
+                  aria-label="Sync source URL"
+                />
+                <div className="flex items-center gap-2">
+                  <Button size="sm" onClick={() => void handleSaveSource()} disabled={busy} className="h-8 gap-1">
+                    <CheckCircleIcon className="h-3.5 w-3.5" />
+                    Save
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingSource(false)} disabled={busy} className="h-8">
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span className="min-w-0 break-all font-mono text-xs text-muted-foreground">
+                  {selected.source || "not set — resolves from configured stores"}
+                </span>
+                {updateInfo ? (
+                  <span className="text-[11px] text-muted-foreground">
+                    installed v{updateInfo.current_version || selected.version || "?"} · remote v
+                    {updateInfo.remote_version || "?"}
+                  </span>
+                ) : null}
+              </div>
+            )}
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Updates are fetched from this URL. Clear it to fall back to a store that carries
+              this extension id, or point it at another repo to track a fork.
+            </p>
+          </div>
 
           {(selected.requirements?.length ?? 0) > 0 ? (
             <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/5 p-3">

@@ -127,6 +127,7 @@ func (h *Handler) RegisterRoutes(g RouteRegistrar) {
 	g.PUT("/sidecar/extensions/:id/config", h.UpdateExtensionConfig)
 	g.GET("/sidecar/extensions/:id/check-update", h.CheckExtensionUpdate)
 	g.POST("/sidecar/extensions/:id/update", h.UpdateExtensionFromSource)
+	g.GET("/addons", h.ListAddons)
 
 	// Temporary aliases for older dashboards.
 	g.GET("/sidecar/presets", h.ListExtensions)

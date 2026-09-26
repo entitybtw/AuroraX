@@ -1,7 +1,6 @@
 import * as React from "react";
 import { Outlet, useRouterState, useNavigate } from "@tanstack/react-router";
 import { Sidebar } from "./Sidebar";
-import { BottomNav } from "./BottomNav";
 import { AuthDialog } from "./AuthDialog";
 import { useDashboardConfig } from "@/lib/api/useDashboardConfig";
 import { flagOn, hasCapability } from "@/lib/api/dashboard-config";
@@ -199,7 +198,7 @@ export function AppShell(): JSX.Element {
             onClick={() => setMobileOpen(false)}
           />
         )}
-        <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden p-4 pt-16 pb-24 md:p-6 md:pt-6 md:pb-6 lg:p-10 mx-auto w-full transition-all duration-300 ease-[var(--ease-ios)]">
+        <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden p-4 pt-16 pb-6 md:p-6 md:pt-6 md:pb-6 lg:p-10 mx-auto w-full transition-all duration-300 ease-[var(--ease-ios)]">
           <div className="fixed top-0 left-0 right-0 z-40 h-14 bg-surface/95 backdrop-blur-xl border-b border-border md:hidden flex items-center px-4 gap-3">
             <button
               type="button"
@@ -219,7 +218,6 @@ export function AppShell(): JSX.Element {
             <Outlet />
           </div>
         </main>
-        <BottomNav />
         <AuthDialog
           open={authOpen}
           needsAuth={needsAuth}

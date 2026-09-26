@@ -364,10 +364,25 @@ export async function checkExtensionUpdate(id: string): Promise<{
   current_version: string;
   remote_version: string;
   update_available: boolean;
+  /** true when the source URL was resolved from a configured store. */
+  resolved?: boolean;
 }> {
   return apiFetch(
     `/admin/api/v1/sidecar/extensions/${encodeURIComponent(id)}/check-update`,
   );
+}
+
+/**
+ * Set (or clear, with "") the sync source URL of an extension. The server
+ * validates it as http(s); clearing falls back to resolving the source from
+ * configured extension stores.
+ */
+export async function setExtensionSource(id: string, source: string): Promise<Extension> {
+  const res = await apiFetch<{ extension?: unknown }>(
+    `/admin/api/v1/sidecar/extensions/${encodeURIComponent(id)}`,
+    { method: "PUT", json: { source } },
+  );
+  return ExtensionSchema.parse(res.extension);
 }
 
 export async function updateExtensionFromSource(id: string): Promise<Extension> {
