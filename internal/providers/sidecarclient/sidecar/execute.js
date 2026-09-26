@@ -77,8 +77,23 @@ export async function executeRequest(envelope, cfg) {
       : cfg.defaultAuth;
 
   const tools = cfg.injectTools ? loadTools(cfg.toolsPath) : null;
-  if (cfg.injectTools && (!Array.isArray(payload.tools) || payload.tools.length === 0)) {
-    payload.tools = tools;
+  if (cfg.injectTools && tools) {
+    // Merge instead of replace: clients (chat UIs, agent runners) may ship
+    // their own tools, and the upstream gate still needs the extension's
+    // schema (e.g. bash/read) present alongside them. Previously a non-empty
+    // client tools array suppressed injection entirely and the upstream
+    // rejected the request as a non-official client.
+    const existing = Array.isArray(payload.tools) ? payload.tools : [];
+    const seen = new Set();
+    for (const t of existing) {
+      const name = t && (t.function?.name || t.name);
+      if (name) seen.add(name);
+    }
+    const missing = tools.filter((t) => {
+      const name = t && (t.function?.name || t.name);
+      return name && !seen.has(name);
+    });
+    payload.tools = missing.length > 0 ? [...existing, ...missing] : existing;
   }
   if (cfg.injectTools && payload.tool_choice === undefined) {
     payload.tool_choice = "auto";
