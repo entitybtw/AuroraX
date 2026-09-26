@@ -314,7 +314,7 @@ func TestApplyExtension_Configures(t *testing.T) {
 	overrides := NewProviderOverrideStore()
 	zend := true
 	overrides.upsert(ProviderOverride{
-		Name:    "",
+		Name:    "public-tier-main",
 		Type:    "vllm",
 		BaseURL: "https://zen.example.com/v1",
 		Enabled: &zend,
@@ -329,7 +329,7 @@ func TestApplyExtension_Configures(t *testing.T) {
 	store := NewExtensionStore()
 	ext := Extension{
 		ID:      "cli-emulation",
-		Name:    "",
+		Name:    "Public Tier Profile",
 		BaseURL: "https://zen.example.com/v1",
 		: &Extension{
 			Server:           "https://auth.example.com/device",
@@ -367,16 +367,16 @@ func TestApplyExtension_Configures(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if len(body.) != 1 || body.[0] != "" {
-		t.Fatalf("= %v, want []", body.)
+	if len(body.) != 1 || body.[0] != "public-tier-main" {
+		t.Fatalf("= %v, want [public-tier-main]", body.)
 	}
 
-	matched, ok := overrides.get("")
+	matched, ok := overrides.get("public-tier-main")
 	if !ok {
-		t.Fatal("override missing")
+		t.Fatal("public-tier override missing")
 	}
 	if matched.AuthMethod != "" || matched.!= "https://auth.example.com/device" || matched.!= "aurora-cli" {
-		t.Fatalf("not applied: %+v", matched)
+		t.Fatalf("public-tier not applied: %+v", matched)
 	}
 	other, _ := overrides.get("openrouter-main")
 	if other.AuthMethod == "" {
@@ -417,7 +417,7 @@ func TestApplyExtension_StampsClientProfileOnPoolProviders(t *testing.T) {
 	store := NewExtensionStore()
 	ext := Extension{
 		ID:        "cli-emulation",
-		Name:      "",
+		Name:      "Public Tier Profile",
 		BaseURL:   "https://zen.example.com/v1",
 		UserAgent: "cli/1.0 runtime/bun/1.3.14",
 		Settings:  map[string]string{"sidecar_url": "http://127.0.0.1:8090/v1"},

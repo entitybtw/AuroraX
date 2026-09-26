@@ -422,7 +422,7 @@ export function ProvidersTab(): JSX.Element {
   });
   const = Array.isArray();
 
-  // Applied extensions that provide the feature (,
+  // Applied extensions that provide the feature (device-flow auth,
   // Claude , …). Each carries its own accent so the link control can
   // render one colored key per enabled flow.
   const { data: = [] } = useQuery({
