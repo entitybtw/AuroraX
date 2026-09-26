@@ -469,11 +469,11 @@ func applyDashboardSettingsToConfig(cfg *config.Config, req admin.DashboardSetti
 	cfg.Usage.EnforceReturningUsageData = req.Pricing.EnforceReturningUsageData
 	cfg.Usage.PricingRecalculationEnabled = req.Pricing.PricingRecalculationEnabled
 	cfg.Usage.RetentionDays = req.Pricing.UsageRetentionDays
-	cfg.Cache.Prompt.Mode = req.Caching.PromptCache.Mode
-	cfg.Cache.Prompt.SystemPromptCache = req.Caching.PromptCache.SystemPromptCache
-	cfg.Cache.Prompt.FirstMessageCache = req.Caching.PromptCache.FirstMessageCache
-	cfg.Cache.Prompt.ToolsCache = req.Caching.PromptCache.ToolsCache
-	cfg.Cache.Prompt.MinTokensBeforeCache = req.Caching.PromptCache.MinTokens
+	cfg.Cache.Prompt.Mode = strings.TrimSpace(req.Caching.PromptCacheMode)
+	cfg.Cache.Prompt.SystemPromptCache = req.Caching.PromptCacheSystemPrompt
+	cfg.Cache.Prompt.FirstMessageCache = req.Caching.PromptCacheFirstMessage
+	cfg.Cache.Prompt.ToolsCache = req.Caching.PromptCacheTools
+	cfg.Cache.Prompt.MinTokensBeforeCache = req.Caching.PromptCacheMinTokens
 	applyDashboardTokenSaverToConfig(cfg, req.TokenSaver)
 	cfg.ResponseHeaders.Enabled = req.ResponseHeaders.Enabled
 	cfg.ResponseHeaders.Mode = req.ResponseHeaders.Mode
@@ -752,11 +752,11 @@ func applyDashboardSettingsToOverlay(overlay *dashboardSettingsOverlay, req admi
 	if overlay.Cache.Prompt == nil {
 		overlay.Cache.Prompt = &dashboardCachePromptOverlay{}
 	}
-	overlay.Cache.Prompt.Mode = stringPtr(req.Caching.PromptCache.Mode)
-	overlay.Cache.Prompt.SystemPromptCache = boolPtr(req.Caching.PromptCache.SystemPromptCache)
-	overlay.Cache.Prompt.FirstMessageCache = boolPtr(req.Caching.PromptCache.FirstMessageCache)
-	overlay.Cache.Prompt.ToolsCache = boolPtr(req.Caching.PromptCache.ToolsCache)
-	overlay.Cache.Prompt.MinTokens = intPtr(req.Caching.PromptCache.MinTokens)
+	overlay.Cache.Prompt.Mode = stringPtr(req.Caching.PromptCacheMode)
+	overlay.Cache.Prompt.SystemPromptCache = boolPtr(req.Caching.PromptCacheSystemPrompt)
+	overlay.Cache.Prompt.FirstMessageCache = boolPtr(req.Caching.PromptCacheFirstMessage)
+	overlay.Cache.Prompt.ToolsCache = boolPtr(req.Caching.PromptCacheTools)
+	overlay.Cache.Prompt.MinTokens = intPtr(req.Caching.PromptCacheMinTokens)
 
 	applyDashboardTokenSaverToOverlay(overlay.TokenSaver, req.TokenSaver)
 	overlay.UI.HiddenFeatures = normalizeHiddenFeatures(req.UI.HiddenFeatures)
