@@ -8,6 +8,7 @@ import {
   Loader2,
   Plus,
   Pencil,
+  RefreshCw,
   Trash2,
   X,
   Server,
@@ -38,6 +39,8 @@ import {
   updatePool,
 } from "@/lib/api/pools";
 import type { PoolOptions } from "@/lib/api/pools-types";
+import { useQueryClient } from "@tanstack/react-query";
+import { refreshRuntime } from "@/lib/api/providers";
 import { cn } from "@/lib/utils";
 import { formatRequests } from "@/lib/format/numbers";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
@@ -71,6 +74,29 @@ export function PoolsPage(): JSX.Element {
   const [bulkEditField, setBulkEditField] = React.useState<"strategy" | "health_aware" | "user_agent" | "auto_fetch_models" | null>(null);
   const [bulkEditValue, setBulkEditValue] = React.useState("");
   const [bulkEditSaving, setBulkEditSaving] = React.useState(false);
+  const [syncing, setSyncing] = React.useState(false);
+  const queryClient = useQueryClient();
+
+  // Manual model sync: refetches every provider catalog (pool members
+  // included), which also drops models that disappeared upstream. Available
+  // regardless of the per-provider auto-fetch toggle.
+  const syncModels = async () => {
+    if (syncing) return;
+    setSyncing(true);
+    try {
+      const report = await refreshRuntime();
+      setNotice(`Models synced — ${report.model_count} models across ${report.provider_count} providers.`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["models"] }),
+        queryClient.invalidateQueries({ queryKey: ["provider-status"] }),
+        pools.refetch(),
+      ]);
+    } catch (err) {
+      setError(`Model sync failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const poolList = pools.data?.pools ?? [];
   const selected = poolList[selectedIdx] ?? null;
@@ -311,7 +337,7 @@ export function PoolsPage(): JSX.Element {
             </div>
           )}
           {selected && (
-            <PoolView pool={selected} onEdit={openEdit} onDelete={remove} />
+            <PoolView pool={selected} onEdit={openEdit} onDelete={remove} onSync={() => void syncModels()} syncing={syncing} />
           )}
           {pools.data && (
             <div className="flex flex-wrap items-center gap-3">
@@ -442,10 +468,14 @@ function PoolView({
   pool,
   onEdit,
   onDelete,
+  onSync,
+  syncing,
 }: {
   pool: PoolSnapshot;
   onEdit: (p: PoolSnapshot) => void;
   onDelete: (p: PoolSnapshot) => void;
+  onSync: () => void;
+  syncing: boolean;
 }) {
   const totalActive = pool.members.reduce((s, m) => s + m.active_requests, 0);
 
@@ -466,6 +496,10 @@ function PoolView({
           </Pill>
         </div>
         <div className="flex gap-2">
+          <Button variant="secondary" size="sm" onClick={onSync} disabled={syncing} title="Fetch model lists from every member right now">
+            <RefreshCw className={cn("h-3.5 w-3.5", syncing && "animate-spin")} />
+            {syncing ? "Syncing…" : "Sync models"}
+          </Button>
           <Button variant="secondary" size="sm" onClick={() => onEdit(pool)}>
             <Pencil className="h-3.5 w-3.5" />
             Edit
