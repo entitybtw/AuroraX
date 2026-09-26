@@ -556,7 +556,8 @@ func modelInteractionWriteDeadlineMiddleware() echo.MiddlewareFunc {
 
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
-			if !core.IsModelInteractionPath(c.Request().URL.Path) {
+			path := c.Request().URL.Path
+			if !core.IsModelInteractionPath(path) && !isLongResponsePath(path) {
 				return next(c)
 			}
 			// In bench mode with the non-streaming fast path, skip clearing
@@ -575,6 +576,17 @@ func modelInteractionWriteDeadlineMiddleware() echo.MiddlewareFunc {
 			return next(c)
 		}
 	}
+}
+
+// isLongResponsePath reports whether the route streams a response that can
+// legitimately outlive the server-wide write deadline: SSE feeds stay open
+// for the session and bulk audit exports page through thousands of rows.
+// Those handlers clear their write deadline the same way model interactions
+// do; everything else keeps the strict timeout.
+func isLongResponsePath(path string) bool {
+	return strings.HasSuffix(path, "/audit/log/export") ||
+		strings.HasSuffix(path, "/audit/log/stream") ||
+		strings.HasSuffix(path, "/console/stream")
 }
 
 func parseBodySizeLimitBytes(limit string) int64 {
