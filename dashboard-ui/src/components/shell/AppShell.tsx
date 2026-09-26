@@ -198,7 +198,7 @@ export function AppShell(): JSX.Element {
             onClick={() => setMobileOpen(false)}
           />
         )}
-        <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden p-4 pt-16 pb-6 md:p-6 md:pt-6 md:pb-6 lg:p-10 mx-auto w-full transition-all duration-300 ease-[var(--ease-ios)]">
+        <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden p-4 pt-16 pb-[calc(1.5rem+var(--safe-bottom))] md:p-6 md:pt-6 md:pb-6 lg:p-10 mx-auto w-full transition-all duration-300 ease-[var(--ease-ios)]">
           <div className="fixed top-0 left-0 right-0 z-40 h-14 bg-surface/95 backdrop-blur-xl border-b border-border md:hidden flex items-center px-4 gap-3">
             <button
               type="button"

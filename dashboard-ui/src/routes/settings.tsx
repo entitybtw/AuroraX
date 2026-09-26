@@ -129,7 +129,7 @@ function SettingsPageInner(): JSX.Element {
 
       <div
         ref={tabStripRef}
-        className="flex overflow-x-auto overscroll-x-contain scroll-smooth gap-1 border-b border-border/60 pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex flex-wrap gap-1 border-b border-border/60 pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-nowrap sm:overflow-x-auto sm:overscroll-x-contain sm:scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {visibleTabs.map((tab) => {
           const Icon = tab.icon;
@@ -139,7 +139,7 @@ function SettingsPageInner(): JSX.Element {
               data-active={activeTab === tab.id}
               onClick={() => selectTab(tab.id)}
               className={cn(
-                "flex shrink-0 items-center gap-2 whitespace-nowrap px-3 py-2.5 text-[13px] font-medium rounded-t-lg border border-b-0 transition-colors sm:px-4",
+                "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-lg border border-b-0 px-2.5 py-2 text-xs font-medium transition-colors sm:gap-2 sm:px-4 sm:py-2.5 sm:text-[13px]",
                 activeTab === tab.id
                   ? "border-border/60 bg-surface text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground hover:bg-surface-hover/30"
