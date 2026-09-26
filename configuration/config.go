@@ -922,7 +922,7 @@ func buildDefaultConfig() *Config {
 				"openrouter",
 				"zai",
 				"vllm",
-				"opencode",
+				"cli-emulation",
 			},
 		},
 		Models: ModelsConfig{

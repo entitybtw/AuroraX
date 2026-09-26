@@ -29,7 +29,7 @@ const (
 	DefaultClientID = ""
 	// DefaultUserAgent is only used when a caller opts in via UserAgent on
 	// the manager config (not applied by default).
-	DefaultUserAgent = "opencode/1.18.31"
+	DefaultUserAgent = ""
 	refreshSkew      = 5 * time.Minute
 )
 

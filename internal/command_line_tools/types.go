@@ -5,6 +5,7 @@ type Tool struct {
 	Name           string       `json:"name"`
 	Description    string       `json:"description"`
 	ConfigPath     string       `json:"config_path,omitempty"`
+	AuthConfigPath string       `json:"auth_config_path,omitempty"`
 	CanApply       bool         `json:"can_apply"`
 	ConfigType     string       `json:"config_type,omitempty"`
 	Color          string       `json:"color,omitempty"`

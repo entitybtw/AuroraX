@@ -58,8 +58,8 @@ var testDiscoveryConfigs = map[string]DiscoveryConfig{
 		DefaultBaseURL:  "http://localhost:11434/v1",
 		AllowAPIKeyless: true,
 	},
-	"opencode": {
-		DefaultBaseURL:  "https://opencode.ai/zen/v1",
+	"cli-emulation": {
+		DefaultBaseURL:  "https://zen.example.com/v1",
 		AllowAPIKeyless: true,
 	},
 }
@@ -406,10 +406,10 @@ func TestApplyProviderEnvVars_IgnoresReservedSidecarSuffix(t *testing.T) {
 	}
 
 	// A suffixed free-tier provider from the optional extension type still works.
-	t.Setenv("OPENCODE_MAIN_BASE_URL", "https://opencode.ai/zen/v1")
+	t.Setenv("CLI_EMULATION_MAIN_BASE_URL", "https://zen.example.com/v1")
 	got = applyProviderEnvVars(map[string]config.RawProviderConfig{}, testDiscoveryConfigs)
-	if _, exists := got["opencode-main"]; !exists {
-		t.Fatal("expected opencode-main to be discovered from OPENCODE_MAIN_BASE_URL")
+	if _, exists := got["cli-emulation-main"]; !exists {
+		t.Fatal("expected cli-emulation-main to be discovered from CLI_EMULATION_MAIN_BASE_URL")
 	}
 	for name := range got {
 		if strings.Contains(name, "sidecar") || strings.Contains(name, "bind") {

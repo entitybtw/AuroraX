@@ -5,6 +5,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -213,8 +215,12 @@ func TestPassthrough_UsesV1ForOpenAICompatibleEndpointsWhenBaseURLIncludesV1(t *
 
 func TestResolveSidecarURL_FreeTierUsesEnvGenericDoesNot(t *testing.T) {
 	t.Setenv("AURORA_SIDECAR_BASE_URL", "http://127.0.0.1:8090/v1")
+	// Free-tier origins are detected via the extension-configured sidecar
+	// base_url (sidecar-overrides.json), never a hardcoded origin.
+	t.Setenv("AURORA_SIDECAR_OVERRIDES_PATH", writeSidecarOverrides(t,
+		`{"base_url":"https://zen.example.com/v1"}`))
 
-	routed := resolveSidecarURL(providers.ProviderConfig{BaseURL: "https://opencode.ai/zen/v1"})
+	routed := resolveSidecarURL(providers.ProviderConfig{BaseURL: "https://zen.example.com/v1"})
 	if routed != "http://127.0.0.1:8090/v1" {
 		t.Fatalf("free-tier sidecar = %q, want env sidecar", routed)
 	}
@@ -231,4 +237,15 @@ func TestResolveSidecarURL_FreeTierUsesEnvGenericDoesNot(t *testing.T) {
 	if explicit != "http://127.0.0.1:8090/v1" {
 		t.Fatalf("explicit sidecar = %q, want provider sidecar_url", explicit)
 	}
+}
+
+// writeSidecarOverrides persists body to a temp sidecar-overrides file and
+// returns its path.
+func writeSidecarOverrides(t *testing.T, body string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "sidecar-overrides.json")
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatalf("write overrides: %v", err)
+	}
+	return path
 }

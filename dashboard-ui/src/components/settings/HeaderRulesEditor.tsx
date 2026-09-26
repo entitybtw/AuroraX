@@ -52,7 +52,7 @@ export function sessionHeaderRule(overrides: Partial<HeaderRule> = {}): HeaderRu
  */
 export function legacySessionHeaderExample(): HeaderRule {
   return sessionHeaderRule({
-    name: "x-opencode-session",
+    name: "x-session-id",
     prefix: "ses_",
     length: 26,
     charset: "hex",

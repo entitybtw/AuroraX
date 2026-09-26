@@ -4,19 +4,89 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/labstack/echo/v5"
 )
 
 type inboundCtxKey struct{}
 
+// identityHeaderNames holds exact header names treated as session/identity
+// scoped. They are supplied by configuration (an applied extension's
+// forward_headers) so the core never hardcodes a specific client's header
+// names. Names are matched case-insensitively.
+var (
+	identityMu       sync.RWMutex
+	identityNames    = map[string]bool{}
+	identityPrefixes []string
+)
+
+// SetIdentityHeaders replaces the configured identity header set. Exact names
+// are matched verbatim; prefixes match the lower-cased name prefix.
+func SetIdentityHeaders(names []string, prefixes []string) {
+	identityMu.Lock()
+	defer identityMu.Unlock()
+	set := make(map[string]bool, len(names)+4)
+	for _, n := range defaultIdentityHeaders() {
+		set[n] = true
+	}
+	for _, n := range names {
+		n = strings.ToLower(strings.TrimSpace(n))
+		if n != "" {
+			set[n] = true
+		}
+	}
+	identityNames = set
+	identityPrefixes = identityPrefixes[:0]
+	for _, p := range prefixes {
+		p = strings.ToLower(strings.TrimSpace(p))
+		if p != "" {
+			identityPrefixes = append(identityPrefixes, p)
+		}
+	}
+}
+
+// configuredIdentityLower reports whether name matches a configured identity
+// header (exact name or prefix).
+func configuredIdentityLower(lower string) bool {
+	identityMu.RLock()
+	defer identityMu.RUnlock()
+	if identityNames[lower] {
+		return true
+	}
+	for _, p := range identityPrefixes {
+		if strings.HasPrefix(lower, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsIdentityHeader reports whether an exact header name (case-insensitive)
+// belongs to the configured identity set used by the session hub and the
+// outbound request wrapper.
+func IsIdentityHeader(name string) bool {
+	return configuredIdentityLower(strings.ToLower(name))
+}
+
+// defaultIdentityHeaders are generic non-branded session/identity names that
+// are always treated as identity scoped, independent of any extension.
+func defaultIdentityHeaders() []string {
+	return []string{"x-session-id", "x-client-id", "x-conversation-id"}
+}
+
+func init() {
+	SetIdentityHeaders(nil, nil)
+}
+
 // isCaptureHeader reports whether an inbound header is session/identity scoped
 // and relevant to the session hub. Filtering at capture keeps the snapshot tiny,
 // so the per-request hot path stays cheap.
-// Captures: x-opencode-* (upstream identity headers), x-session-*, x-*-session-*.
+// Captures configured identity headers (extension-supplied), any x-session-*,
+// and any x-*-session-* header.
 func isCaptureHeader(name string) bool {
 	lower := strings.ToLower(name)
-	if strings.HasPrefix(lower, "x-opencode-") {
+	if configuredIdentityLower(lower) {
 		return true
 	}
 	return strings.HasPrefix(lower, "x-") && strings.Contains(lower, "session")

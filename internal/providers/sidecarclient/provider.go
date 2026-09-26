@@ -35,7 +35,7 @@ func envSidecarURL() string {
 // Only staged via providers.RegisterOptional — not Add()ed by default.
 // base_url must come from provider config or the extension (sidecar overrides).
 var Registration = providers.Registration{
-	Type: "opencode",
+	Type: "cli-emulation",
 	New:  New,
 	Discovery: providers.DiscoveryConfig{
 		DefaultBaseURL:  baseURLOverride,

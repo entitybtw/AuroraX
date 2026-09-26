@@ -22,8 +22,8 @@ func TestExtensionStore_ImportOnlyNoBuiltin(t *testing.T) {
 	if len(store.List()) != 0 {
 		t.Fatalf("expected no built-in extensions, got %d", len(store.List()))
 	}
-	if _, ok := store.Get("opencode"); ok {
-		t.Fatal("opencode must not be built-in")
+	if _, ok := store.Get("cli-emulation"); ok {
+		t.Fatal("cli-emulation must not be built-in")
 	}
 
 	custom := Extension{
@@ -73,11 +73,11 @@ func TestExtensionStore_ImportOnlyNoBuiltin(t *testing.T) {
 }
 
 func TestExtension_ValidateRejectsReservedID(t *testing.T) {
-	p := Extension{ID: "opencode"}
+	p := Extension{ID: "cli-emulation"}
 	if err := p.Validate(); err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	if p.ID != "opencode" {
+	if p.ID != "cli-emulation" {
 		t.Fatalf("store seed id should be preserved, got %q", p.ID)
 	}
 
@@ -94,12 +94,12 @@ func TestExtension_ExtendedSchemaRoundTrip(t *testing.T) {
 	  "name": "Proto X",
 	  "author": "community",
 	  "homepage": "https://example.test",
-	  "provides": {"provider_types": ["opencode"], "features": ["oauth"]},
-	  "inject_tool_types": ["opencode"],
+	  "provides": {"provider_types": ["cli-emulation"], "features": ["oauth"]},
+	  "inject_tool_types": ["cli-emulation"],
 	  "tool_schemas": [{"name":"custom","source":"custom"},{"name":"inline","inline":[{"type":"function"}]}],
 	  "settings": {"transport": "bun-tls"},
 	  "oauth": {"server":"https://auth.example.test","client_id":"cli","verification_base":"https://auth.example.test"},
-	  "files": {"tools/opencode.json":"[]","scripts/helper.js":"// helper"},
+	  "files": {"tools/cli-emulation.json":"[]","scripts/helper.js":"// helper"},
 	  "headers": [{"name":"x-session","mode":"generate","prefix":"s_","length":24,"charset":"hex"}],
 	  "ui": {"accent":"#123456","fields":[{"key":"region","label":"Region","type":"select","options":["eu","us"]}]}
 	}`
@@ -119,13 +119,13 @@ func TestExtension_ExtendedSchemaRoundTrip(t *testing.T) {
 	if p.OAuth == nil || p.OAuth.Server != "https://auth.example.test" || p.OAuth.VerificationBase != "https://auth.example.test" {
 		t.Fatalf("oauth not parsed: %+v", p.OAuth)
 	}
-	if len(p.Files) != 2 || p.Files["tools/opencode.json"] != "[]" {
+	if len(p.Files) != 2 || p.Files["tools/cli-emulation.json"] != "[]" {
 		t.Fatalf("files not parsed: %+v", p.Files)
 	}
 	if err := p.Validate(); err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	if len(p.InjectTypes) != 1 || p.InjectTypes[0] != "opencode" {
+	if len(p.InjectTypes) != 1 || p.InjectTypes[0] != "cli-emulation" {
 		t.Fatalf("inject_tool_types not parsed: %+v", p.InjectTypes)
 	}
 	if len(p.UI.Fields) != 1 || p.UI.Fields[0].Key != "region" {
@@ -153,7 +153,7 @@ func TestExtension_MaterializeFiles(t *testing.T) {
 	ext := Extension{
 		ID: "x",
 		Files: map[string]string{
-			"tools/opencode-schema.json": `[]`,
+			"tools/cli-emulation-schema.json": `[]`,
 			"scripts/README.md":          "docs",
 		},
 	}
@@ -168,7 +168,7 @@ func TestExtension_MaterializeFiles(t *testing.T) {
 	if err != nil || string(data) != "[]" {
 		t.Fatalf("materialized content: %v %q", err, data)
 	}
-	if !strings.HasSuffix(toolsPath, filepath.Join("tools", "opencode-schema.json")) {
+	if !strings.HasSuffix(toolsPath, filepath.Join("tools", "cli-emulation-schema.json")) {
 		t.Fatalf("tools path = %q", toolsPath)
 	}
 }
@@ -265,7 +265,7 @@ func TestApplyExtension_ConfiguresOAuthOnMatchingProviders(t *testing.T) {
 	overrides.upsert(ProviderOverride{
 		Name:    "free-tier-main",
 		Type:    "vllm",
-		BaseURL: "https://opencode.ai/zen/v1",
+		BaseURL: "https://zen.example.com/v1",
 		Enabled: &zend,
 	})
 	overrides.upsert(ProviderOverride{
@@ -277,16 +277,16 @@ func TestApplyExtension_ConfiguresOAuthOnMatchingProviders(t *testing.T) {
 
 	store := NewExtensionStore()
 	ext := Extension{
-		ID:      "opencode",
+		ID:      "cli-emulation",
 		Name:    "Free Tier Bypass",
-		BaseURL: "https://opencode.ai/zen/v1",
+		BaseURL: "https://zen.example.com/v1",
 		OAuth: &ExtensionOAuth{
 			Server:           "https://auth.example.com/device",
 			ClientID:         "aurora-cli",
 			VerificationBase: "https://example.com",
 		},
 		Provides: &ExtensionProvides{
-			ProviderTypes: []string{"opencode"},
+			ProviderTypes: []string{"cli-emulation"},
 			Features:      []string{"oauth"},
 		},
 	}
@@ -299,10 +299,10 @@ func TestApplyExtension_ConfiguresOAuthOnMatchingProviders(t *testing.T) {
 	)
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodPost, "/sidecar/extensions/opencode/apply", nil)
+	req := httptest.NewRequest(http.MethodPost, "/sidecar/extensions/cli-emulation/apply", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetPathValues(echo.PathValues{{Name: "id", Value: "opencode"}})
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: "cli-emulation"}})
 	if err := h.ApplyExtension(c); err != nil {
 		t.Fatalf("ApplyExtension: %v", err)
 	}
@@ -336,6 +336,91 @@ func TestApplyExtension_ConfiguresOAuthOnMatchingProviders(t *testing.T) {
 	side := h.sidecarStore.get()
 	if side.OAuthServer != "https://auth.example.com/device" || side.OAuthClientID != "aurora-cli" {
 		t.Fatalf("sidecar oauth defaults not set: %+v", side)
+	}
+}
+
+func TestApplyExtension_StampsClientProfileOnPoolProviders(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("AURORA_EXTENSIONS_PATH", filepath.Join(dir, "extensions.json"))
+	t.Setenv("AURORA_PROVIDER_OVERRIDES_PATH", filepath.Join(dir, "provider-overrides.json"))
+	t.Setenv("AURORA_SIDECAR_OVERRIDES_PATH", filepath.Join(dir, "sidecar-overrides.json"))
+
+	overrides := NewProviderOverrideStore()
+	on := true
+	for _, name := range []string{"vllm-zen-main", "vllm-zen-backup"} {
+		overrides.upsert(ProviderOverride{
+			Name:    name,
+			Type:    "vllm",
+			BaseURL: "https://zen.example.com/v1",
+			BindIP:  name,
+			Enabled: &on,
+		})
+	}
+	overrides.upsert(ProviderOverride{
+		Name:    "openrouter-main",
+		Type:    "openrouter",
+		BaseURL: "https://openrouter.ai/api/v1",
+		Enabled: &on,
+	})
+
+	store := NewExtensionStore()
+	ext := Extension{
+		ID:        "cli-emulation",
+		Name:      "Free Tier Bypass",
+		BaseURL:   "https://zen.example.com/v1",
+		UserAgent: "cli/1.0 runtime/bun/1.3.14",
+		Settings:  map[string]string{"sidecar_url": "http://127.0.0.1:8090/v1"},
+		Provides:  &ExtensionProvides{ProviderTypes: []string{"cli-emulation"}},
+	}
+	store.Upsert(ext)
+
+	h := NewHandler(nil, nil,
+		WithExtensionStore(store),
+		WithSidecarStore(NewSidecarOverrideStore()),
+		WithProviderOverrides(overrides),
+	)
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/sidecar/extensions/cli-emulation/apply", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: "cli-emulation"}})
+	if err := h.ApplyExtension(c); err != nil {
+		t.Fatalf("ApplyExtension: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var body struct {
+		ProfileProviders []string `json:"profile_providers"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(body.ProfileProviders) != 2 {
+		t.Fatalf("profile_providers = %v, want 2 pool members", body.ProfileProviders)
+	}
+	for _, name := range []string{"vllm-zen-main", "vllm-zen-backup"} {
+		got, ok := overrides.get(name)
+		if !ok {
+			t.Fatalf("%s override missing", name)
+		}
+		if got.UserAgent != "cli/1.0 runtime/bun/1.3.14" || got.SidecarURL != "http://127.0.0.1:8090/v1" {
+			t.Fatalf("%s client profile not applied: %+v", name, got)
+		}
+	}
+	other, _ := overrides.get("openrouter-main")
+	if other.UserAgent != "" || other.SidecarURL != "" {
+		t.Fatalf("non-matching provider must keep empty client profile: %+v", other)
+	}
+	// Raw config conversion must carry the sidecar URL through.
+	raw := overrides.RawConfigs()
+	if raw["vllm-zen-main"].SidecarURL != "http://127.0.0.1:8090/v1" {
+		t.Fatalf("raw provider sidecar_url lost: %+v", raw["vllm-zen-main"])
+	}
+	if raw["vllm-zen-main"].UserAgent != "cli/1.0 runtime/bun/1.3.14" {
+		t.Fatalf("raw provider user_agent lost: %+v", raw["vllm-zen-main"])
 	}
 }
 
@@ -574,6 +659,148 @@ func TestHandler_CheckAndUpdateExtensionFromSource(t *testing.T) {
 	}
 	if got.Source != srv.URL+"/ext.json" {
 		t.Fatalf("Source = %q, want preserved", got.Source)
+	}
+}
+
+func TestHandler_UpdateExtensionSource(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("AURORA_EXTENSIONS_PATH", filepath.Join(dir, "extensions.json"))
+
+	store := NewExtensionStore()
+	store.Upsert(Extension{ID: "src-edit", Name: "Src", Version: "1", Type: "sidecar"})
+	h := NewHandler(nil, nil, WithExtensionStore(store))
+	e := echo.New()
+
+	put := func(body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPut, "/sidecar/extensions/src-edit", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{{Name: "id", Value: "src-edit"}})
+		if err := h.UpdateExtension(c); err != nil {
+			t.Fatalf("UpdateExtension(%s): %v", body, err)
+		}
+		return rec
+	}
+
+	rec := put(`{"source":"https://store.example.com/extensions/src-edit.extension.json"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("set source status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if got, _ := store.Get("src-edit"); got.Source != "https://store.example.com/extensions/src-edit.extension.json" {
+		t.Fatalf("Source = %q, want stored", got.Source)
+	}
+
+	rec = put(`{"source":"ftp://bad.example/ext.json"}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("bad scheme status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = put(`{"source":"javascript:alert(1)"}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("bad scheme status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = put(`{"source":""}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("clear source status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if got, _ := store.Get("src-edit"); got.Source != "" {
+		t.Fatalf("Source = %q, want cleared", got.Source)
+	}
+}
+
+func TestHandler_CheckUpdateResolvesFromStore(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("AURORA_EXTENSIONS_PATH", filepath.Join(dir, "extensions.json"))
+	t.Setenv("AURORA_EXTENSION_STORES_PATH", filepath.Join(dir, "stores.json"))
+
+	remote := `{"id":"store-ext","name":"Store Ext","version":"3","type":"sidecar","base_url":"https://api.example.com/v1"}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/extensions/store-ext.extension.json" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(remote))
+	}))
+	defer srv.Close()
+
+	store := NewExtensionStore()
+	// Imported as raw JSON: no Source recorded.
+	store.Upsert(Extension{ID: "store-ext", Name: "Store Ext", Version: "1", Type: "sidecar"})
+	h := NewHandler(nil, nil, WithExtensionStore(store))
+	h.extensionStores().Add(srv.URL)
+	e := echo.New()
+
+	req := httptest.NewRequest(http.MethodGet, "/sidecar/extensions/store-ext/check-update", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: "store-ext"}})
+	if err := h.CheckExtensionUpdate(c); err != nil {
+		t.Fatalf("CheckExtensionUpdate: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("check status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var check struct {
+		Source          string `json:"source"`
+		RemoteVersion   string `json:"remote_version"`
+		UpdateAvailable bool   `json:"update_available"`
+		Resolved        bool   `json:"resolved"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &check); err != nil {
+		t.Fatalf("decode check: %v", err)
+	}
+	if !check.UpdateAvailable || check.RemoteVersion != "3" {
+		t.Fatalf("check = %+v, want update available v3", check)
+	}
+	if check.Source != srv.URL+"/extensions/store-ext.extension.json" {
+		t.Fatalf("Source = %q, want resolved store URL", check.Source)
+	}
+	if !check.Resolved {
+		t.Fatal("resolved = false, want true (source came from a store)")
+	}
+
+	// Update from the store-resolved source; metadata refreshes in place.
+	req = httptest.NewRequest(http.MethodPost, "/sidecar/extensions/store-ext/update", nil)
+	rec = httptest.NewRecorder()
+	c = e.NewContext(req, rec)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: "store-ext"}})
+	if err := h.UpdateExtensionFromSource(c); err != nil {
+		t.Fatalf("UpdateExtensionFromSource: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("update status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	got, ok := store.Get("store-ext")
+	if !ok || got.Version != "3" {
+		t.Fatalf("Version = %q, want 3", got.Version)
+	}
+	if got.Source != srv.URL+"/extensions/store-ext.extension.json" {
+		t.Fatalf("Source = %q, want resolved store URL persisted for future syncs", got.Source)
+	}
+}
+
+func TestHandler_CheckUpdateNoSourceAnywhere(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("AURORA_EXTENSIONS_PATH", filepath.Join(dir, "extensions.json"))
+	t.Setenv("AURORA_EXTENSION_STORES_PATH", filepath.Join(dir, "stores.json"))
+
+	store := NewExtensionStore()
+	store.Upsert(Extension{ID: "orphan", Name: "Orphan", Version: "1", Type: "sidecar"})
+	h := NewHandler(nil, nil, WithExtensionStore(store))
+	e := echo.New()
+
+	req := httptest.NewRequest(http.MethodGet, "/sidecar/extensions/orphan/check-update", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: "orphan"}})
+	if err := h.CheckExtensionUpdate(c); err != nil {
+		t.Fatalf("CheckExtensionUpdate: %v", err)
+	}
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body=%s, want 400", rec.Code, rec.Body.String())
 	}
 }
 

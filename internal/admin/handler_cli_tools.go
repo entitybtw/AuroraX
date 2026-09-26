@@ -58,5 +58,12 @@ func (h *Handler) ApplyCLITool(c *echo.Context) error {
 }
 
 func (h *Handler) ResetCLITool(c *echo.Context) error {
-	return handleError(c, core.NewInvalidRequestErrorWithStatus(http.StatusNotImplemented, "CLI tool reset is not implemented yet", nil))
+	if h.cliTools == nil {
+		return handleError(c, core.NewInvalidRequestErrorWithStatus(http.StatusNotFound, "CLI tools are not enabled", nil))
+	}
+	resp, err := h.cliTools.Reset(c.Param("tool"))
+	if err != nil {
+		return handleError(c, core.NewInvalidRequestError(err.Error(), err))
+	}
+	return c.JSON(http.StatusOK, resp)
 }

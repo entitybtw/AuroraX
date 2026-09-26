@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v5"
+
+	"aurora/internal/addon"
 )
 
 // ExtensionHeader is one header transformation an extension installs into the
@@ -642,6 +644,40 @@ func WithExtensionStore(store *ExtensionStore) Option {
 	}
 }
 
+// WithAddonStore sets the Yaegi addon store on the handler. Extension-applied
+// *.go files (auth addons) are loaded from it on apply and their UI
+// contributions merge into ListExtensionUI.
+func WithAddonStore(store *addon.Store) Option {
+	return func(h *Handler) {
+		h.addonStore = store
+	}
+}
+
+// ProvidesAppliedFeature reports whether any applied extension declares the
+// named capability under provides.features (e.g. "oauth"). OAuth is an
+// extension-only capability: nothing built-in enables it.
+func (s *ExtensionStore) ProvidesAppliedFeature(name string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, e := range s.imported {
+		if e.Applied && extensionProvidesFeature(e.Provides, name) {
+			return true
+		}
+	}
+	return false
+}
+
+// ListAddons returns the Yaegi addon store status (loaded scripts, kinds,
+// load errors) so operators can see extension-shipped runtime addons.
+func (h *Handler) ListAddons(c *echo.Context) error {
+	if h.addonStore == nil {
+		return c.JSON(http.StatusOK, map[string]any{
+			"dir": "", "loaded": []string{}, "kinds": map[string]string{},
+		})
+	}
+	return c.JSON(http.StatusOK, h.addonStore.Status())
+}
+
 // ListExtensions returns all imported extensions. Theme detection uses
 // type/ui.theme in the dashboard.
 func (h *Handler) ListExtensions(c *echo.Context) error {
@@ -727,8 +763,10 @@ func (h *Handler) ImportExtension(c *echo.Context) error {
 	})
 }
 
-// UpdateExtension renames an extension and/or sets its list order.
-// PUT /sidecar/extensions/:id {"name":"...","order":2}
+// UpdateExtension renames an extension, sets its list order, and/or replaces
+// the sync source URL (empty string clears it so the source resolves from
+// configured stores again).
+// PUT /sidecar/extensions/:id {"name":"...","order":2,"source":"https://..."}
 func (h *Handler) UpdateExtension(c *echo.Context) error {
 	if h.extensions == nil {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "extensions unavailable"})
@@ -738,8 +776,9 @@ func (h *Handler) UpdateExtension(c *echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "extension not found"})
 	}
 	var req struct {
-		Name  *string `json:"name"`
-		Order *int    `json:"order"`
+		Name   *string `json:"name"`
+		Order  *int    `json:"order"`
+		Source *string `json:"source"`
 	}
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
@@ -757,8 +796,18 @@ func (h *Handler) UpdateExtension(c *echo.Context) error {
 		ext.Order = *req.Order
 		changed = true
 	}
+	if req.Source != nil {
+		source := strings.TrimSpace(*req.Source)
+		if source != "" {
+			if err := validateSourceURL(source); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+		}
+		ext.Source = source
+		changed = true
+	}
 	if !changed {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "name or order is required"})
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "name, order or source is required"})
 	}
 	h.extensions.Upsert(ext)
 	return c.JSON(http.StatusOK, map[string]any{
@@ -1053,6 +1102,10 @@ func (h *Handler) buildApplyResponse(c *echo.Context) (map[string]any, Extension
 		if toolsPath != "" {
 			next.ToolsPath = toolsPath
 		}
+		// Extension-shipped Go addons (files ending in .go) load into the
+		// addon store so their runtime hooks / UI contributions activate
+		// with the extension.
+		h.LoadExtensionAddons(ext.ID)
 	}
 	// Extension OAuth becomes the sidecar/global defaults for device or
 	// authorization-code (+ PKCE) flow.
@@ -1100,6 +1153,11 @@ func (h *Handler) buildApplyResponse(c *echo.Context) (map[string]any, Extension
 	// provides.features "oauth" wires device-flow OAuth onto matching providers.
 	oauthProviders := h.applyExtensionOAuth(c, ext)
 
+	// Client emulation profile (User-Agent + TLS-fingerprint sidecar URL) is
+	// stamped onto the providers this extension targets so a pool of
+	// free-tier instances all egress with the emulated client fingerprint.
+	profileProviders := h.applyExtensionClientProfile(c, ext)
+
 	tools := make([]string, 0, len(ext.Tools))
 	for _, t := range ext.Tools {
 		if t.Source != "" {
@@ -1124,6 +1182,9 @@ func (h *Handler) buildApplyResponse(c *echo.Context) (map[string]any, Extension
 	if len(oauthProviders) > 0 {
 		resp["oauth_providers"] = oauthProviders
 	}
+	if len(profileProviders) > 0 {
+		resp["profile_providers"] = profileProviders
+	}
 	if next.ToolsPath != "" {
 		resp["tools_path"] = next.ToolsPath
 	}
@@ -1142,6 +1203,72 @@ func extensionProvidesFeature(p *ExtensionProvides, name string) bool {
 		}
 	}
 	return false
+}
+
+// applyExtensionClientProfile stamps an extension's client emulation profile
+// (User-Agent and TLS-fingerprint sidecar URL) onto the providers it targets:
+// type ∈ provides.provider_types, or base_url equals the extension base_url
+// (e.g. the free-tier pool instances behind opencode-zen). Values come from
+// the extension itself or its settings map, so the gateway hardcodes no client
+// fingerprint. Returns updated provider names.
+func (h *Handler) applyExtensionClientProfile(c *echo.Context, ext Extension) []string {
+	if h.providerOverrides == nil {
+		return nil
+	}
+	userAgent := strings.TrimSpace(ext.UserAgent)
+	sidecarURL := ""
+	if v, ok := ext.Settings["sidecar_url"]; ok {
+		sidecarURL = strings.TrimSpace(v)
+	}
+	if userAgent == "" && sidecarURL == "" {
+		return nil
+	}
+
+	types := map[string]bool{}
+	if ext.Provides != nil {
+		for _, t := range ext.Provides.ProviderTypes {
+			t = strings.ToLower(strings.TrimSpace(t))
+			if t != "" {
+				types[t] = true
+			}
+		}
+	}
+	extBase := strings.TrimRight(strings.TrimSpace(ext.BaseURL), "/")
+
+	var updated []string
+	for _, o := range h.providerOverrides.list() {
+		if !o.IsEnabled() {
+			continue
+		}
+		match := types[strings.ToLower(strings.TrimSpace(o.Type))]
+		if !match && extBase != "" {
+			base := strings.TrimRight(strings.TrimSpace(o.BaseURL), "/")
+			match = base == extBase
+		}
+		if !match {
+			continue
+		}
+		changed := false
+		if userAgent != "" && o.UserAgent != userAgent {
+			o.UserAgent = userAgent
+			changed = true
+		}
+		if sidecarURL != "" && o.SidecarURL != sidecarURL {
+			o.SidecarURL = sidecarURL
+			changed = true
+		}
+		if !changed {
+			continue
+		}
+		h.providerOverrides.upsert(o)
+		updated = append(updated, o.Name)
+	}
+	if len(updated) > 0 && h.runtimeRefresher != nil {
+		if _, err := h.runtimeRefresher.RefreshRuntime(c.Request().Context()); err != nil {
+			return updated
+		}
+	}
+	return updated
 }
 
 // applyExtensionOAuth enables auth_method=oauth on providers that this
@@ -1239,6 +1366,11 @@ func extensionUIWithConfig(e Extension) ExtensionUI {
 	if len(overrides) == 0 {
 		return e.UI
 	}
+	// The accent color field also drives the extension-list swatch and the
+	// provider key tint, so mirror it onto UI.Accent alongside the theme maps.
+	if accent, ok := overrides["--accent"]; ok && e.UI.Accent != "" {
+		e.UI.Accent = accent
+	}
 	theme := make(map[string]string, len(e.UI.Theme)+len(overrides))
 	for key, value := range e.UI.Theme {
 		theme[key] = value
@@ -1271,12 +1403,71 @@ func extensionUIWithConfig(e Extension) ExtensionUI {
 	return e.UI
 }
 
+// AttachExtensionAddons registers an extension's files directory with the
+// addon store when it contains *.go addon scripts. Used on apply and at
+// startup for already-applied extensions.
+func AttachExtensionAddons(addonStore *addon.Store, extID string) {
+	if addonStore == nil {
+		return
+	}
+	dir := ExtensionFilesDir(extID)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".go") {
+			addonStore.AddDir(dir)
+			return
+		}
+	}
+}
+
+// LoadExtensionAddons scans an applied extension's files directory for *.go
+// addon scripts and registers the directory with the addon store (exported
+// so startup can re-attach addons for already-applied extensions).
+func (h *Handler) LoadExtensionAddons(extID string) {
+	AttachExtensionAddons(h.addonStore, extID)
+}
+
 // ListExtensionUI returns merged UI contributions from applied extensions.
 // The dashboard uses this to modify navigation, pages, banners, widgets, theme.
 // GET /admin/api/v1/sidecar/extensions/ui
 func (h *Handler) ListExtensionUI(c *echo.Context) error {
-	if h.extensions == nil {
+	if h.extensions == nil && h.addonStore == nil {
 		return c.JSON(http.StatusOK, map[string]any{"contributions": []any{}})
+	}
+	out := make([]ExtensionUIContribution, 0)
+	for _, e := range h.extensionUIList() {
+		out = append(out, e)
+	}
+	// Extension-shipped Go addons (kind auth) contribute UI by exporting
+	// UI() as an ExtensionUI JSON document.
+	if h.addonStore != nil {
+		for _, a := range h.addonStore.ByKind(addon.KindAuth) {
+			raw, err := a.CallString("UI")
+			if err != nil || strings.TrimSpace(raw) == "" {
+				continue
+			}
+			var ui ExtensionUI
+			if json.Unmarshal([]byte(raw), &ui) != nil {
+				continue
+			}
+			out = append(out, ExtensionUIContribution{
+				ID:   "addon:" + a.Name,
+				Name: a.Name,
+				Type: "auth",
+				UI:   ui,
+			})
+		}
+	}
+	return c.JSON(http.StatusOK, map[string]any{"contributions": out})
+}
+
+// extensionUIList returns the applied extensions' UI contributions.
+func (h *Handler) extensionUIList() []ExtensionUIContribution {
+	if h.extensions == nil {
+		return nil
 	}
 	out := make([]ExtensionUIContribution, 0)
 	for _, e := range h.extensions.List() {
@@ -1294,7 +1485,7 @@ func (h *Handler) ListExtensionUI(c *echo.Context) error {
 		}
 		out = append(out, ExtensionUIContribution{ID: e.ID, Name: e.Name, Type: e.Type, UI: ui})
 	}
-	return c.JSON(http.StatusOK, map[string]any{"contributions": out})
+	return out
 }
 
 // ListExtensionStores returns configured store base URLs persisted under
@@ -1436,8 +1627,59 @@ func WithExtensionStoreURLs(store *ExtensionStoreURLStore) Option {
 	}
 }
 
-// CheckExtensionUpdate re-fetches the extension's Source URL and reports
-// whether the remote version differs from the installed one.
+// validateSourceURL accepts only absolute http(s) URLs so a bad source can
+// never be persisted (file:// or arbitrary schemes would otherwise leak into
+// fetchers).
+func validateSourceURL(source string) error {
+	u, err := url.Parse(source)
+	if err != nil {
+		return fmt.Errorf("invalid source url: %w", err)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("source url must be http or https")
+	}
+	if u.Host == "" {
+		return fmt.Errorf("source url must include a host")
+	}
+	return nil
+}
+
+// resolveExtensionSource returns the URL to sync an extension from. An explicit
+// Source wins; otherwise every configured store is probed for the same id so an
+// extension imported as raw JSON can still be synced with the store it came
+// from (or any other configured store that carries it).
+func (h *Handler) resolveExtensionSource(ext Extension) (string, error) {
+	if source := strings.TrimSpace(ext.Source); source != "" {
+		return source, nil
+	}
+	for _, base := range h.extensionStores().List() {
+		found, _, err := fetchFirstOK(storeRawURLs(base, ext.ID))
+		if err == nil && found != "" {
+			return found, nil
+		}
+	}
+	return "", fmt.Errorf("extension has no source url and was not found in any configured store")
+}
+
+// fetchResolvedRemoteExtension resolves the sync source and downloads it,
+// verifying the remote id matches. ok=false means "no source configured".
+func (h *Handler) fetchResolvedRemoteExtension(ext Extension) (source string, remote Extension, ok bool, errMsg string) {
+	resolved, err := h.resolveExtensionSource(ext)
+	if err != nil {
+		return "", Extension{}, false, err.Error()
+	}
+	remote, ferr := h.fetchRemoteExtension(resolved)
+	if ferr != nil {
+		return resolved, Extension{}, false, ferr.Error()
+	}
+	if remote.ID != ext.ID {
+		return resolved, Extension{}, false, fmt.Sprintf("source id %q does not match extension %q", remote.ID, ext.ID)
+	}
+	return resolved, remote, true, ""
+}
+
+// CheckExtensionUpdate re-fetches the sync source (explicit Source, else a
+// configured store) and reports whether the remote version differs.
 // GET /sidecar/extensions/:id/check-update
 func (h *Handler) CheckExtensionUpdate(c *echo.Context) error {
 	if h.extensions == nil {
@@ -1447,31 +1689,27 @@ func (h *Handler) CheckExtensionUpdate(c *echo.Context) error {
 	if !ok {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "extension not found"})
 	}
-	if strings.TrimSpace(ext.Source) == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "extension has no source url"})
-	}
-	remote, ferr := h.fetchRemoteExtension(ext.Source)
-	if ferr != nil {
-		return c.JSON(http.StatusBadGateway, map[string]string{"error": ferr.Error()})
-	}
-	if remote.ID != ext.ID {
-		return c.JSON(http.StatusBadGateway, map[string]string{
-			"error": fmt.Sprintf("source id %q does not match extension %q", remote.ID, ext.ID),
-		})
+	source, remote, ok, errMsg := h.fetchResolvedRemoteExtension(ext)
+	if !ok {
+		if source == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": errMsg})
+		}
+		return c.JSON(http.StatusBadGateway, map[string]string{"error": errMsg})
 	}
 	current := strings.TrimSpace(ext.Version)
 	latest := strings.TrimSpace(remote.Version)
 	return c.JSON(http.StatusOK, map[string]any{
 		"id":               ext.ID,
-		"source":           ext.Source,
+		"source":           source,
 		"current_version":  current,
 		"remote_version":   latest,
 		"update_available": latest != current,
+		"resolved":         strings.TrimSpace(ext.Source) == "",
 	})
 }
 
-// UpdateExtensionFromSource re-fetches Source and replaces metadata while
-// preserving operator state (Config, Applied, Order, custom Name).
+// UpdateExtensionFromSource re-fetches the sync source and replaces metadata
+// while preserving operator state (Config, Applied, Order, custom Name, Source).
 // POST /sidecar/extensions/:id/update
 func (h *Handler) UpdateExtensionFromSource(c *echo.Context) error {
 	if h.extensions == nil {
@@ -1481,19 +1719,20 @@ func (h *Handler) UpdateExtensionFromSource(c *echo.Context) error {
 	if !ok {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "extension not found"})
 	}
+	source, remote, ok, errMsg := h.fetchResolvedRemoteExtension(ext)
+	if !ok {
+		if source == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": errMsg})
+		}
+		return c.JSON(http.StatusBadGateway, map[string]string{"error": errMsg})
+	}
+	// Keep an explicit source as-is; persist the resolved store URL only when
+	// the extension had none, so later syncs go straight to the same place.
 	if strings.TrimSpace(ext.Source) == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "extension has no source url"})
+		remote.Source = source
+	} else {
+		remote.Source = ext.Source
 	}
-	remote, ferr := h.fetchRemoteExtension(ext.Source)
-	if ferr != nil {
-		return c.JSON(http.StatusBadGateway, map[string]string{"error": ferr.Error()})
-	}
-	if remote.ID != ext.ID {
-		return c.JSON(http.StatusBadGateway, map[string]string{
-			"error": fmt.Sprintf("source id %q does not match extension %q", remote.ID, ext.ID),
-		})
-	}
-	remote.Source = ext.Source
 	if err := remote.Validate(); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}

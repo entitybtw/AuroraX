@@ -81,34 +81,89 @@ func (s *Service) Apply(toolID string, req PreviewRequest) (ApplyResponse, error
 	if !tool.CanApply || tool.ConfigPath == "" || !filepath.IsAbs(tool.ConfigPath) {
 		return ApplyResponse{}, fmt.Errorf("tool %s does not support apply", toolID)
 	}
-	content := snippetsFor(tool.ID, req)["config"]
+	snippets := snippetsFor(tool.ID, req)
+	content := snippets["config"]
 	if content == "" {
 		return ApplyResponse{}, fmt.Errorf("tool %s does not provide an applyable config snippet", toolID)
 	}
-	if err := s.fs.MkdirAll(filepath.Dir(tool.ConfigPath), 0o700); err != nil {
-		return ApplyResponse{}, fmt.Errorf("create config directory: %w", err)
+	backup, err := s.writeConfigFile(tool.ConfigPath, content, tool.ID == "claude-code" || tool.ID == "opencode")
+	if err != nil {
+		return ApplyResponse{}, err
 	}
-	backup := ""
-	existing, readErr := s.fs.ReadFile(tool.ConfigPath)
-	if readErr != nil && !os.IsNotExist(readErr) {
-		return ApplyResponse{}, fmt.Errorf("read existing config: %w", readErr)
-	}
-	if readErr == nil && len(existing) > 0 {
-		backup = tool.ConfigPath + ".aurora.bak"
-		if err := s.fs.WriteFile(backup, existing, 0o600); err != nil {
-			return ApplyResponse{}, fmt.Errorf("write backup: %w", err)
-		}
-	}
-	if tool.ID == "claude-code" && len(existing) > 0 {
-		content, err = mergeClaudeCodeSettings(existing, content)
+	authBackup := ""
+	if tool.AuthConfigPath != "" && strings.TrimSpace(snippets["auth"]) != "" {
+		authBackup, err = s.writeConfigFile(tool.AuthConfigPath, snippets["auth"], false)
 		if err != nil {
 			return ApplyResponse{}, err
 		}
 	}
-	if err := s.fs.WriteFile(tool.ConfigPath, []byte(content+"\n"), 0o600); err != nil {
-		return ApplyResponse{}, fmt.Errorf("write config: %w", err)
+	return ApplyResponse{Applied: true, Path: tool.ConfigPath, BackupPath: firstNonEmpty(backup, authBackup)}, nil
+}
+
+// writeConfigFile backs up the current file, optionally merges JSON configs
+// (Claude Code / OpenCode keep unrelated keys), and writes the new content.
+func (s *Service) writeConfigFile(path string, content string, mergeJSON bool) (string, error) {
+	if err := s.fs.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return "", fmt.Errorf("create config directory: %w", err)
 	}
-	return ApplyResponse{Applied: true, Path: tool.ConfigPath, BackupPath: backup}, nil
+	backup := ""
+	existing, readErr := s.fs.ReadFile(path)
+	if readErr != nil && !os.IsNotExist(readErr) {
+		return "", fmt.Errorf("read existing config: %w", readErr)
+	}
+	if readErr == nil && len(existing) > 0 {
+		backup = path + ".aurora.bak"
+		if err := s.fs.WriteFile(backup, existing, 0o600); err != nil {
+			return "", fmt.Errorf("write backup: %w", err)
+		}
+	}
+	if mergeJSON && len(existing) > 0 {
+		merged, err := mergeJSONSettings(existing, content, "env", "provider")
+		if err != nil {
+			return "", err
+		}
+		content = merged
+	}
+	if err := s.fs.WriteFile(path, []byte(content+"\n"), 0o600); err != nil {
+		return "", fmt.Errorf("write config: %w", err)
+	}
+	return backup, nil
+}
+
+// Reset restores a previously applied config from its .aurora.bak backup.
+func (s *Service) Reset(toolID string) (ApplyResponse, error) {
+	if !s.applyEnabled {
+		return ApplyResponse{}, fmt.Errorf("cli tool apply is disabled")
+	}
+	tool, ok := s.GetTool(toolID)
+	if !ok {
+		return ApplyResponse{}, fmt.Errorf("unknown CLI tool: %s", toolID)
+	}
+	if !tool.CanApply || tool.ConfigPath == "" || !filepath.IsAbs(tool.ConfigPath) {
+		return ApplyResponse{}, fmt.Errorf("tool %s does not support apply", toolID)
+	}
+	return s.resetFile(tool.ConfigPath)
+}
+
+func (s *Service) resetFile(path string) (ApplyResponse, error) {
+	backupPath := path + ".aurora.bak"
+	backup, err := s.fs.ReadFile(backupPath)
+	if err != nil || len(backup) == 0 {
+		return ApplyResponse{}, fmt.Errorf("no backup found for %s", path)
+	}
+	if err := s.fs.WriteFile(path, backup, 0o600); err != nil {
+		return ApplyResponse{}, fmt.Errorf("restore config: %w", err)
+	}
+	return ApplyResponse{Applied: true, Path: path, BackupPath: backupPath}, nil
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 func (s *Service) toolAndRequest(toolID string, req PreviewRequest) (Tool, PreviewRequest, error) {
@@ -137,11 +192,15 @@ func toolDefinitions(applyEnabled bool, home string) []toolDefinition {
 			Snippet: claudeCodeSnippets,
 		},
 		{
-			Tool: Tool{ID: "codex", Name: "OpenAI Codex CLI / App", Description: "OpenAI Codex CLI provider configuration.", ConfigPath: filepath.Join(home, ".codex", "aurora-config.toml"), CanApply: canApplyToHome, ConfigType: "custom", Color: "#10A37F", ModelFields: []ModelField{
+			Tool: Tool{ID: "codex", Name: "OpenAI Codex CLI / App", Description: "OpenAI Codex CLI provider configuration.", ConfigPath: filepath.Join(home, ".codex", "aurora-config.toml"), AuthConfigPath: filepath.Join(home, ".codex", "auth.json"), CanApply: canApplyToHome, ConfigType: "custom", Color: "#10A37F", Notes: []string{"Apply writes aurora-config.toml and auth.json; add `include = \"aurora-config.toml\"` to ~/.codex/config.toml to load it."}, ModelFields: []ModelField{
 				{Key: "CODEX_MODEL", Label: "Codex model", Description: "Primary model used by Codex CLI."},
 				{Key: "CODEX_SUBAGENT_MODEL", Label: "Codex subagent model", Description: "Model used by Codex subagents."},
 			}},
 			Snippet: codexSnippets,
+		},
+		{
+			Tool:    Tool{ID: "opencode", Name: "OpenCode", Description: "OpenCode coding agent configured against the AuroraX gateway.", ConfigPath: filepath.Join(home, ".config", "opencode", "opencode.json"), CanApply: canApplyToHome, ConfigType: "json", Color: "#E87040", DefaultCommand: "opencode", DocsURL: "https://opencode.ai/docs/config/", Notes: []string{"Config path: Linux/macOS ~/.config/opencode/opencode.json", "Registers AuroraX as an openai-compatible provider; the primary model is referenced as aurorax/<model>."}, ModelFields: singleModelFields("OPENCODE_MODEL", "Primary model", "Default OpenCode model routed through AuroraX.")},
+			Snippet: openCodeSnippets,
 		},
 		{
 			Tool:    Tool{ID: "openclaw", Name: "Open Claw", Description: "Open Claw AI assistant using OpenAI-compatible environment variables.", CanApply: false, ConfigType: "custom", Color: "#FF6B35", ModelFields: singleModelFields("OPENCLAW_MODEL", "OpenClaw primary model", "Primary model configured for OpenClaw agents.")},
@@ -213,6 +272,17 @@ func builtInPresets() []ToolPreset {
 			ModelOverrides: map[string]string{
 				"CODEX_MODEL":          "gpt-5-codex",
 				"CODEX_SUBAGENT_MODEL": "gpt-5-codex",
+			},
+			APIKeyPlaceholder: apiKeyPlaceholder,
+		},
+		{
+			ID:          "opencode-default",
+			Label:       "OpenCode — default",
+			Description: "OpenCode agent using AuroraX as an openai-compatible provider.",
+			ToolID:      "opencode",
+			Model:       "claude-sonnet",
+			ModelOverrides: map[string]string{
+				"OPENCODE_MODEL": "claude-sonnet",
 			},
 			APIKeyPlaceholder: apiKeyPlaceholder,
 		},
@@ -387,6 +457,31 @@ func jcodeSnippets(req PreviewRequest) map[string]string {
 	return map[string]string{"config": jsonBlock(cfg)}
 }
 
+func openCodeSnippets(req PreviewRequest) map[string]string {
+	model := modelForField(req, "OPENCODE_MODEL")
+	models := uniqueStrings(append([]string{model}, req.Models...)...)
+	modelMap := make(map[string]any, len(models))
+	for _, m := range models {
+		modelMap[m] = map[string]string{"name": modelName(m)}
+	}
+	cfg := map[string]any{
+		"$schema": "https://opencode.ai/config.json",
+		"model":   "aurorax/" + model,
+		"provider": map[string]any{
+			"aurorax": map[string]any{
+				"npm":  "@ai-sdk/openai-compatible",
+				"name": "AuroraX Gateway",
+				"options": map[string]string{
+					"baseURL": baseV1(req),
+					"apiKey":  req.APIKey,
+				},
+				"models": modelMap,
+			},
+		},
+	}
+	return map[string]string{"config": jsonBlock(cfg)}
+}
+
 func openAIEnvSnippets(req PreviewRequest) map[string]string {
 	model := modelForField(req, "OPENAI_MODEL")
 	return map[string]string{"env": envBlock(map[string]string{"OPENAI_API_KEY": req.APIKey, "OPENAI_BASE_URL": baseV1(req), "OPENAI_MODEL": model})}
@@ -435,7 +530,7 @@ func normalizeModelOverrides(tool Tool, overrides map[string]string) (map[string
 	if len(overrides) > 20 {
 		return nil, fmt.Errorf("model_overrides must contain 20 or fewer entries")
 	}
-		allowedKeys := modelFieldKeys(tool.ModelFields)
+	allowedKeys := modelFieldKeys(tool.ModelFields)
 	// Multi fields only receive models via PreviewRequest.Models, not overrides.
 	for _, f := range tool.ModelFields {
 		if f.Multi {
@@ -526,37 +621,44 @@ func modelName(model string) string {
 	return name
 }
 
-func mergeClaudeCodeSettings(existing []byte, generated string) (string, error) {
+// mergeJSONSettings folds the generated config into the existing one:
+// top-level generated keys win, while the named nested maps (e.g. "env",
+// "provider") are merged key-by-key so unrelated entries survive.
+func mergeJSONSettings(existing []byte, generated string, nestedMaps ...string) (string, error) {
 	var existingConfig map[string]any
 	if err := json.Unmarshal(existing, &existingConfig); err != nil {
-		return "", fmt.Errorf("merge Claude Code settings: existing settings.json is invalid JSON: %w", err)
+		return "", fmt.Errorf("merge settings: existing config is invalid JSON: %w", err)
 	}
 	var generatedConfig map[string]any
 	if err := json.Unmarshal([]byte(generated), &generatedConfig); err != nil {
-		return "", fmt.Errorf("merge Claude Code settings: generated config is invalid JSON: %w", err)
+		return "", fmt.Errorf("merge settings: generated config is invalid JSON: %w", err)
+	}
+	nested := make(map[string]bool, len(nestedMaps))
+	for _, key := range nestedMaps {
+		nested[key] = true
 	}
 	merged := make(map[string]any, len(existingConfig)+len(generatedConfig))
 	for key, value := range existingConfig {
 		merged[key] = value
 	}
 	for key, value := range generatedConfig {
-		if key == "env" {
+		if !nested[key] {
+			merged[key] = value
 			continue
 		}
-		merged[key] = value
-	}
-	env := map[string]any{}
-	if existingEnv, ok := existingConfig["env"].(map[string]any); ok {
-		for key, value := range existingEnv {
-			env[key] = value
+		combined := map[string]any{}
+		if existingMap, ok := existingConfig[key].(map[string]any); ok {
+			for subKey, subValue := range existingMap {
+				combined[subKey] = subValue
+			}
 		}
-	}
-	if generatedEnv, ok := generatedConfig["env"].(map[string]any); ok {
-		for key, value := range generatedEnv {
-			env[key] = value
+		if generatedMap, ok := value.(map[string]any); ok {
+			for subKey, subValue := range generatedMap {
+				combined[subKey] = subValue
+			}
 		}
+		merged[key] = combined
 	}
-	merged["env"] = env
 	return jsonBlock(merged), nil
 }
 

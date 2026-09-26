@@ -9,6 +9,8 @@ import { fetchProviderStatus, createProvider, updateProvider, deleteProvider, se
 import { withBasePath } from "@/lib/basepath";
 import { useState, useCallback, useMemo, useRef } from "react";
 import { OAuthDialog } from "./OAuthDialog";
+import { fetchOAuthProviders } from "@/lib/api/oauth";
+import { fetchExtensions, type Extension } from "@/lib/api/extensions";
 
 // filterToText renders an AutoFetchFilter into the simple comma-separated form
 // the provider form edits. Only `contains` conditions are representable; a
@@ -388,6 +390,39 @@ export function ProvidersTab(): JSX.Element {
     queryFn: fetchProviderStatus,
   });
 
+  // OAuth is extension-only: the gateway answers 404 on /oauth/* until an
+  // extension providing the oauth feature is applied. A failed fetch hides
+  // every OAuth control in this tab.
+  const { data: oauthProviders } = useQuery({
+    queryKey: ["oauth-providers"],
+    queryFn: fetchOAuthProviders,
+    retry: false,
+  });
+  const oauthEnabled = Array.isArray(oauthProviders);
+
+  // Applied extensions that provide the oauth feature (OpenCode OAuth,
+  // Claude OAuth, …). Each carries its own accent so the link control can
+  // render one colored key per enabled flow.
+  const { data: oauthExtensions = [] } = useQuery({
+    queryKey: ["extensions"],
+    queryFn: fetchExtensions,
+    enabled: oauthEnabled,
+    retry: false,
+    select: (list: Extension[]) =>
+      list.filter((e) => Boolean(e.applied) && (e.provides?.features ?? []).includes("oauth")),
+  });
+  const oauthKeys = useMemo(
+    () =>
+      oauthExtensions
+        .map((e) => ({
+          id: e.id,
+          name: e.name,
+          color: e.ui?.accent || undefined,
+        }))
+        .sort((a, b) => a.id.localeCompare(b.id)),
+    [oauthExtensions],
+  );
+
   const [modalOpen, setModalOpen] = useState<"add" | "edit" | null>(null);
   const [editingProvider, setEditingProvider] = useState<ProviderFormData & { originalName: string; apiKeySet?: boolean } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -482,12 +517,13 @@ export function ProvidersTab(): JSX.Element {
   const summary = providerStatus?.summary;
 
   // OAuth is an extension feature (provides.features includes "oauth"); show
-  // the link control for any provider with auth_method=oauth or the optional
-  // extension-provided type.
+  // the link control only while an extension provides it and for providers
+  // with auth_method=oauth or the extension-provided CLI emulation type.
   const supportsOAuth = (provider: any) => {
+    if (!oauthEnabled) return false;
     const auth = provider.config?.auth_method || "";
     if (auth === "oauth") return true;
-    return provider.type === "opencode";
+    return provider.type === "cli-emulation";
   };
 
   const allSelected = providers.length > 0 && providers.every((p) => selected.has(p.name));
@@ -712,16 +748,30 @@ export function ProvidersTab(): JSX.Element {
                       <button onClick={() => { setEditingProvider({ name: provider.name, originalName: provider.name, type: provider.config?.type || provider.type || "", base_url: provider.config?.base_url || "", api_version: provider.config?.api_version || "", api_key: provider.config?.api_key || "", models: provider.config?.models?.join(", ") || "", bind_ip: provider.config?.bind_ip || "", pool_only: provider.config?.pool_only ?? false, user_agent: provider.config?.user_agent || "", disable_api_key: provider.config?.disable_api_key ?? false, auto_fetch_models: provider.config?.auto_fetch_models ?? true, autofetch_filter_text: filterToText(provider.config?.autofetch_filter), apiKeySet: provider.config?.api_key_set ?? false }); setModalOpen("edit"); }} className="p-1.5 hover:bg-border/20 transition-colors" title="Edit provider">
                         <Edit3Icon className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
-                      {supportsOAuth(provider) && (
-                        <button
-                          onClick={() => setOAuthDialogProvider(provider.name)}
-                          className="p-1.5 hover:bg-accent/10 transition-colors text-accent"
-                          title="Link OAuth account"
-                          aria-label={`Link OAuth account for ${provider.name}`}
-                        >
-                          <KeyIcon className="h-3.5 w-3.5" />
-                        </button>
-                      )}
+                      {supportsOAuth(provider) &&
+                        (oauthKeys.length > 0
+                          ? oauthKeys.map((key) => (
+                              <button
+                                key={key.id}
+                                onClick={() => setOAuthDialogProvider(provider.name)}
+                                className="p-1.5 hover:bg-accent/10 transition-colors"
+                                style={key.color ? { color: key.color } : undefined}
+                                title={`Link OAuth account via ${key.name}`}
+                                aria-label={`Link OAuth account for ${provider.name} via ${key.name}`}
+                              >
+                                <KeyIcon className="h-3.5 w-3.5" />
+                              </button>
+                            ))
+                          : (
+                              <button
+                                onClick={() => setOAuthDialogProvider(provider.name)}
+                                className="p-1.5 hover:bg-accent/10 transition-colors text-accent"
+                                title="Link OAuth account"
+                                aria-label={`Link OAuth account for ${provider.name}`}
+                              >
+                                <KeyIcon className="h-3.5 w-3.5" />
+                              </button>
+                            ))}
                       <button onClick={() => setDeleteConfirm(provider.name)} className="p-1.5 hover:bg-destructive/10 transition-colors" title="Delete provider">
                         <Trash2Icon className="h-3.5 w-3.5 text-destructive/70" />
                       </button>

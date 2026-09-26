@@ -6,6 +6,11 @@
 // BoringSSL ClientHello (plus the full upstream tool schema), which a Go
 // binary cannot reproduce. Credentials are forwarded untouched.
 //
+// Requests run inline in this process via execute.js (no per-request Bun
+// spawn). Set AURORA_SIDECAR_ISOLATED=true to spawn a fresh Bun process per
+// request instead (slower; only needed if an upstream rejects a reused
+// process even with Connection: close).
+//
 // Multi-IP: the caller may send `x-aurora-bind-ip`. When it matches an entry
 // in AURORA_SIDECAR_BIND_PROXIES (comma-separated `ip:port` CONNECT proxies),
 // the request is relayed through that proxy so it egresses from the chosen IP.
@@ -18,6 +23,7 @@
 //	AURORA_SIDECAR_UPSTREAM_URL   upstream base URL     (overrides sidecar-overrides.base_url)
 //	AURORA_SIDECAR_HOST           bind host             (default 127.0.0.1)
 //	AURORA_SIDECAR_PORT           bind port             (default 8090)
+//	AURORA_SIDECAR_ISOLATED       spawn per-request     (default false)
 //	AURORA_SIDECAR_INJECT_TOOLS   inject tool schema    (default true)
 //	AURORA_SIDECAR_INJECT_TYPES   scope tool injection  (empty = all types)
 //	AURORA_SIDECAR_DEFAULT_AUTH   fallback Authorization (default "Bearer public")
@@ -31,7 +37,7 @@
 //
 // Endpoints:
 //
-//	POST /v1/chat/completions   proxied via a fresh Bun process
+//	POST /v1/chat/completions   proxied (inline by default)
 //	GET  /v1/models             proxied directly
 //	GET  /health                liveness probe
 //	GET  /proxies               configured bind proxies
@@ -43,9 +49,12 @@
 //	retry_delay_ms, extra_headers, forward_headers, retry_statuses,
 //	force_stream
 
+import { executeRequest } from "./execute.js";
+
 const env = (name, fallback) => process.env[name] ?? fallback;
 
 const ONESHOT = new URL("./one-shot.js", import.meta.url).pathname;
+const ISOLATED = (process.env.AURORA_SIDECAR_ISOLATED ?? "false") === "true";
 const PORT = Number(process.env.AURORA_SIDECAR_PORT ?? "8090");
 const HOST = process.env.AURORA_SIDECAR_HOST ?? "127.0.0.1";
 const OVERRIDES_PATH =
@@ -59,17 +68,15 @@ const INJECT_TYPES = new Set(
     .filter(Boolean),
 );
 
-// Identity headers forwarded to one-shot (extension/session hub driven).
-// Always includes the well-known free-tier identity set; extra names can be
-// added via overrides.forward_headers.
-const IDENTITY_HEADERS = [
-  "x-opencode-session",
-  "x-opencode-client",
-  "x-opencode-request",
-  "x-opencode-project",
-  "x-session-id",
-  "x-client-id",
-];
+// Identity headers forwarded upstream. The set is configuration-driven:
+// extensions list them under settings.forward_headers (persisted into
+// sidecar-overrides.json) and operators can add more via
+// AURORA_SIDECAR_IDENTITY_HEADERS (comma-separated). The core never
+// hardcodes a specific client's header names.
+const envIdentityHeaders = (process.env.AURORA_SIDECAR_IDENTITY_HEADERS ?? "")
+  .split(",")
+  .map((s) => s.trim().toLowerCase())
+  .filter(Boolean);
 
 let overridesCache = {
   mtimeMs: -1,
@@ -226,6 +233,28 @@ function json(data, status = 200) {
   });
 }
 
+// Build the executeRequest config from live overrides + env.
+function buildCfg(overrides, opts) {
+  return {
+    upstream: opts.upstream,
+    userAgent: opts.userAgent,
+    defaultAuth: opts.defaultAuth,
+    injectTools: opts.injectTools,
+    maxAttempts:
+      overrides.maxAttempts ??
+      Number(process.env.AURORA_SIDECAR_MAX_ATTEMPTS ?? "4"),
+    retryDelayMs:
+      overrides.retryDelayMs ??
+      Number(process.env.AURORA_SIDECAR_RETRY_DELAY_MS ?? "750"),
+    pathTemplate: overrides.pathTemplate,
+    retryStatuses: overrides.retryStatuses,
+    extraHeaders: overrides.extraHeaders,
+    forceStream: overrides.forceStream,
+    proxy: opts.proxy,
+    toolsPath: opts.toolsPath,
+  };
+}
+
 Bun.serve({
   hostname: HOST,
   port: PORT,
@@ -299,9 +328,9 @@ Bun.serve({
     const inject = injectTools && overridesAllow(providerType, overrides);
 
     // Forward identity headers so operator-managed (extension) rules drive
-    // the upstream identity. one-shot validates/falls back as needed.
+    // the upstream identity. Names come from env + overrides.forward_headers.
     const forwardNames = new Set([
-      ...IDENTITY_HEADERS,
+      ...envIdentityHeaders,
       ...overrides.forwardHeaders,
     ]);
     const headers = {};
@@ -312,77 +341,95 @@ Bun.serve({
     const body = await req.text();
 
     const toolsPath =
-      overrides.toolsPath ||
-      process.env.AURORA_SIDECAR_TOOLS_PATH ||
-      "";
+      overrides.toolsPath || process.env.AURORA_SIDECAR_TOOLS_PATH || "";
     const userAgent =
       overrides.userAgent || process.env.AURORA_SIDECAR_USER_AGENT || "";
 
-    const proc = Bun.spawn([process.execPath, ONESHOT], {
-      stdin: "pipe",
-      stdout: "pipe",
-      stderr: "pipe",
-      env: {
-        ...process.env,
-        AURORA_SIDECAR_UPSTREAM_URL: UPSTREAM,
-        AURORA_SIDECAR_USER_AGENT: userAgent,
-        AURORA_SIDECAR_DEFAULT_AUTH: defaultAuth,
-        AURORA_SIDECAR_PROXY: proxy,
-        AURORA_SIDECAR_INJECT_TOOLS: inject ? "true" : "false",
-        AURORA_SIDECAR_TOOLS_PATH: toolsPath,
-        AURORA_SIDECAR_PATH_TEMPLATE: overrides.pathTemplate,
-        AURORA_SIDECAR_MAX_ATTEMPTS: String(
-          overrides.maxAttempts ??
-            Number(process.env.AURORA_SIDECAR_MAX_ATTEMPTS ?? "4"),
-        ),
-        AURORA_SIDECAR_RETRY_DELAY_MS: String(
-          overrides.retryDelayMs ??
-            Number(process.env.AURORA_SIDECAR_RETRY_DELAY_MS ?? "750"),
-        ),
-        AURORA_SIDECAR_RETRY_STATUSES: overrides.retryStatuses.join(","),
-        AURORA_SIDECAR_EXTRA_HEADERS: JSON.stringify(overrides.extraHeaders),
-        AURORA_SIDECAR_FORCE_STREAM:
-          overrides.forceStream === null || overrides.forceStream === undefined
-            ? ""
-            : overrides.forceStream
-              ? "true"
-              : "false",
-      },
+    let payload;
+    try {
+      payload = JSON.parse(body);
+    } catch {
+      return json({ error: { message: "invalid json body" } }, 400);
+    }
+    const envelope = { authorization, headers, payload };
+    const cfg = buildCfg(overrides, {
+      upstream: UPSTREAM,
+      userAgent,
+      defaultAuth,
+      injectTools: inject,
+      proxy,
+      toolsPath,
     });
 
-    proc.stdin.write(
-      JSON.stringify({ authorization, headers, payload: JSON.parse(body) }),
-    );
-    proc.stdin.end();
-
-    const [out, exitCode] = await Promise.all([
-      new Response(proc.stdout).text(),
-      proc.exited,
-    ]);
+    let out;
+    let exitCode = 0;
+    let stderr = "";
+    if (ISOLATED) {
+      const proc = Bun.spawn([process.execPath, ONESHOT], {
+        stdin: "pipe",
+        stdout: "pipe",
+        stderr: "pipe",
+        env: {
+          ...process.env,
+          AURORA_SIDECAR_UPSTREAM_URL: UPSTREAM,
+          AURORA_SIDECAR_USER_AGENT: userAgent,
+          AURORA_SIDECAR_DEFAULT_AUTH: defaultAuth,
+          AURORA_SIDECAR_PROXY: proxy,
+          AURORA_SIDECAR_INJECT_TOOLS: inject ? "true" : "false",
+          AURORA_SIDECAR_TOOLS_PATH: toolsPath,
+          AURORA_SIDECAR_PATH_TEMPLATE: overrides.pathTemplate,
+          AURORA_SIDECAR_MAX_ATTEMPTS: String(cfg.maxAttempts),
+          AURORA_SIDECAR_RETRY_DELAY_MS: String(cfg.retryDelayMs),
+          AURORA_SIDECAR_RETRY_STATUSES: overrides.retryStatuses.join(","),
+          AURORA_SIDECAR_EXTRA_HEADERS: JSON.stringify(overrides.extraHeaders),
+          AURORA_SIDECAR_FORCE_STREAM:
+            overrides.forceStream === null || overrides.forceStream === undefined
+              ? ""
+              : overrides.forceStream
+                ? "true"
+                : "false",
+        },
+      });
+      proc.stdin.write(JSON.stringify(envelope));
+      proc.stdin.end();
+      [out, exitCode] = await Promise.all([
+        new Response(proc.stdout).text(),
+        proc.exited,
+      ]);
+      if (exitCode !== 0 && out.trim() === "") {
+        stderr = await new Response(proc.stderr).text();
+      }
+    } else {
+      try {
+        out = JSON.stringify(await executeRequest(envelope, cfg));
+      } catch (err) {
+        return json(
+          { error: { message: `sidecar execution failed: ${err}` } },
+          502,
+        );
+      }
+    }
 
     if (exitCode !== 0 && out.trim() === "") {
-      const err = await new Response(proc.stderr).text();
       return json(
-        {
-          error: { message: `sidecar process failed: ${err || exitCode}` },
-        },
+        { error: { message: `sidecar process failed: ${stderr || exitCode}` } },
         502,
       );
     }
 
-    // Parse the one-shot envelope: { __status, __sse?, body? }.
+    // Parse the execute envelope: { __status, __sse?, body?, error? }.
     let status = 200,
       bodyText = out;
     try {
-      const envelope = JSON.parse(out);
-      if (typeof envelope.__status === "number") {
-        status = envelope.__status;
-        if (envelope.__sse !== undefined) {
-          bodyText = envelope.__sse;
-        } else if (envelope.body !== undefined) {
-          bodyText = JSON.stringify(envelope.body);
-        } else if (envelope.error) {
-          bodyText = JSON.stringify(envelope.error);
+      const envelopeOut = JSON.parse(out);
+      if (typeof envelopeOut.__status === "number") {
+        status = envelopeOut.__status;
+        if (envelopeOut.__sse !== undefined) {
+          bodyText = envelopeOut.__sse;
+        } else if (envelopeOut.body !== undefined) {
+          bodyText = JSON.stringify(envelopeOut.body);
+        } else if (envelopeOut.error) {
+          bodyText = JSON.stringify(envelopeOut.error);
         }
       }
     } catch {
@@ -400,5 +447,6 @@ Bun.serve({
 
 console.log(
   `sidecar listening on http://${HOST}:${PORT} -> ${resolveUpstream() || "(unset)"}` +
+    (ISOLATED ? " [isolated]" : " [inline]") +
     (BIND_PROXIES.size ? ` (${BIND_PROXIES.size} bind proxies)` : ""),
 );

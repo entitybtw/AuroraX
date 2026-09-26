@@ -73,3 +73,8 @@ export function previewCLITool(tool: string, payload: CLIPreviewRequest): Promis
 export function applyCLITool(tool: string, payload: CLIPreviewRequest): Promise<CLIApplyResponse> {
   return apiFetch<CLIApplyResponse>(`/admin/api/v1/cli-tools/${encodeURIComponent(tool)}/apply`, { method: "POST", json: payload, schema: CLIApplyResponseSchema });
 }
+
+/** Restores the tool config from the `.aurora.bak` written on the last apply. */
+export function resetCLITool(tool: string): Promise<CLIApplyResponse> {
+  return apiFetch<CLIApplyResponse>(`/admin/api/v1/cli-tools/${encodeURIComponent(tool)}/reset`, { method: "POST", schema: CLIApplyResponseSchema });
+}

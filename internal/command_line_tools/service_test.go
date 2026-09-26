@@ -2,6 +2,8 @@ package clitools
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -325,4 +327,226 @@ func assertEqual(t *testing.T, actual string, expected string) {
 	if actual != expected {
 		t.Fatalf("expected %q, got %q", expected, actual)
 	}
+}
+
+func TestOpenCodeToolGeneratesProviderConfig(t *testing.T) {
+	service := NewService(false, nil)
+	tool, ok := service.GetTool("opencode")
+	if !ok {
+		t.Fatal("expected opencode tool")
+	}
+	if !strings.HasSuffix(tool.ConfigPath, filepath.Join(".config", "opencode", "opencode.json")) {
+		t.Fatalf("expected opencode config path, got %s", tool.ConfigPath)
+	}
+	preview, err := service.Preview("opencode", PreviewRequest{
+		BaseURL: "http://localhost:8080",
+		APIKey:  "sk-test-key",
+		Model:   "fallback/model",
+		ModelOverrides: map[string]string{
+			"OPENCODE_MODEL": "provider/coded-model",
+		},
+		Models: []string{"provider/extra"},
+	})
+	if err != nil {
+		t.Fatalf("Preview returned error: %v", err)
+	}
+	var cfg struct {
+		Model    string `json:"model"`
+		Provider map[string]struct {
+			NPM     string            `json:"npm"`
+			Options map[string]string `json:"options"`
+			Models  map[string]any    `json:"models"`
+		} `json:"provider"`
+	}
+	if err := json.Unmarshal([]byte(preview.Snippets["config"]), &cfg); err != nil {
+		t.Fatalf("decode config: %v", err)
+	}
+	assertEqual(t, cfg.Model, "aurorax/provider/coded-model")
+	aurorax, ok := cfg.Provider["aurorax"]
+	if !ok {
+		t.Fatal("expected aurorax provider block")
+	}
+	assertEqual(t, aurorax.NPM, "@ai-sdk/openai-compatible")
+	assertEqual(t, aurorax.Options["baseURL"], "http://localhost:8080/v1")
+	assertEqual(t, aurorax.Options["apiKey"], preview.MaskedKey)
+	if _, ok := aurorax.Models["provider/coded-model"]; !ok {
+		t.Fatalf("expected primary model in models map, got %v", aurorax.Models)
+	}
+	if _, ok := aurorax.Models["provider/extra"]; !ok {
+		t.Fatalf("expected extra model in models map, got %v", aurorax.Models)
+	}
+}
+
+func TestOpenCodePresetTargetsOpenCodeTool(t *testing.T) {
+	service := NewService(false, nil)
+	found := false
+	for _, preset := range service.ListPresets() {
+		if preset.ToolID == "opencode" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expected an opencode preset")
+	}
+}
+
+func TestCodexAuthConfigPathSet(t *testing.T) {
+	service := NewService(true, nil)
+	tool, ok := service.GetTool("codex")
+	if !ok {
+		t.Fatal("expected codex tool")
+	}
+	if !strings.HasSuffix(tool.AuthConfigPath, filepath.Join(".codex", "auth.json")) {
+		t.Fatalf("expected codex auth.json path, got %s", tool.AuthConfigPath)
+	}
+}
+
+func TestApplyWritesCodexAuthFile(t *testing.T) {
+	fs := newMemFS()
+	service := NewService(true, fs)
+	resp, err := service.Apply("codex", PreviewRequest{
+		BaseURL: "http://localhost:8080",
+		APIKey:  "sk-test-key-123456",
+		Model:   "gpt-5-codex",
+	})
+	if err != nil {
+		t.Fatalf("Apply returned error: %v", err)
+	}
+	if !resp.Applied {
+		t.Fatal("expected apply to succeed")
+	}
+	auth, ok := fs.files[toolPath(t, service, "codex", "auth")]
+	if !ok {
+		t.Fatal("expected codex auth.json to be written")
+	}
+	if !strings.Contains(string(auth), `"OPENAI_API_KEY": "sk-test-key-123456"`) {
+		t.Fatalf("auth file missing real api key, got %s", auth)
+	}
+	config, ok := fs.files[toolPath(t, service, "codex", "config")]
+	if !ok {
+		t.Fatal("expected codex config to be written")
+	}
+	if !strings.Contains(string(config), `model_provider = "aurora"`) {
+		t.Fatalf("config missing aurora provider, got %s", config)
+	}
+}
+
+func TestOpenCodeApplyMergesExistingConfig(t *testing.T) {
+	fs := newMemFS()
+	service := NewService(true, fs)
+	tool, ok := service.GetTool("opencode")
+	if !ok {
+		t.Fatal("expected opencode tool")
+	}
+	existing := []byte(`{"$schema":"https://opencode.ai/config.json","theme":"dark","provider":{"other":{"npm":"@ai-sdk/openai"}}}`)
+	if err := fs.WriteFile(tool.ConfigPath, existing, 0o600); err != nil {
+		t.Fatalf("seed existing config: %v", err)
+	}
+	if _, err := service.Apply("opencode", PreviewRequest{
+		BaseURL: "http://localhost:8080",
+		APIKey:  "sk-test-key-123456",
+		Model:   "coded/model",
+	}); err != nil {
+		t.Fatalf("Apply returned error: %v", err)
+	}
+	merged, ok := fs.files[tool.ConfigPath]
+	if !ok {
+		t.Fatal("expected merged config to be written")
+	}
+	var cfg map[string]any
+	if err := json.Unmarshal(merged, &cfg); err != nil {
+		t.Fatalf("decode merged config: %v", err)
+	}
+	assertEqual(t, cfg["theme"].(string), "dark")
+	providers, ok := cfg["provider"].(map[string]any)
+	if !ok {
+		t.Fatal("expected provider map in merged config")
+	}
+	if _, ok := providers["other"]; !ok {
+		t.Fatal("expected unrelated provider to survive merge")
+	}
+	if _, ok := providers["aurorax"]; !ok {
+		t.Fatal("expected aurorax provider in merged config")
+	}
+	if backup, ok := fs.files[tool.ConfigPath+".aurora.bak"]; !ok || !strings.Contains(string(backup), "dark") {
+		t.Fatal("expected backup of the previous config")
+	}
+}
+
+func TestResetRestoresBackup(t *testing.T) {
+	fs := newMemFS()
+	service := NewService(true, fs)
+	tool, ok := service.GetTool("claude-code")
+	if !ok {
+		t.Fatal("expected claude-code tool")
+	}
+	original := []byte(`{"model":"keep/me"}`)
+	if err := fs.WriteFile(tool.ConfigPath, original, 0o600); err != nil {
+		t.Fatalf("seed config: %v", err)
+	}
+	if _, err := service.Apply("claude-code", PreviewRequest{
+		BaseURL: "http://localhost:8080",
+		APIKey:  "sk-test-key",
+		Model:   "new/model",
+	}); err != nil {
+		t.Fatalf("Apply returned error: %v", err)
+	}
+	resp, err := service.Reset("claude-code")
+	if err != nil {
+		t.Fatalf("Reset returned error: %v", err)
+	}
+	if !resp.Applied || resp.Path != tool.ConfigPath {
+		t.Fatalf("unexpected reset response: %+v", resp)
+	}
+	restored := fs.files[tool.ConfigPath]
+	if !strings.Contains(string(restored), "keep/me") {
+		t.Fatalf("expected original config restored, got %s", restored)
+	}
+}
+
+func TestResetWithoutBackupFails(t *testing.T) {
+	fs := newMemFS()
+	service := NewService(true, fs)
+	if _, err := service.Reset("claude-code"); err == nil {
+		t.Fatal("expected Reset to fail without a backup")
+	}
+}
+
+// memFS is an in-memory FileSystem for apply/reset tests.
+type memFS struct {
+	files map[string][]byte
+}
+
+func newMemFS() *memFS { return &memFS{files: map[string][]byte{}} }
+
+func (m *memFS) ReadFile(path string) ([]byte, error) {
+	data, ok := m.files[path]
+	if !ok {
+		return nil, os.ErrNotExist
+	}
+	return data, nil
+}
+
+func (m *memFS) WriteFile(path string, data []byte, _ os.FileMode) error {
+	copied := make([]byte, len(data))
+	copy(copied, data)
+	m.files[path] = copied
+	return nil
+}
+
+func (m *memFS) MkdirAll(string, os.FileMode) error { return nil }
+
+func toolPath(t *testing.T, service *Service, toolID string, snippet string) string {
+	t.Helper()
+	tool, ok := service.GetTool(toolID)
+	if !ok {
+		t.Fatalf("expected %s tool", toolID)
+	}
+	if snippet == "auth" {
+		if tool.AuthConfigPath == "" {
+			t.Fatalf("tool %s has no auth config path", toolID)
+		}
+		return tool.AuthConfigPath
+	}
+	return tool.ConfigPath
 }

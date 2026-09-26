@@ -31,15 +31,17 @@ func envSidecarURL() string {
 // resolveSidecarURL returns the sidecar base URL for this provider.
 // A provider-level sidecar_url always wins. The environment sidecar is only
 // used for free-tier origins that require the local sidecar for TLS
-// fingerprinting (detected via base_url path). Generic vLLM endpoints and
-// any other origin without a sidecar URL go direct. Routing every vLLM
-// provider through the local sidecar self-proxies when AURORA_SIDECAR_BASE_URL
-// points at the sidecar itself and hangs ListModels during startup rebuild.
+// fingerprinting (detected by matching the extension-configured sidecar
+// base_url). Generic vLLM endpoints and any other origin without a sidecar
+// URL go direct. Routing every vLLM provider through the local sidecar
+// self-proxies when AURORA_SIDECAR_BASE_URL points at the sidecar itself
+// and hangs ListModels during startup rebuild.
 func resolveSidecarURL(cfg providers.ProviderConfig) string {
 	if sidecar := strings.TrimSpace(cfg.SidecarURL); sidecar != "" {
 		return sidecar
 	}
-	if strings.Contains(cfg.BaseURL, "opencode.ai/zen") {
+	if def := providers.LoadSidecarOAuthDefaults(); def.BaseURL != "" &&
+		strings.TrimRight(cfg.BaseURL, "/") == strings.TrimRight(def.BaseURL, "/") {
 		return envSidecarURL()
 	}
 	return ""

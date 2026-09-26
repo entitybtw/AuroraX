@@ -12,12 +12,14 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"aurora/configuration"
+	"aurora/internal/addon"
 	"aurora/internal/admin"
 	"aurora/internal/admin/dashboard"
 	"aurora/internal/audit_logging"
@@ -57,6 +59,7 @@ type App struct {
 	poolOverrides     *admin.PoolOverrideStore
 	sidecarOverrides  *admin.SidecarOverrideStore
 	extensions        *admin.ExtensionStore
+	addons            *addon.Store
 	providers         *providers.InitResult
 	audit             *auditlog.Result
 	usage             *usage.Result
@@ -130,15 +133,31 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 		extensions:        admin.NewExtensionStore(),
 	}
 
-	providerResult, err := providers.Init(ctx, cfg.AppConfig, cfg.Factory)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize providers: %w", err)
+	// Yaegi addon store: extension-shipped *.go files (auth addons) and any
+	// operator scripts under the addons directory. Nothing OAuth-shaped is
+	// built in — addons arrive with their extensions.
+	addonsDir := strings.TrimSpace(os.Getenv("AURORA_ADDONS_DIR"))
+	if addonsDir == "" {
+		addonsDir = "configs/addons"
 	}
-	app.providers = providerResult
+	app.addons = addon.NewStore(addonsDir)
+	if loaded := app.addons.Load(); len(loaded) > 0 {
+		slog.Info("addons loaded", "dir", app.addons.Dir(), "count", len(loaded))
+	}
+
+	// Session hub identity header set is extension-driven: sidecar
+	// forward_headers (written on extension apply) decide which inbound
+	// headers count as session/identity. The core hardcodes no client names.
+	syncIdentityHeaders := func(s admin.SidecarSettings) {
+		sessionhub.SetIdentityHeaders(s.ForwardHeaders, nil)
+	}
+	syncIdentityHeaders(app.sidecarOverrides.Get())
+	app.sidecarOverrides.SetOnChange(syncIdentityHeaders)
 
 	// Optional provider types (declared by extensions under
-	// provides.provider_types) are activated from the extension store —
-	// they are not registered by default.
+	// provides.provider_types) must be activated BEFORE providers.Init so
+	// provider overrides persisted for an applied extension resolve on a cold
+	// start — they are not registered by default.
 	app.extensions.SetProviderTypeActivator(func(p *admin.ExtensionProvides) []string {
 		if p == nil || len(p.ProviderTypes) == 0 {
 			return nil
@@ -146,6 +165,20 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 		return cfg.Factory.ActivateOptional(p.ProviderTypes...)
 	})
 	app.extensions.ActivateOptionalTypes()
+
+	providerResult, err := providers.Init(ctx, cfg.AppConfig, cfg.Factory)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize providers: %w", err)
+	}
+	app.providers = providerResult
+
+	// Re-attach extension-shipped Go addons (auth UI / hooks) for every
+	// already-applied extension so they survive restarts.
+	for _, e := range app.extensions.List() {
+		if e.Applied {
+			admin.AttachExtensionAddons(app.addons, e.ID)
+		}
+	}
 
 	// Apply persisted UI provider/pool overrides onto the freshly built runtime so
 	// providers created via the dashboard survive restarts.
@@ -527,6 +560,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 			app.poolOverrides,
 			app.sidecarOverrides,
 			app.extensions,
+			app.addons,
 			oauthRegistryFromFactory(cfg.Factory),
 			app,
 			app,
@@ -596,11 +630,19 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 		adminHandler.SetSessionHeaderEnsurer(sessionHubHeaderEnsurer{hub: app.sessionHub})
 		slog.Info("session hub initialized", "providers", len(app.sessionHub.Config().Providers))
 
-		// Initialize OAuth device flow handler
+		// Initialize OAuth flow handler. OAuth is extension-only: the routes
+		// answer 404 unless an applied extension provides the oauth feature
+		// or ships an auth addon.
 		if cfg.Factory != nil {
 			oauthReg := cfg.Factory.OAuthRegistry()
 			if oauthReg != nil {
 				oauthHandler := admin.NewOAuthHandler(oauthReg)
+				oauthHandler.WithEnabledFunc(func() bool {
+					if app.extensions != nil && app.extensions.ProvidesAppliedFeature("oauth") {
+						return true
+					}
+					return app.addons != nil && len(app.addons.ByKind(addon.KindAuth)) > 0
+				})
 				// Live verification base from sidecar/extension settings.
 				if sc := app.sidecarOverrides; sc != nil {
 					oauthHandler.SetVerificationBase(sc.Get().OAuthVerificationBase)
@@ -629,7 +671,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 					})
 				}
 				serverCfg.OAuthHandler = oauthHandler
-				slog.Info("oauth device flow enabled", "providers", oauthReg.Len())
+				slog.Info("oauth routes registered (gated on extension feature)", "providers", oauthReg.Len())
 			}
 		}
 	}
@@ -1071,6 +1113,7 @@ func initAdmin(
 	poolOverrides *admin.PoolOverrideStore,
 	sidecarOverrides *admin.SidecarOverrideStore,
 	extensions *admin.ExtensionStore,
+	addonStore *addon.Store,
 	oauthReg *oauth.Registry,
 	runtimeRefresher admin.RuntimeRefresher,
 	fallbackReloader admin.FallbackReloader,
@@ -1143,6 +1186,7 @@ func initAdmin(
 		admin.WithPoolWeights(poolOverrides),
 		admin.WithSidecarStore(sidecarOverrides),
 		admin.WithExtensionStore(extensions),
+		admin.WithAddonStore(addonStore),
 		admin.WithExtensionStoreURLs(admin.NewExtensionStoreURLStore()),
 		admin.WithOAuthRegistry(oauthReg),
 		admin.WithDashboardRuntimeConfig(runtimeConfig),

@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDashboardConfig } from "@/lib/api/useDashboardConfig";
 import { flagOn } from "@/lib/api/dashboard-config";
@@ -42,9 +43,9 @@ interface SettingsValue {
   config: any;
   runtimeSettings: any;
   dashboardSettings: DashboardSettingsFormState;
-  setDashboardSettings: React.Dispatch<React.SetStateAction<DashboardSettingsFormState>>;
+  setDashboardSettings: Dispatch<SetStateAction<DashboardSettingsFormState>>;
   passthroughProvidersText: string;
-  setPassthroughProvidersText: React.Dispatch<React.SetStateAction<string>>;
+  setPassthroughProvidersText: Dispatch<SetStateAction<string>>;
   timezoneOverride: string;
   handleTimezoneChange: (val: string) => void;
   autoRefreshEnabled: boolean;
@@ -92,11 +93,17 @@ function defaults(): DashboardSettingsFormState {
   };
 }
 
-export function SettingsProvider({ children }: { children: React.ReactNode }) {
+export function SettingsProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const { data: config } = useDashboardConfig();
   const runtimeSettings = config?.settings as any;
-  const [dashboardSettings, setDashboardSettings] = useState<DashboardSettingsFormState>(defaults);
+  const [dashboardSettings, setFormState] = useState<DashboardSettingsFormState>(defaults);
+  const [formDirty, setFormDirty] = useState(false);
+  const [resyncPending, setResyncPending] = useState(false);
+  const setDashboardSettings: Dispatch<SetStateAction<DashboardSettingsFormState>> = (update) => {
+    setFormDirty(true);
+    setFormState(update);
+  };
   const [passthroughProvidersText, setPassthroughProvidersText] = useState("");
   const [timezoneOverride, setTimezoneOverride] = useState("");
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(() => localStorage.getItem("aurora_dashboard_autorefresh") === "true");
@@ -118,7 +125,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   });
   const saveDashboardSettingsMutation = useMutation({
     mutationFn: (payload: DashboardSettingsFormState & { client: DashboardSettingsFormState["client"] & { enabled_passthrough_providers: string[] } }) => apiFetch<DashboardSettingsSaveResponse>("/admin/api/v1/dashboard/settings", { method: "PUT", json: payload }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dashboard", "config"] }),
+    onSuccess: () => {
+      setResyncPending(true);
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "config"] });
+    },
   });
 
   const auditLogsEnabled = flagOn(config?.LOGGING_ENABLED) || Boolean(runtimeSettings?.logging?.enabled);
@@ -138,6 +148,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!runtimeSettings) return;
+    if (formDirty && !resyncPending) return;
     const next = defaults();
     next.client = { ...next.client, ...runtimeSettings.client };
     next.caching = { ...next.caching, ...runtimeSettings.caching };
@@ -152,9 +163,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     next.ui = {
       hidden_features: normalizeHiddenFeatures(runtimeSettings.ui?.hidden_features ?? []),
     };
-    setDashboardSettings(next);
+    setFormState(next);
+    setFormDirty(false);
+    setResyncPending(false);
     setPassthroughProvidersText((runtimeSettings.client?.enabled_passthrough_providers || []).join(", "));
-  }, [auditLogsEnabled, batchGuardrailsEnabled, guardrailsEnabled, metricsEnabled, pricingRecalculationEnabled, runtimeSettings]);
+  }, [auditLogsEnabled, batchGuardrailsEnabled, formDirty, guardrailsEnabled, metricsEnabled, pricingRecalculationEnabled, resyncPending, runtimeSettings]);
 
   const handleTimezoneChange = (val: string) => {
     setTimezoneOverride(val);
@@ -168,14 +181,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     if (next) window.dispatchEvent(new Event("aurora_autorefresh_toggled"));
   };
   const handleAdminEndpointToggle = (checked: boolean) => setDashboardSettings(prev => ({ ...prev, client: { ...prev.client, admin_endpoints_enabled: checked } }));
-  const handleHiddenFeatureToggle = (featureId: string, hide: boolean) =>
-    setDashboardSettings(prev => {
-      const current = normalizeHiddenFeatures(prev.ui?.hidden_features ?? []);
-      const next = hide
-        ? [...new Set([...current, featureId])]
-        : current.filter(id => id !== featureId);
-      return { ...prev, ui: { hidden_features: next } };
-    });
+  const handleHiddenFeatureToggle = (featureId: string, hide: boolean) => setDashboardSettings(prev => {
+    const current = normalizeHiddenFeatures(prev.ui?.hidden_features ?? []);
+    const next = hide
+      ? [...new Set([...current, featureId])]
+      : current.filter(id => id !== featureId);
+    return { ...prev, ui: { hidden_features: next } };
+  });
   const handleDashboardSettingsSave = () => saveDashboardSettingsMutation.mutate({
     ...dashboardSettings,
     ui: { hidden_features: normalizeHiddenFeatures(dashboardSettings.ui?.hidden_features ?? []) },

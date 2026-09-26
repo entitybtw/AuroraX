@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   SettingsIcon,
   ServerIcon,
@@ -95,9 +95,22 @@ function SettingsPageInner(): JSX.Element {
     return () => window.removeEventListener("aurora:settings-tab", onTab);
   }, []);
 
+  const tabStripRef = useRef<HTMLDivElement | null>(null);
+
   const selectTab = (id: string) => {
     setActiveTab(id);
   };
+
+  // On narrow screens the tab strip scrolls horizontally; keep the active
+  // tab in view so it never looks like the selection disappeared.
+  useEffect(() => {
+    const strip = tabStripRef.current;
+    if (!strip) return;
+    const active = strip.querySelector<HTMLElement>('[data-active="true"]');
+    if (!active) return;
+    const left = active.offsetLeft - strip.clientWidth / 2 + active.clientWidth / 2;
+    strip.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
+  }, [activeTab, visibleTabs]);
 
   useEffect(() => {
     if (!visibleTabs.some((tab) => tab.id === activeTab)) {
@@ -114,15 +127,19 @@ function SettingsPageInner(): JSX.Element {
         <EditionStatusChip />
       </div>
 
-      <div className="flex overflow-x-auto gap-1 border-b border-border/60 pb-0 -mx-4 px-4 sm:mx-0 sm:px-0">
+      <div
+        ref={tabStripRef}
+        className="flex overflow-x-auto overscroll-x-contain scroll-smooth gap-1 border-b border-border/60 pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
         {visibleTabs.map((tab) => {
           const Icon = tab.icon;
           return (
             <button
               key={tab.id}
+              data-active={activeTab === tab.id}
               onClick={() => selectTab(tab.id)}
               className={cn(
-                "flex items-center gap-2 whitespace-nowrap px-4 py-2.5 text-[13px] font-medium rounded-t-lg border border-b-0 transition-colors",
+                "flex shrink-0 items-center gap-2 whitespace-nowrap px-3 py-2.5 text-[13px] font-medium rounded-t-lg border border-b-0 transition-colors sm:px-4",
                 activeTab === tab.id
                   ? "border-border/60 bg-surface text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground hover:bg-surface-hover/30"

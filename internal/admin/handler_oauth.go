@@ -27,6 +27,10 @@ type OAuthHandler struct {
 	authCodeConfigFunc func() oauth.AuthCodeConfig
 	// flowFunc, when set, reports the active grant ("device" | "authorization_code").
 	flowFunc func() string
+	// enabledFunc, when set, gates every OAuth route: OAuth exists only while
+	// an extension providing the oauth feature is applied. Disabled handlers
+	// answer 404 so nothing OAuth-shaped is exposed without an extension.
+	enabledFunc func() bool
 }
 
 // NewOAuthHandler creates a new OAuth admin handler.
@@ -37,19 +41,45 @@ func NewOAuthHandler(registry *oauth.Registry) *OAuthHandler {
 	}
 }
 
-// RegisterOAuthRoutes mounts the OAuth admin API routes.
+// RegisterOAuthRoutes mounts the OAuth admin API routes. When an enabled
+// check is wired, every route answers 404 while the oauth feature is not
+// provided by an applied extension.
 func (h *OAuthHandler) RegisterOAuthRoutes(g RouteRegistrar) {
-	g.GET("/oauth/providers", h.AllProvidersStatus)
-	g.POST("/oauth/:provider/start", h.StartDeviceFlow)
-	g.POST("/oauth/:provider/poll", h.PollToken)
-	g.GET("/oauth/:provider/status", h.TokenStatus)
-	g.POST("/oauth/:provider/refresh", h.RefreshToken)
-	g.POST("/oauth/refresh", h.RefreshAllTokens)
-	g.DELETE("/oauth/:provider/token", h.ClearToken)
+	g.GET("/oauth/providers", h.gate(h.AllProvidersStatus))
+	g.POST("/oauth/:provider/start", h.gate(h.StartDeviceFlow))
+	g.POST("/oauth/:provider/poll", h.gate(h.PollToken))
+	g.GET("/oauth/:provider/status", h.gate(h.TokenStatus))
+	g.POST("/oauth/:provider/refresh", h.gate(h.RefreshToken))
+	g.POST("/oauth/refresh", h.gate(h.RefreshAllTokens))
+	g.DELETE("/oauth/:provider/token", h.gate(h.ClearToken))
 	// Authorization-code + PKCE (extension-driven).
-	g.GET("/oauth/:provider/flow", h.FlowInfo)
-	g.POST("/oauth/:provider/authorize", h.StartAuthorize)
-	g.POST("/oauth/:provider/authorize/complete", h.CompleteAuthorize)
+	g.GET("/oauth/:provider/flow", h.gate(h.FlowInfo))
+	g.POST("/oauth/:provider/authorize", h.gate(h.StartAuthorize))
+	g.POST("/oauth/:provider/authorize/complete", h.gate(h.CompleteAuthorize))
+}
+
+// WithEnabledFunc wires the runtime capability check for the oauth feature.
+// nil disables the gate (tests).
+func (h *OAuthHandler) WithEnabledFunc(fn func() bool) {
+	h.enabledFunc = fn
+}
+
+// oauthDisabledError is the 404 body returned when no extension provides
+// the oauth feature.
+func (h *OAuthHandler) oauthDisabledError(c *echo.Context) error {
+	return c.JSON(http.StatusNotFound, map[string]string{
+		"error": "oauth not enabled: apply an extension that provides the oauth feature",
+	})
+}
+
+// gate wraps a handler so it only runs while the oauth feature is enabled.
+func (h *OAuthHandler) gate(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		if h.enabledFunc != nil && !h.enabledFunc() {
+			return h.oauthDisabledError(c)
+		}
+		return next(c)
+	}
 }
 
 // StartDeviceFlowResponse is the response from starting a device flow.

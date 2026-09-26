@@ -36,6 +36,9 @@ type ProviderOverride struct {
 	Enabled *bool `json:"enabled,omitempty"`
 	// UserAgent optionally overrides the User-Agent header sent to the upstream provider.
 	UserAgent string `json:"user_agent,omitempty"`
+	// SidecarURL routes this provider's upstream requests through a local
+	// TLS-fingerprint sidecar (Bun). Empty means direct egress.
+	SidecarURL string `json:"sidecar_url,omitempty"`
 	// AutoFetchModels controls whether the gateway calls /models to discover models.
 	// A nil pointer means enabled (auto-fetch on).
 	AutoFetchModels *bool `json:"auto_fetch_models,omitempty"`
@@ -167,6 +170,7 @@ func (s *ProviderOverrideStore) RawConfigs() map[string]config.RawProviderConfig
 			BindIP:          strings.TrimSpace(override.BindIP),
 			PoolOnly:        override.PoolOnly != nil && *override.PoolOnly,
 			UserAgent:       strings.TrimSpace(override.UserAgent),
+			SidecarURL:      strings.TrimSpace(override.SidecarURL),
 			AutoFetchModels: override.AutoFetchModels,
 			AutoFetchFilter: autoFetchFilterValue(override.AutoFetchFilter),
 			AuthMethod:      strings.TrimSpace(override.AuthMethod),
@@ -204,6 +208,7 @@ type providerCreateRequest struct {
 	Enabled         *bool                   `json:"enabled"`
 	PoolOnly        *bool                   `json:"pool_only"`
 	UserAgent       string                  `json:"user_agent"`
+	SidecarURL      string                  `json:"sidecar_url"`
 	AutoFetchModels *bool                   `json:"auto_fetch_models"`
 	AutoFetchFilter *config.AutoFetchFilter `json:"autofetch_filter"`
 }
@@ -217,6 +222,7 @@ type providerUpdateRequest struct {
 	Enabled         *bool                   `json:"enabled"`
 	PoolOnly        *bool                   `json:"pool_only"`
 	UserAgent       *string                 `json:"user_agent"`
+	SidecarURL      *string                 `json:"sidecar_url"`
 	AutoFetchModels *bool                   `json:"auto_fetch_models"`
 	AutoFetchFilter *config.AutoFetchFilter `json:"autofetch_filter"`
 	// AuthMethod selects "key" (default) or "oauth".
@@ -302,6 +308,7 @@ func (h *Handler) CreateProvider(c *echo.Context) error {
 		Enabled:         boolPtrOrDefault(req.Enabled, true),
 		PoolOnly:        req.PoolOnly,
 		UserAgent:       strings.TrimSpace(req.UserAgent),
+		SidecarURL:      strings.TrimSpace(req.SidecarURL),
 		AutoFetchModels: req.AutoFetchModels,
 	})
 	apply := h.applyRuntimeRefresh(c)
@@ -382,6 +389,9 @@ func (h *Handler) UpdateProvider(c *echo.Context) error {
 	}
 	if req.UserAgent != nil {
 		updated.UserAgent = strings.TrimSpace(*req.UserAgent)
+	}
+	if req.SidecarURL != nil {
+		updated.SidecarURL = strings.TrimSpace(*req.SidecarURL)
 	}
 	if req.AutoFetchModels != nil {
 		updated.AutoFetchModels = boolPtr(*req.AutoFetchModels)

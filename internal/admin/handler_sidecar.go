@@ -81,6 +81,9 @@ type SidecarOverrideStore struct {
 	mu       sync.Mutex
 	settings SidecarSettings
 	path     string
+	// onChange, when set, fires after settings load/update so dependent
+	// subsystems (e.g. the session hub identity header set) can resync.
+	onChange func(SidecarSettings)
 }
 
 // NewSidecarOverrideStore creates or loads sidecar settings from the given config directory.
@@ -93,10 +96,9 @@ func NewSidecarOverrideStore() *SidecarOverrideStore {
 			InjectTools: true,
 			// Empty inject_tool_types allows all provider types. vllm is
 			// listed because free-tier pool members report type "vllm".
-			InjectToolTypes: []string{"opencode", "vllm", ""},
+			InjectToolTypes: []string{"cli-emulation", "vllm", ""},
 			DefaultAuth:     "Bearer public",
-			// Required UA for free-tier upstreams; extensions may override.
-			UserAgent:    "opencode/1.18.31 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.14",
+			// Empty default: the applied extension supplies the required UA.
 			MaxAttempts:  4,
 			RetryDelayMs: 750,
 		},
@@ -113,6 +115,14 @@ func (s *SidecarOverrideStore) Get() SidecarSettings {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.settings
+}
+
+// SetOnChange registers a callback invoked after settings are loaded or
+// updated (with the settings locked is not held). Passing nil clears it.
+func (s *SidecarOverrideStore) SetOnChange(fn func(SidecarSettings)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.onChange = fn
 }
 
 func (s *SidecarOverrideStore) load() {
@@ -185,9 +195,13 @@ func (s *SidecarOverrideStore) get() SidecarSettings {
 
 func (s *SidecarOverrideStore) update(update SidecarSettings) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.settings = update
 	s.save()
+	fn := s.onChange
+	s.mu.Unlock()
+	if fn != nil {
+		fn(update)
+	}
 }
 
 // WithSidecarStore sets the sidecar override store on the handler.

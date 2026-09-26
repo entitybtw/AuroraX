@@ -37,14 +37,12 @@ func WrapHeaderSetterWithSessionHub(original func(req *http.Request), providerNa
 // isSessionScopedHeader reports whether an inbound header name is safe to copy
 // onto the upstream request. Only session/identity-scoped names are forwarded;
 // credentials and envelope metadata are excluded to avoid leaking secrets.
+// The identity header set is configuration-driven (extension-supplied) and
+// shared with the session hub's inbound capture.
 func isSessionScopedHeader(name string) bool {
-	switch name {
-	case "X-Opencode-Session", "X-Opencode-Client", "X-Opencode-Request",
-		"X-Opencode-Project",
-		"X-Session-Id", "X-Session", "X-Session-Token",
-		"X-Conversation-Id":
+	l := strings.ToLower(name)
+	if sessionhub.IsIdentityHeader(l) {
 		return true
 	}
-	l := strings.ToLower(name)
-	return strings.HasPrefix(l, "x-opencode-") || (strings.Contains(l, "session") && strings.HasPrefix(l, "x-"))
+	return strings.Contains(l, "session") && strings.HasPrefix(l, "x-")
 }

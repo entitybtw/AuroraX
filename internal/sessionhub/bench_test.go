@@ -10,7 +10,7 @@ func BenchmarkApplyHit(b *testing.B) {
 		Enabled: true,
 		Providers: map[string]ProviderRule{
 			"free-tier": {Enabled: true, Headers: []HeaderRule{{
-				Name: "x-opencode-session", Mode: HeaderModeMap, Prefix: "ses_", Length: 28,
+				Name: "x-session-ext", Mode: HeaderModeMap, Prefix: "ses_", Length: 28,
 			}}},
 		},
 	}
@@ -21,7 +21,7 @@ func BenchmarkApplyHit(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		hd := http.Header{}
-		hd.Set("x-opencode-session", inbound)
+		hd.Set("x-session-ext", inbound)
 		h.Apply(hd, "acc1")
 	}
 }
@@ -33,7 +33,7 @@ func BenchmarkApplyMiss(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		hd := http.Header{}
-		hd.Set("x-opencode-session", inbound)
+		hd.Set("x-session-ext", inbound)
 		h.Apply(hd, "nope")
 	}
 }

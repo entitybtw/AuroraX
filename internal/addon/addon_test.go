@@ -131,3 +131,59 @@ func TestNonGoFilesIgnored(t *testing.T) {
 		t.Fatalf("loaded = %#v", loaded)
 	}
 }
+
+func TestAuthAddonContributesUISettingsTab(t *testing.T) {
+	dir := t.TempDir()
+	writeAddon(t, dir, "auth-sample.go", `// addon-kind: auth
+package main
+
+func UI() string {
+	return "{\"settings_tabs\":[{\"id\":\"oauth-x\",\"label\":\"OAuth X\"}]}"
+}
+`)
+
+	s := NewStore(dir)
+	s.Load()
+
+	byKind := s.ByKind(KindAuth)
+	if len(byKind) != 1 {
+		t.Fatalf("auth addons = %d, want 1", len(byKind))
+	}
+	raw, err := byKind[0].CallString("UI")
+	if err != nil {
+		t.Fatalf("UI() error: %v", err)
+	}
+	if !strings.Contains(raw, `"id":"oauth-x"`) {
+		t.Fatalf("UI() = %s, want settings tab oauth-x", raw)
+	}
+}
+
+func TestAddDirLoadsExtensionShippedAddon(t *testing.T) {
+	primary := t.TempDir()
+	extDir := t.TempDir()
+	writeAddon(t, extDir, "auth-ext.go", `// addon-kind: auth
+package main
+
+func UI() string { return ` + "`" + `{"settings_tabs":[]}` + "`" + ` }
+`)
+
+	s := NewStore(primary)
+	s.Load()
+	if len(s.List()) != 0 {
+		t.Fatalf("primary store not empty: %v", s.List())
+	}
+
+	s.AddDir(extDir)
+	if s.Get("auth-ext") == nil {
+		t.Fatalf("auth-ext not loaded from added dir: %v", s.List())
+	}
+	if len(s.Dirs()) != 2 {
+		t.Fatalf("dirs = %v, want primary + extDir", s.Dirs())
+	}
+
+	// Re-adding the same dir is idempotent.
+	s.AddDir(extDir)
+	if len(s.Dirs()) != 2 {
+		t.Fatalf("duplicate dir registered: %v", s.Dirs())
+	}
+}

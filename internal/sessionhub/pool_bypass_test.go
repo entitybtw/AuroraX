@@ -12,8 +12,8 @@ func TestPoolBypass_AppliesHeadersToMembers(t *testing.T) {
 			"free-tier": {
 				Enabled: true,
 				Headers: []HeaderRule{
-					{Name: "x-opencode-session", Mode: HeaderModeMapOrGenerate, Prefix: "ses_", Length: 26, Charset: "hex"},
-					{Name: "x-opencode-client", Mode: HeaderModeStatic, Value: "cli"},
+					{Name: "x-session-ext", Mode: HeaderModeMapOrGenerate, Prefix: "ses_", Length: 26, Charset: "hex"},
+					{Name: "x-session-client", Mode: HeaderModeStatic, Value: "cli"},
 				},
 			},
 		},
@@ -30,11 +30,11 @@ func TestPoolBypass_AppliesHeadersToMembers(t *testing.T) {
 	if result == nil {
 		t.Fatal("Apply returned nil for pool member vllm-ft-main — pool rule not expanded")
 	}
-	if headers.Get("X-Opencode-Client") != "cli" {
-		t.Errorf("x-opencode-client = %q, want cli", headers.Get("X-Opencode-Client"))
+	if headers.Get("X-Session-Client") != "cli" {
+		t.Errorf("x-session-client = %q, want cli", headers.Get("X-Session-Client"))
 	}
-	if got := headers.Get("X-Opencode-Session"); got == "" {
-		t.Error("x-opencode-session is empty")
+	if got := headers.Get("X-Session-Ext"); got == "" {
+		t.Error("x-session-ext is empty")
 	}
 
 	// Apply for the pool itself
