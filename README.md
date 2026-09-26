@@ -14,15 +14,14 @@
 
 <p align="center">14 provider types &bull; OpenAI &amp; Anthropic compatible &bull; Go &bull; Apache 2.0 &bull; Built for raw speed</p>
 
-<p align="center">
-  <a href="https://github.com/entitybtw/aurora"><b>Source code</b></a>
-  &nbsp;&middot;&nbsp;
-  <a href="https://entitybtw.github.io/aurorax-store"><b>Extensions store</b></a>
-  &nbsp;&middot;&nbsp;
-  <a href="https://github.com/entitybtw/aurorax-store"><b>Store repository</b></a>
-  &nbsp;&middot;&nbsp;
-  <a href="https://hub.docker.com/r/entbtw/aurora"><b>Docker image</b></a>
-</p>
+<p align="center"><b>Repositories</b></p>
+
+| What | Where |
+|------|-------|
+| Source code | [github.com/entitybtw/aurora](https://github.com/entitybtw/aurora) |
+| Extensions store (live) | [entitybtw.github.io/aurorax-store](https://entitybtw.github.io/aurorax-store) |
+| Extensions store (source) | [github.com/entitybtw/aurorax-store](https://github.com/entitybtw/aurorax-store) |
+| Docker image | [hub.docker.com/r/entbtw/aurora](https://hub.docker.com/r/entbtw/aurora) |
 
 <a href="docs-assets/assets/dashboard-overview.png">
   <img src="docs-assets/assets/dashboard-overview.png" alt="AuroraX admin dashboard showing provider stats and usage metrics" width="100%">
