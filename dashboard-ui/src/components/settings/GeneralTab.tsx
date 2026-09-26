@@ -177,6 +177,16 @@ export function GeneralTab(): JSX.Element {
                 aria-label="Enable pprof profiling"
               />
             </div>
+            <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Request audit logging</div>
+              <ToggleField
+                label="Capture request logs"
+                description="On by default. Controlled by settings, not environment variables; feeds the Audit Logs page."
+                checked={dashboardSettings.logging.enabled ?? false}
+                onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, logging: { ...dashboardSettings.logging, enabled: checked } })}
+                aria-label="Enable request audit logging"
+              />
+            </div>
           </div>
           <div className="flex items-center gap-3 mt-2 border-t border-border/50 pt-4">
             <Button onClick={handleDashboardSettingsSave} disabled={mutations.saveDashboardSettingsMutation.isPending}>

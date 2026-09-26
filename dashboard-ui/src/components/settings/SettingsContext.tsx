@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDashboardConfig } from "@/lib/api/useDashboardConfig";
-import { flagOn } from "@/lib/api/dashboard-config";
+import { flagOn, type DashboardConfigResponse } from "@/lib/api/dashboard-config";
 import { apiFetch } from "@/lib/api/client";
 import { normalizeHiddenFeatures } from "@/lib/features/features";
 import type { DashboardSettingsFormState, DashboardSettingsSaveResponse, RuntimeRefreshResponse } from "./types";
@@ -181,18 +181,42 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     if (next) window.dispatchEvent(new Event("aurora_autorefresh_toggled"));
   };
   const handleAdminEndpointToggle = (checked: boolean) => setDashboardSettings(prev => ({ ...prev, client: { ...prev.client, admin_endpoints_enabled: checked } }));
-  const handleHiddenFeatureToggle = (featureId: string, hide: boolean) => setDashboardSettings(prev => {
-    const current = normalizeHiddenFeatures(prev.ui?.hidden_features ?? []);
-    const next = hide
+
+  const buildSettingsPayload = (state: DashboardSettingsFormState) => ({
+    ...state,
+    ui: { hidden_features: normalizeHiddenFeatures(state.ui?.hidden_features ?? []) },
+    client: { ...state.client, enabled_passthrough_providers: passthroughProvidersText.split(",").map(value => value.trim()).filter(Boolean) },
+  });
+
+  const handleDashboardSettingsSave = () => saveDashboardSettingsMutation.mutate(buildSettingsPayload(dashboardSettings));
+
+  const handleHiddenFeatureToggle = (featureId: string, hide: boolean) => {
+    const current = normalizeHiddenFeatures(dashboardSettings.ui?.hidden_features ?? []);
+    const nextList = hide
       ? [...new Set([...current, featureId])]
       : current.filter(id => id !== featureId);
-    return { ...prev, ui: { hidden_features: next } };
-  });
-  const handleDashboardSettingsSave = () => saveDashboardSettingsMutation.mutate({
-    ...dashboardSettings,
-    ui: { hidden_features: normalizeHiddenFeatures(dashboardSettings.ui?.hidden_features ?? []) },
-    client: { ...dashboardSettings.client, enabled_passthrough_providers: passthroughProvidersText.split(",").map(value => value.trim()).filter(Boolean) },
-  });
+    const next: DashboardSettingsFormState = { ...dashboardSettings, ui: { hidden_features: nextList } };
+    setFormDirty(true);
+    setFormState(next);
+    // Patch the config cache on the click itself so the sidebar and tabs
+    // react immediately, then persist without waiting for a save step.
+    queryClient.setQueryData<DashboardConfigResponse>(["dashboard", "config"], (prev) => {
+      if (!prev?.settings) return prev;
+      return {
+        ...prev,
+        settings: {
+          ...prev.settings,
+          ui: { ...prev.settings.ui, hidden_features: nextList },
+        },
+      };
+    });
+    saveDashboardSettingsMutation.mutate(buildSettingsPayload(next), {
+      onError: () => {
+        // Roll the optimistic patch back to the server's truth.
+        void queryClient.invalidateQueries({ queryKey: ["dashboard", "config"] });
+      },
+    });
+  };
 
   const value: SettingsValue = {
     config: config as any,

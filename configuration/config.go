@@ -958,6 +958,10 @@ func buildDefaultConfig() *Config {
 			},
 		},
 		Logging: LogConfig{
+			// Audit logging is on by default; the dashboard settings value
+			// (settings.logging.enabled) is the operator-facing control and
+			// only an explicit env/config value turns it off.
+			Enabled:               true,
 			LogBodies:             true,
 			LogHeaders:            true,
 			BufferSize:            1000,

@@ -150,15 +150,25 @@ describe("Feature visibility toggle", () => {
     expect(parsedCfg.settings.ui.hidden_features).toContain("caching");
   });
 
-  it("keeps an unsaved toggle across a background config refetch", async () => {
+  it("persists a toggle immediately so a background refetch keeps it", async () => {
     let configFetches = 0;
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    let putCalls = 0;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input.toString();
+      const method = (init?.method ?? "GET").toUpperCase();
       const json = (body: unknown): Response =>
         new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
+      if (method === "PUT" && url.includes("/dashboard/settings")) {
+        putCalls += 1;
+        const parsed = JSON.parse(String(init?.body ?? "{}")) as { ui?: { hidden_features?: string[] } };
+        hidden = parsed.ui?.hidden_features ?? [];
+        return json({ message: "dashboard settings saved", refresh_suggested: false, requires_restart: false });
+      }
       if (url.includes("/dashboard/config")) {
         configFetches += 1;
-        return json(structuredClone(baseConfig));
+        const cfg = structuredClone(baseConfig);
+        (cfg.settings.ui as { hidden_features: string[] }).hidden_features = [...hidden];
+        return json(cfg);
       }
       if (url.includes("/models")) return json([]);
       if (url.includes("/providers/status")) return json({ summary: { total: 0, healthy: 0, unhealthy: 0 }, providers: [] });
@@ -187,12 +197,15 @@ describe("Feature visibility toggle", () => {
     await waitFor(() => expect(configFetches).toBeGreaterThan(0));
     await new Promise(r => setTimeout(r, 150));
 
+    // Toggle alone — no Save click — must persist right away.
     fireEvent.click(hideSwitch);
-    await waitFor(() => expect(hideSwitch).toHaveAttribute("aria-checked", "false"));
+    await waitFor(() => expect(putCalls).toBeGreaterThan(0));
+    await waitFor(() => {
+      expect(hideSwitch).toHaveAttribute("aria-checked", "false");
+    });
 
-    // Background refresh (auto-refresh / any invalidation) refetches config
-    // with the old (still empty) hidden_features; the unsaved toggle must
-    // NOT be clobbered.
+    // A background refetch now returns the saved value, so both the switch
+    // and the form state keep the feature hidden.
     await client.refetchQueries({ queryKey: ["dashboard", "config"] });
     await new Promise(r => setTimeout(r, 150));
     const fresh = await screen.findByRole("switch", { name: /Settings · Caching/ });
