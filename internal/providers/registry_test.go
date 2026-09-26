@@ -828,9 +828,13 @@ func TestModelRegistry(t *testing.T) {
 		}
 
 		mock.err = errors.New("refresh error")
-		err := registry.Initialize(context.Background())
-		if err == nil {
-			t.Fatal("expected failed refresh to return an error")
+		// The failed provider's last known inventory is retained, so the sweep
+		// itself succeeds; the failure surfaces through the runtime snapshot.
+		if err := registry.Initialize(context.Background()); err != nil {
+			t.Fatalf("expected failed refresh with retained inventory to succeed, got %v", err)
+		}
+		if got := registry.lastFailedProviders(); got != 1 {
+			t.Fatalf("lastFailedProviders() = %d, want 1", got)
 		}
 
 		snapshots := registry.ProviderRuntimeSnapshots()
@@ -866,9 +870,10 @@ func TestModelRegistry(t *testing.T) {
 		}
 
 		mock.modelsResponse = &core.ModelsResponse{Object: "list"}
-		err := registry.Initialize(context.Background())
-		if err == nil {
-			t.Fatal("expected empty refresh to return an error")
+		// An empty upstream response keeps the last known inventory, so the
+		// sweep succeeds; the empty-list issue is recorded on the snapshot.
+		if err := registry.Initialize(context.Background()); err != nil {
+			t.Fatalf("expected empty refresh with retained inventory to succeed, got %v", err)
 		}
 
 		snapshots := registry.ProviderRuntimeSnapshots()
@@ -1857,3 +1862,135 @@ func TestGetCategoryCounts(t *testing.T) {
 
 // Verify ModelRegistry implements core.ModelLookup interface
 var _ core.ModelLookup = (*ModelRegistry)(nil)
+
+// TestInitialize_RetainsPreviousModelsWhenFetchFails verifies stale-while-
+// revalidate: a provider whose ListModels fails keeps serving its previous
+// inventory (bound to the current provider instance) while healthy providers
+// refresh, and the partial failure is recorded for the early-retry loop.
+func TestInitialize_RetainsPreviousModelsWhenFetchFails(t *testing.T) {
+	registry := NewModelRegistry()
+	healthy := &registryMockProvider{
+		modelsResponse: &core.ModelsResponse{
+			Object: "list",
+			Data:   []core.Model{{ID: "healthy-model", Object: "model", OwnedBy: "openai"}},
+		},
+	}
+	flaky := &registryMockProvider{
+		modelsResponse: &core.ModelsResponse{
+			Object: "list",
+			Data:   []core.Model{{ID: "flaky-model", Object: "model", OwnedBy: "vllm"}},
+		},
+	}
+	registry.RegisterProviderWithNameAndType(healthy, "healthy-primary", "openai")
+	registry.RegisterProviderWithNameAndType(flaky, "flaky-primary", "vllm")
+
+	if err := registry.Initialize(context.Background()); err != nil {
+		t.Fatalf("first Initialize() error = %v", err)
+	}
+	if registry.GetModel("flaky-model") == nil {
+		t.Fatal("expected flaky-model after first refresh")
+	}
+
+	flaky.err = errors.New("upstream down")
+	if err := registry.Initialize(context.Background()); err != nil {
+		t.Fatalf("second Initialize() error = %v", err)
+	}
+
+	info := registry.GetModel("flaky-model")
+	if info == nil {
+		t.Fatal("expected flaky-model to be retained after fetch failure")
+	}
+	if info.Provider != core.Provider(flaky) {
+		t.Error("retained model must be bound to the current provider instance")
+	}
+	if info.ProviderName != "flaky-primary" {
+		t.Errorf("retained model ProviderName = %q, want flaky-primary", info.ProviderName)
+	}
+	if got := registry.lastFailedProviders(); got != 1 {
+		t.Errorf("lastFailedProviders() = %d, want 1", got)
+	}
+
+	for _, snap := range registry.ProviderRuntimeSnapshots() {
+		if snap.Name != "flaky-primary" {
+			continue
+		}
+		if snap.DiscoveredModelCount != 1 {
+			t.Errorf("DiscoveredModelCount = %d, want 1 (retained)", snap.DiscoveredModelCount)
+		}
+		if snap.LastModelFetchError == "" {
+			t.Error("expected LastModelFetchError to record the failed refresh")
+		}
+	}
+
+	// A fully healthy refresh clears the failure count.
+	flaky.err = nil
+	if err := registry.Initialize(context.Background()); err != nil {
+		t.Fatalf("third Initialize() error = %v", err)
+	}
+	if got := registry.lastFailedProviders(); got != 0 {
+		t.Errorf("lastFailedProviders() = %d, want 0 after healthy refresh", got)
+	}
+	for _, snap := range registry.ProviderRuntimeSnapshots() {
+		if snap.Name == "flaky-primary" && snap.LastModelFetchError != "" {
+			t.Errorf("LastModelFetchError = %q, want cleared after healthy refresh", snap.LastModelFetchError)
+		}
+	}
+}
+
+// TestInitialize_AutoFetchDisabledStampsSuccess verifies that auto_fetch_models=false
+// resolves as a healthy refresh: only the configured models are registered, the
+// success timestamp is stamped, and no upstream_nil warning is emitted.
+func TestInitialize_AutoFetchDisabledStampsSuccess(t *testing.T) {
+	registry := NewModelRegistry()
+	provider := &registryMockProvider{
+		modelsResponse: &core.ModelsResponse{
+			Object: "list",
+			Data:   []core.Model{{ID: "upstream-model", Object: "model", OwnedBy: "vllm"}},
+		},
+	}
+	registry.RegisterProviderWithNameAndType(provider, "static-primary", "vllm")
+	registry.SetProviderConfiguredModels("static-primary", []string{"configured-only"})
+	registry.SetProviderAutoFetchModels("static-primary", false)
+
+	var buf bytes.Buffer
+	original := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	t.Cleanup(func() {
+		slog.SetDefault(original)
+	})
+
+	if err := registry.Initialize(context.Background()); err != nil {
+		t.Fatalf("Initialize() error = %v", err)
+	}
+
+	if registry.GetModel("configured-only") == nil {
+		t.Error("expected configured-only model to be registered")
+	}
+	if registry.GetModel("upstream-model") != nil {
+		t.Error("upstream model must not be registered when auto-fetch is disabled")
+	}
+	logs := buf.String()
+	if strings.Contains(logs, "upstream_nil") {
+		t.Errorf("auto-fetch-disabled refresh must not report upstream_nil:\n%s", logs)
+	}
+	if strings.Contains(logs, `"level":"WARN"`) {
+		t.Errorf("auto-fetch-disabled refresh must not log warnings:\n%s", logs)
+	}
+
+	var found bool
+	for _, snap := range registry.ProviderRuntimeSnapshots() {
+		if snap.Name != "static-primary" {
+			continue
+		}
+		found = true
+		if snap.LastModelFetchSuccessAt == nil {
+			t.Error("expected success timestamp for auto-fetch-disabled provider")
+		}
+		if snap.LastModelFetchError != "" {
+			t.Errorf("LastModelFetchError = %q, want empty", snap.LastModelFetchError)
+		}
+	}
+	if !found {
+		t.Error("expected a runtime snapshot for static-primary")
+	}
+}

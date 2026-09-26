@@ -213,6 +213,25 @@ type requestScope struct {
 	startedAt     time.Time
 	requestInfo   RequestInfo
 	halfOpenProbe bool
+	// breakerExcluded marks requests deliberately excluded from circuit-breaker
+	// accounting (model discovery). The breaker must not block periodic
+	// GET .../models refreshes while chat traffic is tripped, and a failed
+	// discovery call must not trip the breaker guarding chat traffic.
+	breakerExcluded bool
+}
+
+// isModelDiscoveryRequest reports whether req is a read-only model-listing
+// call. Every provider implementation lists models with a GET whose endpoint
+// ends in "/models" (possibly with a query string, e.g. "/models?limit=1000").
+func isModelDiscoveryRequest(req Request) bool {
+	if !strings.EqualFold(req.Method, http.MethodGet) {
+		return false
+	}
+	endpoint := req.Endpoint
+	if i := strings.IndexByte(endpoint, '?'); i >= 0 {
+		endpoint = endpoint[:i]
+	}
+	return strings.HasSuffix(endpoint, "/models")
 }
 
 func (c *Client) beginRequest(ctx context.Context, req Request, stream bool) (requestScope, error) {
@@ -232,7 +251,9 @@ func (c *Client) beginRequest(ctx context.Context, req Request, stream bool) (re
 		scope.ctx = c.config.Hooks.OnRequestStart(scope.ctx, scope.requestInfo)
 	}
 
-	if c.circuitBreaker != nil {
+	if isModelDiscoveryRequest(req) {
+		scope.breakerExcluded = true
+	} else if c.circuitBreaker != nil {
 		allowed, probe := c.circuitBreaker.acquire()
 		if !allowed {
 			err := core.NewProviderError(c.config.ProviderName, http.StatusServiceUnavailable,
@@ -263,10 +284,13 @@ func (c *Client) finishRequest(scope requestScope, statusCode int, err error) {
 
 // completeScope is the standard terminal step for a request that has passed
 // beginRequest. It records the circuit-breaker outcome (using cbErr to decide
-// whether the failure was transport-level) and emits the metrics observation.
+// whether the failure was transport-level) and emits the metrics observation,
+// except for discovery requests excluded from breaker accounting.
 // Use this whenever a code path returns from one of the public Do* methods.
 func (c *Client) completeScope(scope requestScope, statusCode int, err, cbErr error) {
-	c.recordCircuitBreakerCompletion(statusCode, cbErr)
+	if !scope.breakerExcluded {
+		c.recordCircuitBreakerCompletion(statusCode, cbErr)
+	}
 	c.finishRequest(scope, statusCode, err)
 }
 

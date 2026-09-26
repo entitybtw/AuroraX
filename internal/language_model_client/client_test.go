@@ -1692,3 +1692,87 @@ func TestBackoffCalculation_WithJitter(t *testing.T) {
 		}
 	}
 }
+
+// TestClient_ModelDiscoveryWorksWithOpenCircuitBreaker verifies that GET
+// .../models still reaches upstream while the circuit breaker guarding chat
+// traffic is open, and that the discovery call does not reset the breaker.
+func TestClient_ModelDiscoveryWorksWithOpenCircuitBreaker(t *testing.T) {
+	var modelsHits atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/models" {
+			modelsHits.Add(1)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"object":"list","data":[]}`))
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":{"message":"Server error"}}`))
+	}))
+	defer server.Close()
+
+	config := DefaultConfig("test", server.URL)
+	config.Retry.MaxRetries = 0
+	config.CircuitBreaker = goconfig.CircuitBreakerConfig{
+		FailureThreshold: 3,
+		SuccessThreshold: 1,
+		Timeout:          time.Minute,
+	}
+	client := New(config, nil)
+
+	for range 3 {
+		_ = client.Do(context.Background(), Request{
+			Method:   http.MethodPost,
+			Endpoint: "/chat/completions",
+		}, nil)
+	}
+	if state := client.circuitBreaker.State(); state != "open" {
+		t.Fatalf("circuit state = %q, want open", state)
+	}
+
+	var result struct {
+		Object string `json:"object"`
+	}
+	if err := client.Do(context.Background(), Request{
+		Method:   http.MethodGet,
+		Endpoint: "/models",
+	}, &result); err != nil {
+		t.Fatalf("model discovery with open circuit breaker: %v", err)
+	}
+	if got := modelsHits.Load(); got != 1 {
+		t.Fatalf("models endpoint hits = %d, want 1", got)
+	}
+	if state := client.circuitBreaker.State(); state != "open" {
+		t.Fatalf("circuit state = %q, want open (discovery must not record a success)", state)
+	}
+}
+
+// TestClient_ModelDiscoveryFailureDoesNotTripCircuitBreaker verifies that
+// failing model-discovery calls are not charged to the circuit breaker that
+// protects chat traffic.
+func TestClient_ModelDiscoveryFailureDoesNotTripCircuitBreaker(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":{"message":"Server error"}}`))
+	}))
+	defer server.Close()
+
+	config := DefaultConfig("test", server.URL)
+	config.Retry.MaxRetries = 0
+	config.CircuitBreaker = goconfig.CircuitBreakerConfig{
+		FailureThreshold: 1,
+		SuccessThreshold: 1,
+		Timeout:          time.Minute,
+	}
+	client := New(config, nil)
+
+	for range 3 {
+		_ = client.Do(context.Background(), Request{
+			Method:   http.MethodGet,
+			Endpoint: "/models",
+		}, nil)
+	}
+
+	if state := client.circuitBreaker.State(); state != "closed" {
+		t.Fatalf("circuit state = %q, want closed after discovery failures", state)
+	}
+}
