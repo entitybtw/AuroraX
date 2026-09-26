@@ -16,6 +16,7 @@ import {
   PlugZapIcon,
   PuzzleIcon,
   RefreshCwIcon,
+  RotateCcwIcon,
   SparklesIcon,
   Trash2Icon,
   UploadIcon,
@@ -36,6 +37,7 @@ import {
   listExtensionStores,
   renameExtension,
   reorderExtensions,
+  resetExtensionConfig,
   setExtensionSource,
   unapplyExtension,
   updateExtensionConfig,
@@ -209,6 +211,31 @@ export function ExtensionsTab(): JSX.Element {
       setResult({
         ok: false,
         message: `Could not save settings: ${err instanceof Error ? err.message : String(err)}`,
+        added: [],
+        kept: [],
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleResetConfig = async () => {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      await resetExtensionConfig(selected.id);
+      setConfigDraft({});
+      await invalidateExtensionQueries();
+      setResult({
+        ok: true,
+        message: `Reset settings of "${selected.name}" to defaults.`,
+        added: [],
+        kept: [],
+      });
+    } catch (err) {
+      setResult({
+        ok: false,
+        message: `Could not reset settings: ${err instanceof Error ? err.message : String(err)}`,
         added: [],
         kept: [],
       });
@@ -1087,7 +1114,22 @@ export function ExtensionsTab(): JSX.Element {
                   );
                 })}
               </div>
-              <div className="mt-3 flex justify-end">
+              <div className="mt-3 flex items-center justify-between gap-2">
+                {selected.source || savedStores.length > 0 ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleResetConfig()}
+                    disabled={busy}
+                    className="h-10 gap-1.5 sm:h-9"
+                    title="Clear saved overrides and restore the extension defaults"
+                  >
+                    <RotateCcwIcon className="h-3.5 w-3.5" />
+                    Reset to defaults
+                  </Button>
+                ) : (
+                  <span />
+                )}
                 <Button
                   size="sm"
                   onClick={handleSaveConfig}

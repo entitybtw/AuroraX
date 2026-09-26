@@ -125,6 +125,7 @@ func (h *Handler) RegisterRoutes(g RouteRegistrar) {
 	g.POST("/sidecar/extensions/:id/unapply", h.UnapplyExtension)
 	g.POST("/sidecar/extensions/:id/full-apply", h.FullApplyExtension)
 	g.PUT("/sidecar/extensions/:id/config", h.UpdateExtensionConfig)
+	g.POST("/sidecar/extensions/:id/config/reset", h.ResetExtensionConfig)
 	g.GET("/sidecar/extensions/:id/check-update", h.CheckExtensionUpdate)
 	g.POST("/sidecar/extensions/:id/update", h.UpdateExtensionFromSource)
 	g.GET("/addons", h.ListAddons)
