@@ -7,14 +7,14 @@ import { ProvidersTab } from "./ProvidersTab";
 /**
  * Colored OAuth keys: every applied extension that provides the "oauth"
  * feature renders its own key button tinted with that extension's accent
- * (OpenCode OAuth -> #E87040, Claude OAuth -> #D97757). With both activated
+ * (Device OAuth -> #E87040, Claude OAuth -> #D97757). With both activated
  * the row shows two keys sorted by color; with none the legacy accent key
  * stays as the fallback.
  */
 
-const openCodeOAuth = {
-  id: "opencode-oauth",
-  name: "OpenCode OAuth",
+const deviceOAuth = {
+  id: "device-oauth",
+  name: "Device OAuth",
   type: "sidecar",
   builtin: false,
   applied: true,
@@ -38,7 +38,7 @@ const claudeOAuth = {
 
 const oauthProvidersFixture = [
   { name: "claude", flow: "authorization_code", has_token: false, expired: false },
-  { name: "opencode-zen", flow: "device", has_token: false, expired: false },
+  { name: "zen-pool", flow: "device", has_token: false, expired: false },
 ];
 
 const providerFixture = [
@@ -114,10 +114,10 @@ describe("OAuth keys colored per enabled extension", () => {
   });
 
   it("shows two tinted keys when both OAuth extensions are applied", async () => {
-    renderTab([openCodeOAuth, claudeOAuth]);
-    const openCodeKey = await screen.findByTitle("Link OAuth account via OpenCode OAuth");
+    renderTab([deviceOAuth, claudeOAuth]);
+    const deviceKey = await screen.findByTitle("Link OAuth account via Device OAuth");
     const claudeKey = await screen.findByTitle("Link OAuth account via Claude OAuth");
-    expect((openCodeKey as HTMLElement).style.color.toLowerCase()).toBe("#e87040");
+    expect((deviceKey as HTMLElement).style.color.toLowerCase()).toBe("#e87040");
     expect((claudeKey as HTMLElement).style.color.toLowerCase()).toBe("#d97757");
   });
 
@@ -126,7 +126,7 @@ describe("OAuth keys colored per enabled extension", () => {
     const claudeKey = await screen.findByTitle("Link OAuth account via Claude OAuth");
     expect((claudeKey as HTMLElement).style.color.toLowerCase()).toBe("#d97757");
     await waitFor(() => {
-      expect(screen.queryByTitle("Link OAuth account via OpenCode OAuth")).toBeNull();
+      expect(screen.queryByTitle("Link OAuth account via Device OAuth")).toBeNull();
     });
   });
 

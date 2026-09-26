@@ -18,7 +18,7 @@ import (
 
 // ClientConfig holds configuration options for creating HTTP clients
 type ClientConfig struct {
-	// UseUTLS enables uTLS fingerprint impersonation (Chrome) to bypass
+	// UseUTLS enables uTLS fingerprint impersonation (Chrome) to avoid
 	// JA3-based TLS fingerprinting used by some providers.
 	UseUTLS bool
 	// MaxIdleConns controls the maximum number of idle (keep-alive) connections across all hosts
@@ -55,7 +55,7 @@ type ClientConfig struct {
 	// HTTPSProxy configures an explicit proxy for https:// upstream requests.
 	HTTPSProxy string
 
-	// NoProxy is a comma-separated host list that bypasses configured proxies.
+	// NoProxy is a comma-separated host list that skips configured proxies.
 	NoProxy string
 
 	// CACertPEM appends a custom CA certificate for TLS interception proxies.

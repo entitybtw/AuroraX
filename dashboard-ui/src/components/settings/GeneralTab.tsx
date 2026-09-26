@@ -293,7 +293,7 @@ export function GeneralTab(): JSX.Element {
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <ToggleField
                 label="Apply to streaming requests"
-                description="When disabled, streaming chat completions bypass compression."
+                description="When disabled, streaming chat completions skip compression."
                 checked={tokenSaver.apply_streaming}
                 onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, apply_streaming: checked } })}
                 aria-label="Apply to streaming requests"

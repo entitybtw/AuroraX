@@ -405,7 +405,7 @@ func TestApplyProviderEnvVars_IgnoresReservedSidecarSuffix(t *testing.T) {
 		}
 	}
 
-	// A suffixed free-tier provider from the optional extension type still works.
+	// A suffixed provider from the optional extension type still works.
 	t.Setenv("CLI_EMULATION_MAIN_BASE_URL", "https://zen.example.com/v1")
 	got = applyProviderEnvVars(map[string]config.RawProviderConfig{}, testDiscoveryConfigs)
 	if _, exists := got["cli-emulation-main"]; !exists {

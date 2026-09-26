@@ -477,12 +477,12 @@ func TestSimpleCacheMiddleware_SkipsPartialTranslatedPlan(t *testing.T) {
 		rec := httptest.NewRecorder()
 		e.ServeHTTP(rec, req)
 		if rec.Header().Get("X-Cache") != "" {
-			t.Fatalf("partial translated plan should bypass cache, got X-Cache=%q", rec.Header().Get("X-Cache"))
+			t.Fatalf("partial translated plan should skip cache, got X-Cache=%q", rec.Header().Get("X-Cache"))
 		}
 	}
 
 	if callCount != 2 {
-		t.Fatalf("partial translated plans should bypass cache, handler called %d times", callCount)
+		t.Fatalf("partial translated plans should skip cache, handler called %d times", callCount)
 	}
 }
 
@@ -530,12 +530,12 @@ func TestSimpleCacheMiddleware_SkipsWhenWorkflowDisablesCache(t *testing.T) {
 		rec := httptest.NewRecorder()
 		e.ServeHTTP(rec, req)
 		if rec.Header().Get("X-Cache") != "" {
-			t.Fatalf("cache-disabled plan should bypass cache, got X-Cache=%q", rec.Header().Get("X-Cache"))
+			t.Fatalf("cache-disabled plan should skip cache, got X-Cache=%q", rec.Header().Get("X-Cache"))
 		}
 	}
 
 	if callCount != 2 {
-		t.Fatalf("cache-disabled plan should bypass cache, handler called %d times", callCount)
+		t.Fatalf("cache-disabled plan should skip cache, handler called %d times", callCount)
 	}
 }
 
@@ -591,7 +591,7 @@ func TestSimpleCacheMiddleware_UsesCapturedSnapshotBodyWithoutReadingLiveBody(t 
 	}
 }
 
-func TestSimpleCacheMiddleware_BypassesCacheWhenBodyWasNotCaptured(t *testing.T) {
+func TestSimpleCacheMiddleware_SkipsCacheWhenBodyWasNotCaptured(t *testing.T) {
 	store := cache.NewMapStore()
 	defer store.Close()
 	mw := NewResponseCacheMiddlewareWithStore(store, time.Hour)
@@ -629,16 +629,16 @@ func TestSimpleCacheMiddleware_BypassesCacheWhenBodyWasNotCaptured(t *testing.T)
 			t.Fatalf("request %d: got status %d", i+1, rec.Code)
 		}
 		if got := rec.Header().Get("X-Cache"); got != "" {
-			t.Fatalf("expected uncaptured-body request to bypass cache, got X-Cache=%q", got)
+			t.Fatalf("expected uncaptured-body request to skip cache, got X-Cache=%q", got)
 		}
 	}
 
 	if callCount != 2 {
-		t.Fatalf("expected uncaptured-body requests to bypass cache, handler called %d times", callCount)
+		t.Fatalf("expected uncaptured-body requests to skip cache, handler called %d times", callCount)
 	}
 }
 
-func TestSimpleCacheMiddleware_BypassesCacheWithoutWorkflow(t *testing.T) {
+func TestSimpleCacheMiddleware_SkipsCacheWithoutWorkflow(t *testing.T) {
 	store := cache.NewMapStore()
 	defer store.Close()
 	mw := NewResponseCacheMiddlewareWithStore(store, time.Hour)
@@ -661,12 +661,12 @@ func TestSimpleCacheMiddleware_BypassesCacheWithoutWorkflow(t *testing.T) {
 			t.Fatalf("request %d: got status %d", i+1, rec.Code)
 		}
 		if got := rec.Header().Get("X-Cache"); got != "" {
-			t.Fatalf("expected nil-plan request to bypass cache, got X-Cache=%q", got)
+			t.Fatalf("expected nil-plan request to skip cache, got X-Cache=%q", got)
 		}
 	}
 
 	if callCount != 2 {
-		t.Fatalf("expected nil-plan requests to bypass cache, handler called %d times", callCount)
+		t.Fatalf("expected nil-plan requests to skip cache, handler called %d times", callCount)
 	}
 }
 
@@ -852,7 +852,7 @@ func TestSimpleCacheMiddleware_SkipsNoCache(t *testing.T) {
 	rec2 := httptest.NewRecorder()
 	e.ServeHTTP(rec2, req2)
 	if callCount != 2 {
-		t.Fatalf("no-cache requests should bypass cache, handler called %d times", callCount)
+		t.Fatalf("no-cache requests should skip cache, handler called %d times", callCount)
 	}
 }
 

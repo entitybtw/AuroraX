@@ -201,7 +201,7 @@ type RawProviderConfig struct {
 	// Useful when an OAuth token supersedes the key.
 	DisableAPIKey bool `yaml:"disable_api_key,omitempty"`
 	// UseUTLS enables uTLS fingerprint impersonation for the HTTP client.
-	// Useful for bypassing JA3-based TLS fingerprinting.
+	// Useful for JA3-based TLS fingerprint impersonation.
 	UseUTLS bool `yaml:"use_utls,omitempty"`
 	// SidecarURL routes requests through a local extension-driven sidecar (Bun)
 	// instead of contacting the upstream directly. The sidecar reproduces the

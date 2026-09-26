@@ -172,7 +172,7 @@ func (m *ResponseCacheMiddleware) HandleRequest(c *echo.Context, body []byte, ne
 	}
 	if ShouldSkipAllCache(c.Request()) {
 		if debugMode(c.Request()) {
-			attachDebugHeaders(c, debugMeta{Layer: "none", MissReason: "bypass"})
+			attachDebugHeaders(c, debugMeta{Layer: "none", MissReason: "skip"})
 		}
 		return next()
 	}
@@ -219,7 +219,7 @@ func (m *ResponseCacheMiddleware) DebugRequest(ctx context.Context, method, path
 	info := &DebugInfo{Path: path, Streaming: isStreamingRequest(path, body)}
 	if ShouldSkipAllCache(req) {
 		info.Cacheable = false
-		info.MissReason = "bypass"
+		info.MissReason = "skip"
 		return info, nil
 	}
 	if !cacheablePaths[path] || req.Method != http.MethodPost {

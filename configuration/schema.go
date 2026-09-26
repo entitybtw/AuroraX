@@ -111,7 +111,7 @@ var knownDescriptions = map[string]string{
 	"HTTP_RESPONSE_HEADER_TIMEOUT":      "Time to wait for upstream response headers in seconds",
 	"HTTP_PROXY":                        "HTTP proxy for outbound upstream requests",
 	"HTTPS_PROXY":                       "HTTPS proxy for outbound upstream requests",
-	"NO_PROXY":                          "Comma-separated hosts to bypass proxy",
+	"NO_PROXY":                          "Comma-separated hosts to skip the proxy",
 	"WORKFLOW_REFRESH_INTERVAL":         "How often to refresh persisted workflows from storage",
 	"FEATURE_FALLBACK_MODE":             "Default translated-route fallback mode: auto, manual, or off",
 	"FALLBACK_MANUAL_RULES_PATH":        "Path to manual fallback rules JSON file",

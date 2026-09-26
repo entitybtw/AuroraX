@@ -314,7 +314,7 @@ func TestApplyExtension_ConfiguresOAuthOnMatchingProviders(t *testing.T) {
 	overrides := NewProviderOverrideStore()
 	zend := true
 	overrides.upsert(ProviderOverride{
-		Name:    "free-tier-main",
+		Name:    "public-tier-main",
 		Type:    "vllm",
 		BaseURL: "https://zen.example.com/v1",
 		Enabled: &zend,
@@ -329,7 +329,7 @@ func TestApplyExtension_ConfiguresOAuthOnMatchingProviders(t *testing.T) {
 	store := NewExtensionStore()
 	ext := Extension{
 		ID:      "cli-emulation",
-		Name:    "Free Tier Bypass",
+		Name:    "Public Tier Profile",
 		BaseURL: "https://zen.example.com/v1",
 		OAuth: &ExtensionOAuth{
 			Server:           "https://auth.example.com/device",
@@ -367,16 +367,16 @@ func TestApplyExtension_ConfiguresOAuthOnMatchingProviders(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if len(body.OAuthProviders) != 1 || body.OAuthProviders[0] != "free-tier-main" {
-		t.Fatalf("oauth_providers = %v, want [free-tier-main]", body.OAuthProviders)
+	if len(body.OAuthProviders) != 1 || body.OAuthProviders[0] != "public-tier-main" {
+		t.Fatalf("oauth_providers = %v, want [public-tier-main]", body.OAuthProviders)
 	}
 
-	matched, ok := overrides.get("free-tier-main")
+	matched, ok := overrides.get("public-tier-main")
 	if !ok {
-		t.Fatal("free-tier override missing")
+		t.Fatal("public-tier override missing")
 	}
 	if matched.AuthMethod != "oauth" || matched.OAuthServer != "https://auth.example.com/device" || matched.OAuthClientID != "aurora-cli" {
-		t.Fatalf("free-tier oauth not applied: %+v", matched)
+		t.Fatalf("public-tier oauth not applied: %+v", matched)
 	}
 	other, _ := overrides.get("openrouter-main")
 	if other.AuthMethod == "oauth" {
@@ -417,7 +417,7 @@ func TestApplyExtension_StampsClientProfileOnPoolProviders(t *testing.T) {
 	store := NewExtensionStore()
 	ext := Extension{
 		ID:        "cli-emulation",
-		Name:      "Free Tier Bypass",
+		Name:      "Public Tier Profile",
 		BaseURL:   "https://zen.example.com/v1",
 		UserAgent: "cli/1.0 runtime/bun/1.3.14",
 		Settings:  map[string]string{"sidecar_url": "http://127.0.0.1:8090/v1"},

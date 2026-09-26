@@ -73,7 +73,7 @@ func (r *ModelRegistry) setModelListAndEnrich(list *modeldata.ModelList, raw jso
 }
 
 // ResolveMetadata resolves metadata for a model directly via the stored model list,
-// bypassing the registry key lookup. This handles cases where the usage DB stores
+// skipping the registry key lookup. This handles cases where the usage DB stores
 // a response model ID (e.g., "gpt-4o-2024-08-06") that differs from the registry
 // key (e.g., "gpt-4o") by using the reverse index in the model list.
 func (r *ModelRegistry) ResolveMetadata(providerType, modelID string) *core.ModelMetadata {

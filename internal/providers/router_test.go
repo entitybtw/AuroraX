@@ -642,7 +642,7 @@ func TestRouterChatCompletion_PrefersProviderTypeSelectorOverRawSlashModel(t *te
 		t.Fatalf("expected provider field to be stripped upstream, got %q", openAI.lastChatReq.Provider)
 	}
 	if openRouter.lastChatReq != nil {
-		t.Fatalf("expected openrouter provider to be bypassed, got %#v", openRouter.lastChatReq)
+		t.Fatalf("expected openrouter provider to be skipped, got %#v", openRouter.lastChatReq)
 	}
 	if got := router.GetProviderType("openai/gpt-5-nano"); got != "openai" {
 		t.Fatalf("GetProviderType() = %q, want %q", got, "openai")

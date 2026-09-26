@@ -2,7 +2,7 @@
 //
 // The adapter now runs requests in-process via execute.js. This wrapper stays
 // for operators who opt into strict per-request process isolation with
-// AURORA_SIDECAR_ISOLATED=true (reusing a connection can make some free tiers
+// AURORA_SIDECAR_ISOLATED=true (reusing a connection can make some upstreams
 // reject subsequent requests).
 //
 // Tool injection is scoped by AURORA_SIDECAR_INJECT_TOOLS (set by adapter

@@ -136,7 +136,7 @@ func (e *InternalChatCompletionExecutor) executeChatCompletion(
 
 	body, err := json.Marshal(req)
 	if err != nil {
-		slog.Warn("json.Marshal(req) failed; bypassing cache", "err", err)
+		slog.Warn("json.Marshal(req) failed; skipping cache", "err", err)
 		return e.dispatchChatCompletionNoCache(ctx, workflow, req)
 	}
 

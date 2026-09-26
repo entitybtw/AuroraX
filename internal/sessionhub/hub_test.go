@@ -86,7 +86,7 @@ func TestHubApply_PoolBoundRuleAppliesToMember(t *testing.T) {
 	h := New(&HubConfig{
 		Enabled: true,
 		Providers: map[string]ProviderRule{
-			"free-tier-pool": {
+			"public-pool": {
 				Enabled: true,
 				Headers: []HeaderRule{{
 					Name:   "x-session-ext",
@@ -97,7 +97,7 @@ func TestHubApply_PoolBoundRuleAppliesToMember(t *testing.T) {
 			},
 		},
 	})
-	h.SetPoolMembership("free-tier-pool", []string{"acc1", "acc2"})
+	h.SetPoolMembership("public-pool", []string{"acc1", "acc2"})
 
 	hd := http.Header{}
 	hd.Set("x-session-ext", "ses_inbound_pool")
@@ -119,7 +119,7 @@ func TestHubPersistenceRoundTrip(t *testing.T) {
 	cfg := &HubConfig{
 		Enabled: true,
 		Providers: map[string]ProviderRule{
-			"free-tier": {
+			"public-tier": {
 				Enabled: true,
 				Headers: []HeaderRule{{
 					Name:   "x-session-ext",
@@ -138,8 +138,8 @@ func TestHubPersistenceRoundTrip(t *testing.T) {
 
 	// Load into a fresh hub from disk
 	h2 := NewWithPersistence(path, path+".map", nil)
-	if _, ok := h2.Config().Providers["free-tier"]; !ok {
-		t.Fatal("persisted rule free-tier missing after reload")
+	if _, ok := h2.Config().Providers["public-tier"]; !ok {
+		t.Fatal("persisted rule public-tier missing after reload")
 	}
 	rule, ok := h2.Config().Providers["acc2"]
 	if !ok || len(rule.Headers) == 0 || rule.Headers[0].Value != "client/1.0" {

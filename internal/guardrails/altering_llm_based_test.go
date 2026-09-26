@@ -175,7 +175,7 @@ func TestLLMBasedAltering_Process_SkipsPrefix(t *testing.T) {
 		t.Fatalf("Content = %q, want unchanged", got[0].Content)
 	}
 	if called {
-		t.Fatal("expected skip prefix to bypass auxiliary executor")
+		t.Fatal("expected skip prefix to skip the auxiliary executor")
 	}
 }
 

@@ -506,7 +506,7 @@ func TestSemanticCacheMiddleware_InvalidStreamingBodySkipsSemanticCacheWrite(t *
 		t.Fatalf("invalid streaming body should not be cached, got X-Cache=%q", got)
 	}
 	if handlerCalls != 2 {
-		t.Fatalf("expected invalid stream to bypass semantic cache on follow-up, got %d calls", handlerCalls)
+		t.Fatalf("expected invalid stream to skip semantic cache on follow-up, got %d calls", handlerCalls)
 	}
 }
 

@@ -422,7 +422,7 @@ export function ProvidersTab(): JSX.Element {
   });
   const oauthEnabled = Array.isArray(oauthProviders);
 
-  // Applied extensions that provide the oauth feature (OpenCode OAuth,
+  // Applied extensions that provide the oauth feature (device-flow auth,
   // Claude OAuth, …). Each carries its own accent so the link control can
   // render one colored key per enabled flow.
   const { data: oauthExtensions = [] } = useQuery({

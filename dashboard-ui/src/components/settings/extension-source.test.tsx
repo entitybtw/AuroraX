@@ -12,8 +12,8 @@ import { ExtensionUIProvider } from "@/lib/extensions/ui-context";
 
 function makeExtension(source: string) {
   return {
-    id: "opencode",
-    name: "OpenCode CLI Emulation",
+    id: "cli-profile",
+    name: "CLI Profile",
     type: "sidecar",
     builtin: false,
     applied: false,
@@ -48,7 +48,7 @@ describe("ExtensionsTab sync source editing", () => {
           headers: { "Content-Type": "application/json" },
         });
 
-      if (method === "PUT" && url.endsWith("/extensions/opencode")) {
+      if (method === "PUT" && url.endsWith("/extensions/cli-profile")) {
         const parsed = JSON.parse(String(init?.body ?? "{}")) as { source?: string };
         putBody = parsed;
         if (typeof parsed.source === "string") source = parsed.source;
@@ -56,8 +56,8 @@ describe("ExtensionsTab sync source editing", () => {
       }
       if (url.includes("/check-update")) {
         return json({
-          id: "opencode",
-          source: source || "https://store.example.com/extensions/opencode.extension.json",
+          id: "cli-profile",
+          source: source || "https://store.example.com/extensions/cli-profile.extension.json",
           current_version: "1",
           remote_version: "2",
           update_available: true,

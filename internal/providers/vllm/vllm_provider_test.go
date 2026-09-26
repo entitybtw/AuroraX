@@ -215,14 +215,14 @@ func TestPassthrough_UsesV1ForOpenAICompatibleEndpointsWhenBaseURLIncludesV1(t *
 
 func TestResolveSidecarURL_FreeTierUsesEnvGenericDoesNot(t *testing.T) {
 	t.Setenv("AURORA_SIDECAR_BASE_URL", "http://127.0.0.1:8090/v1")
-	// Free-tier origins are detected via the extension-configured sidecar
+	// Upstream origins are detected via the extension-configured sidecar
 	// base_url (sidecar-overrides.json), never a hardcoded origin.
 	t.Setenv("AURORA_SIDECAR_OVERRIDES_PATH", writeSidecarOverrides(t,
 		`{"base_url":"https://zen.example.com/v1"}`))
 
 	routed := resolveSidecarURL(providers.ProviderConfig{BaseURL: "https://zen.example.com/v1"})
 	if routed != "http://127.0.0.1:8090/v1" {
-		t.Fatalf("free-tier sidecar = %q, want env sidecar", routed)
+		t.Fatalf("extension sidecar = %q, want env sidecar", routed)
 	}
 
 	generic := resolveSidecarURL(providers.ProviderConfig{BaseURL: "https://cheapvibecode.ru/v1"})

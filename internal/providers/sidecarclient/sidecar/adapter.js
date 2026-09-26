@@ -2,7 +2,7 @@
 //
 // Upstream traffic can be routed through this sidecar when an extension
 // supplies the base URL, User-Agent, auth and tool scope. It exists because
-// some free tiers fingerprint the TLS handshake and only accept Bun's
+// some upstreams fingerprint the TLS handshake and only accept Bun's
 // BoringSSL ClientHello (plus the full upstream tool schema), which a Go
 // binary cannot reproduce. Credentials are forwarded untouched.
 //

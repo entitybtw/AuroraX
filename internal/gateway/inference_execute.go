@@ -186,7 +186,7 @@ func (o *InferenceOrchestrator) routeMetadata(workflow *core.Workflow, fallbackM
 	return providerType, providerName, model
 }
 
-// CanFastPathChatPassthrough reports whether a chat request can bypass
+// CanFastPathChatPassthrough reports whether a chat request can skip
 // translation and proxy the provider-native OpenAI-compatible payload.
 func (o *InferenceOrchestrator) CanFastPathChatPassthrough(workflow *core.Workflow, req *core.ChatRequest, stream bool) bool {
 	if req == nil || req.Stream != stream {
@@ -216,7 +216,7 @@ func (o *InferenceOrchestrator) CanFastPathChatPassthrough(workflow *core.Workfl
 	return true
 }
 
-// CanFastPathStreamingChatPassthrough reports whether a streaming chat request can bypass translation.
+// CanFastPathStreamingChatPassthrough reports whether a streaming chat request can skip translation.
 func (o *InferenceOrchestrator) CanFastPathStreamingChatPassthrough(workflow *core.Workflow, req *core.ChatRequest) bool {
 	return o.CanFastPathChatPassthrough(workflow, req, true)
 }

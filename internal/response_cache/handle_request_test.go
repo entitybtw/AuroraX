@@ -676,7 +676,7 @@ func TestHandleRequest_GatewayTimeoutDoesNotPopulateSemanticCache(t *testing.T) 
 	}
 }
 
-func TestHandleRequest_CacheControlNoCacheBypassesAllLayers(t *testing.T) {
+func TestHandleRequest_CacheControlNoCacheSkipsAllLayers(t *testing.T) {
 	store := cache.NewMapStore()
 	defer store.Close()
 
@@ -726,7 +726,7 @@ func TestHandleRequest_CacheControlNoCacheBypassesAllLayers(t *testing.T) {
 
 	rec2 := run("no-cache")
 	if got := rec2.Header().Get("X-Cache"); got != "" {
-		t.Fatalf("no-cache request should bypass cache, got X-Cache=%q", got)
+		t.Fatalf("no-cache request should skip cache, got X-Cache=%q", got)
 	}
 	if !bytes.Contains(rec2.Body.Bytes(), []byte(`"n":2`)) {
 		t.Fatalf("no-cache response body = %q, want fresh handler response", rec2.Body.String())
@@ -1073,7 +1073,7 @@ func TestHandleRequest_InvalidStreamingBodySkipsExactCacheWrite(t *testing.T) {
 		t.Fatalf("invalid streaming body should not be cached, got X-Cache=%q", got)
 	}
 	if handlerCalls != 2 {
-		t.Fatalf("expected invalid stream to bypass cache on follow-up, got %d calls", handlerCalls)
+		t.Fatalf("expected invalid stream to skip cache on follow-up, got %d calls", handlerCalls)
 	}
 }
 

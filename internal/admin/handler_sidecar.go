@@ -95,7 +95,7 @@ func NewSidecarOverrideStore() *SidecarOverrideStore {
 			Port:        8090,
 			InjectTools: true,
 			// Empty inject_tool_types allows all provider types. vllm is
-			// listed because free-tier pool members report type "vllm".
+			// listed because pool members report type "vllm".
 			InjectToolTypes: []string{"cli-emulation", "vllm", ""},
 			DefaultAuth:     "Bearer public",
 			// Empty default: the applied extension supplies the required UA.

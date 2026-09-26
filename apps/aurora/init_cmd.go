@@ -847,7 +847,7 @@ TOKEN_SAVER_ENABLED=true
 # HTTP/HTTPS proxy for outbound requests to LLM providers
 # HTTP_PROXY=http://proxy:8080
 # HTTPS_PROXY=http://proxy:8080
-# Comma-separated hosts to bypass the proxy
+# Comma-separated hosts to skip the proxy
 # NO_PROXY=localhost,127.0.0.1
 
 # ═══════════════════════════════════════════════════════════════════════════

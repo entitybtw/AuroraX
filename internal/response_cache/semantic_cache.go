@@ -95,14 +95,14 @@ func (m *semanticCacheMiddleware) Handle(c *echo.Context, body []byte, next func
 
 	vec, err := m.embedder.Embed(ctx, embedText)
 	if err != nil {
-		slog.Warn("semantic cache: embed failed, bypassing", "err", err)
+		slog.Warn("semantic cache: embed failed, continuing", "err", err)
 		return next()
 	}
 
 	results, err := m.store.Search(ctx, vec, paramsHash, 1)
 	if err != nil {
 		attachDebugHeaders(c, debugMeta{Layer: "none", SemanticParamsKey: paramsHash, SemanticThreshold: threshold, MissReason: "search_failed"})
-		slog.Warn("semantic cache: search failed, bypassing", "err", err)
+		slog.Warn("semantic cache: search failed, continuing", "err", err)
 		return next()
 	}
 

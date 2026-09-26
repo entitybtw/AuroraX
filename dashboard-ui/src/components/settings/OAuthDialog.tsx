@@ -499,7 +499,7 @@ export function OAuthDialog({
                   </span>
                 </div>
               )}
-              <Pill tone="success">Free tier enabled</Pill>
+              <Pill tone="success">Standard plan enabled</Pill>
             </div>
             <div className="flex items-center gap-2 mt-3 pt-3 border-t">
               <Button

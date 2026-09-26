@@ -30,7 +30,7 @@ func envSidecarURL() string {
 
 // resolveSidecarURL returns the sidecar base URL for this provider.
 // A provider-level sidecar_url always wins. The environment sidecar is only
-// used for free-tier origins that require the local sidecar for TLS
+// used for upstream origins that require the local sidecar for TLS
 // fingerprinting (detected by matching the extension-configured sidecar
 // base_url). Generic vLLM endpoints and any other origin without a sidecar
 // URL go direct. Routing every vLLM provider through the local sidecar

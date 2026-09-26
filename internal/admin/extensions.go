@@ -1353,7 +1353,7 @@ func (h *Handler) buildApplyResponse(c *echo.Context) (map[string]any, Extension
 
 	// Client emulation profile (User-Agent + TLS-fingerprint sidecar URL) is
 	// stamped onto the providers this extension targets so a pool of
-	// free-tier instances all egress with the emulated client fingerprint.
+	// pool instances all egress with the emulated client fingerprint.
 	profileProviders := h.applyExtensionClientProfile(c, ext)
 
 	tools := make([]string, 0, len(ext.Tools))
@@ -1406,7 +1406,7 @@ func extensionProvidesFeature(p *ExtensionProvides, name string) bool {
 // applyExtensionClientProfile stamps an extension's client emulation profile
 // (User-Agent and TLS-fingerprint sidecar URL) onto the providers it targets:
 // type ∈ provides.provider_types, or base_url equals the extension base_url
-// (e.g. the free-tier pool instances behind opencode-zen). Values come from
+// (e.g. the pool instances behind this extension's base_url). Values come from
 // the extension itself or its settings map, so the gateway hardcodes no client
 // fingerprint. Returns updated provider names.
 func (h *Handler) applyExtensionClientProfile(c *echo.Context, ext Extension) []string {
@@ -1471,7 +1471,7 @@ func (h *Handler) applyExtensionClientProfile(c *echo.Context, ext Extension) []
 
 // applyExtensionOAuth enables auth_method=oauth on providers that this
 // extension targets: type ∈ provides.provider_types, or base_url equals the
-// extension base_url (e.g. free-tier pool instances). OAuth server /
+// extension base_url (e.g. pool instances). OAuth server /
 // client_id come from extension.oauth. Returns updated provider names.
 // No-op when the extension does not declare provides.features "oauth".
 func (h *Handler) applyExtensionOAuth(c *echo.Context, ext Extension) []string {

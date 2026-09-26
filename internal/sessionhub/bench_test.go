@@ -9,13 +9,13 @@ func BenchmarkApplyHit(b *testing.B) {
 	cfg := &HubConfig{
 		Enabled: true,
 		Providers: map[string]ProviderRule{
-			"free-tier": {Enabled: true, Headers: []HeaderRule{{
+			"public-tier": {Enabled: true, Headers: []HeaderRule{{
 				Name: "x-session-ext", Mode: HeaderModeMap, Prefix: "ses_", Length: 28,
 			}}},
 		},
 	}
 	h := New(cfg)
-	h.SetPoolMembership("free-tier", []string{"acc1", "acc2", "acc3"})
+	h.SetPoolMembership("public-tier", []string{"acc1", "acc2", "acc3"})
 	inbound := "ses_hello"
 	b.ReportAllocs()
 	b.ResetTimer()

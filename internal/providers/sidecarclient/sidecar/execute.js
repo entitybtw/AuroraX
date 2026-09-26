@@ -3,7 +3,7 @@
 // Extracted from one-shot.js so the adapter can run a request inline instead
 // of spawning a fresh Bun process per request. A fresh connection is still
 // enforced (Connection: close) because reusing the upstream socket makes some
-// free tiers reject subsequent requests.
+// upstreams reject subsequent requests.
 //
 // Tool injection is scoped by AURORA_SIDECAR_INJECT_TOOLS (set by adapter
 // from overrides + provider type). When enabled and the body has no tools,

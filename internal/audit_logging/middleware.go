@@ -280,7 +280,7 @@ type responseBodyCapture struct {
 
 func (r *responseBodyCapture) Write(b []byte) (int, error) {
 	// Write to the capture buffer (limit to MaxBodyCapture to avoid memory issues).
-	// Streaming responses bypass this path once marked or identified as SSE.
+	// Streaming responses skip this path once marked or identified as SSE.
 	if r.captureEnabled() && !r.truncated {
 		remaining := int(MaxBodyCapture) - r.body.Len()
 		if remaining > 0 {

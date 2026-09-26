@@ -17,8 +17,8 @@ const themeExt = {
   },
 };
 const sidecarExt = {
-  id: "opencode",
-  name: "Opencode CLI Emulation",
+  id: "cli-profile",
+  name: "CLI Profile",
   type: "sidecar",
   builtin: false,
   applied: false,
@@ -57,7 +57,7 @@ describe("theme selection hides target input", () => {
 
     // Switch to the sidecar extension -> target input appears.
     const cards = screen.getAllByRole("button");
-    const sidecarCard = cards.find((b) => b.textContent?.includes("Opencode CLI Emulation"));
+    const sidecarCard = cards.find((b) => b.textContent?.includes("CLI Profile"));
     expect(sidecarCard).toBeTruthy();
     sidecarCard!.click();
 

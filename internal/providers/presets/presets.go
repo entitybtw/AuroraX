@@ -39,7 +39,7 @@ func DetectPreset(name, providerType, baseURL string) (*Preset, bool) {
 }
 
 // builtInPresets contains the full list of provider presets. Extensions may
-// contribute additional presets at runtime; third-party free-tier presets are
+// contribute additional presets at runtime; third-party presets are
 // intentionally not built-in and ship with their store extensions.
 var builtInPresets = []Preset{
 	{

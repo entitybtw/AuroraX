@@ -10,7 +10,7 @@ import (
 )
 
 // NewBenchHTTPHandler creates an http.Handler that routes to the mock provider.
-// This is a minimal handler that bypasses the full gateway server stack,
+// This is a minimal handler that skips the full gateway server stack,
 // useful for in-process benchmarks without importing the server package.
 func NewBenchHTTPHandler(mock *MockProvider) http.Handler {
 	mux := http.NewServeMux()

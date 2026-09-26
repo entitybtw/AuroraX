@@ -5,11 +5,11 @@ import (
 	"testing"
 )
 
-func TestPoolBypass_AppliesHeadersToMembers(t *testing.T) {
+func TestPoolMembers_AppliesHeadersToMembers(t *testing.T) {
 	hubCfg := &HubConfig{
 		Enabled: true,
 		Providers: map[string]ProviderRule{
-			"free-tier": {
+			"public-tier": {
 				Enabled: true,
 				Headers: []HeaderRule{
 					{Name: "x-session-ext", Mode: HeaderModeMapOrGenerate, Prefix: "ses_", Length: 26, Charset: "hex"},
@@ -19,7 +19,7 @@ func TestPoolBypass_AppliesHeadersToMembers(t *testing.T) {
 		},
 	}
 	h := New(hubCfg)
-	h.SetPoolMembership("free-tier", []string{
+	h.SetPoolMembership("public-tier", []string{
 		"vllm-ft-main", "vllm-ft-backup", "vllm-ft-backup-2",
 		"vllm-ft-backup-3", "vllm-ft-backup-4", "vllm-ft-backup-5",
 	})
@@ -39,9 +39,9 @@ func TestPoolBypass_AppliesHeadersToMembers(t *testing.T) {
 
 	// Apply for the pool itself
 	headers2 := http.Header{}
-	result2 := h.Apply(headers2, "free-tier")
+	result2 := h.Apply(headers2, "public-tier")
 	if result2 == nil {
-		t.Fatal("Apply returned nil for pool name free-tier")
+		t.Fatal("Apply returned nil for pool name public-tier")
 	}
 
 	// Apply for an unrelated provider

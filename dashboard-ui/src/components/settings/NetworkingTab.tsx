@@ -94,7 +94,7 @@ export function NetworkingTab(): JSX.Element {
                 value={dashboardSettings.proxy.no_proxy}
                 onChange={e => setDashboardSettings({ ...dashboardSettings, proxy: { ...dashboardSettings.proxy, no_proxy: e.target.value } })}
               />
-              <div className="mt-1 text-[12px] text-muted-foreground">Comma-separated hosts to bypass the proxy.</div>
+              <div className="mt-1 text-[12px] text-muted-foreground">Comma-separated hosts to skip the proxy.</div>
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <ToggleField

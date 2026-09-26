@@ -10,7 +10,6 @@ export interface SessionUser {
   email: string;
   display_name?: string;
   status: string;
-  mfa_bypass: boolean;
   last_login_at?: string;
   created_at: string;
   updated_at: string;
