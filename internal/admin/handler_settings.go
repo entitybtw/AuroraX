@@ -67,14 +67,8 @@ type DashboardSettingsUpdateClient struct {
 	EnableAnthropicIngress          *bool    `json:"enable_anthropic_ingress,omitempty"`
 }
 
-type DashboardSettingsUpdateCachingPromptCache struct {
-	Mode              string `json:"prompt_cache_mode"`
-	SystemPromptCache bool   `json:"prompt_cache_system_prompt"`
-	FirstMessageCache bool   `json:"prompt_cache_first_message"`
-	ToolsCache        bool   `json:"prompt_cache_tools"`
-	MinTokens         int    `json:"prompt_cache_min_tokens"`
-}
-
+// Prompt-cache fields are flat so the settings payload matches the shape the
+// dashboard config snapshot (GET) returns and the UI round-trips on save.
 type DashboardSettingsUpdateCaching struct {
 	ModelRefreshIntervalSeconds     int                                       `json:"model_refresh_interval_seconds"`
 	ModelListURL                    string                                    `json:"model_list_url"`
@@ -90,7 +84,11 @@ type DashboardSettingsUpdateCaching struct {
 	SemanticEmbedderProvider        string                                    `json:"semantic_embedder_provider,omitempty"`
 	SemanticEmbedderModel           string                                    `json:"semantic_embedder_model,omitempty"`
 	SemanticVectorStoreType         string                                    `json:"semantic_vector_store_type,omitempty"`
-	PromptCache                     DashboardSettingsUpdateCachingPromptCache `json:"prompt_cache"`
+	PromptCacheMode                 string                                    `json:"prompt_cache_mode"`
+	PromptCacheSystemPrompt         bool                                      `json:"prompt_cache_system_prompt"`
+	PromptCacheFirstMessage         bool                                      `json:"prompt_cache_first_message"`
+	PromptCacheTools                bool                                      `json:"prompt_cache_tools"`
+	PromptCacheMinTokens            int                                       `json:"prompt_cache_min_tokens"`
 }
 
 type DashboardSettingsUpdateLogging struct {
