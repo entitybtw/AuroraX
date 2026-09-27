@@ -36,7 +36,7 @@ const (
 	KindPreset Kind = "preset"
 	// KindUI — dashboard widgets beyond structured blocks.
 	KindUI Kind = "ui"
-	// KindAuth — additional grant types (authorization_code + PKCE, …).
+	// KindAuth — extension-supplied auth grant flows (device, authorization_code + PKCE, …).
 	KindAuth Kind = "auth"
 	// KindRuntime — generic lifecycle hooks.
 	KindRuntime Kind = "runtime"

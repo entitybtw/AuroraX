@@ -118,7 +118,7 @@ const ExtensionProvidesSchema = z.object({
   features: z.array(z.string()).optional(),
 });
 
-const Extension= z.object({
+const ExtensionAuthSchema = z.object({
   server: z.string().optional(),
   client_id: z.string().optional(),
   verification_base: z.string().optional(),
@@ -157,7 +157,7 @@ const ExtensionSchema = z.object({
   notes: z.array(z.string()).optional(),
   settings: z.record(z.string()).optional(),
   config: z.record(z.string()).optional(),
-  : Extension.optional(),
+  auth: ExtensionAuthSchema.optional(),
   files: z.record(z.string()).optional(),
   provides: ExtensionProvidesSchema.optional(),
   ui: ExtensionUISchema.optional(),
@@ -170,7 +170,7 @@ const ExtensionSchema = z.object({
 export type Extension = z.infer<typeof ExtensionSchema>;
 export type ExtensionHeader = z.infer<typeof ExtensionHeaderSchema>;
 export type ExtensionField = z.infer<typeof ExtensionFieldSchema>;
-export type Extension= z.infer<typeof Extension>;
+export type ExtensionAuth = z.infer<typeof ExtensionAuthSchema>;
 export type ExtensionUI = z.infer<typeof ExtensionUISchema>;
 export type ExtensionNavEntry = z.infer<typeof ExtensionNavEntrySchema>;
 export type ExtensionBanner = z.infer<typeof ExtensionBannerSchema>;
@@ -234,13 +234,13 @@ export async function applyExtension(
 ): Promise<{
   headers: ExtensionHeader[];
   tools: string[];
-  ?: Extension| undefined;
+  auth?: ExtensionAuth | undefined;
   tools_path?: string | undefined;
 }> {
   const res = await apiFetch<{
     headers?: ExtensionHeader[];
     tools?: string[];
-    ?: Extension;
+    auth?: ExtensionAuth;
     tools_path?: string;
   }>(`/admin/api/v1/sidecar/extensions/${encodeURIComponent(id)}/apply`, {
     method: "POST",
@@ -248,7 +248,7 @@ export async function applyExtension(
   return {
     headers: res.headers ?? [],
     tools: res.tools ?? [],
-    : res.,
+    auth: res.auth,
     tools_path: res.tools_path,
   };
 }
@@ -306,14 +306,14 @@ export async function fullApplyExtension(
 ): Promise<{
   headers: ExtensionHeader[];
   tools: string[];
-  ?: Extension| undefined;
+  auth?: ExtensionAuth | undefined;
   tools_path?: string | undefined;
 }> {
   const body = sessionHubTarget ? { session_hub_target: sessionHubTarget } : {};
   const res = await apiFetch<{
     headers?: ExtensionHeader[];
     tools?: string[];
-    ?: Extension;
+    auth?: ExtensionAuth;
     tools_path?: string;
   }>(`/admin/api/v1/sidecar/extensions/${encodeURIComponent(id)}/full-apply`, {
     method: "POST",
@@ -322,7 +322,7 @@ export async function fullApplyExtension(
   return {
     headers: res.headers ?? [],
     tools: res.tools ?? [],
-    : res.,
+    auth: res.auth,
     tools_path: res.tools_path,
   };
 }

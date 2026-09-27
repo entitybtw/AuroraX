@@ -21,6 +21,7 @@ import (
 
 	"aurora/configuration"
 	"aurora/internal/application"
+	"aurora/internal/externalauth"
 	"aurora/internal/sessionhub"
 	"aurora/internal/telemetry"
 	"aurora/internal/providers"
@@ -31,7 +32,6 @@ import (
 	"aurora/internal/providers/groq"
 	"aurora/internal/providers/minimax"
 	"aurora/internal/providers/ollama"
-	"aurora/internal/providers/"
 	sidecarprovider "aurora/internal/providers/sidecarclient"
 	"aurora/internal/providers/openai"
 	"aurora/internal/providers/openrouter"
@@ -350,13 +350,14 @@ func main() {
 
 	factory := providers.NewProviderFactory()
 
-	// Set up registry for device-flow providers (activated by extensions).
-	:= .NewRegistry()
-	factory.Set()
+	// Extension auth bridge: auth addons (kind auth) supply bearer tokens
+	// and grant flows. The bridge starts empty and is attached to the addon
+	// store once extensions materialize their addon files.
+	factory.SetExternalAuth(externalauth.NewBridge())
 
 	// Merge provider overrides (from configs/provider-overrides.json) into the
-	// loaded config BEFORE providers are initialized, so auth_method / 
-	// fields and any runtime edits take effect from the first start.
+	// loaded config BEFORE providers are initialized, so auth_method and any
+	// runtime edits take effect from the first start.
 	mergeProviderOverridesIntoConfig(result)
 
 	// Initialize session hub and attach to factory before provider creation.
@@ -475,9 +476,10 @@ func main() {
 }
 
 // mergeProviderOverridesIntoConfig loads the JSON provider overrides file and
-// merges it into the loaded config's RawProviders map. This ensures fields like
-// auth_method, , and take effect from the first
-// start (not only after runtime refresh via the admin API).
+// merges it into the loaded config's RawProviders map. This ensures fields
+// like auth_method take effect from the first start (not only after runtime
+// refresh via the admin API). Auth wiring (server/client_id/flows) is not
+// merged: extension auth addons read the raw overrides file themselves.
 func mergeProviderOverridesIntoConfig(result *config.LoadResult) {
 	if result == nil || result.RawProviders == nil {
 		return
@@ -502,8 +504,6 @@ func mergeProviderOverridesIntoConfig(result *config.LoadResult) {
 		UserAgent     string                    `json:"user_agent"`
 		AutoFetch     *bool                     `json:"auto_fetch_models"`
 		AuthMethod    string                    `json:"auth_method"`
-		string                    `json:""`
-		string                    `json:""`
 		DisableAPIKey *bool                     `json:"disable_api_key"`
 	}
 	var overrides []rawOverride
@@ -527,15 +527,9 @@ func mergeProviderOverridesIntoConfig(result *config.LoadResult) {
 				APIVersion: strings.TrimSpace(o.APIVersion),
 			}
 		}
-		// Merge fields from overrides into the config
+		// Merge auth_method and runtime edits from overrides into the config.
 		if o.AuthMethod != "" {
 			existing.AuthMethod = o.AuthMethod
-		}
-		if o.!= "" {
-			existing.= o.
-		}
-		if o.!= "" {
-			existing.= o.
 		}
 		if o.DisableAPIKey != nil {
 			existing.DisableAPIKey = *o.DisableAPIKey

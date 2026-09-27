@@ -219,22 +219,6 @@
         "tpm": 30000000
       }
     },
-    "": {
-      "display_name": "Community",
-      "website": "",
-      "docs_url": "",
-      "pricing_url": "",
-      "api_type": "openai",
-      "default_base_url": "/zen/v1",
-      "auth": {
-        "type": "bearer",
-        "env_var": ""
-      },
-      "base_url_env": "",
-      "supported_modes": [
-        "chat"
-      ]
-    },
     "openrouter": {
       "display_name": "OpenRouter",
       "website": "https://openrouter.ai",
@@ -1618,9 +1602,7 @@
         "cached_input_per_mtok": 0
       },
       "source_url": "",
-      "aliases": [
-        "/big-pickle"
-      ]
+      "aliases": []
     },
     "bodybuilder": {
       "display_name": "Body Builder (beta)",
@@ -1819,7 +1801,6 @@
         "anthropic/claude-3-5-haiku",
         "anthropic/claude-3.5-haiku",
         "vertex_ai/claude-3-5-haiku",
-        "/claude-3-5-haiku",
         "openrouter/anthropic/claude-3-5-haiku",
         "openrouter/anthropic/claude-3.5-haiku"
       ],
@@ -2759,7 +2740,6 @@
         "azure_ai/claude-fable-5",
         "anthropic/claude-fable-5",
         "vertex_ai/claude-fable-5",
-        "/claude-fable-5",
         "anthropic/claude-5-fable-20260609",
         "bedrock/global.anthropic.claude-fable-5-v1:0",
         "bedrock/regional.anthropic.claude-fable-5-v1:0",
@@ -2853,7 +2833,6 @@
         "anthropic/claude-haiku-4-5",
         "anthropic/claude-haiku-4.5",
         "vertex_ai/claude-haiku-4-5",
-        "/claude-haiku-4-5",
         "bedrock/claude-haiku-4-5-20251001",
         "anthropic/claude-4.5-haiku-20251001",
         "anthropic/claude-haiku-4-5-20251001",
@@ -3086,7 +3065,6 @@
         "anthropic/claude-opus-4-1",
         "anthropic/claude-opus-4.1",
         "vertex_ai/claude-opus-4-1",
-        "/claude-opus-4-1",
         "bedrock/claude-opus-4-1-20250805",
         "anthropic/claude-4.1-opus-20250805",
         "anthropic/claude-opus-4-1-20250805",
@@ -3170,7 +3148,6 @@
         "anthropic/claude-opus-4-5",
         "anthropic/claude-opus-4.5",
         "vertex_ai/claude-opus-4-5",
-        "/claude-opus-4-5",
         "bedrock/claude-opus-4-5-20251101",
         "anthropic/claude-4.5-opus-20251124",
         "anthropic/claude-opus-4-5-20251101",
@@ -3255,7 +3232,6 @@
         "anthropic/claude-opus-4-6",
         "anthropic/claude-opus-4.6",
         "vertex_ai/claude-opus-4-6",
-        "/claude-opus-4-6",
         "anthropic/claude-4.6-opus-20260205",
         "anthropic/claude-opus-4-6-20260205",
         "bedrock/global.anthropic.claude-opus-4-6-v1:0",
@@ -3316,7 +3292,6 @@
         "anthropic/claude-opus-4-7",
         "anthropic/claude-opus-4.7",
         "vertex_ai/claude-opus-4-7",
-        "/claude-opus-4-7",
         "anthropic/claude-4.7-opus-20260416",
         "anthropic/claude-opus-4-7-20260416",
         "bedrock/global.anthropic.claude-opus-4-7-v1:0",
@@ -3377,7 +3352,6 @@
         "anthropic/claude-opus-4-8",
         "anthropic/claude-opus-4.8",
         "vertex_ai/claude-opus-4-8",
-        "/claude-opus-4-8",
         "anthropic/claude-4.8-opus-20260528",
         "bedrock/global.anthropic.claude-opus-4-8-v1:0",
         "bedrock/regional.anthropic.claude-opus-4-8-v1:0",
@@ -3576,7 +3550,6 @@
         "anthropic/claude-sonnet-4",
         "vertex_ai/claude-sonnet-4",
         "anthropic/claude-sonnet-4-0",
-        "/claude-sonnet-4",
         "bedrock/claude-sonnet-4-20250514",
         "anthropic/claude-4-sonnet-20250522",
         "anthropic/claude-sonnet-4-20250514",
@@ -3673,7 +3646,6 @@
         "anthropic/claude-sonnet-4-5",
         "anthropic/claude-sonnet-4.5",
         "vertex_ai/claude-sonnet-4-5",
-        "/claude-sonnet-4-5",
         "bedrock/claude-sonnet-4-5-20250929",
         "anthropic/claude-4.5-sonnet-20250929",
         "anthropic/claude-sonnet-4-5-20250929",
@@ -3797,7 +3769,6 @@
         "anthropic/claude-sonnet-4-6",
         "anthropic/claude-sonnet-4.6",
         "vertex_ai/claude-sonnet-4-6",
-        "/claude-sonnet-4-6",
         "anthropic/claude-4.6-sonnet-20260217",
         "bedrock/global.anthropic.claude-sonnet-4-6-v1:0",
         "bedrock/regional.anthropic.claude-sonnet-4-6-v1:0",
@@ -5567,7 +5538,6 @@
         "deepseek/deepseek-v4-flash",
         "deepseek-ai/DeepSeek-V4-Flash",
         "ollama_cloud/deepseek-v4-flash",
-        "/deepseek-v4-flash",
         "deepseek/deepseek-v4-flash-20260423",
         "openrouter/deepseek/deepseek-chat",
         "openrouter/deepseek/deepseek-v4-flash",
@@ -5632,9 +5602,7 @@
         "cached_input_per_mtok": 0
       },
       "source_url": "",
-      "aliases": [
-        "/deepseek-v4-flash-free"
-      ]
+      "aliases": []
     },
     "deepseek-v4-pro": {
       "context_window": 1000000,
@@ -5677,7 +5645,6 @@
         "fireworks/deepseek-v4-pro",
         "deepseek-ai/DeepSeek-V4-Pro",
         "ollama_cloud/deepseek-v4-pro",
-        "/deepseek-v4-pro",
         "deepseek/deepseek-v4-pro-20260423",
         "openrouter/deepseek/deepseek-v4-pro",
         "together/deepseek-ai/DeepSeek-V4-Pro",
@@ -7436,9 +7403,7 @@
         "cached_input_per_mtok": 0.05
       },
       "source_url": "",
-      "aliases": [
-        "/gemini-3-flash"
-      ]
+      "aliases": []
     },
     "gemini-3-flash-preview": {
       "capabilities": {
@@ -7953,7 +7918,6 @@
       "source_url": "",
       "aliases": [
         "google/gemini-3.1-pro",
-        "/gemini-3.1-pro",
         "deepinfra/google/gemini-3.1-pro"
       ]
     },
@@ -8203,7 +8167,6 @@
         "gemini/gemini-3.5-flash",
         "google/gemini-3.5-flash",
         "vertex_ai/gemini-3.5-flash",
-        "/gemini-3.5-flash",
         "google/gemini-3.5-flash-20260519",
         "openrouter/google/gemini-3.5-flash",
         "openrouter/google/gemini-3.5-flash-20260519"
@@ -10052,7 +10015,6 @@
         "z-ai/glm-5",
         "fireworks/glm-5",
         "ollama_cloud/glm-5",
-        "/glm-5",
         "z-ai/glm-5-20260211",
         "openrouter/z-ai/glm-5",
         "openrouter/z-ai/glm-5-20260211"
@@ -10172,7 +10134,6 @@
       "aliases": [
         "z-ai/glm-5.1",
         "ollama_cloud/glm-5.1",
-        "/glm-5.1",
         "z-ai/glm-5.1-20260406",
         "openrouter/z-ai/glm-5.1",
         "openrouter/z-ai/glm-5.1-20260406"
@@ -12906,7 +12867,6 @@
         "openai/gpt-5",
         "openai/gpt-5-chat",
         "openai/gpt-5-codex",
-        "/gpt-5",
         "openai/gpt-5-2025-08-07",
         "openai/gpt-5-chat-latest",
         "openrouter/openai/gpt-5",
@@ -13201,7 +13161,6 @@
       "aliases": [
         "azure/gpt-5-codex",
         "openai/gpt-5-codex",
-        "/gpt-5-codex",
         "openrouter/openai/gpt-5-codex"
       ]
     },
@@ -13453,7 +13412,6 @@
       "aliases": [
         "azure/gpt-5-nano",
         "openai/gpt-5-nano",
-        "/gpt-5-nano",
         "openai/gpt-5-nano-2025-08-07",
         "openrouter/openai/gpt-5-nano",
         "openrouter/openai/gpt-5-nano-2025-08-07"
@@ -13858,7 +13816,6 @@
         "openai/gpt-5.1-chat",
         "openai/gpt-5-1-codex",
         "openai/gpt-5.1-codex",
-        "/gpt-5.1",
         "openai/gpt-5.1-20251113",
         "openai/gpt-5-1-codex-max",
         "openai/gpt-5.1-codex-max",
@@ -14141,7 +14098,6 @@
       "aliases": [
         "azure/gpt-5.1-codex",
         "openai/gpt-5.1-codex",
-        "/gpt-5.1-codex",
         "openai/gpt-5.1-codex-20251113",
         "openrouter/openai/gpt-5.1-codex",
         "openrouter/openai/gpt-5.1-codex-20251113"
@@ -14264,7 +14220,6 @@
       "aliases": [
         "azure/gpt-5.1-codex-max",
         "openai/gpt-5.1-codex-max",
-        "/gpt-5.1-codex-max",
         "openai/gpt-5.1-codex-max-20251204",
         "openrouter/openai/gpt-5.1-codex-max",
         "openrouter/openai/gpt-5.1-codex-max-20251204"
@@ -14350,7 +14305,6 @@
       "aliases": [
         "azure/gpt-5.1-codex-mini",
         "openai/gpt-5.1-codex-mini",
-        "/gpt-5.1-codex-mini",
         "openai/gpt-5.1-codex-mini-20251113",
         "openrouter/openai/gpt-5.1-codex-mini",
         "openrouter/openai/gpt-5.1-codex-mini-20251113"
@@ -14494,7 +14448,6 @@
         "openai/gpt-5.2-chat",
         "openai/gpt-5-2-codex",
         "openai/gpt-5.2-codex",
-        "/gpt-5.2",
         "openai/gpt-5.2-20251211",
         "openai/gpt-5-2-2025-12-11",
         "openai/gpt-5.2-2025-12-11",
@@ -14756,7 +14709,6 @@
       "aliases": [
         "azure/gpt-5.2-codex",
         "openai/gpt-5.2-codex",
-        "/gpt-5.2-codex",
         "openai/gpt-5.2-codex-20260114",
         "openrouter/openai/gpt-5.2-codex",
         "openrouter/openai/gpt-5.2-codex-20260114"
@@ -15012,7 +14964,6 @@
         "azure/gpt-5.3-codex",
         "openai/gpt-5-3-codex",
         "openai/gpt-5.3-codex",
-        "/gpt-5.3-codex",
         "openai/gpt-5.3-codex-20260224",
         "openrouter/openai/gpt-5.3-codex",
         "openrouter/openai/gpt-5.3-codex-20260224"
@@ -15073,9 +15024,7 @@
         "cached_input_per_mtok": 0.175
       },
       "source_url": "",
-      "aliases": [
-        "/gpt-5.3-codex-spark"
-      ]
+      "aliases": []
     },
     "gpt-5.4": {
       "capabilities": {
@@ -15136,7 +15085,6 @@
         "openai/gpt-5-4",
         "openai/gpt-5.4",
         "azure_ai/gpt-5.4",
-        "/gpt-5.4",
         "openai/gpt-5.4-20260305",
         "openai/gpt-5-4-2026-03-05",
         "openai/gpt-5.4-2026-03-05",
@@ -15284,7 +15232,6 @@
         "openai/gpt-5-4-mini",
         "openai/gpt-5.4-mini",
         "azure_ai/gpt-5.4-mini",
-        "/gpt-5.4-mini",
         "openai/gpt-5.4-mini-20260317",
         "openai/gpt-5-4-mini-2026-03-17",
         "openai/gpt-5.4-mini-2026-03-17",
@@ -15428,7 +15375,6 @@
         "openai/gpt-5-4-nano",
         "openai/gpt-5.4-nano",
         "azure_ai/gpt-5.4-nano",
-        "/gpt-5.4-nano",
         "openai/gpt-5.4-nano-20260317",
         "openai/gpt-5-4-nano-2026-03-17",
         "openai/gpt-5.4-nano-2026-03-17",
@@ -15581,7 +15527,6 @@
         "openai/gpt-5-4-pro",
         "openai/gpt-5.4-pro",
         "azure_ai/gpt-5.4-pro",
-        "/gpt-5.4-pro",
         "openai/gpt-5.4-pro-20260305",
         "openai/gpt-5-4-pro-2026-03-05",
         "openai/gpt-5.4-pro-2026-03-05",
@@ -15716,7 +15661,6 @@
         "openai/gpt-5.5-chat",
         "openai/gpt-5-5-codex",
         "openai/gpt-5.5-codex",
-        "/gpt-5.5",
         "openai/gpt-5.5-20260423",
         "openai/gpt-5-5-2026-04-23",
         "openai/gpt-5-5-2026-04-24",
@@ -15882,7 +15826,6 @@
         "azure/gpt-5.5-pro",
         "openai/gpt-5-5-pro",
         "openai/gpt-5.5-pro",
-        "/gpt-5.5-pro",
         "openai/gpt-5.5-pro-20260423",
         "openai/gpt-5-5-pro-2026-04-23",
         "openai/gpt-5.5-pro-2026-04-23",
@@ -19442,7 +19385,6 @@
         "azure/grok-code-fast-1",
         "azure_ai/grok-code-fast-1",
         "xai/grok-code-fast-1-0825",
-        "/grok-build-0.1",
         "x-ai/grok-build-0.1-20260520",
         "openrouter/x-ai/grok-build-0.1",
         "azure/azure_ai/grok-code-fast-1",
@@ -20474,7 +20416,6 @@
         "azure_ai/kimi-k2.5",
         "moonshotai/kimi-k2.5",
         "ollama_cloud/kimi-k2.5",
-        "/kimi-k2.5",
         "moonshotai/kimi-k2.5-0127",
         "azure/azure_ai/kimi-k2.5",
         "openrouter/moonshotai/kimi-k2.5",
@@ -20560,7 +20501,6 @@
         "azure_ai/kimi-k2.6",
         "moonshotai/kimi-k2.6",
         "ollama_cloud/kimi-k2.6",
-        "/kimi-k2.6",
         "moonshotai/kimi-k2.6-20260420",
         "azure/azure_ai/kimi-k2.6",
         "openrouter/moonshotai/kimi-k2.6",
@@ -22567,9 +22507,7 @@
         "cached_input_per_mtok": 0
       },
       "source_url": "",
-      "aliases": [
-        "/mimo-v2.5-free"
-      ]
+      "aliases": []
     },
     "mimo-v2.5-pro": {
       "capabilities": {
@@ -22851,7 +22789,6 @@
       "aliases": [
         "minimax/minimax-m2.5",
         "ollama_cloud/minimax-m2.5",
-        "/minimax-m2.5",
         "minimax/minimax-m2.5-20260211",
         "openrouter/minimax/minimax-m2.5",
         "openrouter/minimax/minimax-m2.5-20260211"
@@ -22934,7 +22871,6 @@
       "aliases": [
         "minimax/minimax-m2.7",
         "ollama_cloud/minimax-m2.7",
-        "/minimax-m2.7",
         "minimax/minimax-m2.7-20260318",
         "openrouter/minimax/minimax-m2.7",
         "openrouter/minimax/minimax-m2.7-20260318"
@@ -25036,9 +24972,7 @@
         "cached_input_per_mtok": 0
       },
       "source_url": "",
-      "aliases": [
-        "/nemotron-3-ultra-free"
-      ]
+      "aliases": []
     },
     "nemotron-3.5-content-safety": {
       "capabilities": {
@@ -25177,9 +25111,7 @@
         "cached_input_per_mtok": 0
       },
       "source_url": "",
-      "aliases": [
-        "/north-mini-code-free"
-      ]
+      "aliases": []
     },
     "nova-2-lite-v1": {
       "capabilities": {
@@ -28979,9 +28911,7 @@
         "cache_write_per_mtok": 0.25
       },
       "source_url": "",
-      "aliases": [
-        "/qwen3.5-plus"
-      ]
+      "aliases": []
     },
     "qwen3.5-plus-02-15": {
       "capabilities": {
@@ -29321,7 +29251,6 @@
       "aliases": [
         "qwen/qwen3.6-plus",
         "qwen/qwen3.6-plus-04-02",
-        "/qwen3.6-plus",
         "openrouter/qwen/qwen3.6-plus",
         "openrouter/qwen/qwen3.6-plus-04-02"
       ],
@@ -29400,7 +29329,6 @@
       "source_url": "",
       "aliases": [
         "qwen/qwen3.7-max",
-        "/qwen3.7-max",
         "qwen/qwen3.7-max-20260520",
         "openrouter/qwen/qwen3.7-max",
         "openrouter/qwen/qwen3.7-max-20260520"
@@ -29481,7 +29409,6 @@
       "source_url": "",
       "aliases": [
         "qwen/qwen3.7-plus",
-        "/qwen3.7-plus",
         "qwen/qwen3.7-plus-20260602",
         "openrouter/qwen/qwen3.7-plus",
         "openrouter/qwen/qwen3.7-plus-20260602"
@@ -67817,701 +67744,6 @@
       "source_urls": [
         "https://configs.portkey.ai/pricing/openai.json",
         "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
-      ]
-    },
-    "/big-pickle": {
-      "model_ref": "big-pickle",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 0,
-        "output_per_mtok": 0,
-        "cached_input_per_mtok": 0
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/claude-3-5-haiku": {
-      "model_ref": "claude-3-5-haiku",
-      "enabled": true,
-      "source_urls": [
-        ""
-      ]
-    },
-    "/claude-fable-5": {
-      "model_ref": "claude-fable-5",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 10,
-        "output_per_mtok": 50,
-        "cached_input_per_mtok": 1,
-        "cache_write_per_mtok": 12.5
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/claude-haiku-4-5": {
-      "model_ref": "claude-haiku-4-5",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 1,
-        "output_per_mtok": 5,
-        "cached_input_per_mtok": 0.1,
-        "cache_write_per_mtok": 1.25
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/claude-opus-4-1": {
-      "model_ref": "claude-opus-4-1",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 15,
-        "output_per_mtok": 75,
-        "cached_input_per_mtok": 1.5,
-        "cache_write_per_mtok": 18.75
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/claude-opus-4-5": {
-      "model_ref": "claude-opus-4-5",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 5,
-        "output_per_mtok": 25,
-        "cached_input_per_mtok": 0.5,
-        "cache_write_per_mtok": 6.25
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/claude-opus-4-6": {
-      "model_ref": "claude-opus-4-6",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 5,
-        "output_per_mtok": 25,
-        "cached_input_per_mtok": 0.5,
-        "cache_write_per_mtok": 6.25
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/claude-opus-4-7": {
-      "model_ref": "claude-opus-4-7",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 5,
-        "output_per_mtok": 25,
-        "cached_input_per_mtok": 0.5,
-        "cache_write_per_mtok": 6.25
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/claude-opus-4-8": {
-      "model_ref": "claude-opus-4-8",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 5,
-        "output_per_mtok": 25,
-        "cached_input_per_mtok": 0.5,
-        "cache_write_per_mtok": 6.25
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/claude-sonnet-4": {
-      "model_ref": "claude-sonnet-4",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 3,
-        "output_per_mtok": 15,
-        "cached_input_per_mtok": 0.3,
-        "cache_write_per_mtok": 3.75
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/claude-sonnet-4-5": {
-      "model_ref": "claude-sonnet-4-5",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 3,
-        "output_per_mtok": 15,
-        "cached_input_per_mtok": 0.3,
-        "cache_write_per_mtok": 3.75
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/claude-sonnet-4-6": {
-      "model_ref": "claude-sonnet-4-6",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 3,
-        "output_per_mtok": 15,
-        "cached_input_per_mtok": 0.3,
-        "cache_write_per_mtok": 3.75
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/deepseek-v4-flash": {
-      "model_ref": "deepseek-v4-flash",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 0.14,
-        "output_per_mtok": 0.28,
-        "cached_input_per_mtok": 0.028
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/deepseek-v4-flash-free": {
-      "model_ref": "deepseek-v4-flash-free",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 0,
-        "output_per_mtok": 0,
-        "cached_input_per_mtok": 0
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/deepseek-v4-pro": {
-      "model_ref": "deepseek-v4-pro",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 1.74,
-        "output_per_mtok": 3.48,
-        "cached_input_per_mtok": 0.145
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/gemini-3-flash": {
-      "model_ref": "gemini-3-flash",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 0.5,
-        "output_per_mtok": 3,
-        "cached_input_per_mtok": 0.05
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/gemini-3.1-pro": {
-      "model_ref": "gemini-3.1-pro",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 2,
-        "output_per_mtok": 12,
-        "cached_input_per_mtok": 0.2
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/gemini-3.5-flash": {
-      "model_ref": "gemini-3.5-flash",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 1.5,
-        "output_per_mtok": 9,
-        "cached_input_per_mtok": 0.15
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/glm-5": {
-      "model_ref": "glm-5",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 1,
-        "output_per_mtok": 3.2,
-        "cached_input_per_mtok": 0.2
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/glm-5.1": {
-      "model_ref": "glm-5.1",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 1.4,
-        "output_per_mtok": 4.4,
-        "cached_input_per_mtok": 0.26
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/gpt-5": {
-      "model_ref": "gpt-5",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 1.07,
-        "output_per_mtok": 8.5,
-        "cached_input_per_mtok": 0.107
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/gpt-5-codex": {
-      "model_ref": "gpt-5-codex",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 1.07,
-        "output_per_mtok": 8.5,
-        "cached_input_per_mtok": 0.107
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/gpt-5-nano": {
-      "model_ref": "gpt-5-nano",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 0.05,
-        "output_per_mtok": 0.4,
-        "cached_input_per_mtok": 0.005
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/gpt-5.1": {
-      "model_ref": "gpt-5.1",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 1.07,
-        "output_per_mtok": 8.5,
-        "cached_input_per_mtok": 0.107
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/gpt-5.1-codex": {
-      "model_ref": "gpt-5.1-codex",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 1.07,
-        "output_per_mtok": 8.5,
-        "cached_input_per_mtok": 0.107
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/gpt-5.1-codex-max": {
-      "model_ref": "gpt-5.1-codex-max",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 1.25,
-        "output_per_mtok": 10,
-        "cached_input_per_mtok": 0.125
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/gpt-5.1-codex-mini": {
-      "model_ref": "gpt-5.1-codex-mini",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 0.25,
-        "output_per_mtok": 2,
-        "cached_input_per_mtok": 0.025
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/gpt-5.2": {
-      "model_ref": "gpt-5.2",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 1.75,
-        "output_per_mtok": 14,
-        "cached_input_per_mtok": 0.175
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/gpt-5.2-codex": {
-      "model_ref": "gpt-5.2-codex",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 1.75,
-        "output_per_mtok": 14,
-        "cached_input_per_mtok": 0.175
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/gpt-5.3-codex": {
-      "model_ref": "gpt-5.3-codex",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 1.75,
-        "output_per_mtok": 14,
-        "cached_input_per_mtok": 0.175
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/gpt-5.3-codex-spark": {
-      "model_ref": "gpt-5.3-codex-spark",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 1.75,
-        "output_per_mtok": 14,
-        "cached_input_per_mtok": 0.175
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/gpt-5.4": {
-      "model_ref": "gpt-5.4",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 2.5,
-        "output_per_mtok": 15,
-        "cached_input_per_mtok": 0.25
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/gpt-5.4-mini": {
-      "model_ref": "gpt-5.4-mini",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 0.75,
-        "output_per_mtok": 4.5,
-        "cached_input_per_mtok": 0.075
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/gpt-5.4-nano": {
-      "model_ref": "gpt-5.4-nano",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 0.2,
-        "output_per_mtok": 1.25,
-        "cached_input_per_mtok": 0.02
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/gpt-5.4-pro": {
-      "model_ref": "gpt-5.4-pro",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 30,
-        "output_per_mtok": 180,
-        "cached_input_per_mtok": 30
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/gpt-5.5": {
-      "model_ref": "gpt-5.5",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 5,
-        "output_per_mtok": 30,
-        "cached_input_per_mtok": 0.5
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/gpt-5.5-pro": {
-      "model_ref": "gpt-5.5-pro",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 30,
-        "output_per_mtok": 180,
-        "cached_input_per_mtok": 30
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/grok-build-0.1": {
-      "model_ref": "grok-build-0.1",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 1,
-        "output_per_mtok": 2,
-        "cached_input_per_mtok": 0.2
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/kimi-k2.5": {
-      "model_ref": "kimi-k2.5",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 0.6,
-        "output_per_mtok": 3,
-        "cached_input_per_mtok": 0.1
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/kimi-k2.6": {
-      "model_ref": "kimi-k2.6",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 0.95,
-        "output_per_mtok": 4,
-        "cached_input_per_mtok": 0.16
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/mimo-v2.5-free": {
-      "model_ref": "mimo-v2.5-free",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 0,
-        "output_per_mtok": 0,
-        "cached_input_per_mtok": 0
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/minimax-m2.5": {
-      "model_ref": "minimax-m2.5",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 0.3,
-        "output_per_mtok": 1.2,
-        "cached_input_per_mtok": 0.06,
-        "cache_write_per_mtok": 0.375
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/minimax-m2.7": {
-      "model_ref": "minimax-m2.7",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 0.3,
-        "output_per_mtok": 1.2,
-        "cached_input_per_mtok": 0.06,
-        "cache_write_per_mtok": 0.375
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/nemotron-3-ultra-free": {
-      "model_ref": "nemotron-3-ultra-free",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 0,
-        "output_per_mtok": 0,
-        "cached_input_per_mtok": 0
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/north-mini-code-free": {
-      "model_ref": "north-mini-code-free",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 0,
-        "output_per_mtok": 0,
-        "cached_input_per_mtok": 0
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/qwen3.5-plus": {
-      "model_ref": "qwen3.5-plus",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 0.2,
-        "output_per_mtok": 1.2,
-        "cached_input_per_mtok": 0.02,
-        "cache_write_per_mtok": 0.25
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/qwen3.6-plus": {
-      "model_ref": "qwen3.6-plus",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 0.5,
-        "output_per_mtok": 3,
-        "cached_input_per_mtok": 0.05,
-        "cache_write_per_mtok": 0.625
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/qwen3.7-max": {
-      "model_ref": "qwen3.7-max",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 2.5,
-        "output_per_mtok": 7.5,
-        "cached_input_per_mtok": 0.5,
-        "cache_write_per_mtok": 3.125
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
-      ]
-    },
-    "/qwen3.7-plus": {
-      "model_ref": "qwen3.7-plus",
-      "enabled": true,
-      "pricing": {
-        "currency": "USD",
-        "input_per_mtok": 0.4,
-        "output_per_mtok": 1.6,
-        "cached_input_per_mtok": 0.04,
-        "cache_write_per_mtok": 0.5
-      },
-      "pricing_source_url": "",
-      "source_urls": [
-        ""
       ]
     },
     "openrouter/ai21/jamba-large-1.7": {

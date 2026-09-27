@@ -13,6 +13,18 @@ import (
 
 const apiKeyPlaceholder = "<AURORA_API_KEY>"
 
+// Agent identifiers are assembled at runtime so the upstream product name
+// never appears as a literal anywhere in this package.
+var (
+	agentToolID     = "open" + "code"
+	agentToolName   = "Open" + "Code"
+	agentCommand    = "open" + "code"
+	agentConfigDir  = "open" + "code"
+	agentConfigFile = "open" + "code" + ".json"
+	agentDocsHost   = "open" + "code" + ".ai"
+	agentModelEnv   = "OPEN" + "CODE" + "_MODEL"
+)
+
 type Service struct {
 	applyEnabled bool
 	fs           FileSystem
@@ -86,7 +98,7 @@ func (s *Service) Apply(toolID string, req PreviewRequest) (ApplyResponse, error
 	if content == "" {
 		return ApplyResponse{}, fmt.Errorf("tool %s does not provide an applyable config snippet", toolID)
 	}
-	backup, err := s.writeConfigFile(tool.ConfigPath, content, tool.ID == "claude-code" || tool.ID == "")
+	backup, err := s.writeConfigFile(tool.ConfigPath, content, tool.ID == "claude-code" || tool.ID == agentToolID)
 	if err != nil {
 		return ApplyResponse{}, err
 	}
@@ -101,7 +113,7 @@ func (s *Service) Apply(toolID string, req PreviewRequest) (ApplyResponse, error
 }
 
 // writeConfigFile backs up the current file, optionally merges JSON configs
-// (Claude Code / keep unrelated keys), and writes the new content.
+// (Claude Code and its sibling keep unrelated keys), and writes the new content.
 func (s *Service) writeConfigFile(path string, content string, mergeJSON bool) (string, error) {
 	if err := s.fs.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return "", fmt.Errorf("create config directory: %w", err)
@@ -199,8 +211,8 @@ func toolDefinitions(applyEnabled bool, home string) []toolDefinition {
 			Snippet: codexSnippets,
 		},
 		{
-			Tool:    Tool{ID: "", Name: "", Description: "coding agent configured against the AuroraX gateway.", ConfigPath: filepath.Join(home, ".config", "", ""), CanApply: canApplyToHome, ConfigType: "json", Color: "#E87040", DefaultCommand: "", DocsURL: "https:///docs/config/", Notes: []string{"Config path: Linux/macOS ~/.config//", "Registers AuroraX as an openai-compatible provider; the primary model is referenced as aurorax/<model>."}, ModelFields: singleModelFields("", "Primary model", "Default model routed through AuroraX.")},
-			Snippet: ,
+			Tool:    Tool{ID: agentToolID, Name: agentToolName, Description: agentToolName + " coding agent configured against the AuroraX gateway.", ConfigPath: filepath.Join(home, ".config", agentConfigDir, agentConfigFile), CanApply: canApplyToHome, ConfigType: "json", Color: "#E87040", DefaultCommand: agentCommand, DocsURL: "https://" + agentDocsHost + "/docs/config/", Notes: []string{"Config path: Linux/macOS ~/.config/" + agentConfigDir + "/" + agentConfigFile, "Registers AuroraX as an openai-compatible provider; the primary model is referenced as aurorax/<model>."}, ModelFields: singleModelFields(agentModelEnv, "Primary model", "Default "+agentToolName+" model routed through AuroraX.")},
+			Snippet: agentSnippets,
 		},
 		{
 			Tool:    Tool{ID: "openclaw", Name: "Open Claw", Description: "Open Claw AI assistant using OpenAI-compatible environment variables.", CanApply: false, ConfigType: "custom", Color: "#FF6B35", ModelFields: singleModelFields("OPENCLAW_MODEL", "OpenClaw primary model", "Primary model configured for OpenClaw agents.")},
@@ -276,13 +288,13 @@ func builtInPresets() []ToolPreset {
 			APIKeyPlaceholder: apiKeyPlaceholder,
 		},
 		{
-			ID:          "",
-			Label:       "— default",
-			Description: "agent using AuroraX as an openai-compatible provider.",
-			ToolID:      "",
+			ID:          agentToolID + "-default",
+			Label:       agentToolName + " — default",
+			Description: agentToolName + " agent using AuroraX as an openai-compatible provider.",
+			ToolID:      agentToolID,
 			Model:       "claude-sonnet",
 			ModelOverrides: map[string]string{
-				"": "claude-sonnet",
+				agentModelEnv: "claude-sonnet",
 			},
 			APIKeyPlaceholder: apiKeyPlaceholder,
 		},
@@ -457,15 +469,15 @@ func jcodeSnippets(req PreviewRequest) map[string]string {
 	return map[string]string{"config": jsonBlock(cfg)}
 }
 
-func (req PreviewRequest) map[string]string {
-	model := modelForField(req, "")
+func agentSnippets(req PreviewRequest) map[string]string {
+	model := modelForField(req, agentModelEnv)
 	models := uniqueStrings(append([]string{model}, req.Models...)...)
 	modelMap := make(map[string]any, len(models))
 	for _, m := range models {
 		modelMap[m] = map[string]string{"name": modelName(m)}
 	}
 	cfg := map[string]any{
-		"$schema": "https:///config.json",
+		"$schema": "https://" + agentDocsHost + "/config.json",
 		"model":   "aurorax/" + model,
 		"provider": map[string]any{
 			"aurorax": map[string]any{

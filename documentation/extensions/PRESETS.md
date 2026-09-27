@@ -16,7 +16,7 @@ installing Session Hub header rules and provider overrides.
 | Headers (client→sidecar) | `settings.forward_headers` (JSON array of header names) |
 | Streaming | `settings.force_stream` (`"true"` / `"false"`) |
 | Session Hub | `headers[]` rules installed on apply / full-apply |
-| | ``, `settings.*`, `provides.features: [""]` |
+| Account linking | `auth`, `provides.features: ["external_auth"]` |
 | Providers | `provides.provider_types` activation |
 
 ### Settings keys
@@ -32,7 +32,6 @@ installing Session Hub header rules and provider overrides.
 | `tools_path` | Absolute/relative tool schema path | bundled default |
 | `default_auth` | Authorization scheme | `Bearer public` |
 | `user_agent` | Override UA | neutral / extension value |
-| ``, ``, `` | Device-flow wiring | — |
 
 JSON-valued settings must be **strings containing JSON**, e.g.
 `"extra_headers": "{\"X-Tenant\":\"acme\"}"`.
@@ -63,7 +62,8 @@ JSON-valued settings must be **strings containing JSON**, e.g.
 1. **Import** → stored in the extension list (not applied yet).
 2. **Apply** → writes sidecar settings, materializes `files`, sets
    `Applied=true`, activates `provides.provider_types`, optionally enables
-   on matching providers (`provides.features` contains `""`).
+   external auth on matching providers (`provides.features` contains
+   `"external_auth"`).
 3. **Full apply** → same, plus binds `headers[]` to a chosen Session Hub
    target (pool/provider) and installs rules idempotently.
 4. **Unapply** → clears `Applied` (drops UI contribution). Persisted sidecar

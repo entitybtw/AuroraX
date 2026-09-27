@@ -36,7 +36,7 @@ func TestExtensionStore_ImportOnlyNoBuiltin(t *testing.T) {
 		Headers: []ExtensionHeader{
 			{Name: "x-my-session", Mode: "map_or_generate", Prefix: "s_", Length: 16, Charset: "hex"},
 		},
-		Provides: &ExtensionProvides{ProviderTypes: []string{"demo-type"}, Features: []string{""}},
+		Provides: &ExtensionProvides{ProviderTypes: []string{"demo-type"}, Features: []string{"external_auth"}},
 	}
 	if err := custom.Validate(); err != nil {
 		t.Fatalf("validate: %v", err)
@@ -96,11 +96,11 @@ func TestExtension_ExtendedSchemaRoundTrip(t *testing.T) {
 	  "name": "Proto X",
 	  "author": "community",
 	  "homepage": "https://example.test",
-	  "provides": {"provider_types": ["cli-emulation"], "features": [""]},
+	  "provides": {"provider_types": ["cli-emulation"], "features": ["external_auth"]},
 	  "inject_tool_types": ["cli-emulation"],
 	  "tool_schemas": [{"name":"custom","source":"custom"},{"name":"inline","inline":[{"type":"function"}]}],
 	  "settings": {"transport": "bun-tls"},
-	  "": {"server":"https://auth.example.test","client_id":"cli","verification_base":"https://auth.example.test"},
+	  "auth": {"server":"https://auth.example.test","client_id":"cli","verification_base":"https://auth.example.test"},
 	  "files": {"tools/cli-emulation.json":"[]","scripts/helper.js":"// helper"},
 	  "headers": [{"name":"x-session","mode":"generate","prefix":"s_","length":24,"charset":"hex"}],
 	  "ui": {"accent":"#123456","fields":[{"key":"region","label":"Region","type":"select","options":["eu","us"]}]}
@@ -115,11 +115,11 @@ func TestExtension_ExtendedSchemaRoundTrip(t *testing.T) {
 	if p.Settings["transport"] != "bun-tls" {
 		t.Fatalf("settings not parsed: %+v", p.Settings)
 	}
-	if p.Provides == nil || len(p.Provides.ProviderTypes) != 1 || p.Provides.Features[0] != "" {
+	if p.Provides == nil || len(p.Provides.ProviderTypes) != 1 || p.Provides.Features[0] != "external_auth" {
 		t.Fatalf("provides not parsed: %+v", p.Provides)
 	}
-	if p.== nil || p..Server != "https://auth.example.test" || p..VerificationBase != "https://auth.example.test" {
-		t.Fatalf("not parsed: %+v", p.)
+	if p.Auth == nil || p.Auth.Server != "https://auth.example.test" || p.Auth.VerificationBase != "https://auth.example.test" {
+		t.Fatalf("auth block not parsed: %+v", p.Auth)
 	}
 	if len(p.Files) != 2 || p.Files["tools/cli-emulation.json"] != "[]" {
 		t.Fatalf("files not parsed: %+v", p.Files)
@@ -162,7 +162,7 @@ func TestExtensionValidate_ReportsEveryBrokenField(t *testing.T) {
 			{Name: "", Mode: "wobble", Charset: "base64"},
 			{Name: "x-gen", Mode: "generate", Length: 0, Charset: "hex"},
 		},
-		:    &Extension{Grant: "implicit", ClientID: ""},
+		Auth:     &ExtensionAuth{Grant: "implicit", ClientID: ""},
 		Provides: &ExtensionProvides{ProviderTypes: []string{"bad type"}},
 		Tools:    []ExtensionTool{{}},
 		UI: ExtensionUI{Fields: []ExtensionField{
@@ -184,8 +184,8 @@ func TestExtensionValidate_ReportsEveryBrokenField(t *testing.T) {
 		"headers[1].name:",
 		"headers[1].mode:",
 		"headers[2].length:",
-		".grant:",
-		".client_id:",
+		"auth.grant:",
+		"auth.client_id:",
 		"provides.provider_types[0]:",
 		"tool_schemas[0]:",
 		"ui.fields[0].type:",
@@ -305,7 +305,7 @@ func TestHandler_ListExtensionUI_OnlyApplied(t *testing.T) {
 	}
 }
 
-func TestApplyExtension_Configures(t *testing.T) {
+func TestApplyExtension_ConfiguresExternalAuthOnMatchingProviders(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("AURORA_EXTENSIONS_PATH", filepath.Join(dir, "extensions.json"))
 	t.Setenv("AURORA_PROVIDER_OVERRIDES_PATH", filepath.Join(dir, "provider-overrides.json"))
@@ -331,14 +331,14 @@ func TestApplyExtension_Configures(t *testing.T) {
 		ID:      "cli-emulation",
 		Name:    "Public Tier Profile",
 		BaseURL: "https://zen.example.com/v1",
-		: &Extension{
+		Auth: &ExtensionAuth{
 			Server:           "https://auth.example.com/device",
 			ClientID:         "aurora-cli",
 			VerificationBase: "https://example.com",
 		},
 		Provides: &ExtensionProvides{
 			ProviderTypes: []string{"cli-emulation"},
-			Features:      []string{""},
+			Features:      []string{"external_auth"},
 		},
 	}
 	store.Upsert(ext)
@@ -362,31 +362,25 @@ func TestApplyExtension_Configures(t *testing.T) {
 	}
 
 	var body struct {
-		[]string `json:""`
+		AuthProviders []string `json:"auth_providers"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if len(body.) != 1 || body.[0] != "public-tier-main" {
-		t.Fatalf("= %v, want [public-tier-main]", body.)
+	if len(body.AuthProviders) != 1 || body.AuthProviders[0] != "public-tier-main" {
+		t.Fatalf("auth_providers = %v, want [public-tier-main]", body.AuthProviders)
 	}
 
 	matched, ok := overrides.get("public-tier-main")
 	if !ok {
 		t.Fatal("public-tier override missing")
 	}
-	if matched.AuthMethod != "" || matched.!= "https://auth.example.com/device" || matched.!= "aurora-cli" {
-		t.Fatalf("public-tier not applied: %+v", matched)
+	if matched.AuthMethod != "external" {
+		t.Fatalf("public-tier external auth not applied: %+v", matched)
 	}
 	other, _ := overrides.get("openrouter-main")
-	if other.AuthMethod == "" {
-		t.Fatalf("non-matching provider must not get : %+v", other)
-	}
-
-	// Sidecar defaults also carry endpoints.
-	side := h.sidecarStore.get()
-	if side.!= "https://auth.example.com/device" || side.!= "aurora-cli" {
-		t.Fatalf("sidecar defaults not set: %+v", side)
+	if other.AuthMethod == "external" {
+		t.Fatalf("non-matching provider must not get external auth: %+v", other)
 	}
 }
 

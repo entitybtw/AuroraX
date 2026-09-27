@@ -138,7 +138,7 @@ func TestAuthAddonContributesUISettingsTab(t *testing.T) {
 package main
 
 func UI() string {
-	return "{\"settings_tabs\":[{\"id\":\"\",\"label\":\"X\"}]}"
+	return "{\"settings_tabs\":[{\"id\":\"auth-x\",\"label\":\"Auth X\"}]}"
 }
 `)
 
@@ -153,8 +153,8 @@ func UI() string {
 	if err != nil {
 		t.Fatalf("UI() error: %v", err)
 	}
-	if !strings.Contains(raw, `"id":""`) {
-		t.Fatalf("UI() = %s, want settings tab ", raw)
+	if !strings.Contains(raw, `"id":"auth-x"`) {
+		t.Fatalf("UI() = %s, want settings tab auth-x", raw)
 	}
 }
 

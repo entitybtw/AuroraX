@@ -10,14 +10,14 @@ theme, only sidecar routing, or any mixture of the three.
 | Layer | `type` (typical) | What it does |
 |-------|------------------|--------------|
 | **Themes** | `theme` | Dashboard look: colors, CSS variables, light/dark variants |
-| **Presets** | `sidecar` | One-click sidecar + Session Hub configuration (base URL, auth, headers, tools, ) |
+| **Presets** | `sidecar` | One-click sidecar + Session Hub configuration (base URL, auth, headers, tools, account linking) |
 | **Addons** | (sidecar / custom) | Optional capabilities via `provides` and `files` (scripts, tool schemas, future runtime hooks) |
 
 See also:
 
 - [THEMES.md](THEMES.md) — CSS variables, open theme surface, light/dark
 - [PRESETS.md](PRESETS.md) — sidecar knobs, headers, tools, multi-IP
-- [ADDONS.md](ADDONS.md) — `provides`, wiring, file materialization
+- [ADDONS.md](ADDONS.md) — `provides`, auth wiring, file materialization
 
 ## Install / apply
 
@@ -55,7 +55,7 @@ contributes at a time).
   "headers": [
     { "name": "x-session", "mode": "generate", "prefix": "s_", "length": 24, "charset": "hex" }
   ],
-  "provides": { "provider_types": ["mytype"], "features": [""] }
+  "provides": { "provider_types": ["mytype"], "features": ["external_auth"] }
 }
 ```
 

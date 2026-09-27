@@ -20,12 +20,12 @@ import (
 	"aurora/internal/command_line_tools"
 	"aurora/internal/console"
 	"aurora/internal/core"
+	"aurora/internal/externalauth"
 	"aurora/internal/guardrails"
 	"aurora/internal/model_aliases"
 	"aurora/internal/model_combinations"
 	"aurora/internal/model_overrides"
 	"aurora/internal/providers"
-	"aurora/internal/providers/"
 	"aurora/internal/providers/pool"
 	"aurora/internal/response_cache"
 	"aurora/internal/usage"
@@ -58,7 +58,7 @@ type Handler struct {
 	configuredProviders  []providers.SanitizedProviderConfig
 	providerOverrides    *ProviderOverrideStore
 	poolWeights          *PoolOverrideStore
-	*.Registry
+	externalAuth         *externalauth.Bridge
 	sessionHub           interface {
 		Apply(map[string][]string, string) map[string]string
 	}
@@ -371,10 +371,12 @@ type providerStatusItemResponse struct {
 	Config       providers.SanitizedProviderConfig `json:"config"`
 	Runtime      providers.ProviderRuntimeSnapshot `json:"runtime"`
 	ConfigSource string                            `json:"config_source,omitempty"`
-	*provider`json:",omitempty"`
+	// ExternalAuthStatus reports the extension auth token state, when the
+	// auth addons know this provider.
+	ExternalAuthStatus *providerExternalAuthStatus `json:"external_auth_status,omitempty"`
 }
 
-type providerstruct {
+type providerExternalAuthStatus struct {
 	HasToken  bool   `json:"has_token"`
 	Expired   bool   `json:"expired"`
 	Email     string `json:"email,omitempty"`
@@ -633,11 +635,11 @@ func WithPools(reg *pool.Registry) Option {
 	}
 }
 
-// Withattaches the manager registry so the admin API can
+// WithExternalAuth attaches the extension auth bridge so the admin API can
 // expose token status (linked account) for providers.
-func With(reg *.Registry) Option {
+func WithExternalAuth(bridge *externalauth.Bridge) Option {
 	return func(h *Handler) {
-		h.= reg
+		h.externalAuth = bridge
 	}
 }
 

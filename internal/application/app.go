@@ -28,6 +28,7 @@ import (
 	"aurora/internal/command_line_tools"
 	"aurora/internal/console"
 	"aurora/internal/core"
+	"aurora/internal/externalauth"
 	"aurora/internal/failover"
 	"aurora/internal/gateway"
 	"aurora/internal/guardrails"
@@ -37,7 +38,6 @@ import (
 	"aurora/internal/model_overrides"
 
 	"aurora/internal/providers"
-	"aurora/internal/providers/"
 	"aurora/internal/providers/pool"
 	"aurora/internal/response_cache"
 	"aurora/internal/server"
@@ -134,8 +134,8 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 	}
 
 	// Yaegi addon store: extension-shipped *.go files (auth addons) and any
-	// operator scripts under the addons directory. Nothing is
-	// built in — addons arrive with their extensions.
+	// operator scripts under the addons directory. Nothing auth-flow-related
+	// is built in — addons arrive with their extensions.
 	addonsDir := strings.TrimSpace(os.Getenv("AURORA_ADDONS_DIR"))
 	if addonsDir == "" {
 		addonsDir = "configs/addons"
@@ -143,6 +143,12 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 	app.addons = addon.NewStore(addonsDir)
 	if loaded := app.addons.Load(); len(loaded) > 0 {
 		slog.Info("addons loaded", "dir", app.addons.Dir(), "count", len(loaded))
+	}
+	// Attach the addon store to the extension auth bridge so auth addon
+	// routes and upstream token injection become active as soon as addons
+	// are loaded.
+	if extAuth := externalAuthFromFactory(cfg.Factory); extAuth != nil {
+		extAuth.SetStore(app.addons)
 	}
 
 	// Session hub identity header set is extension-driven: sidecar
@@ -561,7 +567,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 			app.sidecarOverrides,
 			app.extensions,
 			app.addons,
-			(cfg.Factory),
+			externalAuthFromFactory(cfg.Factory),
 			app,
 			app,
 			app,
@@ -630,49 +636,12 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 		adminHandler.SetSessionHeaderEnsurer(sessionHubHeaderEnsurer{hub: app.sessionHub})
 		slog.Info("session hub initialized", "providers", len(app.sessionHub.Config().Providers))
 
-		// Initialize flow handler. is extension-only: the routes
-		// answer 404 unless an applied extension provides the feature
-		// or ships an auth addon.
-		if cfg.Factory != nil {
-			:= cfg.Factory.()
-			if != nil {
-				:= admin.New()
-				.WithEnabledFunc(func() bool {
-					if app.extensions != nil && app.extensions.ProvidesAppliedFeature("") {
-						return true
-					}
-					return app.addons != nil && len(app.addons.ByKind(addon.KindAuth)) > 0
-				})
-				// Live verification base from sidecar/extension settings.
-				if sc := app.sidecarOverrides; sc != nil {
-					.SetVerificationBase(sc.Get().)
-					.WithVerificationBaseFunc(func() string {
-						return sc.Get().
-					})
-					// Authorization-code + PKCE from the same extension block.
-					.WithAuthCodeConfigFunc(func() .AuthCodeConfig {
-						s := sc.Get()
-						return .AuthCodeConfig{
-							AuthorizeURL:    s.,
-							TokenURL:        s.,
-							ClientID:        s.,
-							Scopes:          s.,
-							RedirectURI:     s.,
-							TokenStyle:      s.,
-							StateIsVerifier: s.,
-						}
-					})
-					.WithFlowFunc(func() string {
-						s := sc.Get()
-						if strings.EqualFold(strings.TrimSpace(s.), "authorization_code") {
-							return "authorization_code"
-						}
-						return "device"
-					})
-				}
-				serverCfg.= 
-				slog.Info("routes registered (gated on extension feature)", "providers", .Len())
-			}
+		// Initialize the external auth proxy. The routes answer 404 until an
+		// applied extension ships an auth addon (kind auth); the bridge itself
+		// is attached to the addon store right after addon loading.
+		if extAuth := externalAuthFromFactory(cfg.Factory); extAuth != nil {
+			serverCfg.ExternalAuthHandler = admin.NewExternalAuthHandler(extAuth)
+			slog.Info("external auth routes registered (gated on auth addons)", "addons", extAuth.Count())
 		}
 	}
 
@@ -1085,13 +1054,13 @@ func (a *App) logStartupInfo() {
 
 // initAdmin creates the admin API handler and optionally the dashboard handler.
 // Returns nil dashboard handler if uiEnabled is false.
-// safely returns the registry from the factory,
-// or nil when the factory is unavailable.
-func (factory *providers.ProviderFactory) *.Registry {
+// externalAuthFromFactory safely returns the extension auth bridge from the
+// factory, or nil when the factory is unavailable.
+func externalAuthFromFactory(factory *providers.ProviderFactory) *externalauth.Bridge {
 	if factory == nil {
 		return nil
 	}
-	return factory.()
+	return factory.ExternalAuth()
 }
 
 func initAdmin(
@@ -1114,7 +1083,7 @@ func initAdmin(
 	sidecarOverrides *admin.SidecarOverrideStore,
 	extensions *admin.ExtensionStore,
 	addonStore *addon.Store,
-	*.Registry,
+	extAuth *externalauth.Bridge,
 	runtimeRefresher admin.RuntimeRefresher,
 	fallbackReloader admin.FallbackReloader,
 	settingsManager admin.DashboardSettingsManager,
@@ -1188,7 +1157,7 @@ func initAdmin(
 		admin.WithExtensionStore(extensions),
 		admin.WithAddonStore(addonStore),
 		admin.WithExtensionStoreURLs(admin.NewExtensionStoreURLStore()),
-		admin.With(),
+		admin.WithExternalAuth(extAuth),
 		admin.WithDashboardRuntimeConfig(runtimeConfig),
 	)
 

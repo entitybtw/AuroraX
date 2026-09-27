@@ -1,8 +1,8 @@
 // Package sidecarclient provides an optional extension-provided provider type.
 // It is NOT registered by default: extensions declare it under
 // provides.provider_types and the gateway activates it when that
-// extension is installed. device flow is an extension feature and
-// only runs when auth_method is explicitly "".
+// extension is installed. Bearer tokens are only requested when auth_method
+// is explicitly "external" (extension auth addons).
 package sidecarclient
 
 import (
@@ -13,7 +13,6 @@ import (
 
 	"aurora/internal/core"
 	"aurora/internal/providers"
-	"aurora/internal/providers/"
 	"aurora/internal/providers/vllm"
 )
 
@@ -46,17 +45,15 @@ var Registration = providers.Registration{
 
 // Provider wraps the vLLM provider with extension-scoped routing.
 type Provider struct {
-	inner    *vllm.Provider
-	*.Manager
+	inner *vllm.Provider
 }
 
 // New creates a provider for the optional extension-provided type.
-// runs only when auth_method is explicitly "" (extension feature);
-// sk-* keys alone do not force . Server/client_id come from provider
-// config or extension-applied sidecar defaults — never from gateway hardcode.
+// Bearer tokens come from extension auth addons when auth_method is
+// "external"; sk-* keys alone never trigger them.
 func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Provider {
 	if strings.TrimSpace(cfg.BaseURL) == "" {
-		cfg.BaseURL = providers.LoadSidecar().BaseURL
+		cfg.BaseURL = providers.LoadSidecarDefaults().BaseURL
 	}
 
 	sidecar := resolveSidecarURL(cfg)
@@ -70,53 +67,10 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 		opts.UseUTLS = true
 	}
 
-	if opts.AuthMethod == "" {
-		def := providers.LoadSidecar()
-		if opts.== "" {
-			opts.= def.
-		}
-		if opts.== "" {
-			opts.= def.
-		}
-		if opts.== "" {
-			opts.= def.
-		}
-		if opts.== "" {
-			opts.= def.
-		}
-		if opts.== "" {
-			opts.= def.
-		}
-		if opts.== "" {
-			opts.= def.
-		}
-		if opts.== "" {
-			opts.= def.
-		}
-		if opts.== "" {
-			opts.= def.
-		}
-		opts.= opts.|| def.
-	}
-
 	// Signal provider type to the sidecar so it can scope inject_tools.
 	cfg.SidecarURL = sidecar
-	inner := vllm.New(cfg, opts).(*vllm.Provider)
 
-	var *.Manager
-	if inner:= inner.(); inner!= nil {
-		= inner
-	}
-
-	return &Provider{
-		inner:    inner,
-		: ,
-	}
-}
-
-// returns the token manager, or nil if is not configured.
-func (p *Provider) () *.Manager {
-	return p.
+	return &Provider{inner: vllm.New(cfg, opts).(*vllm.Provider)}
 }
 
 // resolveSidecarURL returns the sidecar base URL for this provider, or an
