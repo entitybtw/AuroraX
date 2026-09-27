@@ -5,6 +5,15 @@
 // enforced (Connection: close) because reusing the upstream socket makes some
 // upstreams reject subsequent requests.
 //
+// Concurrency: every request is handled independently — no shared queue or
+// serialization. When cfg.passthrough is set (inline adapter mode) an
+// upstream SSE response is returned as a live ReadableStream instead of a
+// fully buffered string, so concurrent clients see bytes immediately
+// (TTFB = time-to-first-upstream-chunk) instead of waiting for the whole
+// generation to finish. Time-to-response-headers is bounded per attempt by
+// cfg.upstreamTimeoutMs (default 120s); the body has no deadline once
+// headers arrived.
+//
 // Tool injection is scoped by AURORA_SIDECAR_INJECT_TOOLS (set by adapter
 // from overrides + provider type). When enabled and the body has no tools,
 // the schema is loaded from AURORA_SIDECAR_TOOLS_PATH (extension-supplied)
@@ -63,11 +72,14 @@ function loadTools(toolsPath) {
 //
 // cfg (all values come from the adapter / environment):
 //   upstream, userAgent, defaultAuth, injectTools, maxAttempts, retryDelayMs,
-//   pathTemplate, retryStatuses, extraHeaders, forceStream, proxy, toolsPath
+//   pathTemplate, retryStatuses, extraHeaders, forceStream, proxy, toolsPath,
+//   upstreamTimeoutMs (headers deadline, default 120000),
+//   passthrough (return SSE as a live ReadableStream when the client streams)
 //
-// envelope: { authorization?, headers?, payload }
+// envelope: { authorization?, headers?, payload, __signal? }
 //
-// Returns a plain object envelope: { __status, __sse? , body?, error? }.
+// Returns a plain object envelope: { __status, __sse?, body?, error? } or,
+// with cfg.passthrough and a streaming upstream, { __status, __stream }.
 export async function executeRequest(envelope, cfg) {
   const payload = envelope.payload ?? envelope;
   const clientWantsStream = payload.stream === true;
@@ -75,6 +87,10 @@ export async function executeRequest(envelope, cfg) {
     typeof envelope.authorization === "string" && envelope.authorization
       ? envelope.authorization
       : cfg.defaultAuth;
+  const upstreamTimeoutMs =
+    Number(cfg.upstreamTimeoutMs) > 0
+      ? Number(cfg.upstreamTimeoutMs)
+      : 120000;
 
   const tools = cfg.injectTools ? loadTools(cfg.toolsPath) : null;
   if (cfg.injectTools && tools) {
@@ -133,22 +149,63 @@ export async function executeRequest(envelope, cfg) {
   let resp;
   let raw = "";
   for (let attempt = 1; attempt <= cfg.maxAttempts; attempt++) {
-    const opts = {
+    const fetchOpts = {
       method: "POST",
       headers: buildHeaders(),
       body: JSON.stringify(payload),
     };
-    if (cfg.proxy) opts.proxy = cfg.proxy;
-    resp = await fetch(url, opts);
-    raw = await resp.text();
-    if (!cfg.retryStatuses.includes(resp.status)) break;
-    if (attempt < cfg.maxAttempts) {
-      await new Promise((r) => setTimeout(r, cfg.retryDelayMs * attempt));
+    if (cfg.proxy) fetchOpts.proxy = cfg.proxy;
+
+    // Per-attempt deadline for response headers only: aborting the request
+    // also cancels an upstream that stopped responding mid-handshake, and the
+    // timer is cleared as soon as headers arrive so long bodies (aggregated
+    // completions) are never cut off.
+    const ctrl = new AbortController();
+    if (envelope && envelope.__signal) {
+      // Client disconnected: stop wasting an upstream slot on its behalf.
+      try {
+        envelope.__signal.addEventListener("abort", () => ctrl.abort(), {
+          once: true,
+        });
+      } catch {
+        // signal without addEventListener — ignore
+      }
     }
+    const headerTimer = setTimeout(() => ctrl.abort(), upstreamTimeoutMs);
+    fetchOpts.signal = ctrl.signal;
+
+    try {
+      resp = await fetch(url, fetchOpts);
+      clearTimeout(headerTimer);
+    } catch (err) {
+      clearTimeout(headerTimer);
+      if (attempt < cfg.maxAttempts) {
+        await new Promise((r) => setTimeout(r, cfg.retryDelayMs * attempt));
+        continue;
+      }
+      const reason = ctrl.signal.aborted
+        ? `upstream did not respond within ${upstreamTimeoutMs}ms`
+        : `upstream unreachable: ${err}`;
+      return { __status: 504, error: { message: reason } };
+    }
+
+    // Status-first: only retryable upstream answers consume a retry, and their
+    // (small) bodies are discarded without buffering full generations.
+    if (cfg.retryStatuses.includes(resp.status) && attempt < cfg.maxAttempts) {
+      try {
+        await resp.body?.cancel();
+      } catch {
+        // already closed
+      }
+      await new Promise((r) => setTimeout(r, cfg.retryDelayMs * attempt));
+      continue;
+    }
+    break;
   }
 
   const upstreamStatus = resp.status;
   if (!resp.ok) {
+    raw = await resp.text().catch(() => "");
     return {
       __status: upstreamStatus,
       error: { message: raw || `upstream ${upstreamStatus}` },
@@ -156,9 +213,17 @@ export async function executeRequest(envelope, cfg) {
   }
 
   if (wantStream) {
+    // Inline adapter streams the SSE body straight through so every
+    // concurrent client starts receiving tokens immediately. The legacy
+    // one-shot process keeps the buffered envelope (JSON over stdout).
+    if (cfg.passthrough && resp.body) {
+      return { __status: 200, __stream: resp.body };
+    }
+    raw = await resp.text();
     return { __status: 200, __sse: raw };
   }
 
+  raw = await resp.text();
   return { __status: 200, body: aggregateSse(raw) };
 }
 
