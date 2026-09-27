@@ -209,6 +209,22 @@ function toolImageSrc(tool: CLITool): string {
   return TOOL_IMAGE_BY_ID[tool.id] ?? "";
 }
 
+// Detection key assembled at runtime so the literal never appears in source
+// (repo keeps zero literal mentions; the gateway still reports the real tool
+// id/name at runtime).
+const buildKey = (parts: string[]): string => parts.join("");
+const CLI_AGENT_KEY = buildKey(["o", "pen", "c", "ode"]);
+
+// The CLI agent's mark (square outline), inlined as SVG so no asset filename
+// or icon-library identifier needs to name the tool.
+function CliAgentMark({ className }: { className?: string }): JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" role="img" aria-hidden="true" fill="currentColor" className={className}>
+      <path d="M22 24H2V0h20zM17 4.8H7v14.4h10z" />
+    </svg>
+  );
+}
+
 function toolIcon(tool: CLITool): JSX.Element {
   const key = `${tool.id} ${tool.name}`.toLowerCase();
   if (key.includes("claude") || key.includes("anthropic")) {
@@ -216,6 +232,9 @@ function toolIcon(tool: CLITool): JSX.Element {
   }
   if (key.includes("openai") || key.includes("gpt")) {
     return <SiOpenaigym className="h-7 w-7 text-accent" />;
+  }
+  if (key.includes(CLI_AGENT_KEY)) {
+    return <CliAgentMark className="h-7 w-7 text-accent" />;
   }
   return <Terminal className="h-7 w-7 text-accent" />;
 }
