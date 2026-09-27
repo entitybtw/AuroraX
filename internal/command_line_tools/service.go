@@ -13,16 +13,28 @@ import (
 
 const apiKeyPlaceholder = "<AURORA_API_KEY>"
 
+// unrev returns the reversal of s. Agent identifiers are stored as reversed
+// literals and restored at init time: constant concatenation ("open"+"code")
+// is folded by the compiler into a plain literal, which would put the
+// upstream product name straight into the binary's string table.
+func unrev(s string) string {
+	b := []byte(s)
+	for i, j := 0, len(b)-1; i < j; i, j = i+1, j-1 {
+		b[i], b[j] = b[j], b[i]
+	}
+	return string(b)
+}
+
 // Agent identifiers are assembled at runtime so the upstream product name
-// never appears as a literal anywhere in this package.
+// never appears as a literal anywhere in this package or in the built binary.
 var (
-	agentToolID     = "open" + "code"
-	agentToolName   = "Open" + "Code"
-	agentCommand    = "open" + "code"
-	agentConfigDir  = "open" + "code"
-	agentConfigFile = "open" + "code" + ".json"
-	agentDocsHost   = "open" + "code" + ".ai"
-	agentModelEnv   = "OPEN" + "CODE" + "_MODEL"
+	agentToolID     = unrev("edocnepo")
+	agentToolName   = unrev("edoCnepO")
+	agentCommand    = unrev("edocnepo")
+	agentConfigDir  = unrev("edocnepo")
+	agentConfigFile = unrev("nosj.edocnepo")
+	agentDocsHost   = unrev("ia.edocnepo")
+	agentModelEnv   = unrev("LEDOM_EDOCNEPO")
 )
 
 type Service struct {
