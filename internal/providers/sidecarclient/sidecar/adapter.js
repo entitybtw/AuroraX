@@ -7,9 +7,14 @@
 // binary cannot reproduce. Credentials are forwarded untouched.
 //
 // Requests run inline in this process via execute.js (no per-request Bun
-// spawn). Set AURORA_SIDECAR_ISOLATED=true to spawn a fresh Bun process per
-// request instead (slower; only needed if an upstream rejects a reused
-// process even with Connection: close).
+// spawn). Streaming responses are passed through live: the upstream SSE body
+// is piped to the client as it arrives, so many concurrent clients each see
+// immediate time-to-first-byte instead of waiting for a fully buffered
+// generation (which made parallel sessions hit their own timeouts). Every
+// request runs independently — there is no shared queue or per-session
+// serialization. Set AURORA_SIDECAR_ISOLATED=true to spawn a fresh Bun
+// process per request instead (legacy; buffered, only needed if an upstream
+// rejects a reused process even with Connection: close).
 //
 // Multi-IP: the caller may send `x-aurora-bind-ip`. When it matches an entry
 // in AURORA_SIDECAR_BIND_PROXIES (comma-separated `ip:port` CONNECT proxies),
@@ -31,6 +36,7 @@
 //	AURORA_SIDECAR_BIND_PROXIES   ip:port[,ip:port...]  (default empty)
 //	AURORA_SIDECAR_OVERRIDES_PATH sidecar-overrides.json (mtime-cached)
 //	AURORA_SIDECAR_TOOLS_PATH     extension tool schema JSON (optional)
+//	AURORA_SIDECAR_UPSTREAM_HEADERS_TIMEOUT_MS  headers deadline (default 120000)
 //
 // Note: AURORA_SIDECAR_BASE_URL is the sidecar's own listen URL for the
 // gateway — it is never used as UPSTREAM (self-proxy hang).
@@ -252,13 +258,20 @@ function buildCfg(overrides, opts) {
     forceStream: overrides.forceStream,
     proxy: opts.proxy,
     toolsPath: opts.toolsPath,
+    upstreamTimeoutMs: Number(
+      process.env.AURORA_SIDECAR_UPSTREAM_HEADERS_TIMEOUT_MS ?? "120000",
+    ),
   };
 }
 
 Bun.serve({
   hostname: HOST,
   port: PORT,
-  idleTimeout: 240,
+  // 0 disables Bun's idle connection reaper: a long aggregated (non-stream)
+  // generation legitimately produces no bytes for minutes, and the gateway
+  // on localhost is this server's only client — killing idle sockets there
+  // only decapitated in-flight requests.
+  idleTimeout: 0,
   async fetch(req) {
     const url = new URL(req.url);
 
@@ -401,7 +414,24 @@ Bun.serve({
       }
     } else {
       try {
-        out = JSON.stringify(await executeRequest(envelope, cfg));
+        const result = await executeRequest(
+          // __signal: when the client disconnects, stop the upstream request
+          // instead of finishing a generation nobody will read.
+          { authorization, headers, payload, __signal: req.signal },
+          { ...cfg, passthrough: true },
+        );
+        if (result && result.__stream) {
+          // Live SSE passthrough: bytes flow to each concurrent client as
+          // the upstream produces them (no full-body buffering).
+          return new Response(result.__stream, {
+            status: 200,
+            headers: {
+              "content-type": "text/event-stream",
+              "cache-control": "no-cache",
+            },
+          });
+        }
+        out = JSON.stringify(result);
       } catch (err) {
         return json(
           { error: { message: `sidecar execution failed: ${err}` } },
