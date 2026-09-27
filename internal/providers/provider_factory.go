@@ -10,8 +10,8 @@ import (
 
 	"aurora/configuration"
 	"aurora/internal/core"
+	"aurora/internal/externalauth"
 	"aurora/internal/language_model_client"
-	"aurora/internal/providers/"
 )
 
 // ProviderOptions bundles runtime settings passed from the factory to provider constructors.
@@ -29,26 +29,11 @@ type ProviderOptions struct {
 	// SessionHub optionally provides a header transformer for session mapping.
 	// When set, providers wrap their headerSetter to apply session hub rules.
 	SessionHub SessionHubTransformer
-	// AuthMethod selects authentication: "key" (default) or "".
+	// AuthMethod selects authentication: "key" (default) or "external"
+	// (bearer tokens from extension auth addons).
 	AuthMethod string
-	// is the base URL of the server for device flow.
-	string
-	// is the client_id for the device flow.
-	string
-	// / / / /
-	// / / configure
-	// authorization-code + PKCE when grant is "authorization_code".
-	string
-	string
-	string
-	string
-	bool
-	string
-	string
-	// is the directory for persisting tokens.
-	string
-	// is the central registry for token managers.
-	*.Registry
+	// ExternalAuth bridges to extension auth addons for bearer tokens.
+	ExternalAuth *externalauth.Bridge
 	// DisableAPIKey keeps the stored API key but stops sending it upstream.
 	DisableAPIKey bool
 	// UseUTLS enables uTLS fingerprint impersonation for the HTTP client.
@@ -87,7 +72,7 @@ type ProviderFactory struct {
 	passthroughEnrichers map[string]core.PassthroughSemanticEnricher
 	hooks                llmclient.Hooks
 	sessionHub           SessionHubTransformer
-	*.Registry
+	externalAuth         *externalauth.Bridge
 }
 
 // NewProviderFactory creates a new provider factory instance.
@@ -113,29 +98,19 @@ func (f *ProviderFactory) SetSessionHub(transformer SessionHubTransformer) {
 	f.sessionHub = transformer
 }
 
-// Setis replaced by Set. Kept for backward compatibility.
-func (f *ProviderFactory) Set(dir string) {
+// SetExternalAuth attaches the extension auth bridge for all providers
+// created by this factory.
+func (f *ProviderFactory) SetExternalAuth(bridge *externalauth.Bridge) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	// No-op: data dir is now part of the registry setup
+	f.externalAuth = bridge
 }
 
-// Setconfigures the registry for all providers.
-func (f *ProviderFactory) Set(registry *.Registry) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.= registry
-}
-
-// returns the configured registry, or nil.
-func (f *ProviderFactory) () *.Registry {
+// ExternalAuth returns the configured extension auth bridge, or nil.
+func (f *ProviderFactory) ExternalAuth() *externalauth.Bridge {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
-	return f.
-}
-
-func (f *ProviderFactory) () string {
-	return "data"
+	return f.externalAuth
 }
 
 // Add adds a provider constructor to the factory.
@@ -171,61 +146,21 @@ func (f *ProviderFactory) Create(cfg ProviderConfig) (core.Provider, error) {
 	}
 
 	opts := ProviderOptions{
-		Hooks:                hooks,
-		Models:               cfg.Models,
-		Resilience:           cfg.Resilience,
-		BindIP:               cfg.BindIP,
-		UserAgent:            cfg.UserAgent,
-		ProviderName:         cfg.Name,
-		SessionHub:           f.sessionHub,
-		AuthMethod:           cfg.AuthMethod,
-		:          cfg.,
-		:        cfg.,
-		:    cfg.,
-		:        cfg.,
-		:          cfg.,
-		:      cfg.,
-		: cfg.,
-		:     cfg.,
-		:           cfg.,
-		:         f.(),
-		:        f.,
-		DisableAPIKey:        cfg.DisableAPIKey,
-		UseUTLS:              cfg.UseUTLS,
+		Hooks:        hooks,
+		Models:       cfg.Models,
+		Resilience:   cfg.Resilience,
+		BindIP:       cfg.BindIP,
+		UserAgent:    cfg.UserAgent,
+		ProviderName: cfg.Name,
+		SessionHub:   f.sessionHub,
+		AuthMethod:   cfg.AuthMethod,
+		ExternalAuth: f.externalAuth,
+		DisableAPIKey: cfg.DisableAPIKey,
+		UseUTLS:      cfg.UseUTLS,
 	}
 
-	// Extension-applied sidecar defaults fill empty wiring so the
-	// gateway itself never hardcodes a provider origin/client.
-	if opts.AuthMethod == "" {
-		def := LoadSidecar()
-		if opts.== "" {
-			opts.= def.
-		}
-		if opts.== "" {
-			opts.= def.
-		}
-		if opts.== "" {
-			opts.= def.
-		}
-		if opts.== "" {
-			opts.= def.
-		}
-		if opts.== "" {
-			opts.= def.
-		}
-		if opts.== "" {
-			opts.= def.
-		}
-		if opts.== "" {
-			opts.= def.
-		}
-		if opts.== "" {
-			opts.= def.
-		}
-		opts.= opts.|| def.
-	}
 	if strings.TrimSpace(cfg.BaseURL) == "" {
-		if def := LoadSidecar(); def.BaseURL != "" && cfg.Type == "cli-emulation" {
+		if def := LoadSidecarDefaults(); def.BaseURL != "" && cfg.Type == "cli-emulation" {
 			cfg.BaseURL = def.BaseURL
 		}
 	}

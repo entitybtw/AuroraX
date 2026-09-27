@@ -45,14 +45,11 @@ type ProviderOverride struct {
 	// AutoFetchFilter narrows discovered models to those matching the declared
 	// conditions. Filtered-out models are not registered and are not routable.
 	AutoFetchFilter *config.AutoFetchFilter `json:"autofetch_filter,omitempty"`
-	// AuthMethod selects the authentication mechanism: "key" (default) or "".
+	// AuthMethod selects the authentication mechanism: "key" (default) or
+	// "external" (bearer tokens from extension auth addons).
 	AuthMethod string `json:"auth_method,omitempty"`
-	// is the base URL of the authorization server.
-	string `json:",omitempty"`
-	// is the client_id for the device flow.
-	string `json:",omitempty"`
 	// DisableAPIKey keeps the stored API key but stops sending it upstream.
-	// Useful when an token supersedes the key.
+	// Useful when an extension-supplied bearer token supersedes the key.
 	DisableAPIKey *bool `json:"disable_api_key,omitempty"`
 }
 
@@ -174,8 +171,6 @@ func (s *ProviderOverrideStore) RawConfigs() map[string]config.RawProviderConfig
 			AutoFetchModels: override.AutoFetchModels,
 			AutoFetchFilter: autoFetchFilterValue(override.AutoFetchFilter),
 			AuthMethod:      strings.TrimSpace(override.AuthMethod),
-			:     strings.TrimSpace(override.),
-			:   strings.TrimSpace(override.),
 			DisableAPIKey:   override.DisableAPIKey != nil && *override.DisableAPIKey,
 		}
 	}
@@ -225,12 +220,10 @@ type providerUpdateRequest struct {
 	SidecarURL      *string                 `json:"sidecar_url"`
 	AutoFetchModels *bool                   `json:"auto_fetch_models"`
 	AutoFetchFilter *config.AutoFetchFilter `json:"autofetch_filter"`
-	// AuthMethod selects "key" (default) or "".
+	// AuthMethod selects "key" (default) or "external".
 	AuthMethod *string `json:"auth_method"`
-	// / configure the device flow for auth_method=.
-	*string `json:""`
-	*string `json:""`
-	// DisableAPIKey stops sending the stored static key (supersedes it).
+	// DisableAPIKey stops sending the stored static key (an extension-supplied
+	// bearer token supersedes it).
 	DisableAPIKey *bool `json:"disable_api_key"`
 	// NewName renames the provider (both UI-created and static providers).
 	NewName *string `json:"new_name"`
@@ -401,12 +394,6 @@ func (h *Handler) UpdateProvider(c *echo.Context) error {
 	}
 	if req.AuthMethod != nil {
 		updated.AuthMethod = strings.TrimSpace(*req.AuthMethod)
-	}
-	if req.!= nil {
-		updated.= strings.TrimSpace(*req.)
-	}
-	if req.!= nil {
-		updated.= strings.TrimSpace(*req.)
 	}
 	if req.DisableAPIKey != nil {
 		updated.DisableAPIKey = boolPtr(*req.DisableAPIKey)

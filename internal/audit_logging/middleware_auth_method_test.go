@@ -50,7 +50,7 @@ func TestEnrichEntryWithAuthMethodIgnoresBlankAndUnsupportedValues(t *testing.T)
 		t.Fatalf("entry auth method = %q, want empty", entry.AuthMethod)
 	}
 
-	EnrichEntryWithAuthMethod(c, "")
+	EnrichEntryWithAuthMethod(c, "external")
 	if entry.AuthMethod != "" {
 		t.Fatalf("entry auth method = %q, want empty", entry.AuthMethod)
 	}

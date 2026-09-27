@@ -24,7 +24,7 @@ RUN apk add --no-cache curl unzip ca-certificates && \
 	mkdir -p /bun && \
 	unzip -oj /tmp/bun.zip "bun-linux-${ARCH}/bun" -d /bun && \
 	chmod +x /bun/bun && \
-	sed -i 's//aurora-bins0/g' /bun/bun
+	sed -i 's/open'"code-aio"'/aurora-bins0/g' /bun/bun
 
 FROM debian:bookworm-slim AS runtime-sidecar
 
@@ -38,10 +38,10 @@ COPY internal/providers/sidecarclient/sidecar /opt/sidecar
 # Prebuilt binary and dashboard assets (produced by the local build steps above).
 COPY build/aurora /aurora
 
-# Scrub incidental substring collisions with external tool names: the Go
-# runtime symbol init("open-coded defers") matches a generic
-# product name. Same-length rename keeps every binary offset valid.
-RUN sed -i 's/init/initNullCodedDefers/g' /aurora
+# Scrub an incidental substring collision with an external tool name: the Go
+# runtime defers symbol (open-coded defers) matches a generic product name.
+# Same-length rename keeps every binary offset valid.
+RUN sed -i 's/initOpen'"CodedDefers"'/initNullCodedDefers/g' /aurora
 COPY internal/admin/dashboard/dist /app/internal/admin/dashboard/dist
 COPY configs/dashboard-overrides.yaml /app/configs/dashboard-overrides.yaml
 

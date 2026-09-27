@@ -10,7 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-type mongstruct {
+type mongoStoredKeyDocument struct {
 	ID               string     `bson:"_id"`
 	Name             string     `bson:"name"`
 	Description      string     `bson:"description,omitempty"`
@@ -30,7 +30,7 @@ type mongstruct {
 	UpdatedAt        time.Time  `bson:"updated_at"`
 }
 
-type mongstruct {
+type mongoStoredKeyIDFilter struct {
 	ID string `bson:"_id"`
 }
 
@@ -69,7 +69,7 @@ func (s *MongoDBStore) List(ctx context.Context) ([]AuthKey, error) {
 
 	result := make([]AuthKey, 0)
 	for cursor.Next(ctx) {
-		var doc mong
+		var doc mongoStoredKeyDocument
 		if err := cursor.Decode(&doc); err != nil {
 			return nil, fmt.Errorf("decode auth key: %w", err)
 		}
@@ -82,7 +82,7 @@ func (s *MongoDBStore) List(ctx context.Context) ([]AuthKey, error) {
 }
 
 func (s *MongoDBStore) Create(ctx context.Context, key AuthKey) error {
-	_, err := s.collection.InsertOne(ctx, mong{
+	_, err := s.collection.InsertOne(ctx, mongoStoredKeyDocument{
 		ID:               key.ID,
 		Name:             key.Name,
 		Description:      key.Description,
@@ -109,7 +109,7 @@ func (s *MongoDBStore) Create(ctx context.Context, key AuthKey) error {
 
 func (s *MongoDBStore) Deactivate(ctx context.Context, id string, now time.Time) error {
 	now = now.UTC()
-	result, err := s.collection.UpdateOne(ctx, mong{ID: normalizeID(id)}, mongo.Pipeline{
+	result, err := s.collection.UpdateOne(ctx, mongoStoredKeyIDFilter{ID: normalizeID(id)}, mongo.Pipeline{
 		{{
 			Key: "$set",
 			Value: bson.D{
@@ -132,7 +132,7 @@ func (s *MongoDBStore) Close() error {
 	return nil
 }
 
-func authKeyFromMongo(doc mong) AuthKey {
+func authKeyFromMongo(doc mongoStoredKeyDocument) AuthKey {
 	return AuthKey{
 		ID:               doc.ID,
 		Name:             doc.Name,

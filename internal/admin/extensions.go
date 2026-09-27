@@ -159,20 +159,21 @@ type ExtensionTool struct {
 	InlineJSON json.RawMessage `json:"inline,omitempty"`
 }
 
-// Extensioncarries device-flow or authorization-code+PKCE wiring an
+// ExtensionAuth carries device-flow or authorization-code+PKCE wiring an
 // extension supplies so the gateway and dashboard do not hardcode
-// provider-specific endpoints.
-type Extensionstruct {
-	// Server is the authorization server base URL (device authorization).
+// provider-specific auth endpoints. The gateway core never interprets these
+// fields: auth addons (kind auth) read them from the stored manifest.
+type ExtensionAuth struct {
+	// Server is the auth server base URL (device authorization).
 	Server string `json:"server,omitempty"`
 	// ClientID is the public client_id used in the device flow.
 	ClientID string `json:"client_id,omitempty"`
 	// VerificationBase is the origin used to expand relative verification URIs.
 	// Empty = treat verification URIs as absolute.
 	VerificationBase string `json:"verification_base,omitempty"`
-	// UserAgent is an optional UA for HTTP calls.
+	// UserAgent is an optional UA for auth HTTP calls.
 	UserAgent string `json:"user_agent,omitempty"`
-	// Scope is an optional scope string.
+	// Scope is an optional scope string for the device flow.
 	Scope string `json:"scope,omitempty"`
 	// Grant selects the flow: "device" (default) or "authorization_code".
 	Grant string `json:"grant,omitempty"`
@@ -193,13 +194,13 @@ type Extensionstruct {
 
 // ExtensionProvides declares optional capabilities that are not built into the
 // gateway by default and are activated when the extension is installed —
-// for example optional provider types or device-flow wiring.
+// for example optional provider types or auth addon wiring.
 type ExtensionProvides struct {
 	// ProviderTypes are factory provider types this extension activates.
 	// Types absent from this list stay unregistered.
 	ProviderTypes []string `json:"provider_types,omitempty"`
 	// Features are optional capability flags surfaced to the operator
-	// (e.g. [""]).
+	// (e.g. ["external_auth"]).
 	Features []string `json:"features,omitempty"`
 }
 
@@ -233,8 +234,9 @@ type Extension struct {
 	// Settings is a free-form map for extension-specific tunables that map
 	// onto sidecar settings by key.
 	Settings map[string]string `json:"settings,omitempty"`
-	// supplies device-flow endpoints for this extension's providers.
-	*Extension`json:",omitempty"`
+	// Auth supplies auth endpoints for this extension's providers; only auth
+	// addons (kind auth) read it.
+	Auth *ExtensionAuth `json:"auth,omitempty"`
 	// Files is a map of relative path → file content materialised under
 	// configs/extensions/<id>/ on apply (tool schemas, helper scripts, …).
 	// Paths must stay under the extension directory (no ".." / absolute).
@@ -637,8 +639,8 @@ func (p *Extension) Validate() error {
 	}
 
 	// Auth-flow wiring.
-	if p.!= nil {
-		o := p.
+	if p.Auth != nil {
+		o := p.Auth
 		for field, value := range map[string]string{
 			"server":            o.Server,
 			"authorize_url":     o.AuthorizeURL,
@@ -646,29 +648,29 @@ func (p *Extension) Validate() error {
 			"verification_base": o.VerificationBase,
 		} {
 			if value != "" && !isHTTPURL(value) {
-				add(".%s: %q must be an absolute http(s) URL", field, value)
+				add("auth.%s: %q must be an absolute http(s) URL", field, value)
 			}
 		}
 		if strings.TrimSpace(o.ClientID) == "" {
-			add(".client_id: required")
+			add("auth.client_id: required")
 		}
 		switch strings.TrimSpace(o.Grant) {
 		case "", "device":
 			if strings.TrimSpace(o.Server) == "" {
-				add(".server: required for the device grant")
+				add("auth.server: required for the device grant")
 			}
 		case "authorization_code":
 			if strings.TrimSpace(o.AuthorizeURL) == "" {
-				add(".authorize_url: required for the authorization_code grant")
+				add("auth.authorize_url: required for the authorization_code grant")
 			}
 			if strings.TrimSpace(o.TokenURL) == "" {
-				add(".token_url: required for the authorization_code grant")
+				add("auth.token_url: required for the authorization_code grant")
 			}
 			if o.TokenStyle != "" && o.TokenStyle != "json" && o.TokenStyle != "form" {
-				add(".token_style: %q is unknown (json or form)", o.TokenStyle)
+				add("auth.token_style: %q is unknown (json or form)", o.TokenStyle)
 			}
 		default:
-			add(".grant: %q is unknown (device or authorization_code)", o.Grant)
+			add("auth.grant: %q is unknown (device or authorization_code)", o.Grant)
 		}
 	}
 
@@ -820,8 +822,8 @@ func WithAddonStore(store *addon.Store) Option {
 }
 
 // ProvidesAppliedFeature reports whether any applied extension declares the
-// named capability under provides.features (e.g. ""). is an
-// extension-only capability: nothing built-in enables it.
+// named capability under provides.features (e.g. "external_auth"). These
+// capabilities are extension-only: nothing built-in enables them.
 func (s *ExtensionStore) ProvidesAppliedFeature(name string) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -1265,26 +1267,6 @@ func (h *Handler) buildApplyResponse(c *echo.Context) (map[string]any, Extension
 			next.DefaultAuth = v
 		case "tools_path", "tool_schemas_path":
 			next.ToolsPath = v
-		case "":
-			next.= v
-		case "":
-			next.= v
-		case "":
-			next.= v
-		case "":
-			next.= v
-		case "":
-			next.= v
-		case "":
-			next.= v
-		case "":
-			next.= v
-		case "":
-			next.= v
-		case "":
-			next.= v
-		case "":
-			next.= strings.EqualFold(strings.TrimSpace(v), "true")
 		case "path_template":
 			next.PathTemplate = v
 		case "models_path":
@@ -1305,38 +1287,6 @@ func (h *Handler) buildApplyResponse(c *echo.Context) (map[string]any, Extension
 		// with the extension.
 		h.LoadExtensionAddons(ext.ID)
 	}
-	// Extension becomes the sidecar/global defaults for device or
-	// authorization-code (+ PKCE) flow.
-	if ext.!= nil {
-		if ext..Server != "" {
-			next.= ext..Server
-		}
-		if ext..ClientID != "" {
-			next.= ext..ClientID
-		}
-		if ext..VerificationBase != "" {
-			next.= ext..VerificationBase
-		}
-		if ext..Grant != "" {
-			next.= ext..Grant
-		}
-		if ext..AuthorizeURL != "" {
-			next.= ext..AuthorizeURL
-		}
-		if ext..TokenURL != "" {
-			next.= ext..TokenURL
-		}
-		if ext..TokenStyle != "" {
-			next.= ext..TokenStyle
-		}
-		if ext..Scopes != "" {
-			next.= ext..Scopes
-		}
-		next.= ext..StateIsVerifier
-		if ext..RedirectURI != "" {
-			next.= ext..RedirectURI
-		}
-	}
 	h.sidecarStore.update(next)
 
 	var activated []string
@@ -1348,8 +1298,9 @@ func (h *Handler) buildApplyResponse(c *echo.Context) (map[string]any, Extension
 		}
 	}
 
-	// provides.features "" wires device-flow onto matching providers.
-	:= h.applyExtension(c, ext)
+	// provides.features "external_auth" wires extension auth addons onto
+	// matching providers.
+	externalAuthProviders := h.applyExtensionExternalAuth(c, ext)
 
 	// Client emulation profile (User-Agent + TLS-fingerprint sidecar URL) is
 	// stamped onto the providers this extension targets so a pool of
@@ -1374,11 +1325,11 @@ func (h *Handler) buildApplyResponse(c *echo.Context) (map[string]any, Extension
 		"activated_provider_types": activated,
 		"provides":                 ext.Provides,
 	}
-	if ext.!= nil {
-		resp[""] = ext.
+	if ext.Auth != nil {
+		resp["auth"] = ext.Auth
 	}
-	if len() > 0 {
-		resp[""] = 
+	if len(externalAuthProviders) > 0 {
+		resp["auth_providers"] = externalAuthProviders
 	}
 	if len(profileProviders) > 0 {
 		resp["profile_providers"] = profileProviders
@@ -1469,19 +1420,15 @@ func (h *Handler) applyExtensionClientProfile(c *echo.Context, ext Extension) []
 	return updated
 }
 
-// applyExtensionenables auth_method=on providers that this
-// extension targets: type ∈ provides.provider_types, or base_url equals the
-// extension base_url (e.g. pool instances). server /
-// client_id come from extension.. Returns updated provider names.
-// No-op when the extension does not declare provides.features "".
-func (h *Handler) applyExtension(c *echo.Context, ext Extension) []string {
-	if h.providerOverrides == nil || ext.== nil ||
-		!extensionProvidesFeature(ext.Provides, "") {
-		return nil
-	}
-	server := strings.TrimSpace(ext..Server)
-	clientID := strings.TrimSpace(ext..ClientID)
-	if server == "" || clientID == "" {
+// applyExtensionExternalAuth enables auth_method=external on providers that
+// this extension targets: type ∈ provides.provider_types, or base_url equals
+// the extension base_url (e.g. pool instances). Auth wiring itself lives in
+// the extension's auth addon (kind auth), never in core. Returns updated
+// provider names. No-op when the extension does not declare
+// provides.features "external_auth".
+func (h *Handler) applyExtensionExternalAuth(c *echo.Context, ext Extension) []string {
+	if h.providerOverrides == nil || ext.Auth == nil ||
+		!extensionProvidesFeature(ext.Provides, "external_auth") {
 		return nil
 	}
 
@@ -1509,12 +1456,10 @@ func (h *Handler) applyExtension(c *echo.Context, ext Extension) []string {
 		if !match {
 			continue
 		}
-		if o.AuthMethod == "" && o.== server && o.== clientID {
+		if strings.EqualFold(strings.TrimSpace(o.AuthMethod), "external") {
 			continue
 		}
-		o.AuthMethod = ""
-		o.= server
-		o.= clientID
+		o.AuthMethod = "external"
 		h.providerOverrides.upsert(o)
 		updated = append(updated, o.Name)
 	}

@@ -40,9 +40,6 @@ interface SidecarSettings {
   bind_ips: string[];
   proxies: SidecarProxy[];
   tools_path?: string | undefined;
-  ?: string | undefined;
-  ?: string | undefined;
-  ?: string | undefined;
 }
 
 // --- API hooks ---

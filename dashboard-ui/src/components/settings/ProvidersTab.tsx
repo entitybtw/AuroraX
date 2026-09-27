@@ -9,8 +9,8 @@ import { fetchProviderStatus, createProvider, updateProvider, deleteProvider, se
 import { withBasePath } from "@/lib/basepath";
 import { useState, useCallback, useMemo, useRef } from "react";
 import { cn } from "@/lib/utils";
-import { } from "./";
-import { fetch} from "@/lib/api/";
+import { ExternalAuthDialog } from "./ExternalAuthDialog";
+import { fetchExternalAuthProviders } from "@/lib/api/external-auth";
 import { fetchExtensions, type Extension } from "@/lib/api/extensions";
 
 // filterToText renders an AutoFetchFilter into the simple comma-separated form
@@ -324,7 +324,7 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
               <div className="flex items-center justify-between gap-3 border border-border/40 bg-background/30 px-3 py-2.5">
                 <div className="flex flex-col gap-1 pr-2">
                   <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Disable API Key</label>
-                  <div className="text-[11px] text-muted-foreground">Stop sending the static API key upstream. Use when an token supersedes it.</div>
+                  <div className="text-[11px] text-muted-foreground">Stop sending the static API key upstream. Use when an auth token supersedes it.</div>
                 </div>
                 <Switch
                   checked={form.disable_api_key ?? false}
@@ -412,37 +412,37 @@ export function ProvidersTab(): JSX.Element {
     }
   };
 
-  // is extension-only: the gateway answers 404 on //* until an
-  // extension providing the feature is applied. A failed fetch hides
-  // every control in this tab.
-  const { data: } = useQuery({
-    queryKey: [""],
-    queryFn: fetch,
+  // External auth is extension-only: the gateway answers 404 on
+  // /external-auth/* until an extension providing the external_auth feature
+  // is applied. A failed fetch hides every auth control in this tab.
+  const { data: externalAuthProviders } = useQuery({
+    queryKey: ["external-auth-providers"],
+    queryFn: fetchExternalAuthProviders,
     retry: false,
   });
-  const = Array.isArray();
+  const externalAuthEnabled = Array.isArray(externalAuthProviders);
 
-  // Applied extensions that provide the feature (device-flow auth,
-  // Claude , …). Each carries its own accent so the link control can
-  // render one colored key per enabled flow.
-  const { data: = [] } = useQuery({
+  // Applied extensions that provide the external_auth feature (device-flow
+  // auth, …). Each carries its own accent so the link control can render one
+  // colored key per enabled flow.
+  const { data: externalAuthExtensions = [] } = useQuery({
     queryKey: ["extensions"],
     queryFn: fetchExtensions,
-    enabled: ,
+    enabled: externalAuthEnabled,
     retry: false,
     select: (list: Extension[]) =>
-      list.filter((e) => Boolean(e.applied) && (e.provides?.features ?? []).includes("")),
+      list.filter((e) => Boolean(e.applied) && (e.provides?.features ?? []).includes("external_auth")),
   });
-  const = useMemo(
+  const externalAuthKeys = useMemo(
     () =>
-      
+      externalAuthExtensions
         .map((e) => ({
           id: e.id,
           name: e.name,
           color: e.ui?.accent || undefined,
         }))
         .sort((a, b) => a.id.localeCompare(b.id)),
-    [],
+    [externalAuthExtensions],
   );
 
   const [modalOpen, setModalOpen] = useState<"add" | "edit" | null>(null);
@@ -453,7 +453,7 @@ export function ProvidersTab(): JSX.Element {
   const [bulkEditField, setBulkEditField] = useState<"bind_ip" | "user_agent" | "autofetch_filter" | null>(null);
   const [bulkEditValue, setBulkEditValue] = useState("");
   const [bulkEditSaving, setBulkEditSaving] = useState(false);
-  const [, set] = useState<string | null>(null);
+  const [externalAuthDialogProvider, setExternalAuthDialogProvider] = useState<string | null>(null);
 
   const deleteMutation = useMutation({
     mutationFn: (name: string) => deleteProvider(name),
@@ -538,13 +538,14 @@ export function ProvidersTab(): JSX.Element {
   const providers = providerStatus?.providers ?? [];
   const summary = providerStatus?.summary;
 
-  // is an extension feature (provides.features includes ""); show
-  // the link control only while an extension provides it and for providers
-  // with auth_method=or the extension-provided CLI emulation type.
-  const supports= (provider: any) => {
-    if (!) return false;
+  // External auth is an extension feature (provides.features includes
+  // "external_auth"); show the link control only while an extension provides
+  // it and for providers with auth_method=external or the extension-provided
+  // CLI emulation type.
+  const supportsExternalAuth = (provider: any) => {
+    if (!externalAuthEnabled) return false;
     const auth = provider.config?.auth_method || "";
-    if (auth === "") return true;
+    if (auth === "external") return true;
     return provider.type === "cli-emulation";
   };
 
@@ -751,7 +752,7 @@ export function ProvidersTab(): JSX.Element {
                           {provider.config?.user_agent && <Pill tone="accent">custom UA</Pill>}
                           {provider.config?.disable_api_key && <Pill tone="warning">key off</Pill>}
                           {provider.config?.bind_ip && <Pill tone="muted">bind: {provider.config.bind_ip}</Pill>}
-                          {supports(provider) && provider.?.has_token && !provider.?.expired && (
+                          {supportsExternalAuth(provider) && provider.external_auth_status?.has_token && !provider.external_auth_status?.expired && (
                             <Pill tone="success">linked</Pill>
                           )}
                         </div>
@@ -779,12 +780,12 @@ export function ProvidersTab(): JSX.Element {
                       <button onClick={() => { setEditingProvider({ name: provider.name, originalName: provider.name, type: provider.config?.type || provider.type || "", base_url: provider.config?.base_url || "", api_version: provider.config?.api_version || "", api_key: provider.config?.api_key || "", models: provider.config?.models?.join(", ") || "", bind_ip: provider.config?.bind_ip || "", pool_only: provider.config?.pool_only ?? false, user_agent: provider.config?.user_agent || "", disable_api_key: provider.config?.disable_api_key ?? false, auto_fetch_models: provider.config?.auto_fetch_models ?? true, autofetch_filter_text: filterToText(provider.config?.autofetch_filter), apiKeySet: provider.config?.api_key_set ?? false }); setModalOpen("edit"); }} className="p-1.5 hover:bg-border/20 transition-colors" title="Edit provider">
                         <Edit3Icon className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
-                      {supports(provider) &&
-                        (.length > 0
-                          ? .map((key) => (
+                      {supportsExternalAuth(provider) &&
+                        (externalAuthKeys.length > 0
+                          ? externalAuthKeys.map((key) => (
                               <button
                                 key={key.id}
-                                onClick={() => set(provider.name)}
+                                onClick={() => setExternalAuthDialogProvider(provider.name)}
                                 className="p-1.5 hover:bg-accent/10 transition-colors"
                                 style={key.color ? { color: key.color } : undefined}
                                 title={`Link account via ${key.name}`}
@@ -795,7 +796,7 @@ export function ProvidersTab(): JSX.Element {
                             ))
                           : (
                               <button
-                                onClick={() => set(provider.name)}
+                                onClick={() => setExternalAuthDialogProvider(provider.name)}
                                 className="p-1.5 hover:bg-accent/10 transition-colors text-accent"
                                 title="Link account"
                                 aria-label={`Link account for ${provider.name}`}
@@ -892,12 +893,12 @@ export function ProvidersTab(): JSX.Element {
         </div>
       )}
 
-      {&& (
-        <
-          providerName={}
-          open={!!}
+      {externalAuthDialogProvider && (
+        <ExternalAuthDialog
+          providerName={externalAuthDialogProvider}
+          open={!!externalAuthDialogProvider}
           onOpenChange={(open) => {
-            if (!open) set(null);
+            if (!open) setExternalAuthDialogProvider(null);
           }}
           onComplete={() => {
             queryClient.invalidateQueries({ queryKey: ["provider-status"] });

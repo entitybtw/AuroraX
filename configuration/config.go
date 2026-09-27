@@ -177,28 +177,11 @@ type RawProviderConfig struct {
 	// registered and cannot be routed to. Nil/empty means no filtering.
 	AutoFetchFilter AutoFetchFilter `yaml:"autofetch_filter,omitempty"`
 	// AuthMethod selects the authentication mechanism for upstream requests.
-	// "key" (default) uses the static api_key. "" uses the RFC 8628
-	// device authorization grant to obtain and refresh bearer tokens.
+	// "key" (default) uses the static api_key. "external" uses bearer tokens
+	// supplied by extension auth addons (auth kind) via the bridge.
 	AuthMethod string `yaml:"auth_method,omitempty"`
-	// is the base URL of the authorization server.
-	// Set by the extension that provides the feature.
-	string `yaml:",omitempty"`
-	// is the client_id used in the device flow.
-	// Set by the extension that provides the feature.
-	string `yaml:",omitempty"`
-	// selects "device" (default) or "authorization_code" (+ PKCE).
-	string `yaml:",omitempty"`
-	// / / / /
-	// / are authorization-code + PKCE
-	// endpoints supplied by the extension (never hardcoded in core).
-	string `yaml:",omitempty"`
-	string `yaml:",omitempty"`
-	string `yaml:",omitempty"`
-	string `yaml:",omitempty"`
-	bool   `yaml:",omitempty"`
-	string `yaml:",omitempty"`
 	// DisableAPIKey keeps the stored api_key but never sends it upstream.
-	// Useful when an token supersedes the key.
+	// Useful when an extension-supplied bearer token supersedes the key.
 	DisableAPIKey bool `yaml:"disable_api_key,omitempty"`
 	// UseUTLS enables uTLS fingerprint impersonation for the HTTP client.
 	// Useful for JA3-based TLS fingerprint impersonation.

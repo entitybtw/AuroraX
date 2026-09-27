@@ -3,6 +3,7 @@ package vllm
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -10,9 +11,9 @@ import (
 	"strings"
 
 	"aurora/internal/core"
+	"aurora/internal/externalauth"
 	"aurora/internal/language_model_client"
 	"aurora/internal/providers"
-	"aurora/internal/providers/"
 	"aurora/internal/providers/openai"
 )
 
@@ -40,7 +41,7 @@ func resolveSidecarURL(cfg providers.ProviderConfig) string {
 	if sidecar := strings.TrimSpace(cfg.SidecarURL); sidecar != "" {
 		return sidecar
 	}
-	if def := providers.LoadSidecar(); def.BaseURL != "" &&
+	if def := providers.LoadSidecarDefaults(); def.BaseURL != "" &&
 		strings.TrimRight(cfg.BaseURL, "/") == strings.TrimRight(def.BaseURL, "/") {
 		return envSidecarURL()
 	}
@@ -62,7 +63,6 @@ var Registration = providers.Registration{
 type Provider struct {
 	compatible *openai.CompatibleProvider
 	rootClient *llmclient.Client
-	*.Manager
 }
 
 // New creates a new vLLM provider.
@@ -77,104 +77,19 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 	baseURL := providers.ResolveBaseURL(cfg.BaseURL, defaultBaseURL)
 	rootBaseURL := passthroughBaseURL(baseURL)
 
-	// only when explicitly requested (extension feature / provider
-	// config). Fallback is extension-applied sidecar overrides — no
-	// provider-specific hardcode in the gateway.
-	if opts.AuthMethod == "" {
-		def := providers.LoadSidecar()
-		if opts.== "" {
-			opts.= def.
-		}
-		if opts.== "" {
-			opts.= def.
-		}
-		if opts.== "" {
-			opts.= def.
-		}
-		if opts.== "" {
-			opts.= def.
-		}
-		if opts.== "" {
-			opts.= def.
-		}
-		if opts.== "" {
-			opts.= def.
-		}
-		if opts.== "" {
-			opts.= def.
-		}
-		if opts.== "" {
-			opts.= def.
-		}
-		opts.= opts.|| def.
-	}
-
-	var *.Manager
-	if opts.AuthMethod == "" {
-		// Device flow needs server+client_id; authorization_code needs
-		// authorize_url+token_url+client_id.
-		authCode := strings.EqualFold(opts., "authorization_code")
-		if authCode {
-			if opts.== "" || opts.== "" {
-				log.Printf("vllm: authorization_code requires /(set via extension apply)")
-			} else {
-				= .NewManager(
-					opts.,
-					opts.,
-					opts.,
-					opts.ProviderName,
-				)
-				.SetAuthCodeConfig(.AuthCodeConfig{
-					AuthorizeURL:    opts.,
-					TokenURL:        opts.,
-					ClientID:        opts.,
-					Scopes:          opts.,
-					RedirectURI:     opts.,
-					TokenStyle:      opts.,
-					StateIsVerifier: opts.,
-				})
-				if opts.!= nil {
-					opts..Register(opts.ProviderName, )
-				}
-			}
-		} else if opts.== "" || opts.== "" {
-			log.Printf("vllm: requires /(set via extension apply)")
-		} else {
-			= .NewManager(
-				opts.,
-				opts.,
-				opts.,
-				opts.ProviderName,
-			)
-			if opts.!= "" && opts.!= "" {
-				.SetAuthCodeConfig(.AuthCodeConfig{
-					AuthorizeURL:    opts.,
-					TokenURL:        opts.,
-					ClientID:        opts.,
-					Scopes:          opts.,
-					RedirectURI:     opts.,
-					TokenStyle:      opts.,
-					StateIsVerifier: opts.,
-				})
-			}
-			if opts.!= nil {
-				opts..Register(opts.ProviderName, )
-			}
-		}
-	}
-
 	// Sidecar routing is signaled to the proxy via X-Aurora-* headers.
 	viaSidecar := sidecar != ""
 	providerType := strings.TrimSpace(cfg.Type)
 	if providerType == "" {
 		providerType = "vllm"
 	}
+	headerSetter := makeSetHeaders(opts.ExternalAuth, opts.AuthMethod, opts.ProviderName, opts.DisableAPIKey, opts.BindIP, providerType, viaSidecar)
 
 	return &Provider{
 		compatible: openai.NewCompatibleProvider(cfg.APIKey, opts, openai.CompatibleProviderConfig{
 			ProviderName: "vllm",
 			BaseURL:      baseURL,
-			SetHeaders:   makeSetHeaders(, opts.DisableAPIKey, opts.BindIP, providerType, viaSidecar),
+			SetHeaders:   headerSetter,
 		}),
 		rootClient: llmclient.New(llmclient.Config{
 			ProviderName:   "vllm",
@@ -185,9 +100,8 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 			BindIP:         opts.BindIP,
 			UseUTLS:        opts.UseUTLS,
 		}, func(req *http.Request) {
-			makeSetHeaders(, opts.DisableAPIKey, opts.BindIP, providerType, viaSidecar)(req, cfg.APIKey)
+			headerSetter(req, cfg.APIKey)
 		}),
-		: ,
 	}
 }
 
@@ -209,11 +123,6 @@ func NewWithHTTPClient(apiKey string, baseURL string, httpClient *http.Client, h
 	}
 }
 
-// returns the token manager, or nil if is not configured.
-func (p *Provider) () *.Manager {
-	return p.
-}
-
 // SetBaseURL allows configuring a custom base URL for the provider.
 func (p *Provider) SetBaseURL(url string) {
 	p.compatible.SetBaseURL(url)
@@ -221,15 +130,18 @@ func (p *Provider) SetBaseURL(url string) {
 }
 
 func setHeaders(req *http.Request, apiKey string) {
-	makeSetHeaders(nil, false, "", "vllm", false)(req, apiKey)
+	makeSetHeaders(nil, "", "", false, "", "vllm", false)(req, apiKey)
 }
 
-// makeSetHeaders returns a header setter that uses tokens when
-// available, falling back to the static API key unless disableAPIKey is set.
-// Sidecar-routing headers (X-Aurora-Bind-Ip, X-Aurora-Provider-Type) are set
-// first so multi-IP egress works even when Authorization is suppressed.
+// makeSetHeaders returns a header setter that prefers a bearer token from
+// extension auth addons when auth_method is "external", falling back to the
+// static API key unless disableAPIKey is set. Sidecar-routing headers
+// (X-Aurora-Bind-Ip, X-Aurora-Provider-Type) are set first so multi-IP
+// egress works even when Authorization is suppressed.
 func makeSetHeaders(
-	*.Manager,
+	extAuth *externalauth.Bridge,
+	authMethod string,
+	providerName string,
 	disableAPIKey bool,
 	bindIP string,
 	providerType string,
@@ -245,11 +157,12 @@ func makeSetHeaders(
 			}
 		}
 
-		if != nil && .HasToken() {
-			if err := .EnsureFreshToken(); err != nil {
-				log.Printf(": token refresh failed for %s: %v", req.Host, err)
+		if extAuth != nil && strings.EqualFold(strings.TrimSpace(authMethod), "external") {
+			tok, err := extAuth.Token(providerName)
+			if err != nil && !errors.Is(err, externalauth.ErrDisabled) {
+				log.Printf("external auth: token fetch failed provider=%s: %v", providerName, err)
 			}
-			if tok := .GetAccessToken(); tok != "" {
+			if tok != "" {
 				req.Header.Set("Authorization", "Bearer "+tok)
 				if requestID := core.GetRequestID(req.Context()); requestID != "" {
 					req.Header.Set("X-Request-Id", requestID)

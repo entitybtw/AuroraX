@@ -61,8 +61,6 @@ export const SanitizedProviderConfigSchema = z.object({
   user_agent: z.string().optional(),
   disable_api_key: z.boolean().optional(),
   auth_method: z.string().optional(),
-  : z.string().optional(),
-  : z.string().optional(),
   auto_fetch_models: z.boolean().optional(),
   autofetch_filter: AutoFetchFilterSchema.nullable().optional(),
   resilience: SanitizedResilienceConfigSchema.optional(),
@@ -87,7 +85,7 @@ export type ProviderRuntimeSnapshot = z.infer<typeof ProviderRuntimeSnapshotSche
 
 export type ProviderStatusKind = "healthy" | "degraded" | "unhealthy" | "disabled";
 
-export const Provider= z.object({
+export const ProviderExternalAuthStatusSchema = z.object({
   has_token: z.boolean(),
   expired: z.boolean(),
   email: z.string().optional(),
@@ -104,7 +102,7 @@ export const ProviderStatusItemSchema = z.object({
   config: SanitizedProviderConfigSchema,
   runtime: ProviderRuntimeSnapshotSchema,
   config_source: z.string().optional(),
-  : Provider.optional(),
+  external_auth_status: ProviderExternalAuthStatusSchema.optional(),
 });
 export type ProviderStatusItem = z.infer<typeof ProviderStatusItemSchema>;
 

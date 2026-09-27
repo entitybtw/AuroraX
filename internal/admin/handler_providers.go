@@ -1,11 +1,11 @@
 package admin
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/labstack/echo/v5"
 
@@ -61,8 +61,6 @@ func (h *Handler) buildProviderStatusResponse() providerStatusResponse {
 				UserAgent:       strings.TrimSpace(override.UserAgent),
 				DisableAPIKey:   override.DisableAPIKey != nil && *override.DisableAPIKey,
 				AuthMethod:      strings.TrimSpace(override.AuthMethod),
-				:     strings.TrimSpace(override.),
-				:   strings.TrimSpace(override.),
 				AutoFetchModels: override.AutoFetchModels == nil || *override.AutoFetchModels,
 				AutoFetchFilter: override.AutoFetchFilter,
 			}
@@ -93,18 +91,13 @@ func (h *Handler) buildProviderStatusResponse() providerStatusResponse {
 				item.ConfigSource = ConfigSourceUI
 			}
 		}
-		// Attach status if this provider has an manager.
-		if h.!= nil {
-			if mgr := h..Get(name); mgr != nil {
-				if info := mgr.TokenInfo(); info != nil {
-					item.= &provider{
-						HasToken:  info.AccessToken != "",
-						Expired:   time.Now().After(info.ExpiresAt),
-						Email:     info.Email,
-						AccountID: info.AccountID,
-					}
-				} else {
-					item.= &provider{HasToken: false}
+		// Attach extension auth token status when an auth addon knows this
+		// provider; unknown providers simply omit the field.
+		if h.externalAuth != nil && h.externalAuth.Enabled() {
+			if raw, err := h.externalAuth.Call("TokenStatus", map[string]any{"provider": name}); err == nil {
+				var status providerExternalAuthStatus
+				if uerr := json.Unmarshal([]byte(raw), &status); uerr == nil {
+					item.ExternalAuthStatus = &status
 				}
 			}
 		}

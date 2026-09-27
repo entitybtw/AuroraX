@@ -329,21 +329,21 @@ func assertEqual(t *testing.T, actual string, expected string) {
 	}
 }
 
-func Test(t *testing.T) {
+func TestAgentToolGeneratesProviderConfig(t *testing.T) {
 	service := NewService(false, nil)
-	tool, ok := service.GetTool("")
+	tool, ok := service.GetTool(agentToolID)
 	if !ok {
-		t.Fatal("expected tool")
+		t.Fatal("expected agent tool")
 	}
-	if !strings.HasSuffix(tool.ConfigPath, filepath.Join(".config", "", "")) {
-		t.Fatalf("expected config path, got %s", tool.ConfigPath)
+	if !strings.HasSuffix(tool.ConfigPath, filepath.Join(".config", agentConfigDir, agentConfigFile)) {
+		t.Fatalf("expected agent config path, got %s", tool.ConfigPath)
 	}
-	preview, err := service.Preview("", PreviewRequest{
+	preview, err := service.Preview(agentToolID, PreviewRequest{
 		BaseURL: "http://localhost:8080",
 		APIKey:  "sk-test-key",
 		Model:   "fallback/model",
 		ModelOverrides: map[string]string{
-			"": "provider/coded-model",
+			agentModelEnv: "provider/coded-model",
 		},
 		Models: []string{"provider/extra"},
 	})
@@ -377,16 +377,16 @@ func Test(t *testing.T) {
 	}
 }
 
-func Test(t *testing.T) {
+func TestAgentPresetTargetsAgentTool(t *testing.T) {
 	service := NewService(false, nil)
 	found := false
 	for _, preset := range service.ListPresets() {
-		if preset.ToolID == "" {
+		if preset.ToolID == agentToolID {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatal("expected an preset")
+		t.Fatal("expected an agent preset")
 	}
 }
 
@@ -431,18 +431,18 @@ func TestApplyWritesCodexAuthFile(t *testing.T) {
 	}
 }
 
-func Test(t *testing.T) {
+func TestAgentApplyMergesExistingConfig(t *testing.T) {
 	fs := newMemFS()
 	service := NewService(true, fs)
-	tool, ok := service.GetTool("")
+	tool, ok := service.GetTool(agentToolID)
 	if !ok {
-		t.Fatal("expected tool")
+		t.Fatal("expected agent tool")
 	}
-	existing := []byte(`{"$schema":"https:///config.json","theme":"dark","provider":{"other":{"npm":"@ai-sdk/openai"}}}`)
+	existing := []byte(`{"$schema":"https://` + agentDocsHost + `/config.json","theme":"dark","provider":{"other":{"npm":"@ai-sdk/openai"}}}`)
 	if err := fs.WriteFile(tool.ConfigPath, existing, 0o600); err != nil {
 		t.Fatalf("seed existing config: %v", err)
 	}
-	if _, err := service.Apply("", PreviewRequest{
+	if _, err := service.Apply(agentToolID, PreviewRequest{
 		BaseURL: "http://localhost:8080",
 		APIKey:  "sk-test-key-123456",
 		Model:   "coded/model",

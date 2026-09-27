@@ -14,7 +14,7 @@ import (
 // sidecar (extension-driven client fingerprint proxy). The settings are
 // persisted to a JSON file and read/written via the admin API. Defaults are
 // neutral — extensions supply base_url, user-agent, auth, tool scope and
-// optional device-flow endpoints.
+// related knobs.
 type SidecarSettings struct {
 	Enabled         bool           `json:"enabled"`
 	Port            int            `json:"port"`
@@ -30,19 +30,6 @@ type SidecarSettings struct {
 	// ToolsPath is an absolute or sidecar-relative path to a JSON tool schema
 	// file supplied by an extension (overrides the bundled default).
 	ToolsPath string `json:"tools_path,omitempty"`
-	// defaults installed by the active extension (device flow).
-	string `json:",omitempty"`
-	string `json:",omitempty"`
-	string `json:",omitempty"`
-	// selects the grant: "device" (default) or "authorization_code".
-	string `json:",omitempty"`
-	// Authorization-code + PKCE endpoints (extension-driven).
-	string `json:",omitempty"`
-	string `json:",omitempty"`
-	string `json:",omitempty"`
-	string `json:",omitempty"`
-	bool   `json:",omitempty"`
-	string `json:",omitempty"`
 	// PathTemplate is the upstream path appended to base_url for chat
 	// completions (default "/chat/completions"). Presets may point at
 	// alternative OpenAI-compatible routes.
@@ -161,16 +148,6 @@ func (s *SidecarOverrideStore) load() {
 		s.settings.InjectToolTypes = loaded.InjectToolTypes
 	}
 	s.settings.ToolsPath = loaded.ToolsPath
-	s.settings.= loaded.
-	s.settings.= loaded.
-	s.settings.= loaded.
-	s.settings.= loaded.
-	s.settings.= loaded.
-	s.settings.= loaded.
-	s.settings.= loaded.
-	s.settings.= loaded.
-	s.settings.= loaded.
-	s.settings.= loaded.
 	s.settings.PathTemplate = loaded.PathTemplate
 	s.settings.ModelsPath = loaded.ModelsPath
 	s.settings.ExtraHeaders = loaded.ExtraHeaders

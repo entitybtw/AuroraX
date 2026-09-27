@@ -103,7 +103,7 @@ type Config struct {
 	IPExtractor                          echo.IPExtractor                       // Optional: trusted client IP extraction strategy for proxied deployments
 	EnableAnthropicIngress               bool                                   // Enable /v1/messages Anthropic-format endpoint
 	SessionHub                           SessionHubRegistrator                  // Optional: session hub for header transformation
-	*admin.// Optional: device flow handler
+	ExternalAuthHandler                  *admin.ExternalAuthHandler             // Optional: extension auth flow proxy
 }
 
 // New creates a new HTTP server
@@ -432,9 +432,9 @@ func New(provider core.RoutableProvider, cfg *Config) *Server {
 			if cfg.SessionHub != nil {
 				cfg.SessionHub.RegisterRoutes(adminGroup)
 			}
-			// Register device flow routes
-			if cfg.!= nil {
-				cfg..Register(adminGroup)
+			// Register extension auth flow routes (404 without auth addons)
+			if cfg.ExternalAuthHandler != nil {
+				cfg.ExternalAuthHandler.RegisterExternalAuthRoutes(adminGroup)
 			}
 		} else {
 			slog.Warn("admin API disabled because no master key or identity config is set")

@@ -50,23 +50,9 @@ type ProviderConfig struct {
 	// response. Filtered-out models are never registered and cannot be routed
 	// to. Zero value means no filtering.
 	AutoFetchFilter config.AutoFetchFilter
-	// AuthMethod selects the authentication mechanism: "key" (default) or "".
+	// AuthMethod selects the authentication mechanism: "key" (default) or
+	// "external" (bearer tokens from extension auth addons).
 	AuthMethod string
-	// is the base URL of the authorization server.
-	string
-	// is the client_id for the device flow.
-	string
-	// / / / /
-	// / configure authorization-code + PKCE
-	// when is "authorization_code" (extension-supplied).
-	string
-	string
-	string
-	string
-	bool
-	string
-	// : "device" (default) or "authorization_code".
-	string
 	// DisableAPIKey keeps the stored API key but never sends it upstream.
 	DisableAPIKey bool
 	// UseUTLS enables uTLS fingerprint impersonation for the HTTP client.
@@ -519,15 +505,6 @@ func buildProviderConfig(raw config.RawProviderConfig, global config.ResilienceC
 		AutoFetchModels:        raw.AutoFetchModels,
 		AutoFetchFilter:        raw.AutoFetchFilter,
 		AuthMethod:             strings.TrimSpace(raw.AuthMethod),
-		:            strings.TrimSpace(raw.),
-		:          strings.TrimSpace(raw.),
-		:      strings.TrimSpace(raw.),
-		:          strings.TrimSpace(raw.),
-		:            strings.TrimSpace(raw.),
-		:        strings.TrimSpace(raw.),
-		:   raw.,
-		:       strings.TrimSpace(raw.),
-		:             strings.TrimSpace(raw.),
 		DisableAPIKey:          raw.DisableAPIKey,
 		UseUTLS:                raw.UseUTLS,
 		SidecarURL:             strings.TrimSpace(raw.SidecarURL),
