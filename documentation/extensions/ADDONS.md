@@ -112,9 +112,12 @@ addon only when you need real code.
 2. Put vendor endpoints in the `auth` block / `settings`, never in core forks.
 3. Keep `files` paths relative and non-escaping (`MaterializeFiles` rejects
    `..` and absolute paths).
-4. Document required permissions in `requirements` / `notes`.
-5. Bump `version` on breaking settings changes so store updates are visible.
-6. Name addon files `<kind>-<purpose>.go` and declare `// addon-kind:` so
+4. A `files` value may be a plain string **or an array of lines** (joined
+   with `\n`) — use the array form for embedded scripts so each source line
+   stays on its own line in the JSON.
+5. Document required permissions in `requirements` / `notes`.
+6. Bump `version` on breaking settings changes so store updates are visible.
+7. Name addon files `<kind>-<purpose>.go` and declare `// addon-kind:` so
    discovery does not depend on filename alone.
 
 ## Relationship to presets and themes
