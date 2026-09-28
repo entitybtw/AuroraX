@@ -11,6 +11,7 @@ import {
   ArrowUpIcon,
   CheckCircleIcon,
   DownloadIcon,
+  FileJsonIcon,
   GlobeIcon,
   PencilIcon,
   PlugZapIcon,
@@ -45,6 +46,7 @@ import {
   type Extension,
 } from "@/lib/api/extensions";
 import { SidecarPresetImportDialog } from "@/components/settings/SidecarPresetImportDialog";
+import { ExtensionJsonEditor } from "@/components/settings/ExtensionJsonEditor";
 
 function isThemeOnly(ext: Extension): boolean {
   if (ext.type === "theme") return true;
@@ -115,6 +117,7 @@ export function ExtensionsTab(): JSX.Element {
   const [renameValue, setRenameValue] = useState("");
   const [editingSource, setEditingSource] = useState(false);
   const [sourceValue, setSourceValue] = useState("");
+  const [jsonEditorOpen, setJsonEditorOpen] = useState(false);
 
   const [storeURL, setStoreURL] = useState("");
   const [storeBusy, setStoreBusy] = useState(false);
@@ -607,6 +610,16 @@ export function ExtensionsTab(): JSX.Element {
             </Button>
             {selected ? (
               <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setJsonEditorOpen(true)}
+                  className="h-10 gap-1.5 sm:h-9"
+                  title="Edit the raw extension JSON"
+                >
+                  <FileJsonIcon className="h-3.5 w-3.5" />
+                  Edit JSON
+                </Button>
                 <Button variant="outline" size="sm" onClick={() => handleExport(selected)} className="h-10 gap-1.5 sm:h-9">
                   <DownloadIcon className="h-3.5 w-3.5" />
                   Export
@@ -1238,6 +1251,24 @@ export function ExtensionsTab(): JSX.Element {
             </div>
           ) : null}
         </Surface>
+      ) : null}
+
+      {selected ? (
+        <ExtensionJsonEditor
+          open={jsonEditorOpen}
+          onOpenChange={setJsonEditorOpen}
+          extensionId={selected.id}
+          extensionName={selected.name}
+          onSaved={() => {
+            void invalidateExtensionQueries();
+            setResult({
+              ok: true,
+              message: `Saved JSON for "${selected.name}".`,
+              added: [],
+              kept: [],
+            });
+          }}
+        />
       ) : null}
     </div>
   );

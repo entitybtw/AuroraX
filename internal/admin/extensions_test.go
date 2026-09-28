@@ -1364,3 +1364,94 @@ func TestUnapplyExtension_DetachesAddonTabs(t *testing.T) {
 		}
 	}
 }
+
+// TestListExtensionUI_GatesAddonTabsOnApplied covers the belt-and-braces guard:
+// even if an auth addon somehow stays loaded (relative-vs-absolute path bug,
+// manual file drop, crash between unapply and unload), its settings tabs must
+// not be served while the owning extension is disabled.
+func TestListExtensionUI_GatesAddonTabsOnApplied(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("AURORA_EXTENSIONS_PATH", filepath.Join(dir, "extensions.json"))
+	filesBase := filepath.Join(dir, "files")
+	t.Setenv("AURORA_EXTENSIONS_FILES_DIR", filesBase)
+	filesDir := filepath.Join(filesBase, "gate-ext")
+
+	if err := os.MkdirAll(filesDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	src := "package main\n\n// addon-kind: auth\nfunc UI() string { return `{\"settings_tabs\":[{\"id\":\"gate-tab\",\"label\":\"Gate\",\"blocks\":[]}]}` }\n"
+	if err := os.WriteFile(filepath.Join(filesDir, "auth-gate.go"), []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	extStore := NewExtensionStore()
+	extStore.Upsert(Extension{ID: "gate-ext", Name: "GateExt", Applied: false})
+	addonStore := addon.NewStore(filepath.Join(dir, "addons"))
+
+	h := NewHandler(nil, nil, WithExtensionStore(extStore), WithAddonStore(addonStore))
+	// Load the addon WITHOUT applying the extension (simulates a stale load).
+	AttachExtensionAddons(addonStore, "gate-ext")
+	if got := addonStore.ByKind(addon.KindAuth); len(got) != 1 {
+		t.Fatalf("addons loaded = %d, want 1", len(got))
+	}
+
+	listUI := func() []ExtensionUIContribution {
+		t.Helper()
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodGet, "/sidecar/extensions/ui", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		if err := h.ListExtensionUI(c); err != nil {
+			t.Fatalf("ListExtensionUI: %v", err)
+		}
+		var body struct {
+			Contributions []ExtensionUIContribution `json:"contributions"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		return body.Contributions
+	}
+
+	// Disabled extension: its addon tab must be hidden.
+	for _, c := range listUI() {
+		if c.ID == "addon:auth-gate" {
+			t.Fatalf("addon tab served for a disabled extension: %+v", c)
+		}
+	}
+
+	// Apply the extension: the same addon must now contribute its tab.
+	ext, _ := extStore.Get("gate-ext")
+	ext.Applied = true
+	extStore.Upsert(ext)
+	found := false
+	for _, c := range listUI() {
+		if c.ID == "addon:auth-gate" {
+			found = true
+			if len(c.UI.SettingsTabs) != 1 || c.UI.SettingsTabs[0].ID != "gate-tab" {
+				t.Fatalf("unexpected addon UI: %+v", c.UI)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("addon tab missing for an applied extension")
+	}
+}
+
+// TestExtensionIDForAddonPath covers the id extraction used by the guard:
+// extension-shipped files map to their extension id, operator drop-ins
+// (configs/addons) map to nothing.
+func TestExtensionIDForAddonPath(t *testing.T) {
+	t.Setenv("AURORA_EXTENSIONS_FILES_DIR", filepath.Join(t.TempDir(), "files"))
+	// Relative path as passed by callers, resolved against the working dir.
+	got := extensionIDForAddonPath(filepath.Join(ExtensionFilesDir("some-ext"), "auth.go"))
+	if got != "some-ext" {
+		t.Fatalf("extensionIDForAddonPath = %q, want %q", got, "some-ext")
+	}
+	if id := extensionIDForAddonPath(filepath.Join("configs", "addons", "auth.go")); id != "" {
+		t.Fatalf("operator drop-in must stay ungated, got %q", id)
+	}
+	if id := extensionIDForAddonPath(ExtensionFilesDir("some-ext")); id != "" {
+		t.Fatalf("a directory (not a file) must map to nothing, got %q", id)
+	}
+}
