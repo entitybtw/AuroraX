@@ -1595,9 +1595,15 @@ func (h *Handler) ListExtensionUI(c *echo.Context) error {
 		out = append(out, e)
 	}
 	// Extension-shipped Go addons (kind auth) contribute UI by exporting
-	// UI() as an ExtensionUI JSON document.
+	// UI() as an ExtensionUI JSON document. Contributions are gated on the
+	// owning extension still being applied so a stale addon (crash between
+	// unapply and unload, or an edited files dir) can never keep a disabled
+	// extension's settings tabs on screen.
 	if h.addonStore != nil {
 		for _, a := range h.addonStore.ByKind(addon.KindAuth) {
+			if extID := extensionIDForAddonPath(a.Path); extID != "" && !h.extensionApplied(extID) {
+				continue
+			}
 			raw, err := a.CallString("UI")
 			if err != nil || strings.TrimSpace(raw) == "" {
 				continue
@@ -1615,6 +1621,40 @@ func (h *Handler) ListExtensionUI(c *echo.Context) error {
 		}
 	}
 	return c.JSON(http.StatusOK, map[string]any{"contributions": out})
+}
+
+// extensionApplied reports whether an extension exists and is currently
+// applied. Missing extensions count as not applied.
+func (h *Handler) extensionApplied(id string) bool {
+	if h.extensions == nil || id == "" {
+		return false
+	}
+	ext, ok := h.extensions.Get(id)
+	return ok && ext.Applied
+}
+
+// extensionIDForAddonPath maps an addon source path to the id of the
+// extension that shipped it: configs/extensions/<id>/auth-x.go → <id>.
+// Addons outside the extension files tree (operator drop-ins under
+// configs/addons) return "" and stay ungated.
+func extensionIDForAddonPath(path string) string {
+	dir := filepath.Dir(path)
+	id := filepath.Base(dir)
+	if id == "" || id == "." || id == string(filepath.Separator) {
+		return ""
+	}
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return ""
+	}
+	want, err := filepath.Abs(ExtensionFilesDir(id))
+	if err != nil {
+		return ""
+	}
+	if abs != want {
+		return ""
+	}
+	return id
 }
 
 // extensionUIList returns the applied extensions' UI contributions.

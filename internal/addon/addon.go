@@ -153,12 +153,23 @@ func (s *Store) RemoveDir(dir string) {
 		return
 	}
 	clean := filepath.Clean(dir)
+	// Addon paths are stored absolute (LoadFile resolves them), so the dir
+	// must be resolved too — callers routinely pass a relative config path
+	// like "configs/extensions/<id>" and the prefix match would otherwise
+	// silently unload nothing (leaving disabled extensions' settings tabs).
+	if abs, err := filepath.Abs(clean); err == nil {
+		clean = abs
+	}
 	prefix := clean + string(os.PathSeparator)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	kept := make([]string, 0, len(s.dirs))
 	for _, existing := range s.dirs {
-		if filepath.Clean(existing) != clean {
+		c := filepath.Clean(existing)
+		if abs, err := filepath.Abs(c); err == nil {
+			c = abs
+		}
+		if c != clean {
 			kept = append(kept, existing)
 		}
 	}
