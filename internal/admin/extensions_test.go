@@ -224,6 +224,74 @@ func TestExtension_MaterializeFiles(t *testing.T) {
 	}
 }
 
+// TestExtension_FilesAcceptLineArrays covers the authored "array of lines"
+// form for files values: stores keep embedded sources readable by listing one
+// line per array element, while the gateway still normalises to a single
+// string (joined with "\n") for materialisation and export.
+func TestExtension_FilesAcceptLineArrays(t *testing.T) {
+	raw := `{
+	  "id": "lines-ext",
+	  "name": "Lines",
+	  "files": {
+	    "auth/one.go": ["line one", "line two", ""],
+	    "tools/two.json": "{\"ok\":true}"
+	  }
+	}`
+	var p Extension
+	if err := json.Unmarshal([]byte(raw), &p); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got := p.Files["auth/one.go"]; got != "line one\nline two\n" {
+		t.Fatalf("line array joined = %q, want %q", got, "line one\nline two\n")
+	}
+	if got := p.Files["tools/two.json"]; got != `{"ok":true}` {
+		t.Fatalf("plain string kept = %q", got)
+	}
+	if err := p.Validate(); err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+
+	// Materialisation must see the exact joined bytes.
+	dir := t.TempDir()
+	if _, err := p.MaterializeFiles(dir); err != nil {
+		t.Fatalf("materialize: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "auth", "one.go"))
+	if err != nil {
+		t.Fatalf("read materialised file: %v", err)
+	}
+	if string(data) != "line one\nline two\n" {
+		t.Fatalf("materialised bytes = %q", data)
+	}
+
+	// Export/marshal stays in the plain-string form.
+	out, err := json.Marshal(p)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var wire struct {
+		Files map[string]json.RawMessage `json:"files"`
+	}
+	if err := json.Unmarshal(out, &wire); err != nil {
+		t.Fatalf("decode marshal: %v", err)
+	}
+	var asString string
+	if err := json.Unmarshal(wire.Files["auth/one.go"], &asString); err != nil {
+		t.Fatalf("files must marshal back as a string, got %s", wire.Files["auth/one.go"])
+	}
+	if asString != "line one\nline two\n" {
+		t.Fatalf("marshalled content = %q", asString)
+	}
+
+	// A non-string, non-array value is rejected with the offending key.
+	bad := `{"id":"x","name":"x","files":{"a.go":42}}`
+	var q Extension
+	err = json.Unmarshal([]byte(bad), &q)
+	if err == nil || !strings.Contains(err.Error(), "a.go") {
+		t.Fatalf("expected key-scoped error, got %v", err)
+	}
+}
+
 func TestExtensionStore_MigratesLegacyPresetsFile(t *testing.T) {
 	dir := t.TempDir()
 	legacy := filepath.Join(dir, "sidecar-presets.json")

@@ -204,6 +204,39 @@ type ExtensionProvides struct {
 	Features []string `json:"features,omitempty"`
 }
 
+// ExtensionFiles maps relative paths to materialised file contents. The JSON
+// form accepts a plain string or an array of lines (joined with "\n") so
+// authored documents keep embedded sources readable instead of escaping every
+// newline onto one giant line. Marshalling always emits the plain-string form
+// the dashboard and export endpoints have always produced.
+type ExtensionFiles map[string]string
+
+func (f *ExtensionFiles) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		*f = nil
+		return nil
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	out := make(ExtensionFiles, len(raw))
+	for key, val := range raw {
+		var s string
+		if err := json.Unmarshal(val, &s); err == nil {
+			out[key] = s
+			continue
+		}
+		var lines []string
+		if err := json.Unmarshal(val, &lines); err != nil {
+			return fmt.Errorf("files[%q]: must be a string or an array of lines", key)
+		}
+		out[key] = strings.Join(lines, "\n")
+	}
+	*f = out
+	return nil
+}
+
 // Extension is a portable, data-driven bundle that configures the sidecar and
 // Session Hub headers (and optional provider types) together. The gateway ships
 // with no built-in extensions: they are imported from JSON, a URL, or a store.
@@ -240,7 +273,10 @@ type Extension struct {
 	// Files is a map of relative path → file content materialised under
 	// configs/extensions/<id>/ on apply (tool schemas, helper scripts, …).
 	// Paths must stay under the extension directory (no ".." / absolute).
-	Files    map[string]string  `json:"files,omitempty"`
+	// The JSON form accepts either a plain string or an array of lines
+	// (joined with "\n") so authored documents keep embedded sources
+	// readable instead of escaping every newline onto one giant line.
+	Files    ExtensionFiles  `json:"files,omitempty"`
 	Provides *ExtensionProvides `json:"provides,omitempty"`
 	UI       ExtensionUI        `json:"ui,omitempty"`
 	// Config holds user-saved overrides: values for ui.fields keys and
