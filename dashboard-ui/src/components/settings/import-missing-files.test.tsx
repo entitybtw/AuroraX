@@ -117,3 +117,58 @@ describe("ExtensionsTab import missing-files challenge", () => {
     await waitFor(() => expect(screen.queryByText(/companion file/i)).toBeNull());
   });
 });
+
+describe("ExtensionsTab companion file buttons", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // Editing a JSON companion is pointless: it is the same JSON editor with
+  // the content escaped onto a single line. Only real source companions
+  // (.go, scripts) get their own button; JSON stays behind "Edit JSON".
+  it("offers an edit button only for non-JSON companion files", async () => {
+    const extension = {
+      id: "auth-ext",
+      name: "Auth Ext",
+      type: "sidecar",
+      builtin: false,
+      applied: true,
+      version: "1",
+      files: {
+        "auth-x.go": { ref: "auth-ext/auth-x.go", content: ["package main"] },
+        "tools/schema.json": ["{\"a\":1}"],
+      },
+    };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const json = (body: unknown): Response =>
+        new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      if (url.includes("/extensions/ui")) return json({ contributions: [] });
+      if (url.includes("/extensions/stores")) return json({ stores: [] });
+      if (url.includes("/check-update")) {
+        return json({ id: "auth-ext", current_version: "1", remote_version: "1", update_available: false });
+      }
+      if (url.includes("/extensions/auth-ext")) return json(extension);
+      if (url.includes("/extensions")) return json({ extensions: [extension] });
+      return json({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderTab();
+
+    // The .go companion gets its own button…
+    const goButton = await screen.findByRole("button", { name: /edit \.go file/i });
+    expect(goButton).toBeInTheDocument();
+
+    // …the JSON companion does not — "Edit JSON" covers it.
+    expect(screen.queryByRole("button", { name: /schema\.json/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^edit json$/i })).toBeInTheDocument();
+  });
+});

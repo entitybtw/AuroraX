@@ -143,8 +143,12 @@ export function ExtensionsTab(): JSX.Element {
   );
 
   // Companion sources shipped as refs/entries under `files` — editable
-  // one-by-one (e.g. the addon .go file) from the details panel.
-  const companionFiles = useMemo(() => Object.keys(selected?.files ?? {}), [selected]);
+  // one-by-one from the details panel. JSON companions are skipped: they are
+  // already editable through "Edit JSON", just escaped onto one line.
+  const companionFiles = useMemo(
+    () => Object.keys(selected?.files ?? {}).filter((key) => !key.toLowerCase().endsWith(".json")),
+    [selected],
+  );
 
   const sorted = useMemo(() => [...extensions].sort(compareExtensions), [extensions]);
 
@@ -666,7 +670,7 @@ export function ExtensionsTab(): JSX.Element {
                     title={`Edit companion file ${key}`}
                   >
                     <FileCodeIcon className="h-3.5 w-3.5" />
-                    {key.endsWith(".go") ? "Edit .go file" : `Edit ${key}`}
+                    {key.endsWith(".go") ? "Edit .go file" : `Edit ${key.split("/").pop()}`}
                   </Button>
                 ))}
                 <Button variant="outline" size="sm" onClick={() => handleExport(selected)} className="h-10 gap-1.5 sm:h-9">
