@@ -471,6 +471,101 @@ func TestImport_EnvelopeFilesSatisfiesRef(t *testing.T) {
 	}
 }
 
+// TestUpdateFromSource_RefreshesLiveFiles: for an applied extension an
+// update-from-source must re-materialise companion files and reload the addon,
+// otherwise the manifest claims a new version while the settings tab keeps
+// serving the old source until a gateway restart.
+func TestUpdateFromSource_RefreshesLiveFiles(t *testing.T) {
+	v := "1"
+	var served string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/store/live-ext.extension.json":
+			w.Write([]byte(`{"id":"live-ext","name":"Live","version":"` + v + `","files":{"auth/x.go":{"ref":"auth-x.go"}}}`))
+		case "/store/auth-x.go":
+			w.Write([]byte(served))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	t.Setenv("AURORA_EXTENSIONS_PATH", filepath.Join(dir, "extensions.json"))
+	t.Setenv("AURORA_EXTENSIONS_FILES_DIR", filepath.Join(dir, "files"))
+	t.Setenv("AURORA_SIDECAR_OVERRIDES_PATH", filepath.Join(dir, "sidecar.json"))
+	store := NewExtensionStore()
+	addonStore := addon.NewStore(filepath.Join(dir, "addons"))
+	h := NewHandler(nil, nil,
+		WithExtensionStore(store),
+		WithSidecarStore(NewSidecarOverrideStore()),
+		WithAddonStore(addonStore),
+	)
+	e := echo.New()
+	manifestURL := srv.URL + "/store/live-ext.extension.json"
+
+	// Import at v1 and mark the extension live.
+	served = "// addon-kind: auth\npackage main\n// rev1\n" +
+		`func UI() string { return "{\"settings_tabs\":[{\"id\":\"r1\"}]}" }` + "\n"
+	body, _ := json.Marshal(map[string]string{"url": manifestURL})
+	req := httptest.NewRequest(http.MethodPost, "/sidecar/extensions/import", strings.NewReader(string(body)))
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	if err := h.ImportExtension(c); err != nil || rec.Code != http.StatusOK {
+		t.Fatalf("import = %d %s (%v)", rec.Code, rec.Body.String(), err)
+	}
+	ext, _ := store.Get("live-ext")
+	ext.Applied = true
+	store.Upsert(ext)
+	if err := h.refreshExtensionFiles(ext); err != nil {
+		t.Fatalf("refresh: %v", err)
+	}
+	if got := addonStore.Get("x"); got == nil {
+		t.Fatal("addon not loaded after apply")
+	}
+
+	// Source moves to v2 with a rewritten addon.
+	v = "2"
+	served = "// addon-kind: auth\npackage main\n// rev2\n" +
+		`func UI() string { return "{\"settings_tabs\":[{\"id\":\"r2\"}]}" }` + "\n"
+
+	req2 := httptest.NewRequest(http.MethodPost, "/sidecar/extensions/live-ext/update", nil)
+	rec2 := httptest.NewRecorder()
+	c2 := e.NewContext(req2, rec2)
+	c2.SetPathValues(echo.PathValues{{Name: "id", Value: "live-ext"}})
+	if err := h.UpdateExtensionFromSource(c2); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("update = %d body=%s", rec2.Code, rec2.Body.String())
+	}
+	var resp struct {
+		Updated        bool   `json:"updated"`
+		FilesRefreshed bool   `json:"files_refreshed"`
+	}
+	if err := json.Unmarshal(rec2.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !resp.Updated || !resp.FilesRefreshed {
+		t.Fatalf("update response = %s", rec2.Body.String())
+	}
+
+	// Materialised file carries the new revision.
+	data, err := os.ReadFile(filepath.Join(dir, "files", "live-ext", "auth", "x.go"))
+	if err != nil || !strings.Contains(string(data), "rev2") {
+		t.Fatalf("materialised file = %v %q", err, data)
+	}
+	// Reloaded addon serves the new tab id.
+	got := addonStore.Get("x")
+	if got == nil {
+		t.Fatal("addon missing after refresh")
+	}
+	raw, err := got.CallString("UI")
+	if err != nil || !strings.Contains(raw, `"id":"r2"`) {
+		t.Fatalf("addon UI() = %s (%v)", raw, err)
+	}
+}
+
 // TestMaterializeFiles_UnresolvedRefRefused guards against silently writing an
 // empty file when a ref never got resolved.
 func TestMaterializeFiles_UnresolvedRefRefused(t *testing.T) {

@@ -1805,15 +1805,21 @@ func AttachExtensionAddons(addonStore *addon.Store, extID string) {
 		return
 	}
 	dir := ExtensionFilesDir(extID)
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return
-	}
-	for _, e := range entries {
-		if !e.IsDir() && strings.HasSuffix(e.Name(), ".go") {
-			addonStore.AddDir(dir)
-			return
+	// Companion files may be materialised into subdirectories (ref-based
+	// manifests), so the probe walks the whole tree, not just the top level.
+	found := false
+	_ = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil || found {
+			return nil
 		}
+		if !d.IsDir() && strings.HasSuffix(d.Name(), ".go") {
+			found = true
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	if found {
+		addonStore.AddDir(dir)
 	}
 }
 
@@ -1831,7 +1837,32 @@ func DetachExtensionAddons(addonStore *addon.Store, extID string) {
 // addon scripts and registers the directory with the addon store (exported
 // so startup can re-attach addons for already-applied extensions).
 func (h *Handler) LoadExtensionAddons(extID string) {
+	if h.addonStore == nil {
+		return
+	}
+	// AddDir is idempotent: an already-registered directory would be skipped
+	// and the old addon kept. Drop the dir first so an updated source is
+	// re-read and re-evaluated in place (no gateway restart needed).
+	h.addonStore.RemoveDir(ExtensionFilesDir(extID))
 	AttachExtensionAddons(h.addonStore, extID)
+}
+
+// refreshExtensionFiles materialises an extension's files and reloads its
+// addons. Used after an update-from-source so edited companion files (addon
+// sources, tool schemas) are live without requiring a separate apply.
+func (h *Handler) refreshExtensionFiles(ext Extension) error {
+	if len(ext.Files) == 0 {
+		return nil
+	}
+	ext.Files = cloneExtensionFiles(ext.Files)
+	if missing := h.resolveFileRefsFor(&ext); len(missing) > 0 {
+		return fmt.Errorf("file(s) not loaded: %s", strings.Join(missing, ", "))
+	}
+	if _, err := ext.MaterializeFiles(ExtensionFilesDir(ext.ID)); err != nil {
+		return err
+	}
+	h.LoadExtensionAddons(ext.ID)
+	return nil
 }
 
 // ListExtensionUI returns merged UI contributions from applied extensions.
@@ -2190,11 +2221,22 @@ func (h *Handler) UpdateExtensionFromSource(c *echo.Context) error {
 	updated := strings.TrimSpace(remote.Version) != strings.TrimSpace(ext.Version)
 	h.extensions.Import(remote)
 	saved, _ := h.extensions.Get(ext.ID)
-	return c.JSON(http.StatusOK, map[string]any{
+	resp := map[string]any{
 		"status":    "ok",
 		"updated":   updated,
 		"extension": saved,
-	})
+	}
+	// A live extension should pick up the new companion files right away —
+	// otherwise the manifest claims v4 while the materialised addon on disk
+	// (and the settings tab it contributes) still serves the old revision.
+	if saved.Applied {
+		if ferr := h.refreshExtensionFiles(saved); ferr != nil {
+			resp["warning"] = "extension updated, but its files could not be refreshed: " + ferr.Error()
+		} else {
+			resp["files_refreshed"] = true
+		}
+	}
+	return c.JSON(http.StatusOK, resp)
 }
 
 // fetchRemoteExtension downloads and parses an extension JSON document.
