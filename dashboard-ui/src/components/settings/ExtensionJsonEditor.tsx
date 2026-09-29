@@ -11,7 +11,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiFetch } from "@/lib/api/client";
-import { applyExtension, importExtension, type Extension } from "@/lib/api/extensions";
+import {
+  applyExtension,
+  extensionFileRef,
+  extensionFileText,
+  importExtension,
+  type Extension,
+  type ExtensionFile,
+} from "@/lib/api/extensions";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -110,6 +117,10 @@ interface ExtensionJsonEditorProps {
   extensionId: string;
   extensionName?: string | undefined;
   onSaved?: (() => void) | undefined;
+  /** When set, edit only this `files` entry (e.g. an addon .go source)
+   *  instead of the whole manifest. Refs are resolved by the gateway, so the
+   *  file always opens with its real content. */
+  fileKey?: string | null | undefined;
 }
 
 /**
@@ -128,6 +139,7 @@ export function ExtensionJsonEditor({
   extensionId,
   extensionName,
   onSaved,
+  fileKey = null,
 }: ExtensionJsonEditorProps): JSX.Element {
   const qc = useQueryClient();
   const taRef = React.useRef<HTMLTextAreaElement | null>(null);
@@ -136,6 +148,7 @@ export function ExtensionJsonEditor({
 
   const [text, setText] = React.useState("");
   const [original, setOriginal] = React.useState("");
+  const [doc, setDoc] = React.useState<Extension | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [loadError, setLoadError] = React.useState("");
   const [saving, setSaving] = React.useState(false);
@@ -151,7 +164,14 @@ export function ExtensionJsonEditor({
   const [pendingSelect, setPendingSelect] = React.useState<number | null>(null);
   const [cursor, setCursor] = React.useState({ line: 1, column: 1 });
 
-  const validation = React.useMemo(() => validateJson(text), [text]);
+  const fileMode = Boolean(fileKey);
+  const validation = React.useMemo(() => {
+    if (!fileMode) return validateJson(text);
+    // Companion sources are arbitrary text; only .json files must parse.
+    if (fileKey?.toLowerCase().endsWith(".json")) return validateJson(text);
+    if (text.trim() === "") return { ok: false, message: "File is empty." };
+    return { ok: true };
+  }, [text, fileMode, fileKey]);
   const matchResult = React.useMemo(
     () => findMatches(text, find, { caseSensitive, regex: useRegex }),
     [text, find, caseSensitive, useRegex],
@@ -193,9 +213,22 @@ export function ExtensionJsonEditor({
     apiFetch<Extension>(`/admin/api/v1/sidecar/extensions/${encodeURIComponent(extensionId)}`)
       .then((ext) => {
         if (cancelled) return;
-        const pretty = JSON.stringify(ext, null, 2);
-        setText(pretty);
-        setOriginal(pretty);
+        setDoc(ext);
+        let loaded = "";
+        if (fileKey) {
+          const entry = ext.files?.[fileKey] as ExtensionFile | undefined;
+          loaded = extensionFileText(entry);
+          if (loaded === "") {
+            throw new Error(
+              `Content of "${fileKey}" is not loaded — the gateway could not fetch its ref. ` +
+                "Check the extension source, or re-import the extension.",
+            );
+          }
+        } else {
+          loaded = JSON.stringify(ext, null, 2);
+        }
+        setText(loaded);
+        setOriginal(loaded);
         setMatchIndex(0);
         setFind("");
         setReplace("");
@@ -210,7 +243,7 @@ export function ExtensionJsonEditor({
     return () => {
       cancelled = true;
     };
-  }, [open, extensionId]);
+  }, [open, extensionId, fileKey]);
 
   // Keep the selected match in range and materialise deferred selections
   // (replace changes the text, so the new match list only exists after render).
@@ -271,11 +304,22 @@ export function ExtensionJsonEditor({
   const handleSave = async () => {
     if (!validation.ok || loading || saving) return;
     let parsed: Extension;
-    try {
-      parsed = JSON.parse(text) as Extension;
-    } catch {
-      setSaveError("Document is not valid JSON.");
-      return;
+    if (fileKey) {
+      // File mode: patch the loaded manifest's files entry with the edited
+      // content and re-import the whole document.
+      if (!doc) return;
+      const entry = (doc.files?.[fileKey] ?? "") as ExtensionFile;
+      const ref = extensionFileRef(entry);
+      const files: Record<string, ExtensionFile> = { ...doc.files };
+      files[fileKey] = ref ? { ref, content: text } : text;
+      parsed = { ...doc, files };
+    } else {
+      try {
+        parsed = JSON.parse(text) as Extension;
+      } catch {
+        setSaveError("Document is not valid JSON.");
+        return;
+      }
     }
     if (parsed.id !== extensionId) {
       setSaveError(`"id" must remain "${extensionId}" — use Import to create a new extension.`);
@@ -284,7 +328,7 @@ export function ExtensionJsonEditor({
     setSaving(true);
     setSaveError("");
     try {
-      await importExtension({ json: text });
+      await importExtension({ json: JSON.stringify(parsed) });
       if (parsed.applied) {
         try {
           await applyExtension(extensionId);
@@ -364,12 +408,13 @@ export function ExtensionJsonEditor({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileJsonIcon className="h-5 w-5 text-primary" />
-            Edit JSON{extensionName ? ` — ${extensionName}` : ""}
+            {fileMode ? `Edit ${fileKey}` : "Edit JSON"}
+            {extensionName ? ` — ${extensionName}` : ""}
           </DialogTitle>
           <DialogDescription>
-            Raw extension document with find and replace. Saving re-imports it — applied state,
-            operator settings and sync source are preserved. Press Ctrl+F to search, Ctrl+H for
-            replace, Ctrl+S to save.
+            {fileMode
+              ? "Companion source file referenced by the extension manifest. Saving re-imports the manifest with the updated file — refs are kept so updates from source still work. Press Ctrl+S to save."
+              : "Raw extension document with find and replace. Saving re-imports it — applied state, operator settings and sync source are preserved. Press Ctrl+F to search, Ctrl+H for replace, Ctrl+S to save."}
           </DialogDescription>
         </DialogHeader>
 
@@ -385,17 +430,19 @@ export function ExtensionJsonEditor({
             <SearchIcon className="h-3.5 w-3.5" />
             Find &amp; Replace
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={formatDocument}
-            disabled={!validation.ok}
-            className="h-8 gap-1.5"
-            title="Prettify the document"
-          >
-            <Wand2Icon className="h-3.5 w-3.5" />
-            Format
-          </Button>
+          {!fileMode ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={formatDocument}
+              disabled={!validation.ok}
+              className="h-8 gap-1.5"
+              title="Prettify the document"
+            >
+              <Wand2Icon className="h-3.5 w-3.5" />
+              Format
+            </Button>
+          ) : null}
           <span
             className={cn(
               "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
@@ -574,7 +621,7 @@ export function ExtensionJsonEditor({
             }}
             spellCheck={false}
             wrap="off"
-            aria-label="Extension JSON"
+            aria-label={fileMode ? `File ${fileKey}` : "Extension JSON"}
             placeholder={loading ? "Loading…" : "{}"}
             className="h-full min-w-0 flex-1 resize-none bg-transparent px-3 pt-2 font-mono text-xs leading-5 text-foreground caret-accent outline-none placeholder:text-muted-foreground/50"
           />

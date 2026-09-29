@@ -30,9 +30,9 @@ export function ExternalAuthDialog({
   onOpenChange,
   onComplete,
 }: ExternalAuthDialogProps) {
-  const [step, setStep] = useState<"idle" | "waiting" | "polling" | "success" | "error">(
-    "idle"
-  );
+  const [step, setStep] = useState<
+    "idle" | "waiting" | "polling" | "success" | "error" | "unlinked"
+  >("idle");
   const [userCode, setUserCode] = useState("");
   const [verificationUri, setVerificationUri] = useState("");
   const [expiresIn, setExpiresIn] = useState(0);
@@ -54,7 +54,9 @@ export function ExternalAuthDialog({
   const [completing, setCompleting] = useState(false);
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
-  const stepRef = useRef<"idle" | "waiting" | "polling" | "success" | "error">("idle");
+  const stepRef = useRef<
+    "idle" | "waiting" | "polling" | "success" | "error" | "unlinked"
+  >("idle");
 
   // Resolve verification URI: absolute URLs pass through; relative paths are
   // expanded with the extension-supplied base (never a hardcoded origin).
@@ -67,6 +69,11 @@ export function ExternalAuthDialog({
     const path = verificationUri.startsWith("/") ? verificationUri : `/${verificationUri}`;
     return `${verificationBase.replace(/\/$/, "")}${path}`;
   }, [verificationUri, verificationBase]);
+
+  // The auth addon declines providers it does not own with a skip reply; the
+  // relay surfaces it verbatim. Detect it so the dialog explains the real
+  // cause instead of blaming an expired device code.
+  const isProviderScopeError = /provider not found|external auth not configured/i.test(error);
 
   // On dialog open: check status first, then decide whether to start a new flow.
   useEffect(() => {
@@ -129,7 +136,8 @@ export function ExternalAuthDialog({
     try {
       const { clearExternalAuthToken } = await import("@/lib/api/external-auth");
       await clearExternalAuthToken(providerName);
-      setStep("idle");
+      setStep("unlinked");
+      setAlreadyLinked(false);
       setAccountInfo(null);
       onComplete?.();
     } catch (e: unknown) {
@@ -375,13 +383,20 @@ export function ExternalAuthDialog({
             {!checkingStatus && step === "waiting" && (
               <WifiOff className="h-5 w-5 text-muted-foreground" />
             )}
+            {!checkingStatus && step === "unlinked" && (
+              <Unlink2 className="h-5 w-5 text-success" />
+            )}
             {checkingStatus
               ? "Checking status..."
               : step === "success"
                 ? alreadyLinked
                   ? "Account Linked"
                   : "Authorized!"
-                : "Link Account"}
+                : step === "unlinked"
+                  ? "Account Unlinked"
+                  : step === "error"
+                    ? "Link Failed"
+                    : "Link Account"}
           </DialogTitle>
           <DialogDescription>
             {checkingStatus && "Checking auth status for this provider..."}
@@ -408,6 +423,9 @@ export function ExternalAuthDialog({
               </>
             )}
             {!checkingStatus && step === "success" && !alreadyLinked && "Your account is now linked."}
+            {!checkingStatus &&
+              step === "unlinked" &&
+              "Successfully unlinked. You can link a new account whenever you want."}
             {!checkingStatus && step === "error" && error}
           </DialogDescription>
         </DialogHeader>
@@ -543,13 +561,31 @@ export function ExternalAuthDialog({
           </Surface>
         )}
 
+        {step === "unlinked" && (
+          <Surface variant="subtle" className="p-4">
+            <div className="flex items-start gap-3">
+              <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-success" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">Successfully unlinked</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  The stored token for <span className="font-mono">{providerName}</span> was
+                  removed. Upstream requests will no longer use this account until you link
+                  another one.
+                </p>
+              </div>
+            </div>
+          </Surface>
+        )}
+
         {step === "error" && (
           <Surface variant="elevated" className="p-4 border-destructive/30">
             <p className="text-destructive">{error}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              {grant === "authorization_code"
-                ? "The authorize session may have expired. Start a new authorization."
-                : "The device code may have expired. Try starting a new authorization."}
+              {!isProviderScopeError
+                ? grant === "authorization_code"
+                  ? "The authorize session may have expired. Start a new authorization."
+                  : "The device code may have expired. Try starting a new authorization."
+                : "This provider is not owned by the linked-account extension, so no flow can start for it."}
             </p>
           </Surface>
         )}
@@ -638,10 +674,21 @@ export function ExternalAuthDialog({
               Cancel
             </Button>
           )}
-          {step === "error" && (
+          {step === "error" && !isProviderScopeError && (
             <Button variant="default" onClick={handleStart}>
               Try Again
             </Button>
+          )}
+          {step === "unlinked" && (
+            <>
+              <Button variant="secondary" onClick={() => onOpenChange(false)}>
+                Close
+              </Button>
+              <Button variant="default" onClick={handleStart}>
+                <Link2 className="mr-1.5 h-3.5 w-3.5" />
+                Link Account
+              </Button>
+            </>
           )}
         </DialogFooter>
       </DialogContent>

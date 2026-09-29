@@ -16,6 +16,12 @@ import (
 // ErrDisabled is returned when no auth addon is loaded.
 var ErrDisabled = errors.New("external auth is disabled: apply an extension that ships an auth addon")
 
+// ErrProviderScope reports that every loaded auth addon declined the call
+// because none of them owns the requested provider (skip replies only). The
+// HTTP relay maps it to 400 with a readable message instead of a 502 that
+// blames a grant failure.
+var ErrProviderScope = errors.New("provider not found or external auth not configured")
+
 // Bridge routes generic auth calls to loaded auth addons (kind "auth").
 // It is safe for concurrent use.
 type Bridge struct {
@@ -71,10 +77,12 @@ func (b *Bridge) Call(method string, args any) (string, error) {
 		return "", fmt.Errorf("encode arguments: %w", err)
 	}
 	var lastErr error
+	skippedOnly := true
 	for _, a := range list {
 		out, callErr := a.CallString(method, string(payload))
 		if callErr != nil {
 			lastErr = callErr
+			skippedOnly = false
 			continue
 		}
 		if msg, skipped := skipReply(out); skipped {
@@ -85,6 +93,14 @@ func (b *Bridge) Call(method string, args any) (string, error) {
 	}
 	if lastErr == nil {
 		lastErr = ErrDisabled
+	}
+	// Every addon either declined or errored: a pure-skip sweep means the
+	// provider simply is not owned by any linked-account extension.
+	if skippedOnly && !errors.Is(lastErr, ErrDisabled) {
+		if name, _ := args.(map[string]any)["provider"].(string); name != "" {
+			return "", fmt.Errorf("%w: %s", ErrProviderScope, name)
+		}
+		return "", ErrProviderScope
 	}
 	return "", fmt.Errorf("auth addon call %s: %w", method, lastErr)
 }

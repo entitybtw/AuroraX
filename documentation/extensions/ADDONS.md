@@ -112,9 +112,13 @@ addon only when you need real code.
 2. Put vendor endpoints in the `auth` block / `settings`, never in core forks.
 3. Keep `files` paths relative and non-escaping (`MaterializeFiles` rejects
    `..` and absolute paths).
-4. A `files` value may be a plain string **or an array of lines** (joined
-   with `\n`) — use the array form for embedded scripts so each source line
-   stays on its own line in the JSON.
+4. A `files` value may be a plain string, an array of lines (joined with
+   `\n`), or **a ref to a companion file** shipped next to the manifest:
+   `{"ref": "{id}/auth-example.go"}`. Refs resolve against the extension
+   source URL at import/apply; the gateway also accepts uploaded content for
+   refs it cannot fetch (`missing_files` → `{"url": …, "files": {…}}`).
+   Prefer refs for addon sources — one real file per source instead of a
+   33KB escaped string inside the JSON.
 5. Document required permissions in `requirements` / `notes`.
 6. Bump `version` on breaking settings changes so store updates are visible.
 7. Name addon files `<kind>-<purpose>.go` and declare `// addon-kind:` so

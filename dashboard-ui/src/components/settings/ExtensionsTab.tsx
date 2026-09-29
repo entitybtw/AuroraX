@@ -11,6 +11,7 @@ import {
   ArrowUpIcon,
   CheckCircleIcon,
   DownloadIcon,
+  FileCodeIcon,
   FileJsonIcon,
   GlobeIcon,
   PencilIcon,
@@ -36,6 +37,7 @@ import {
   fullApplyExtension,
   importExtension,
   listExtensionStores,
+  missingFilesFromError,
   renameExtension,
   reorderExtensions,
   resetExtensionConfig,
@@ -112,12 +114,15 @@ export function ExtensionsTab(): JSX.Element {
   const [importURL, setImportURL] = useState("");
   const [importBusy, setImportBusy] = useState(false);
   const [importError, setImportError] = useState("");
+  const [missingFiles, setMissingFiles] = useState<string[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<Record<string, string>>({});
 
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const [editingSource, setEditingSource] = useState(false);
   const [sourceValue, setSourceValue] = useState("");
   const [jsonEditorOpen, setJsonEditorOpen] = useState(false);
+  const [jsonEditorFile, setJsonEditorFile] = useState<string | null>(null);
 
   const [storeURL, setStoreURL] = useState("");
   const [storeBusy, setStoreBusy] = useState(false);
@@ -136,6 +141,10 @@ export function ExtensionsTab(): JSX.Element {
     () => extensions.find((e) => e.id === selectedId) ?? extensions[0],
     [extensions, selectedId],
   );
+
+  // Companion sources shipped as refs/entries under `files` — editable
+  // one-by-one (e.g. the addon .go file) from the details panel.
+  const companionFiles = useMemo(() => Object.keys(selected?.files ?? {}), [selected]);
 
   const sorted = useMemo(() => [...extensions].sort(compareExtensions), [extensions]);
 
@@ -348,15 +357,36 @@ export function ExtensionsTab(): JSX.Element {
   const handleImport = () => {
     setImportBusy(true);
     setImportError("");
-    importExtension(importMode === "url" ? { url: importURL.trim() } : { json: importJSON })
+    const files =
+      missingFiles.length > 0
+        ? Object.fromEntries(missingFiles.map((k) => [k, uploadedFiles[k]]).filter(([, v]) => v))
+        : undefined;
+    const hasFiles = Boolean(files && Object.keys(files).length > 0);
+    importExtension(
+      importMode === "url"
+        ? { url: importURL.trim(), ...(hasFiles ? { files } : {}) }
+        : { json: importJSON, ...(hasFiles ? { files } : {}) },
+    )
       .then((ext) => {
         qc.invalidateQueries({ queryKey: ["extensions"] });
         setSelectedId(ext.id);
         setImportOpen(false);
         setImportJSON("");
         setImportURL("");
+        setMissingFiles([]);
+        setUploadedFiles({});
       })
-      .catch((err) => setImportError(err instanceof Error ? err.message : "Import failed"))
+      .catch((err) => {
+        // A manifest with unresolved refs comes back as a missing_files
+        // challenge — switch the dialog to the upload step and retry later.
+        const missing = missingFilesFromError(err);
+        if (missing.length > 0) {
+          setMissingFiles(missing);
+          setImportError("");
+          return;
+        }
+        setImportError(err instanceof Error ? err.message : "Import failed");
+      })
       .finally(() => setImportBusy(false));
   };
 
@@ -613,13 +643,32 @@ export function ExtensionsTab(): JSX.Element {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setJsonEditorOpen(true)}
+                  onClick={() => {
+                    setJsonEditorFile(null);
+                    setJsonEditorOpen(true);
+                  }}
                   className="h-10 gap-1.5 sm:h-9"
                   title="Edit the raw extension JSON"
                 >
                   <FileJsonIcon className="h-3.5 w-3.5" />
                   Edit JSON
                 </Button>
+                {companionFiles.map((key) => (
+                  <Button
+                    key={key}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setJsonEditorFile(key);
+                      setJsonEditorOpen(true);
+                    }}
+                    className="h-10 gap-1.5 sm:h-9"
+                    title={`Edit companion file ${key}`}
+                  >
+                    <FileCodeIcon className="h-3.5 w-3.5" />
+                    {key.endsWith(".go") ? "Edit .go file" : `Edit ${key}`}
+                  </Button>
+                ))}
                 <Button variant="outline" size="sm" onClick={() => handleExport(selected)} className="h-10 gap-1.5 sm:h-9">
                   <DownloadIcon className="h-3.5 w-3.5" />
                   Export
@@ -800,7 +849,14 @@ export function ExtensionsTab(): JSX.Element {
 
         <SidecarPresetImportDialog
           open={importOpen}
-          onOpenChange={setImportOpen}
+          onOpenChange={(open) => {
+            setImportOpen(open);
+            if (!open) {
+              setMissingFiles([]);
+              setUploadedFiles({});
+              setImportError("");
+            }
+          }}
           mode={importMode}
           setMode={setImportMode}
           jsonValue={importJSON}
@@ -810,6 +866,11 @@ export function ExtensionsTab(): JSX.Element {
           onConfirm={handleImport}
           pending={importBusy}
           error={importError}
+          missingFiles={missingFiles}
+          uploadedFiles={uploadedFiles}
+          onUploadFile={(key, content) =>
+            setUploadedFiles((prev) => ({ ...prev, [key]: content }))
+          }
         />
       </Surface>
 
@@ -1256,14 +1317,20 @@ export function ExtensionsTab(): JSX.Element {
       {selected ? (
         <ExtensionJsonEditor
           open={jsonEditorOpen}
-          onOpenChange={setJsonEditorOpen}
+          onOpenChange={(next) => {
+            setJsonEditorOpen(next);
+            if (!next) setJsonEditorFile(null);
+          }}
           extensionId={selected.id}
           extensionName={selected.name}
+          fileKey={jsonEditorFile}
           onSaved={() => {
             void invalidateExtensionQueries();
             setResult({
               ok: true,
-              message: `Saved JSON for "${selected.name}".`,
+              message: jsonEditorFile
+                ? `Saved ${jsonEditorFile} for "${selected.name}".`
+                : `Saved JSON for "${selected.name}".`,
               added: [],
               kept: [],
             });

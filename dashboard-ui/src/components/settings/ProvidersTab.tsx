@@ -16,6 +16,12 @@ import { fetchExtensions, type Extension } from "@/lib/api/extensions";
 // filterToText renders an AutoFetchFilter into the simple comma-separated form
 // the provider form edits. Only `contains` conditions are representable; a
 // filter using regex or price rules shows a generic label.
+/** "Claude OAuth" / "OpenCode Auth" / "Zen Device" → "Link … account". */
+function linkAccountLabel(name: string): string {
+  const subject = name.replace(/\s+(oauth|auth|device|account)\b.*$/i, "").trim();
+  return subject ? `Link ${subject} account` : "Link account";
+}
+
 function filterToText(filter?: AutoFetchFilter | null): string {
   if (!filter?.conditions?.length) return "";
   const contains = filter.conditions
@@ -439,6 +445,8 @@ export function ProvidersTab(): JSX.Element {
         .map((e) => ({
           id: e.id,
           name: e.name,
+          // "Claude OAuth" / "OpenCode Auth" → "Link Claude account"
+          label: linkAccountLabel(e.name),
           color: e.ui?.accent || undefined,
         }))
         .sort((a, b) => a.id.localeCompare(b.id)),
@@ -788,8 +796,8 @@ export function ProvidersTab(): JSX.Element {
                                 onClick={() => setExternalAuthDialogProvider(provider.name)}
                                 className="p-1.5 hover:bg-accent/10 transition-colors"
                                 style={key.color ? { color: key.color } : undefined}
-                                title={`Link account via ${key.name}`}
-                                aria-label={`Link account for ${provider.name} via ${key.name}`}
+                                title={key.label}
+                                aria-label={`${key.label} for ${provider.name}`}
                               >
                                 <KeyIcon className="h-3.5 w-3.5" />
                               </button>

@@ -80,6 +80,13 @@ func (h *ExternalAuthHandler) relay(c *echo.Context, method string, args any, li
 		if errors.Is(err, externalauth.ErrDisabled) {
 			return disabledError(c)
 		}
+		if errors.Is(err, externalauth.ErrProviderScope) {
+			// The addons all declined — say so plainly instead of surfacing a
+			// grant-style failure the operator cannot act on.
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": err.Error() + " — pick a provider this linked-account extension owns (check auth_method / base_url rules)",
+			})
+		}
 		return c.JSON(http.StatusBadGateway, map[string]string{"error": err.Error()})
 	}
 	var payload any

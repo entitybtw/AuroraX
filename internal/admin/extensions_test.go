@@ -121,7 +121,7 @@ func TestExtension_ExtendedSchemaRoundTrip(t *testing.T) {
 	if p.Auth == nil || p.Auth.Server != "https://auth.example.test" || p.Auth.VerificationBase != "https://auth.example.test" {
 		t.Fatalf("auth block not parsed: %+v", p.Auth)
 	}
-	if len(p.Files) != 2 || p.Files["tools/cli-emulation.json"] != "[]" {
+	if len(p.Files) != 2 || p.Files["tools/cli-emulation.json"].Content != "[]" {
 		t.Fatalf("files not parsed: %+v", p.Files)
 	}
 	if err := p.Validate(); err != nil {
@@ -140,11 +140,11 @@ func TestExtension_ExtendedSchemaRoundTrip(t *testing.T) {
 }
 
 func TestExtension_ValidateRejectsUnsafeFilesPath(t *testing.T) {
-	p := Extension{ID: "x", Name: "x", Files: map[string]string{"../escape.json": "[]"}}
+	p := Extension{ID: "x", Name: "x", Files: ExtensionFiles{"../escape.json": {Content: "[]"}}}
 	if err := p.Validate(); err == nil {
 		t.Fatal("expected error for .. path")
 	}
-	p.Files = map[string]string{"/abs.json": "[]"}
+	p.Files = ExtensionFiles{"/abs.json": {Content: "[]"}}
 	if err := p.Validate(); err == nil {
 		t.Fatal("expected error for absolute path")
 	}
@@ -203,9 +203,9 @@ func TestExtension_MaterializeFiles(t *testing.T) {
 	dir := t.TempDir()
 	ext := Extension{
 		ID: "x",
-		Files: map[string]string{
-			"tools/cli-emulation-schema.json": `[]`,
-			"scripts/README.md":          "docs",
+		Files: ExtensionFiles{
+			"tools/cli-emulation-schema.json": {Content: `[]`},
+			"scripts/README.md":               {Content: "docs"},
 		},
 	}
 	toolsPath, err := ext.MaterializeFiles(dir)
@@ -241,10 +241,10 @@ func TestExtension_FilesAcceptLineArrays(t *testing.T) {
 	if err := json.Unmarshal([]byte(raw), &p); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if got := p.Files["auth/one.go"]; got != "line one\nline two\n" {
+	if got := p.Files["auth/one.go"].Content; got != "line one\nline two\n" {
 		t.Fatalf("line array joined = %q, want %q", got, "line one\nline two\n")
 	}
-	if got := p.Files["tools/two.json"]; got != `{"ok":true}` {
+	if got := p.Files["tools/two.json"].Content; got != `{"ok":true}` {
 		t.Fatalf("plain string kept = %q", got)
 	}
 	if err := p.Validate(); err != nil {
@@ -275,12 +275,12 @@ func TestExtension_FilesAcceptLineArrays(t *testing.T) {
 	if err := json.Unmarshal(out, &wire); err != nil {
 		t.Fatalf("decode marshal: %v", err)
 	}
-	var asString string
-	if err := json.Unmarshal(wire.Files["auth/one.go"], &asString); err != nil {
-		t.Fatalf("files must marshal back as a string, got %s", wire.Files["auth/one.go"])
+	var asLines []string
+	if err := json.Unmarshal(wire.Files["auth/one.go"], &asLines); err != nil {
+		t.Fatalf("multi-line files must marshal as an array of lines, got %s", wire.Files["auth/one.go"])
 	}
-	if asString != "line one\nline two\n" {
-		t.Fatalf("marshalled content = %q", asString)
+	if strings.Join(asLines, "\n") != "line one\nline two\n" {
+		t.Fatalf("marshalled lines = %q", asLines)
 	}
 
 	// A non-string, non-array value is rejected with the offending key.
@@ -289,6 +289,250 @@ func TestExtension_FilesAcceptLineArrays(t *testing.T) {
 	err = json.Unmarshal([]byte(bad), &q)
 	if err == nil || !strings.Contains(err.Error(), "a.go") {
 		t.Fatalf("expected key-scoped error, got %v", err)
+	}
+}
+
+// TestExtension_FileRefs covers the companion-file form: a manifest keeps only
+// a ref to a separate source file, and the gateway fetches it relative to the
+// manifest URL at import time.
+func TestExtension_FileRefs(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/store/ext-ref.extension.json":
+			w.Write([]byte(`{"id":"ext-ref","name":"Ext Ref","files":{"auth/x.go":{"ref":"auth-x.go"}}}`))
+		case "/store/auth-x.go":
+			w.Write([]byte("// addon-kind: auth\npackage main\n"))
+		case "/store/missing-ref.extension.json":
+			w.Write([]byte(`{"id":"missing-ref","name":"Missing","files":{"auth/y.go":{"ref":"nope.go"}}}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	// Unmarshal: ref object round-trips, content absent until resolved.
+	var ext Extension
+	raw := `{"id":"r","name":"R","files":{"auth/x.go":{"ref":"sub/auth-x.go","content":["a","b"]}}}`
+	if err := json.Unmarshal([]byte(raw), &ext); err != nil {
+		t.Fatalf("unmarshal ref: %v", err)
+	}
+	if ext.Files["auth/x.go"].Ref != "sub/auth-x.go" || ext.Files["auth/x.go"].Content != "a\nb" {
+		t.Fatalf("ref entry = %+v", ext.Files["auth/x.go"])
+	}
+	if err := ext.Validate(); err != nil {
+		t.Fatalf("validate ref: %v", err)
+	}
+	out, err := json.Marshal(ext)
+	if err != nil {
+		t.Fatalf("marshal ref: %v", err)
+	}
+	var wire struct {
+		Files map[string]struct {
+			Ref     string   `json:"ref"`
+			Content []string `json:"content"`
+		} `json:"files"`
+	}
+	if err := json.Unmarshal(out, &wire); err != nil {
+		t.Fatalf("decode ref wire: %v", err)
+	}
+	got := wire.Files["auth/x.go"]
+	if got.Ref != "sub/auth-x.go" || len(got.Content) != 2 || got.Content[1] != "b" {
+		t.Fatalf("ref wire = %+v", got)
+	}
+
+	// Import from a URL resolves the ref against the manifest URL.
+	t.Setenv("AURORA_EXTENSIONS_PATH", filepath.Join(t.TempDir(), "extensions.json"))
+	store := NewExtensionStore()
+	h := NewHandler(nil, nil, WithExtensionStore(store))
+	e := echo.New()
+	body, _ := json.Marshal(map[string]string{"url": srv.URL + "/store/ext-ref.extension.json"})
+	req := httptest.NewRequest(http.MethodPost, "/sidecar/extensions/import", strings.NewReader(string(body)))
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	if err := h.ImportExtension(c); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	saved, _ := store.Get("ext-ref")
+	if got := saved.Files["auth/x.go"].Content; !strings.Contains(got, "package main") {
+		t.Fatalf("ref not resolved on import: %q", got)
+	}
+	if saved.Files["auth/x.go"].Ref != "auth-x.go" {
+		t.Fatalf("ref must be preserved: %+v", saved.Files["auth/x.go"])
+	}
+
+	// A ref that cannot be fetched fails the import with a missing_files list.
+	body2, _ := json.Marshal(map[string]string{"url": srv.URL + "/store/missing-ref.extension.json"})
+	req2 := httptest.NewRequest(http.MethodPost, "/sidecar/extensions/import", strings.NewReader(string(body2)))
+	rec2 := httptest.NewRecorder()
+	c2 := e.NewContext(req2, rec2)
+	if err := h.ImportExtension(c2); err != nil {
+		t.Fatalf("import missing: %v", err)
+	}
+	if rec2.Code != http.StatusBadRequest {
+		t.Fatalf("missing ref status = %d body=%s", rec2.Code, rec2.Body.String())
+	}
+	var miss struct {
+		MissingFiles []string `json:"missing_files"`
+	}
+	if err := json.Unmarshal(rec2.Body.Bytes(), &miss); err != nil || len(miss.MissingFiles) != 1 {
+		t.Fatalf("missing_files payload: %s (%v)", rec2.Body.String(), err)
+	}
+
+	// A pasted manifest with unresolved refs is rejected the same way so the
+	// dashboard can prompt for uploads.
+	pasted := `{"id":"paste-ref","name":"Paste","files":{"auth/z.go":{"ref":"auth-z.go"}}}`
+	req3 := httptest.NewRequest(http.MethodPost, "/sidecar/extensions/import", strings.NewReader(pasted))
+	rec3 := httptest.NewRecorder()
+	c3 := e.NewContext(req3, rec3)
+	if err := h.ImportExtension(c3); err != nil {
+		t.Fatalf("import pasted: %v", err)
+	}
+	if rec3.Code != http.StatusBadRequest {
+		t.Fatalf("pasted ref status = %d body=%s", rec3.Code, rec3.Body.String())
+	}
+	if err := json.Unmarshal(rec3.Body.Bytes(), &miss); err != nil || len(miss.MissingFiles) != 1 {
+		t.Fatalf("pasted missing_files payload: %s (%v)", rec3.Body.String(), err)
+	}
+}
+
+// TestImport_EnvelopeFilesSatisfiesRef: a URL import whose companion file is
+// missing at the source can still complete when the caller uploads the file
+// content in the import envelope (the answer to a missing_files challenge).
+func TestImport_EnvelopeFilesSatisfiesRef(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/store/env-ref.extension.json":
+			w.Write([]byte(`{"id":"env-ref","name":"Env Ref","files":{"auth/e.go":{"ref":"missing-e.go"}}}`))
+		case "/store/extra-ref.extension.json":
+			w.Write([]byte(`{"id":"extra-ref","name":"Extra","files":{"auth/e.go":{"ref":"missing-e.go"}}}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	t.Setenv("AURORA_EXTENSIONS_PATH", filepath.Join(dir, "extensions.json"))
+	store := NewExtensionStore()
+	h := NewHandler(nil, nil, WithExtensionStore(store))
+	e := echo.New()
+
+	importBody := func(body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, "/sidecar/extensions/import", strings.NewReader(body))
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		if err := h.ImportExtension(c); err != nil {
+			t.Fatalf("import: %v", err)
+		}
+		return rec
+	}
+
+	// 1. URL import with an unfetchable ref → challenged with missing_files.
+	challengeBody, _ := json.Marshal(map[string]string{"url": srv.URL + "/store/env-ref.extension.json"})
+	rec := importBody(string(challengeBody))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("challenge status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var miss struct {
+		MissingFiles []string `json:"missing_files"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &miss); err != nil || len(miss.MissingFiles) != 1 || miss.MissingFiles[0] != "auth/e.go" {
+		t.Fatalf("missing_files = %s (%v)", rec.Body.String(), err)
+	}
+
+	// 2. Same import plus the uploaded file → succeeds, ref kept, content stored.
+	uploadBody, _ := json.Marshal(map[string]any{
+		"url":   srv.URL + "/store/env-ref.extension.json",
+		"files": map[string]string{"auth/e.go": "package main\n"},
+	})
+	rec2 := importBody(string(uploadBody))
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("upload import = %d body=%s", rec2.Code, rec2.Body.String())
+	}
+	saved, ok := store.Get("env-ref")
+	if !ok {
+		t.Fatal("extension not stored")
+	}
+	if got := saved.Files["auth/e.go"]; got.Content != "package main\n" || got.Ref != "missing-e.go" {
+		t.Fatalf("stored entry = %+v, want content set and ref preserved", got)
+	}
+
+	// 3. Uploading a file the manifest never referenced is rejected.
+	badBody, _ := json.Marshal(map[string]any{
+		"url":   srv.URL + "/store/extra-ref.extension.json",
+		"files": map[string]string{"auth/other.go": "x"},
+	})
+	rec3 := importBody(string(badBody))
+	if rec3.Code != http.StatusBadRequest || !strings.Contains(rec3.Body.String(), "not referenced") {
+		t.Fatalf("unexpected file = %d %s", rec3.Code, rec3.Body.String())
+	}
+}
+
+// TestMaterializeFiles_UnresolvedRefRefused guards against silently writing an
+// empty file when a ref never got resolved.
+func TestMaterializeFiles_UnresolvedRefRefused(t *testing.T) {
+	ext := Extension{ID: "x", Files: ExtensionFiles{"auth/x.go": {Ref: "auth-x.go"}}}
+	_, err := ext.MaterializeFiles(t.TempDir())
+	if err == nil || !strings.Contains(err.Error(), "auth-x.go") {
+		t.Fatalf("expected unresolved-ref error, got %v", err)
+	}
+}
+
+// TestApplyExtension_ResolvesFileRefs: apply fetches a still-unresolved ref
+// from the extension source before materialising files.
+func TestApplyExtension_ResolvesFileRefs(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/store/ext-apply.extension.json":
+			w.Write([]byte(`{"id":"ext-apply","name":"Ext Apply","files":{"auth/a.go":{"ref":"auth-a.go"}}}`))
+		case "/store/auth-a.go":
+			w.Write([]byte("package main\n"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	t.Setenv("AURORA_EXTENSIONS_PATH", filepath.Join(dir, "extensions.json"))
+	t.Setenv("AURORA_EXTENSIONS_FILES_DIR", filepath.Join(dir, "files"))
+	t.Setenv("AURORA_SIDECAR_OVERRIDES_PATH", filepath.Join(dir, "sidecar.json"))
+	store := NewExtensionStore()
+	h := NewHandler(nil, nil,
+		WithExtensionStore(store),
+		WithSidecarStore(NewSidecarOverrideStore()),
+	)
+	body, _ := json.Marshal(map[string]string{"url": srv.URL + "/store/ext-apply.extension.json"})
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/sidecar/extensions/import", strings.NewReader(string(body)))
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	if err := h.ImportExtension(c); err != nil || rec.Code != http.StatusOK {
+		t.Fatalf("import = %d %s (%v)", rec.Code, rec.Body.String(), err)
+	}
+
+	// Drop the resolved content to simulate a record imported pre-ref-support.
+	saved, _ := store.Get("ext-apply")
+	saved.Files["auth/a.go"] = ExtensionFile{Ref: "auth-a.go"}
+	saved.Source = srv.URL + "/store/ext-apply.extension.json"
+	store.Upsert(saved)
+
+	req2 := httptest.NewRequest(http.MethodPost, "/sidecar/extensions/ext-apply/apply", nil)
+	rec2 := httptest.NewRecorder()
+	c2 := e.NewContext(req2, rec2)
+	c2.SetPathValues(echo.PathValues{{Name: "id", Value: "ext-apply"}})
+	if err := h.ApplyExtension(c2); err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("apply status = %d body=%s", rec2.Code, rec2.Body.String())
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "files", "ext-apply", "auth", "a.go"))
+	if err != nil || !strings.Contains(string(data), "package main") {
+		t.Fatalf("materialised ref file: %v %q", err, data)
 	}
 }
 
