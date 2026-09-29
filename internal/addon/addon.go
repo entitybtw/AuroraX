@@ -130,14 +130,19 @@ func (s *Store) AddDir(dir string) []string {
 	return s.List()
 }
 
-// loadDir reads every *.go directly under dir and evaluates it.
+// loadDir reads every *.go under dir (recursively — extension files may be
+// materialised into subdirectories) and evaluates it.
 func (s *Store) loadDir(dir string) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return
 	}
 	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".go") {
+		if e.IsDir() {
+			s.loadDir(filepath.Join(dir, e.Name()))
+			continue
+		}
+		if !strings.HasSuffix(e.Name(), ".go") {
 			continue
 		}
 		_ = s.LoadFile(filepath.Join(dir, e.Name()))
