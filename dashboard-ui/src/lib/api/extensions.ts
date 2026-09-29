@@ -113,6 +113,35 @@ const ExtensionToolSchema = z.object({
   inline: z.unknown().optional(),
 });
 
+// A files entry is either embedded content (string / array of lines) or a ref
+// to a companion file shipped next to the manifest, optionally with fetched
+// content alongside the ref.
+const ExtensionFileSchema = z.union([
+  z.string(),
+  z.array(z.string()),
+  z.object({
+    ref: z.string(),
+    content: z.union([z.string(), z.array(z.string())]).optional(),
+  }),
+]);
+
+export type ExtensionFile = z.infer<typeof ExtensionFileSchema>;
+
+/** Normalise a files entry to its text content ("" when unresolved). */
+export function extensionFileText(entry: ExtensionFile | undefined): string {
+  if (entry === undefined) return "";
+  if (typeof entry === "string") return entry;
+  if (Array.isArray(entry)) return entry.join("\n");
+  if (entry.content === undefined) return "";
+  return Array.isArray(entry.content) ? entry.content.join("\n") : entry.content;
+}
+
+/** Ref of a files entry, or "" for embedded content. */
+export function extensionFileRef(entry: ExtensionFile | undefined): string {
+  if (entry && typeof entry === "object" && !Array.isArray(entry)) return entry.ref;
+  return "";
+}
+
 const ExtensionProvidesSchema = z.object({
   provider_types: z.array(z.string()).optional(),
   features: z.array(z.string()).optional(),
@@ -158,7 +187,7 @@ const ExtensionSchema = z.object({
   settings: z.record(z.string()).optional(),
   config: z.record(z.string()).optional(),
   auth: ExtensionAuthSchema.optional(),
-  files: z.record(z.string()).optional(),
+  files: z.record(ExtensionFileSchema).optional(),
   provides: ExtensionProvidesSchema.optional(),
   ui: ExtensionUISchema.optional(),
   applied: z.boolean().optional(),
@@ -200,13 +229,46 @@ export const fetchSidecarPresets = fetchExtensions;
 export async function importExtension(input: {
   json?: string;
   url?: string;
+  /** Companion files (keyed by their `files` entry) for refs the gateway
+   *  could not fetch — the answer to a `missing_files` challenge. */
+  files?: Record<string, string>;
 }): Promise<Extension> {
-  const body = input.url ? { url: input.url } : JSON.parse(input.json ?? "{}");
+  let body: unknown;
+  if (input.url) {
+    body = input.files && Object.keys(input.files).length > 0
+      ? { url: input.url, files: input.files }
+      : { url: input.url };
+  } else {
+    body = JSON.parse(input.json ?? "{}");
+    if (input.files && Object.keys(input.files).length > 0 && body && typeof body === "object") {
+      // Pasted JSON: inline the uploaded content so the gateway never has to
+      // resolve anything for a document without a source URL.
+      const files = { ...(body as { files?: Record<string, unknown> }).files };
+      for (const [key, content] of Object.entries(input.files)) {
+        const entry = files[key];
+        files[key] =
+          entry && typeof entry === "object" && !Array.isArray(entry)
+            ? { ...(entry as object), content }
+            : content;
+      }
+      (body as { files?: Record<string, unknown> }).files = files;
+    }
+  }
   const res = await apiFetch<{ extension?: unknown; preset?: unknown }>(
     "/admin/api/v1/sidecar/extensions/import",
     { method: "POST", json: body },
   );
   return ExtensionSchema.parse(res.extension ?? res.preset);
+}
+
+/** Extract the missing_files list from a failed import (ApiError body). */
+export function missingFilesFromError(err: unknown): string[] {
+  if (!(err instanceof Error) || !("body" in err)) return [];
+  const body = (err as { body?: unknown }).body;
+  if (!body || typeof body !== "object") return [];
+  const list = (body as { missing_files?: unknown }).missing_files;
+  if (!Array.isArray(list)) return [];
+  return list.filter((v): v is string => typeof v === "string");
 }
 
 /** @deprecated Prefer importExtension. */

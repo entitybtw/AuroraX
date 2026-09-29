@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -204,12 +205,98 @@ type ExtensionProvides struct {
 	Features []string `json:"features,omitempty"`
 }
 
-// ExtensionFiles maps relative paths to materialised file contents. The JSON
-// form accepts a plain string or an array of lines (joined with "\n") so
-// authored documents keep embedded sources readable instead of escaping every
-// newline onto one giant line. Marshalling always emits the plain-string form
-// the dashboard and export endpoints have always produced.
-type ExtensionFiles map[string]string
+// ExtensionFile is one materialised extension file. The JSON form accepts:
+//
+//	"auth.go": "// code…"                 (plain string)
+//	"auth.go": ["line", "line"]           (array of lines, joined with "\n")
+//	"auth.go": {"ref": "ext/auth.go"}     (code lives in a separate file next
+//	                                       to the manifest; content is fetched
+//	                                       from the extension source)
+//	{"ref": …, "content": …}              (ref with already-fetched content)
+//
+// Refs keep large embedded sources out of the manifest so documents stay
+// reviewable; content is resolved at import/apply time and persisted so the
+// gateway keeps working offline after a successful import.
+type ExtensionFile struct {
+	Ref     string
+	Content string
+}
+
+// ExtensionFiles maps relative materialisation paths to their entries.
+type ExtensionFiles map[string]ExtensionFile
+
+func (f *ExtensionFile) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		*f = ExtensionFile{}
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		f.Content = s
+		return nil
+	}
+	var lines []string
+	if err := json.Unmarshal(data, &lines); err == nil {
+		f.Content = strings.Join(lines, "\n")
+		return nil
+	}
+	var obj struct {
+		Ref     string          `json:"ref"`
+		Content json.RawMessage `json:"content"`
+	}
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return fmt.Errorf("must be a string, an array of lines, or {\"ref\": …}")
+	}
+	// An object with only "content" is an embedded file written in object
+	// form; "" ref simply round-trips back to the plain string/array shape.
+	f.Ref = obj.Ref
+	if len(obj.Content) == 0 || string(obj.Content) == "null" {
+		return nil
+	}
+	var content string
+	if err := json.Unmarshal(obj.Content, &content); err == nil {
+		f.Content = content
+		return nil
+	}
+	var contentLines []string
+	if err := json.Unmarshal(obj.Content, &contentLines); err != nil {
+		return fmt.Errorf("content must be a string or an array of lines")
+	}
+	f.Content = strings.Join(contentLines, "\n")
+	return nil
+}
+
+func (f ExtensionFile) MarshalJSON() ([]byte, error) {
+	content, err := marshalFileContent(f.Content)
+	if err != nil {
+		return nil, err
+	}
+	if f.Ref == "" {
+		return content, nil
+	}
+	obj := map[string]json.RawMessage{"ref": mustJSON(f.Ref)}
+	if f.Content != "" {
+		obj["content"] = content
+	}
+	return json.Marshal(obj)
+}
+
+// marshalFileContent emits single-line content as a string and multi-line
+// content as an array of lines so embedded sources stay reviewable.
+func marshalFileContent(content string) (json.RawMessage, error) {
+	if strings.Contains(content, "\n") {
+		return json.Marshal(strings.Split(content, "\n"))
+	}
+	return json.Marshal(content)
+}
+
+func mustJSON(v any) json.RawMessage {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return json.RawMessage(`""`)
+	}
+	return b
+}
 
 func (f *ExtensionFiles) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {
@@ -222,16 +309,11 @@ func (f *ExtensionFiles) UnmarshalJSON(data []byte) error {
 	}
 	out := make(ExtensionFiles, len(raw))
 	for key, val := range raw {
-		var s string
-		if err := json.Unmarshal(val, &s); err == nil {
-			out[key] = s
-			continue
+		var entry ExtensionFile
+		if err := json.Unmarshal(val, &entry); err != nil {
+			return fmt.Errorf("files[%q]: %w", key, err)
 		}
-		var lines []string
-		if err := json.Unmarshal(val, &lines); err != nil {
-			return fmt.Errorf("files[%q]: must be a string or an array of lines", key)
-		}
-		out[key] = strings.Join(lines, "\n")
+		out[key] = entry
 	}
 	*f = out
 	return nil
@@ -761,9 +843,18 @@ func (p *Extension) Validate() error {
 	}
 
 	if p.Files != nil {
-		for rel := range p.Files {
+		for rel, entry := range p.Files {
 			if !safeExtRelPath(rel) {
 				add("files: path %q is not allowed (must be relative and stay under the extension dir)", rel)
+			}
+			if entry.Ref == "" {
+				continue
+			}
+			if isHTTPURL(entry.Ref) {
+				continue
+			}
+			if !safeExtRelPath(entry.Ref) {
+				add("files[%q].ref: %q is not allowed (use a relative path next to the manifest or an http(s) URL)", rel, entry.Ref)
 			}
 		}
 	}
@@ -799,20 +890,25 @@ func safeExtRelPath(rel string) bool {
 
 // MaterializeFiles writes ext.Files under dir (creating subdirs). Returns the
 // absolute path of the first *.json tool schema file suitable as a sidecar
-// tools path, or "" when none was written.
+// tools path, or "" when none was written. Entries that only carry a ref must
+// have been resolved first (ResolveFileRefs) — otherwise the write is refused
+// rather than silently producing an empty file.
 func (p *Extension) MaterializeFiles(dir string) (toolsPath string, err error) {
 	if len(p.Files) == 0 {
 		return "", nil
 	}
-	for rel, content := range p.Files {
+	for rel, entry := range p.Files {
 		if !safeExtRelPath(rel) {
 			return "", fmt.Errorf("unsafe files path %q", rel)
+		}
+		if entry.Ref != "" && entry.Content == "" {
+			return "", fmt.Errorf("file %q references %q which was not loaded — re-import the extension or upload the file", rel, entry.Ref)
 		}
 		dst := filepath.Join(dir, filepath.FromSlash(rel))
 		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 			return "", err
 		}
-		if err := os.WriteFile(dst, []byte(content), 0o644); err != nil {
+		if err := os.WriteFile(dst, []byte(entry.Content), 0o644); err != nil {
 			return "", err
 		}
 		if toolsPath == "" && strings.HasSuffix(strings.ToLower(rel), ".json") &&
@@ -839,6 +935,79 @@ func ExtensionFilesDir(id string) string {
 		base = "configs/extensions"
 	}
 	return filepath.Join(base, id)
+}
+
+// cloneExtensionFiles copies the file map so ref resolution never mutates the
+// record held by the extension store (maps are shared by reference).
+func cloneExtensionFiles(in ExtensionFiles) ExtensionFiles {
+	if in == nil {
+		return nil
+	}
+	out := make(ExtensionFiles, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}
+
+// resolveFileRef turns a files ref into a fetchable URL: absolute http(s) refs
+// pass through, relative refs resolve against the extension source URL.
+func resolveFileRef(baseURL, ref string) (string, error) {
+	if isHTTPURL(ref) {
+		return ref, nil
+	}
+	base, err := url.Parse(baseURL)
+	if err != nil || (base.Scheme != "http" && base.Scheme != "https") {
+		return "", fmt.Errorf("cannot resolve %q: extension has no source url", ref)
+	}
+	rel, err := url.Parse(ref)
+	if err != nil {
+		return "", fmt.Errorf("invalid ref %q: %w", ref, err)
+	}
+	return base.ResolveReference(rel).String(), nil
+}
+
+// ResolveFileRefs fills Content for entries that only carry a Ref by fetching
+// the referenced file (relative refs resolve against baseURL, the extension
+// source URL). Returns the "files" keys that could not be loaded, sorted —
+// callers report them so the dashboard can ask the operator to upload those
+// exact entries. Entries that already carry content are left untouched.
+func (p *Extension) ResolveFileRefs(baseURL string) []string {
+	if len(p.Files) == 0 {
+		return nil
+	}
+	var missing []string
+	for key, entry := range p.Files {
+		if entry.Ref == "" || entry.Content != "" {
+			continue
+		}
+		target, err := resolveFileRef(baseURL, entry.Ref)
+		if err != nil {
+			missing = append(missing, key)
+			continue
+		}
+		body, err := fetchExtensionFromURL(target)
+		if err != nil {
+			missing = append(missing, key)
+			continue
+		}
+		entry.Content = body
+		p.Files[key] = entry
+	}
+	sort.Strings(missing)
+	return missing
+}
+
+// resolveFileRefsFor resolves refs against the extension's own source,
+// falling back to configured stores when no explicit source is set.
+func (h *Handler) resolveFileRefsFor(ext *Extension) []string {
+	base := strings.TrimSpace(ext.Source)
+	if base == "" {
+		if src, err := h.resolveExtensionSource(*ext); err == nil {
+			base = src
+		}
+	}
+	return ext.ResolveFileRefs(base)
 }
 
 // WithExtensionStore sets the extension store on the handler.
@@ -901,6 +1070,10 @@ func (h *Handler) GetExtension(c *echo.Context) error {
 	if !ok {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "extension not found"})
 	}
+	// Resolve companion-file refs on the way out so the dashboard editor
+	// always shows real content instead of a bare {"ref": …} marker.
+	ext.Files = cloneExtensionFiles(ext.Files)
+	h.resolveFileRefsFor(&ext)
 	return c.JSON(http.StatusOK, ext)
 }
 
@@ -914,6 +1087,10 @@ func (h *Handler) ExportExtension(c *echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "extension not found"})
 	}
 	ext.Builtin = false
+	// Pull referenced companion files into the export so the downloaded
+	// document is self-contained even if the local record only carries refs.
+	ext.Files = cloneExtensionFiles(ext.Files)
+	h.resolveFileRefsFor(&ext)
 	data, err := json.MarshalIndent(ext, "", "  ")
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -936,6 +1113,10 @@ func (h *Handler) ImportExtension(c *echo.Context) error {
 	raw := strings.TrimSpace(string(body))
 	var envelope struct {
 		URL string `json:"url"`
+		// Files carries operator-uploaded companion files (keyed by the
+		// "files" entry name) for manifests whose refs cannot be fetched —
+		// e.g. a URL import whose companion file is missing at the source.
+		Files map[string]string `json:"files"`
 	}
 	sourceURL := ""
 	if err := json.Unmarshal(body, &envelope); err == nil && envelope.URL != "" {
@@ -956,6 +1137,32 @@ func (h *Handler) ImportExtension(c *echo.Context) error {
 	}
 	if err := ext.Validate(); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	// Operator-supplied companion files win over anything the manifest could
+	// fetch: they are the answer to a missing_files challenge.
+	for key, content := range envelope.Files {
+		entry, ok := ext.Files[key]
+		if !ok {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": fmt.Sprintf("uploaded file %q is not referenced by this extension", key),
+			})
+		}
+		entry.Content = content
+		ext.Files[key] = entry
+	}
+	// Refs to companion files (e.g. addon .go sources) resolve against the
+	// manifest URL when importing from a URL or store. For a pasted document
+	// there is no base to resolve against, so the caller is told which files
+	// are still needed and can upload them.
+	base := sourceURL
+	if base == "" {
+		base = strings.TrimSpace(ext.Source)
+	}
+	if missing := ext.ResolveFileRefs(base); len(missing) > 0 {
+		return c.JSON(http.StatusBadRequest, map[string]any{
+			"error":         "extension references files that were not provided: " + strings.Join(missing, ", "),
+			"missing_files": missing,
+		})
 	}
 	activated := h.extensions.Import(ext)
 	saved, _ := h.extensions.Get(ext.ID)
@@ -1311,6 +1518,14 @@ func (h *Handler) buildApplyResponse(c *echo.Context) (map[string]any, Extension
 	}
 	// Materialise extension payload files (tool schemas, scripts, …).
 	if len(ext.Files) > 0 {
+		// Refs may still be unresolved (e.g. imported before a companion file
+		// existed) — resolve them against the source without mutating the
+		// stored record.
+		ext.Files = cloneExtensionFiles(ext.Files)
+		if missing := h.resolveFileRefsFor(&ext); len(missing) > 0 {
+			return nil, Extension{}, &applyFailure{http.StatusBadRequest,
+				"extension file(s) not loaded: " + strings.Join(missing, ", ") + " — re-import the extension or upload the file(s)"}
+		}
 		toolsPath, ferr := ext.MaterializeFiles(ExtensionFilesDir(ext.ID))
 		if ferr != nil {
 			return nil, Extension{}, &applyFailure{http.StatusBadRequest, "materialize files: " + ferr.Error()}
@@ -1961,6 +2176,13 @@ func (h *Handler) UpdateExtensionFromSource(c *echo.Context) error {
 		remote.Source = source
 	} else {
 		remote.Source = ext.Source
+	}
+	// Companion files resolve against the manifest URL.
+	if missing := remote.ResolveFileRefs(source); len(missing) > 0 {
+		return c.JSON(http.StatusBadRequest, map[string]any{
+			"error":         "source references files that could not be fetched: " + strings.Join(missing, ", "),
+			"missing_files": missing,
+		})
 	}
 	if err := remote.Validate(); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})

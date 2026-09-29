@@ -115,18 +115,18 @@ describe("Auth keys colored per enabled extension", () => {
 
   it("shows two tinted keys when both auth extensions are applied", async () => {
     renderTab([deviceAuthExtension, claudeAuthExtension]);
-    const deviceKey = await screen.findByTitle("Link account via Device Auth");
-    const claudeKey = await screen.findByTitle("Link account via Claude Auth");
+    const deviceKey = await screen.findByTitle("Link Device account");
+    const claudeKey = await screen.findByTitle("Link Claude account");
     expect((deviceKey as HTMLElement).style.color.toLowerCase()).toBe("#e87040");
     expect((claudeKey as HTMLElement).style.color.toLowerCase()).toBe("#d97757");
   });
 
   it("shows a single tinted key when only one auth extension is applied", async () => {
     renderTab([claudeAuthExtension]);
-    const claudeKey = await screen.findByTitle("Link account via Claude Auth");
+    const claudeKey = await screen.findByTitle("Link Claude account");
     expect((claudeKey as HTMLElement).style.color.toLowerCase()).toBe("#d97757");
     await waitFor(() => {
-      expect(screen.queryByTitle("Link account via Device Auth")).toBeNull();
+      expect(screen.queryByTitle("Link Device account")).toBeNull();
     });
   });
 

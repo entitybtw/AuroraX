@@ -200,3 +200,79 @@ describe("ExtensionJsonEditor", () => {
     expect(savedCount).toBe(0);
   });
 });
+
+describe("ExtensionJsonEditor file mode", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function stubFileFetch(opts: { ref?: boolean; content?: string }) {
+    const importBodies: string[] = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.includes("/extensions/import") && init?.body) {
+        importBodies.push(String(init.body));
+      }
+      const json = (body: unknown): Response =>
+        new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      if (url.includes("/extensions/import")) {
+        return json({ status: "ok", extension: {} });
+      }
+      if (url.includes("/extensions/ui")) return json({ contributions: [] });
+      if (url.includes("/extensions/stores")) return json({ stores: [] });
+      if (url.includes("/extensions/cli-profile")) {
+        const entry = opts.ref
+          ? { ref: "cli-profile/auth-x.go", content: opts.content ?? "" }
+          : opts.content ?? "package main\n";
+        return json({
+          ...baseExtension,
+          files: { "auth-x.go": entry },
+        });
+      }
+      if (url.includes("/extensions")) return json({ extensions: [baseExtension] });
+      return json({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return { fetchMock, importBodies };
+  }
+
+  it("opens a referenced .go file with its resolved content", async () => {
+    stubFileFetch({ ref: true, content: "// addon-kind: auth\npackage main\n" });
+    renderEditor({ fileKey: "auth-x.go" });
+    const ta = (await screen.findByLabelText("File auth-x.go")) as HTMLTextAreaElement;
+    await waitFor(() => expect(ta.value).toContain("package main"));
+    expect(ta.value).toContain("// addon-kind: auth");
+    expect(screen.getByText(/companion source file/i)).toBeInTheDocument();
+    // Non-JSON content must not be validated as JSON.
+    expect(screen.getByText("Valid JSON")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /format/i })).toBeNull();
+  });
+
+  it("refuses to open a file whose content could not be loaded", async () => {
+    stubFileFetch({ ref: true, content: "" });
+    renderEditor({ fileKey: "auth-x.go" });
+    await screen.findByText(/content of "auth-x\.go" is not loaded/i);
+  });
+
+  it("saves file edits back into the manifest", async () => {
+    const { importBodies } = stubFileFetch({ ref: true, content: "package main\n" });
+    renderEditor({ fileKey: "auth-x.go" });
+    const ta = (await screen.findByLabelText("File auth-x.go")) as HTMLTextAreaElement;
+    await waitFor(() => expect(ta.value).toContain("package main"));
+
+    fireEvent.change(ta, { target: { value: "package main\n// edited\n" } });
+    await waitFor(() => expect(screen.getByRole("button", { name: /save/i })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => expect(importBodies.length).toBeGreaterThan(0));
+    const body = JSON.parse(importBodies[importBodies.length - 1] ?? "{}") as {
+      files?: Record<string, { ref?: string; content?: string } | string>;
+    };
+    const entry = body.files?.["auth-x.go"];
+    expect(entry && typeof entry === "object" ? entry.ref : undefined).toBe("cli-profile/auth-x.go");
+    expect(entry && typeof entry === "object" ? entry.content : entry).toContain("// edited");
+  });
+});

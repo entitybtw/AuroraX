@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FileJsonIcon, LinkIcon, UploadIcon, RefreshCwIcon, AlertTriangleIcon } from "lucide-react";
+import { FileJsonIcon, LinkIcon, UploadIcon, RefreshCwIcon, AlertTriangleIcon, FileCodeIcon } from "lucide-react";
 
 interface SidecarPresetImportDialogProps {
   open: boolean;
@@ -22,6 +22,11 @@ interface SidecarPresetImportDialogProps {
   onConfirm: () => void;
   pending: boolean;
   error: string;
+  /** `files` entries the gateway still needs (refs it could not fetch). */
+  missingFiles?: string[];
+  /** Uploaded content per missing file key. */
+  uploadedFiles?: Record<string, string>;
+  onUploadFile?: (key: string, content: string) => void;
 }
 
 /**
@@ -41,7 +46,18 @@ export function SidecarPresetImportDialog({
   onConfirm,
   pending,
   error,
+  missingFiles = [],
+  uploadedFiles = {},
+  onUploadFile,
 }: SidecarPresetImportDialogProps): JSX.Element {
+  const needsFiles = missingFiles.length > 0;
+  const allUploaded = needsFiles && missingFiles.every((k) => Boolean(uploadedFiles[k]));
+
+  const readFile = (key: string, file: File | undefined) => {
+    if (!file || !onUploadFile) return;
+    file.text().then((text) => onUploadFile(key, text));
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="mx-4 max-h-[90vh] max-w-lg overflow-y-auto sm:mx-auto">
@@ -113,6 +129,46 @@ export function SidecarPresetImportDialog({
           </span>
         </div>
 
+        {needsFiles ? (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+            <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <FileCodeIcon className="h-4 w-4 text-amber-500" />
+              This extension needs {missingFiles.length} companion file
+              {missingFiles.length > 1 ? "s" : ""}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              The JSON references source files that were not provided. Upload{" "}
+              {missingFiles.length > 1 ? "each file" : "the file"} to continue the import.
+            </p>
+            <div className="mt-3 flex flex-col gap-2">
+              {missingFiles.map((key) => (
+                <div
+                  key={key}
+                  className="flex flex-col gap-1.5 rounded-md border border-border/40 bg-background/40 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <span className="min-w-0 truncate font-mono text-xs text-foreground" title={key}>
+                    {key}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {uploadedFiles[key] ? (
+                      <span className="text-xs text-emerald-500">uploaded</span>
+                    ) : null}
+                    <label className="cursor-pointer rounded-md border border-border/50 px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-surface-hover">
+                      Choose file
+                      <input
+                        type="file"
+                        className="hidden"
+                        aria-label={`Upload ${key}`}
+                        onChange={(e) => readFile(key, e.target.files?.[0])}
+                      />
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         {error ? (
           <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
             {error}
@@ -125,7 +181,10 @@ export function SidecarPresetImportDialog({
           </Button>
           <Button
             onClick={onConfirm}
-            disabled={pending || (mode === "json" ? !jsonValue.trim() : !urlValue.trim())}
+            disabled={
+              pending ||
+              (needsFiles ? !allUploaded : mode === "json" ? !jsonValue.trim() : !urlValue.trim())
+            }
             className="w-full gap-1.5 sm:w-auto"
           >
             {pending ? <RefreshCwIcon className="h-3.5 w-3.5 animate-spin" /> : <UploadIcon className="h-3.5 w-3.5" />}
