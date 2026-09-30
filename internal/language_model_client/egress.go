@@ -110,13 +110,14 @@ func (c *Client) selectEgress(ctx context.Context) (*http.Client, egress.Candida
 }
 
 // reportEgress feeds the outcome back to the registry so a failing exit is
-// cooled down — and a rate-limited tier handed over to the fallback tier —
-// instead of being retried on every request.
-func (c *Client) reportEgress(cand egress.Candidate, outcome egress.Outcome) {
+// cooled down — and a rate-limited tier handed over to the next tier —
+// instead of being retried on every request. detail is the upstream error or
+// status line the operator sees in the egress status panel.
+func (c *Client) reportEgress(cand egress.Candidate, outcome egress.Outcome, detail string) {
 	if c.egress == nil {
 		return
 	}
-	c.egress.Report(c.config.ProviderName, cand, outcome)
+	c.egress.Report(c.config.ProviderName, cand, outcome, detail)
 }
 
 // egressOutcome classifies an attempt. 429/403 are treated as rate limiting
@@ -136,4 +137,17 @@ func egressOutcome(err error, resp *http.Response) egress.Outcome {
 		return egress.OutcomeFailed
 	}
 	return egress.OutcomeOK
+}
+
+// egressDetail renders the operator-facing reason for an attempt: the
+// transport error when the request never completed, otherwise the upstream
+// status line when it answered with an error. Empty when the exit worked.
+func egressDetail(err error, resp *http.Response) string {
+	if err != nil {
+		return err.Error()
+	}
+	if resp != nil && resp.StatusCode >= http.StatusBadRequest {
+		return resp.Status
+	}
+	return ""
 }

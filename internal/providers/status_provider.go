@@ -40,6 +40,7 @@ type SanitizedProviderConfig struct {
 	BindIP          string                    `json:"bind_ip,omitempty"`
 	BindIPs         []string                  `json:"bind_ips,omitempty"`
 	EgressStrategy  string                    `json:"egress_strategy,omitempty"`
+	EgressDisabled  []string                  `json:"egress_disabled,omitempty"`
 	UseUTLS         bool                      `json:"use_utls,omitempty"`
 	SidecarURL      string                    `json:"sidecar_url,omitempty"`
 	Enabled         bool                      `json:"enabled"`
@@ -114,6 +115,7 @@ func SanitizeProviderConfigs(configs map[string]ProviderConfig) []SanitizedProvi
 			BindIP:          strings.TrimSpace(cfg.BindIP),
 			BindIPs:         append([]string(nil), cfg.BindIPs...),
 			EgressStrategy:  strings.TrimSpace(cfg.EgressStrategy),
+			EgressDisabled:  append([]string(nil), cfg.EgressDisabled...),
 			UseUTLS:         cfg.UseUTLS,
 			SidecarURL:      strings.TrimSpace(cfg.SidecarURL),
 			Enabled:         true,

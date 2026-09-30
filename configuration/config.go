@@ -169,6 +169,11 @@ type RawProviderConfig struct {
 	// an extension contributes): round_robin (default), random, weighted or
 	// first.
 	EgressStrategy string `yaml:"egress_strategy,omitempty"`
+	// EgressDisabled lists exits the operator turned off from the dashboard.
+	// Entries are exit names ("ip:198.51.100.4", "vpn:…) and stay recorded so
+	// a disabled exit is not re-enabled by a restart; they are still shown in
+	// the egress status panel, just never selected.
+	EgressDisabled []string `yaml:"egress_disabled,omitempty"`
 	// PoolOnly, when true, hides this provider's models from the public model
 	// list. The provider is then only reachable through a pool that lists it as
 	// a member, keeping the /v1/models list uncluttered.

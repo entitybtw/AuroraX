@@ -683,7 +683,7 @@ func (c *Client) doHTTPRequest(ctx context.Context, req Request) (*http.Response
 	client, cand, used := c.selectEgress(httpReq.Context())
 	resp, err := client.Do(httpReq)
 	if used {
-		c.reportEgress(cand, egressOutcome(err, resp))
+		c.reportEgress(cand, egressOutcome(err, resp), egressDetail(err, resp))
 	}
 	if err != nil {
 		return nil, core.NewProviderError(c.config.ProviderName, providerErrorStatusCode(err), "failed to send request: "+err.Error(), err)

@@ -169,9 +169,11 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 	app.hooks.SetStore(app.addons)
 	app.hooks.SetContext(admin.ExtensionIDForAddonPath, app.extensionHookInfo)
 
-	// Exit rotation: preferred tier comes from each provider's source
-	// addresses, fallback tier from extensions (see internal/egress).
-	// Installed before providers are built so every client picks it up.
+	// Exit rotation: one registry holding every way out of a provider —
+	// the configured source addresses (tier 0), extension exits that asked
+	// to join them (tier 0) or to serve as the fallback (tier 1), and
+	// extension exits that asked to be preferred (tier -1). Installed before
+	// providers are built so every client picks it up.
 	app.egress = egress.NewRegistry()
 	app.egressSource = newHookEgressSource(app.hooks)
 	app.egress.SetExtensionSource(app.egressSource.get)
@@ -217,6 +219,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 	// providers created via the dashboard survive restarts.
 	if err := app.rebuildWithOverrides(ctx); err != nil {
 		slog.Warn("could not apply persisted provider overrides", "error", err)
+		app.scheduleRebuildRetry()
 	}
 
 	app.poolCountersPath = poolCountersFilePath(appCfg.Storage)
@@ -581,6 +584,8 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 			appCfg.Server.MasterKey,
 			providerResult.ConfiguredProviders,
 			providerResult.Pools,
+			app.egress,
+			app.syncEgress,
 			authKeyResult.Service,
 			authKeyRateLimiter,
 			app.aliases.Service,
@@ -1118,6 +1123,8 @@ func initAdmin(
 	masterKey string,
 	configuredProviders []providers.SanitizedProviderConfig,
 	pools *pool.Registry,
+	egressRegistry *egress.Registry,
+	egressSyncer func(),
 	authKeyService *authkeys.Service,
 	authKeyRateInspector admin.AuthKeyRateLimitInspector,
 	aliasService *aliases.Service,
@@ -1185,6 +1192,8 @@ func initAdmin(
 		admin.WithMasterKey(masterKey),
 		admin.WithConfiguredProviders(configuredProviders),
 		admin.WithPools(pools),
+		admin.WithEgress(egressRegistry),
+		admin.WithEgressSyncer(egressSyncer),
 		admin.WithUsagePricingRecalculator(pricingRecalculator),
 		admin.WithAuditReader(auditReader),
 		admin.WithAuditLogger(auditLogger),

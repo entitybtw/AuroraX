@@ -30,6 +30,12 @@ export interface ProviderFormData {
   models: string;
   enabled?: boolean;
   bind_ip?: string;
+  /** Local source addresses rotated per attempt. Kept in sync with bind_ip. */
+  bind_ips?: string[];
+  /** round_robin (default), random, weighted or first. */
+  egress_strategy?: string;
+  /** Exits the operator turned off from the egress status panel. */
+  egress_disabled?: string[];
   pool_only?: boolean;
   user_agent?: string;
   disable_api_key?: boolean;

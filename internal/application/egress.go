@@ -38,10 +38,13 @@ func (a *App) syncEgress() {
 		seen[name] = struct{}{}
 		cands := egressCandidates(raw)
 		if len(cands) == 0 {
+			// Still records the disabled set: a provider whose only exits come
+			// from an extension keeps its operator-marked "off" list.
 			a.egress.Remove(name)
-			continue
+		} else {
+			a.egress.SetCore(name, egress.ParseStrategy(raw.EgressStrategy), cands)
 		}
-		a.egress.SetCore(name, egress.ParseStrategy(raw.EgressStrategy), cands)
+		a.egress.SetDisabled(name, raw.EgressDisabled)
 	}
 	for _, name := range a.egress.Providers() {
 		if _, ok := seen[name]; !ok {
@@ -55,12 +58,28 @@ func (a *App) syncEgress() {
 // the whole provider.
 func egressCandidates(raw config.RawProviderConfig) []egress.Candidate {
 	var out []egress.Candidate
-	for _, addr := range raw.BindIPs {
+	seen := make(map[string]struct{}, len(raw.BindIPs)+1)
+	add := func(addr string) {
 		ip := net.ParseIP(strings.TrimSpace(addr))
 		if ip == nil {
-			continue
+			return
 		}
-		out = append(out, egress.Candidate{Name: "ip:" + ip.String(), LocalAddr: ip})
+		if _, ok := seen[ip.String()]; ok {
+			return
+		}
+		seen[ip.String()] = struct{}{}
+		out = append(out, egress.Candidate{
+			Name:      "ip:" + ip.String(),
+			LocalAddr: ip,
+			Source:    egress.SourceConfig,
+		})
+	}
+	// bind_ip is the legacy single-address form and is still what most
+	// providers carry — folding it in keeps the preferred tier populated
+	// instead of silently rotating nothing.
+	add(raw.BindIP)
+	for _, addr := range raw.BindIPs {
+		add(addr)
 	}
 	return out
 }
@@ -133,7 +152,11 @@ type egressCandidateDTO struct {
 	BindIP  string `json:"bind_ip"`
 	LocalIP string `json:"local_addr"`
 	Weight  int    `json:"weight"`
-	Tier    int    `json:"tier"`
+	// Tier is optional. Absent means "no opinion" and the gateway keeps the
+	// documented default (1 = fallback). An explicit 0 promotes the exits into
+	// the same rotation as the provider's own source addresses, and -1 puts
+	// them ahead of those addresses.
+	Tier *int `json:"tier"`
 }
 
 // parseEgressCandidates decodes the hook reply. Both a bare array and the
@@ -159,10 +182,20 @@ func parseEgressCandidates(raw string) []egress.Candidate {
 func convertEgressCandidates(in []egressCandidateDTO) []egress.Candidate {
 	out := make([]egress.Candidate, 0, len(in))
 	for _, dto := range in {
+		tier := egress.TierFallback
+		if dto.Tier != nil {
+			tier = egress.Tier(*dto.Tier)
+			// Below TierExclusive would only ever sort first and mean nothing
+			// the operator could reason about, so it is floored there.
+			if tier < egress.TierExclusive {
+				tier = egress.TierExclusive
+			}
+		}
 		c := egress.Candidate{
 			Name:   strings.TrimSpace(dto.Name),
 			Weight: dto.Weight,
-			Tier:   egress.Tier(dto.Tier),
+			Tier:   tier,
+			Source: egress.SourceExtension,
 		}
 		if p := strings.TrimSpace(dto.Proxy); p != "" {
 			u, err := url.Parse(p)

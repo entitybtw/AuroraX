@@ -54,6 +54,13 @@ export const SanitizedProviderConfigSchema = z.object({
   api_version: z.string().optional(),
   models: z.array(z.string()).optional(),
   bind_ip: z.string().optional(),
+  /** The full set of local source addresses rotated per attempt. bind_ip is
+   *  the first entry of this list. */
+  bind_ips: z.array(z.string()).optional(),
+  /** round_robin (default), random, weighted or first. */
+  egress_strategy: z.string().optional(),
+  /** Exits the operator turned off from the egress status panel. */
+  egress_disabled: z.array(z.string()).optional(),
   enabled: z.boolean().optional(),
   api_key: z.string().optional(),
   api_key_set: z.boolean().optional(),
