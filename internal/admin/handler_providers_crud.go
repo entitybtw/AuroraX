@@ -33,6 +33,9 @@ type ProviderOverride struct {
 	// EgressStrategy selects among bind_ips and extension-supplied endpoints:
 	// round_robin (default), random, weighted or first.
 	EgressStrategy string `json:"egress_strategy,omitempty"`
+	// EgressDisabled lists exits the operator turned off from the egress
+	// status panel. Persisted so a disabled exit survives a restart.
+	EgressDisabled []string `json:"egress_disabled,omitempty"`
 	// PoolOnly hides this provider's models from the public model list; it is
 	// only reachable through a pool that lists it as a member.
 	PoolOnly *bool `json:"pool_only,omitempty"`
@@ -193,6 +196,7 @@ func (s *ProviderOverrideStore) RawConfigs() map[string]config.RawProviderConfig
 			BindIP:          strings.TrimSpace(override.BindIP),
 			BindIPs:         append([]string(nil), override.BindIPs...),
 			EgressStrategy:  strings.TrimSpace(override.EgressStrategy),
+			EgressDisabled:  append([]string(nil), override.EgressDisabled...),
 			PoolOnly:        override.PoolOnly != nil && *override.PoolOnly,
 			UserAgent:       strings.TrimSpace(override.UserAgent),
 			SidecarURL:      strings.TrimSpace(override.SidecarURL),
@@ -240,6 +244,7 @@ type providerCreateRequest struct {
 	BindIP         string   `json:"bind_ip"`
 	BindIPs        []string `json:"bind_ips"`
 	EgressStrategy string   `json:"egress_strategy"`
+	EgressDisabled []string `json:"egress_disabled"`
 }
 
 type providerUpdateRequest struct {
@@ -250,6 +255,7 @@ type providerUpdateRequest struct {
 	BindIP          *string                 `json:"bind_ip"`
 	BindIPs         *[]string               `json:"bind_ips"`
 	EgressStrategy  *string                 `json:"egress_strategy"`
+	EgressDisabled  *[]string               `json:"egress_disabled"`
 	Enabled         *bool                   `json:"enabled"`
 	PoolOnly        *bool                   `json:"pool_only"`
 	UserAgent       *string                 `json:"user_agent"`
@@ -342,6 +348,7 @@ func (h *Handler) CreateProvider(c *echo.Context) error {
 		BindIP:          strings.TrimSpace(req.BindIP),
 		BindIPs:         append([]string(nil), req.BindIPs...),
 		EgressStrategy:  strings.TrimSpace(req.EgressStrategy),
+		EgressDisabled:  append([]string(nil), req.EgressDisabled...),
 	})
 	apply := h.applyRuntimeRefresh(c)
 
@@ -386,26 +393,7 @@ func (h *Handler) UpdateProvider(c *echo.Context) error {
 	if exists {
 		updated = existing
 	} else if staticProvider != nil {
-		// Seed everything the dashboard can round-trip. Copying only a few
-		// fields here is what used to silently drop bind_ip (and friends) the
-		// moment an operator edited a static provider from the UI.
-		updated = ProviderOverride{
-			Name:           name,
-			Type:           staticProvider.Type,
-			BaseURL:        staticProvider.BaseURL,
-			APIVersion:     staticProvider.APIVersion,
-			Models:         strings.Join(staticProvider.Models, ", "),
-			Enabled:        boolPtr(true),
-			BindIP:         staticProvider.BindIP,
-			BindIPs:        append([]string(nil), staticProvider.BindIPs...),
-			EgressStrategy: staticProvider.EgressStrategy,
-			UserAgent:      staticProvider.UserAgent,
-			SidecarURL:     staticProvider.SidecarURL,
-			UseUTLS:        boolPtr(staticProvider.UseUTLS),
-			AuthMethod:     staticProvider.AuthMethod,
-			DisableAPIKey:  boolPtr(staticProvider.DisableAPIKey),
-			PoolOnly:       boolPtr(staticProvider.PoolOnly),
-		}
+		updated = seededStaticOverride(name, staticProvider)
 	}
 
 	// Apply only the fields the caller provided so partial updates (e.g. a
@@ -436,6 +424,9 @@ func (h *Handler) UpdateProvider(c *echo.Context) error {
 	}
 	if req.EgressStrategy != nil {
 		updated.EgressStrategy = strings.TrimSpace(*req.EgressStrategy)
+	}
+	if req.EgressDisabled != nil {
+		updated.EgressDisabled = append([]string(nil), (*req.EgressDisabled)...)
 	}
 	if req.Enabled != nil {
 		updated.Enabled = boolPtr(*req.Enabled)
@@ -569,6 +560,32 @@ func rawProviderModelsFromOverride(models string) []config.RawProviderModel {
 	return out
 }
 
+// seededStaticOverride copies everything the dashboard can round-trip out of
+// a static provider. Copying only a few fields here is what used to silently
+// drop bind_ip (and friends) the moment an operator edited a static provider
+// from the UI.
+func seededStaticOverride(name string, sp *providers.SanitizedProviderConfig) ProviderOverride {
+	return ProviderOverride{
+		Name:           name,
+		Type:           sp.Type,
+		BaseURL:        sp.BaseURL,
+		APIVersion:     sp.APIVersion,
+		Models:         strings.Join(sp.Models, ", "),
+		Enabled:        boolPtr(true),
+		BindIP:         sp.BindIP,
+		BindIPs:        append([]string(nil), sp.BindIPs...),
+		EgressStrategy: sp.EgressStrategy,
+		EgressDisabled: append([]string(nil), sp.EgressDisabled...),
+		UserAgent:      sp.UserAgent,
+		SidecarURL:     sp.SidecarURL,
+		UseUTLS:        boolPtr(sp.UseUTLS),
+		AuthMethod:     sp.AuthMethod,
+		DisableAPIKey:  boolPtr(sp.DisableAPIKey),
+		PoolOnly:       boolPtr(sp.PoolOnly),
+	}
+}
+
+// findStaticProvider looks a provider up in the admin-safe inventory snapshot.
 func (h *Handler) findStaticProvider(name string) *providers.SanitizedProviderConfig {
 	for i := range h.configuredProviders {
 		if h.configuredProviders[i].Name == name {

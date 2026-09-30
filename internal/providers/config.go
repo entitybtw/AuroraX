@@ -43,6 +43,9 @@ type ProviderConfig struct {
 	// EgressStrategy selects among BindIPs and any endpoints an extension
 	// contributes: round_robin (default), random, weighted or first.
 	EgressStrategy string
+	// EgressDisabled is the operator-maintained list of exits switched off
+	// from the dashboard (see config.RawProviderConfig).
+	EgressDisabled []string
 	// PoolOnly hides this provider's models from the public model list; the
 	// provider is only reachable through a pool that lists it as a member.
 	PoolOnly bool
@@ -531,6 +534,7 @@ func buildProviderConfig(raw config.RawProviderConfig, global config.ResilienceC
 		BindIP:                 strings.TrimSpace(raw.BindIP),
 		BindIPs:                normalizeBindIPs(raw.BindIP, raw.BindIPs),
 		EgressStrategy:         strings.TrimSpace(raw.EgressStrategy),
+		EgressDisabled:         append([]string(nil), raw.EgressDisabled...),
 		PoolOnly:               raw.PoolOnly,
 		UserAgent:              strings.TrimSpace(raw.UserAgent),
 		AutoFetchModels:        raw.AutoFetchModels,

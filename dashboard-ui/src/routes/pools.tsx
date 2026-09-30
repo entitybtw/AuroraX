@@ -16,8 +16,10 @@ import {
   Weight,
   Globe,
   Database,
+  ChevronDown,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
+import { ProviderEgressPanel } from "@/components/settings/ProviderEgressPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ToggleField } from "@/components/ui/toggle-field";
@@ -579,6 +581,17 @@ function MemberTable({
   members: PoolSnapshot["members"];
   strategy: string;
 }) {
+  const [expandedMembers, setExpandedMembers] = React.useState<Set<string>>(new Set());
+  const toggleMember = (name: string) =>
+    setExpandedMembers((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) {
+        next.delete(name);
+      } else {
+        next.add(name);
+      }
+      return next;
+    });
   return (
     <div className="overflow-hidden border border-border/40 bg-surface">
       <div className="flex items-center justify-between border-b border-border/40 px-4 py-2.5">
@@ -603,16 +616,26 @@ function MemberTable({
             </tr>
           </thead>
           <tbody>
-            {members.map((m) => (
+            {members.map((m) => {
+              const expanded = expandedMembers.has(m.provider_name);
+              const colSpan = strategy === "weighted" ? 7 : 6;
+              return (
+              <React.Fragment key={m.provider_name}>
               <tr
-                key={m.provider_name}
                 className="border-b border-border/20 transition-colors duration-150 hover:bg-background/40"
               >
                 <td className="px-4 py-2.5">
-                  <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleMember(m.provider_name)}
+                    className="flex items-center gap-2 w-full text-left"
+                    aria-expanded={expanded}
+                    title={expanded ? "Hide egress status" : "Show egress status"}
+                  >
                     <span className={cn("h-1.5 w-1.5 shrink-0", m.healthy ? "bg-success" : "bg-destructive")} />
                     <span className="font-mono font-medium text-foreground">{m.provider_name}</span>
-                  </div>
+                    <ChevronDown className={cn("h-3 w-3 shrink-0 text-muted-foreground transition-transform", expanded && "rotate-180")} />
+                  </button>
                 </td>
                 <td className="px-4 py-2.5">
                   <span
@@ -634,7 +657,16 @@ function MemberTable({
                   <td className="hidden sm:table-cell px-4 py-2.5 text-right font-mono tabular-nums text-foreground">{m.weight ?? "-"}</td>
                 )}
               </tr>
-            ))}
+              {expanded ? (
+                <tr className="border-b border-border/20 bg-background/30">
+                  <td colSpan={colSpan} className="px-4 py-3">
+                    <ProviderEgressPanel provider={m.provider_name} />
+                  </td>
+                </tr>
+              ) : null}
+              </React.Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>

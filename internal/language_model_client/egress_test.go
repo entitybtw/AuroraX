@@ -119,7 +119,7 @@ func TestEgressRateLimitHandsOverToExtensionTier(t *testing.T) {
 		if provider != "limited" {
 			return nil
 		}
-		return []egress.Candidate{{Name: "fallback", LocalAddr: net.ParseIP("127.0.0.1")}}
+		return []egress.Candidate{{Name: "fallback", LocalAddr: net.ParseIP("127.0.0.1"), Tier: egress.TierFallback}}
 	})
 
 	cfg := DefaultConfig("limited", srv.URL)

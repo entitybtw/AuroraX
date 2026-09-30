@@ -20,6 +20,7 @@ import (
 	"aurora/internal/command_line_tools"
 	"aurora/internal/console"
 	"aurora/internal/core"
+	"aurora/internal/egress"
 	"aurora/internal/externalauth"
 	"aurora/internal/guardrails"
 	"aurora/internal/hooks"
@@ -66,6 +67,8 @@ type Handler struct {
 	sessionHeaderEnsurer SessionHeaderEnsurer
 	sidecarStore         *SidecarOverrideStore
 	extensions           *ExtensionStore
+	egress               *egress.Registry
+	egressSyncer         func()
 	extensionStoreURLs   *ExtensionStoreURLStore
 	extensionStoresOnce  sync.Once
 	addonStore           *addon.Store
@@ -634,6 +637,22 @@ func WithPoolWeights(store ...*PoolOverrideStore) Option {
 func WithPools(reg *pool.Registry) Option {
 	return func(h *Handler) {
 		h.pools = reg
+	}
+}
+
+// WithEgress attaches the egress exit registry so the admin API can report
+// per-provider exits (status, health, disabled set) and toggle them.
+func WithEgress(reg *egress.Registry) Option {
+	return func(h *Handler) {
+		h.egress = reg
+	}
+}
+
+// WithEgressSyncer re-reads provider egress configuration into the exit
+// registry after a toggle, without paying for a full runtime rebuild.
+func WithEgressSyncer(fn func()) Option {
+	return func(h *Handler) {
+		h.egressSyncer = fn
 	}
 }
 

@@ -34,16 +34,22 @@ func (r *InitResult) Rebuild(ctx context.Context, rawProviders map[string]config
 	applyPoolUserAgentOverrides(providerMap, rawPools)
 	applyPoolAutoFetchOverrides(r.Registry, rawPools)
 	applyPoolAutoFetchFilterOverrides(r.Registry, rawPools)
-	count, err := r.Registry.ReplaceProviders(ctx, providerMap, factory)
-	if err != nil {
-		return count, err
-	}
+
+	// Install the pool registry before ReplaceProviders. Rebuild is the only
+	// path that applies dashboard pool overrides, and ReplaceProviders ends in
+	// a bounded model refresh that a slow upstream can make fail — gating the
+	// pool swap on that refresh would empty every pool on a bad-network boot.
 	if r.Pools == nil {
 		r.Pools = pools
 	} else {
 		r.Pools.Replace(pools)
 	}
 	r.Router.SetPools(r.Pools)
+
+	count, err := r.Registry.ReplaceProviders(ctx, providerMap, factory)
+	if err != nil {
+		return count, err
+	}
 
 	// Mark pool-only providers so their models are hidden from the public
 	// model list unless surfaced through a pool.

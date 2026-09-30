@@ -63,7 +63,7 @@ func TestReportCoolsDownFailingCandidate(t *testing.T) {
 	})
 
 	for i := 0; i < badAfter; i++ {
-		r.Report("zen", Candidate{Name: "a"}, OutcomeFailed)
+		r.Report("zen", Candidate{Name: "a"}, OutcomeFailed, "")
 	}
 	if r.Healthy("zen", "a") {
 		t.Fatal("a should be cooling down after repeated failures")
@@ -76,7 +76,7 @@ func TestReportCoolsDownFailingCandidate(t *testing.T) {
 	}
 
 	// A success re-arms it immediately.
-	r.Report("zen", Candidate{Name: "a"}, OutcomeOK)
+	r.Report("zen", Candidate{Name: "a"}, OutcomeOK, "")
 	if !r.Healthy("zen", "a") {
 		t.Fatal("a should be healthy again after a success")
 	}
@@ -92,7 +92,7 @@ func TestExtensionSourceMergesIntoPool(t *testing.T) {
 		if provider != "zen" {
 			return nil
 		}
-		return []Candidate{{Name: "vpn-node-1", ProxyURL: proxy}}
+		return []Candidate{{Name: "vpn-node-1", ProxyURL: proxy, Tier: TierFallback}}
 	})
 
 	// The extension's endpoint is part of the pool, but only after the
@@ -101,7 +101,7 @@ func TestExtensionSourceMergesIntoPool(t *testing.T) {
 	if !ok || c.Name != "ip1" {
 		t.Fatalf("Pick = %+v ok=%v, want ip1", c, ok)
 	}
-	r.Report("zen", c, OutcomeLimited)
+	r.Report("zen", c, OutcomeLimited, "")
 
 	c, ok = r.Pick("zen", nil)
 	if !ok || c.Name != "vpn-node-1" {
@@ -120,9 +120,9 @@ func TestExtensionSourceMergesIntoPool(t *testing.T) {
 func TestSetCoreKeepsHealthAcrossReload(t *testing.T) {
 	r := NewRegistry()
 	r.SetCore("zen", StrategyRoundRobin, []Candidate{{Name: "a"}, {Name: "b"}})
-	r.Report("zen", Candidate{Name: "a"}, OutcomeFailed)
-	r.Report("zen", Candidate{Name: "a"}, OutcomeFailed)
-	r.Report("zen", Candidate{Name: "a"}, OutcomeFailed)
+	r.Report("zen", Candidate{Name: "a"}, OutcomeFailed, "")
+	r.Report("zen", Candidate{Name: "a"}, OutcomeFailed, "")
+	r.Report("zen", Candidate{Name: "a"}, OutcomeFailed, "")
 
 	r.SetCore("zen", StrategyRoundRobin, []Candidate{{Name: "a"}, {Name: "b"}})
 	if r.Healthy("zen", "a") {
@@ -208,7 +208,7 @@ func TestPreferredTierWinsWhileHealthy(t *testing.T) {
 	})
 	proxy, _ := url.Parse("socks5://127.0.0.1:1080")
 	r.SetExtensionSource(func(string) []Candidate {
-		return []Candidate{{Name: "vpn1", ProxyURL: proxy}}
+		return []Candidate{{Name: "vpn1", ProxyURL: proxy, Tier: TierFallback}}
 	})
 
 	for i := 0; i < 6; i++ {
@@ -231,14 +231,14 @@ func TestRateLimitedPreferredTierFallsBackToExtension(t *testing.T) {
 	r.SetCore("zen", StrategyRoundRobin, []Candidate{{Name: "ip1", LocalAddr: ip("10.0.0.1")}})
 	proxy, _ := url.Parse("socks5://127.0.0.1:1080")
 	r.SetExtensionSource(func(string) []Candidate {
-		return []Candidate{{Name: "vpn1", ProxyURL: proxy}}
+		return []Candidate{{Name: "vpn1", ProxyURL: proxy, Tier: TierFallback}}
 	})
 
 	c, _ := r.Pick("zen", nil)
 	if c.Name != "ip1" {
 		t.Fatalf("Pick = %q, want ip1 before any limit", c.Name)
 	}
-	r.Report("zen", c, OutcomeLimited)
+	r.Report("zen", c, OutcomeLimited, "")
 
 	c, _ = r.Pick("zen", nil)
 	if c.Name != "vpn1" || c.Tier == TierPreferred {
@@ -265,12 +265,12 @@ func TestHardFailureStaysInPreferredTier(t *testing.T) {
 	})
 	proxy, _ := url.Parse("socks5://127.0.0.1:1080")
 	r.SetExtensionSource(func(string) []Candidate {
-		return []Candidate{{Name: "vpn1", ProxyURL: proxy}}
+		return []Candidate{{Name: "vpn1", ProxyURL: proxy, Tier: TierFallback}}
 	})
 
 	bad, _ := r.Pick("zen", nil)
 	for i := 0; i < badAfter; i++ {
-		r.Report("zen", bad, OutcomeFailed)
+		r.Report("zen", bad, OutcomeFailed, "")
 	}
 
 	for i := 0; i < 4; i++ {
@@ -278,5 +278,139 @@ func TestHardFailureStaysInPreferredTier(t *testing.T) {
 		if c.Name == "vpn1" {
 			t.Fatalf("Pick = %v, must not fall back to the VPN tier", c.Name)
 		}
+	}
+}
+
+// An extension that asks for tier 0 joins the provider's own rotation
+// immediately instead of waiting for the local addresses to fail.
+func TestExtensionTierZeroJoinsPreferredRotation(t *testing.T) {
+	r := NewRegistry()
+	r.SetCore("zen", StrategyRoundRobin, []Candidate{
+		{Name: "ip1", LocalAddr: ip("10.0.0.1")},
+		{Name: "ip2", LocalAddr: ip("10.0.0.2")},
+	})
+	proxy, _ := url.Parse("socks5://127.0.0.1:1080")
+	r.SetExtensionSource(func(string) []Candidate {
+		return []Candidate{{Name: "vpn1", ProxyURL: proxy, Tier: TierPreferred}}
+	})
+
+	seen := make(map[string]bool)
+	for i := 0; i < 6; i++ {
+		c, ok := r.Pick("zen", nil)
+		if !ok {
+			t.Fatal("Pick failed")
+		}
+		if c.Tier != TierPreferred {
+			t.Fatalf("tier = %d, want the preferred tier", c.Tier)
+		}
+		seen[c.Name] = true
+	}
+	if len(seen) != 3 {
+		t.Fatalf("picked %v, want ip1, ip2 and vpn1 all in rotation", seen)
+	}
+}
+
+// Disabled exits stay reported (so the operator can see them) but are never
+// selected.
+func TestDisabledExitsAreHiddenFromPickButVisibleInStatus(t *testing.T) {
+	r := NewRegistry()
+	r.SetCore("zen", StrategyRoundRobin, []Candidate{
+		{Name: "ip1", LocalAddr: ip("10.0.0.1")},
+		{Name: "ip2", LocalAddr: ip("10.0.0.2")},
+	})
+	r.SetDisabled("zen", []string{"ip2"})
+
+	for i := 0; i < 6; i++ {
+		c, ok := r.Pick("zen", nil)
+		if !ok {
+			t.Fatal("Pick failed")
+		}
+		if c.Name == "ip2" {
+			t.Fatalf("Pick = %q, a disabled exit must not be selected", c.Name)
+		}
+	}
+	if got := len(r.Candidates("zen")); got != 1 {
+		t.Fatalf("Candidates = %d, want 1 selectable exit", got)
+	}
+
+	st, ok := r.Status("zen")
+	if !ok {
+		t.Fatal("Status reported no exits")
+	}
+	if len(st.Exits) != 2 {
+		t.Fatalf("exits = %d, want both the enabled and the disabled one", len(st.Exits))
+	}
+	for _, exit := range st.Exits {
+		if exit.Name != "ip2" {
+			continue
+		}
+		if !exit.Disabled || exit.Available {
+			t.Fatalf("ip2 status = %+v, want disabled and unavailable", exit)
+		}
+	}
+
+	// Clearing the set re-enables everything.
+	r.SetDisabled("zen", nil)
+	if got := len(r.Candidates("zen")); got != 2 {
+		t.Fatalf("Candidates after re-enable = %d, want 2", got)
+	}
+}
+
+// The status panel shows why an exit last failed, not just that it did.
+func TestStatusCarriesLastOutcomeAndError(t *testing.T) {
+	r := NewRegistry()
+	now := time.Now()
+	r.now = func() time.Time { return now }
+	r.SetCore("zen", StrategyFirst, []Candidate{{Name: "ip1", LocalAddr: ip("10.0.0.1")}})
+	for i := 0; i < badAfter; i++ {
+		r.Report("zen", Candidate{Name: "ip1", Tier: TierPreferred}, OutcomeFailed, "connection reset by peer")
+	}
+
+	st, ok := r.Status("zen")
+	if !ok || len(st.Exits) != 1 {
+		t.Fatalf("Status = %+v ok=%v, want one exit", st, ok)
+	}
+	exit := st.Exits[0]
+	if exit.Requests != badAfter || exit.OK != 0 {
+		t.Fatalf("counters = requests:%d ok:%d, want %d/0", exit.Requests, exit.OK, badAfter)
+	}
+	if exit.LastOutcome != "failed" {
+		t.Fatalf("last outcome = %q, want failed", exit.LastOutcome)
+	}
+	if exit.LastError != "connection reset by peer" {
+		t.Fatalf("last error = %q, want the reported detail", exit.LastError)
+	}
+	if exit.CooldownUntil == nil || !exit.CooldownUntil.After(now) {
+		t.Fatalf("cooldown = %v, want a future deadline after repeated failures", exit.CooldownUntil)
+	}
+
+	if all := r.StatusAll(); len(all) != 1 || all[0].Provider != "zen" {
+		t.Fatalf("StatusAll = %+v, want the zen provider", all)
+	}
+}
+
+// An exclusive tier is picked ahead of the provider's own source addresses,
+// and falls back to them once it is rate-limited.
+func TestExclusiveTierPrecedesPreferred(t *testing.T) {
+	r := NewRegistry()
+	now := time.Now()
+	r.now = func() time.Time { return now }
+	r.SetCore("zen", StrategyRoundRobin, []Candidate{
+		{Name: "ip1", LocalAddr: ip("10.0.0.1")},
+	})
+	proxy, _ := url.Parse("socks5://127.0.0.1:1080")
+	r.SetExtensionSource(func(string) []Candidate {
+		return []Candidate{{Name: "vpn1", ProxyURL: proxy, Tier: TierExclusive}}
+	})
+
+	c, ok := r.Pick("zen", nil)
+	if !ok || c.Name != "vpn1" || c.Tier != TierExclusive {
+		t.Fatalf("Pick = %+v ok=%v, want the exclusive vpn exit", c, ok)
+	}
+
+	r.Report("zen", c, OutcomeLimited, "")
+	c, _ = r.Pick("zen", nil)
+	if c.Name != "ip1" {
+		t.Fatalf("after a rate limit Pick = %+v, want the source address", c)
 	}
 }

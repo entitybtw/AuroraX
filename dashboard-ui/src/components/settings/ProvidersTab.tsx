@@ -10,6 +10,7 @@ import { withBasePath } from "@/lib/basepath";
 import { useState, useCallback, useMemo, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { ExternalAuthDialog } from "./ExternalAuthDialog";
+import { ProviderEgressPanel } from "./ProviderEgressPanel";
 import { fetchExternalAuthProviders } from "@/lib/api/external-auth";
 import { fetchExtensions, type Extension } from "@/lib/api/extensions";
 
@@ -308,6 +309,36 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
                 <Input type="text" placeholder="203.0.113.10" value={form.bind_ip ?? ""}
                   onChange={(e) => setForm({ ...form, bind_ip: e.target.value })} />
                 <div className="text-[11px] text-muted-foreground">Optional local outbound IP for upstream requests (use when the provider rate-limits per source IP)</div>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Bind IPs</label>
+                <textarea
+                  className="field-input w-full font-mono text-[12px] leading-relaxed min-h-[72px] resize-y"
+                  placeholder={"203.0.113.10\n203.0.113.11"}
+                  value={(form.bind_ips ?? []).join("\n")}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      bind_ips: e.target.value.split("\n").map((v) => v.trim()).filter(Boolean),
+                    })
+                  }
+                />
+                <div className="text-[11px] text-muted-foreground">One local source address per line. The gateway rotates between them per attempt; Bind IP above is kept as the first entry.</div>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Egress strategy</label>
+                <select
+                  className="field-input w-full"
+                  value={form.egress_strategy ?? ""}
+                  onChange={(e) => setForm({ ...form, egress_strategy: e.target.value })}
+                >
+                  <option value="">round_robin (default)</option>
+                  <option value="round_robin">round_robin</option>
+                  <option value="random">random</option>
+                  <option value="weighted">weighted</option>
+                  <option value="first">first</option>
+                </select>
+                <div className="text-[11px] text-muted-foreground">How one exit is picked from the set: rotate in order, at random, weighted by weight, or always the first.</div>
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">User Agent</label>
@@ -785,7 +816,7 @@ export function ProvidersTab(): JSX.Element {
                         aria-label={`Toggle provider ${provider.name}`}
                         title={`${provider.config?.enabled === false ? "Enable" : "Disable"} ${provider.name}`}
                       />
-                      <button onClick={() => { setEditingProvider({ name: provider.name, originalName: provider.name, type: provider.config?.type || provider.type || "", base_url: provider.config?.base_url || "", api_version: provider.config?.api_version || "", api_key: provider.config?.api_key || "", models: provider.config?.models?.join(", ") || "", bind_ip: provider.config?.bind_ip || "", pool_only: provider.config?.pool_only ?? false, user_agent: provider.config?.user_agent || "", disable_api_key: provider.config?.disable_api_key ?? false, auto_fetch_models: provider.config?.auto_fetch_models ?? true, autofetch_filter_text: filterToText(provider.config?.autofetch_filter), apiKeySet: provider.config?.api_key_set ?? false }); setModalOpen("edit"); }} className="p-1.5 hover:bg-border/20 transition-colors" title="Edit provider">
+                      <button onClick={() => { setEditingProvider({ name: provider.name, originalName: provider.name, type: provider.config?.type || provider.type || "", base_url: provider.config?.base_url || "", api_version: provider.config?.api_version || "", api_key: provider.config?.api_key || "", models: provider.config?.models?.join(", ") || "", bind_ip: provider.config?.bind_ip || "", bind_ips: provider.config?.bind_ips ?? (provider.config?.bind_ip ? [provider.config.bind_ip] : []), egress_strategy: provider.config?.egress_strategy || "", pool_only: provider.config?.pool_only ?? false, user_agent: provider.config?.user_agent || "", disable_api_key: provider.config?.disable_api_key ?? false, auto_fetch_models: provider.config?.auto_fetch_models ?? true, autofetch_filter_text: filterToText(provider.config?.autofetch_filter), apiKeySet: provider.config?.api_key_set ?? false }); setModalOpen("edit"); }} className="p-1.5 hover:bg-border/20 transition-colors" title="Edit provider">
                         <Edit3Icon className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
                       {supportsExternalAuth(provider) &&
@@ -826,6 +857,7 @@ export function ProvidersTab(): JSX.Element {
                       {provider.config.base_url}
                     </div>
                   )}
+                  <ProviderEgressPanel provider={provider.name} />
                   {provider.config?.models && provider.config.models.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1">
                       {provider.config.models.slice(0, 3).map((m) => (

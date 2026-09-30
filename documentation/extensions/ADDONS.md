@@ -16,7 +16,7 @@ vendor-specific flows into default builds.
 | UI contributions | `ui.*` | Pages, settings tabs, banners, widgets |
 | Runtime scripts | `files` → `configs/addons/*.go` | Single-file Go addons evaluated by Yaegi (`internal/addon`) |
 | Hook kit | `internal/hooks` | Lifecycle, egress, retry and live-data hooks dispatched to `runtime`/`ui`/`preset` addons |
-| Exit rotation | `bind_ips` / `egress_strategy` + `EgressCandidates` | Several exits per provider, preferred tier first, fallback tier from extensions |
+| Exit rotation | `bind_ips` / `egress_strategy` / `egress_disabled` + `EgressCandidates` | Several exits per provider, grouped into tiers and picked per attempt |
 
 ### Example: external auth feature without core vendor defaults
 
@@ -147,24 +147,34 @@ linked, `os/exec` is not).
 #### Contributing exits (`EgressCandidates`)
 
 ```json
-{"candidates":[{"name":"vpn:node-1","proxy":"socks5://127.0.0.1:1080"}]}
+{"candidates":[{"name":"vpn:node-1","proxy":"socks5://127.0.0.1:1080","tier":0}]}
 ```
 
 Each entry is either a `proxy` URL (`http`, `https`, `socks5`, `socks5h`) or a
-`bind_ip` source address, plus an optional `weight` and `tier`.
+`bind_ip` source address, plus an optional `weight` and `tier`. Entries that
+omit `tier` default to **1** (the fallback tier).
 
 Providers rotate between exits per attempt, and a failed attempt moves on to
-the next one instead of repeating the failure. Exits are grouped in tiers:
+the next one instead of repeating the failure. Exits are grouped in tiers and
+the lowest usable tier is picked; the tiers are:
 
-- **tier 0 — local source addresses** (`bind_ips` on the provider). Preferred:
-  used for as long as they answer.
-- **tier 1 and up — extension-contributed exits.** Reached once the preferred
-  tier is unusable: every address is cooling down, or the tier was demoted by
-  a rate limit (429/403). A demoted tier probes back on its own after a
-  short window, so the gateway returns to direct egress without intervention.
+| Tier | Who sets it | Meaning |
+|------|-------------|---------|
+| `-1` | extension (`tier: -1`) | Used ahead of the provider's own source addresses; those addresses are the last resort. |
+| `0` | the provider (`bind_ips`) and extensions that ask for it | One rotation: configured source addresses and extension exits are picked from together. |
+| `1` (default) | extension | Fallback: reached once tier 0 is unusable — every address is cooling down, or the tier was demoted by a rate limit (429/403). A demoted tier probes back on its own after a short window. |
 
-So a provider keeps its single API key while its exit changes: local addresses
-first, extension endpoints as the fallback.
+So a provider keeps its single API key while its exit changes, and where the
+extension's endpoints sit is a policy decision the extension states, not
+something the gateway guesses.
+
+The gateway reports the resulting set — every exit, its tier and source,
+whether the operator turned it off, its counters and its last error — at
+`GET /admin/api/v1/egress` (and `GET /admin/api/v1/egress/:provider`).
+Turning one off is `POST /admin/api/v1/egress/:provider/disable` with
+`{"exit": "<name>"}` (or `…/enable` to bring it back); the choice is stored
+with the provider and survives a restart, and the exit stays listed while it
+is switched off so it remains visible in the dashboard.
 
 ### Live data (`Data`)
 

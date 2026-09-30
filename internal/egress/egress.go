@@ -62,8 +62,19 @@ func ParseStrategy(s string) Strategy {
 // Tier groups candidates by preference. 0 is the preferred tier.
 type Tier int
 
-// TierPreferred is the local source-address tier.
+// TierPreferred is the local source-address tier: the provider's own
+// configured addresses plus any extension exit that asked to join them.
 const TierPreferred Tier = 0
+
+// TierFallback is the default tier for an extension's exits: they serve once
+// the preferred tier stops answering or gets rate-limited, unless the
+// extension asks to join the preferred rotation with tier 0.
+const TierFallback Tier = 1
+
+// TierExclusive sits before TierPreferred, so an extension that asks for it
+// is used ahead of the provider's own source addresses and falls back to
+// them only when the exclusive tier is unusable.
+const TierExclusive Tier = -1
 
 // Outcome is what an attempt through a candidate actually did.
 type Outcome int
@@ -79,6 +90,20 @@ const (
 	OutcomeLimited
 )
 
+// String renders an outcome for status payloads.
+func (o Outcome) String() string {
+	switch o {
+	case OutcomeOK:
+		return "ok"
+	case OutcomeFailed:
+		return "failed"
+	case OutcomeLimited:
+		return "limited"
+	default:
+		return ""
+	}
+}
+
 // Candidate is one way out for a provider. Direct is implied when LocalAddr
 // is set and ProxyURL is nil; a proxy candidate sets ProxyURL only.
 type Candidate struct {
@@ -92,7 +117,18 @@ type Candidate struct {
 	Weight int
 	// Tier orders this candidate against others. 0 = preferred.
 	Tier Tier
+	// Source tells the status panel whether the exit came from the provider's
+	// own configuration or from an extension that contributed it.
+	Source string
 }
+
+// Where a candidate came from.
+const (
+	// SourceConfig is a source address declared on the provider itself.
+	SourceConfig = "config"
+	// SourceExtension is an exit contributed by an extension (VPN endpoints).
+	SourceExtension = "extension"
+)
 
 // Proxy reports whether the candidate routes through a proxy.
 func (c Candidate) Proxy() bool { return c.ProxyURL != nil }
@@ -121,6 +157,14 @@ const limitedCoolDown = 45 * time.Second
 type healthEntry struct {
 	failures  int
 	downUntil time.Time
+	// requests counts attempts through this exit, ok the ones that worked.
+	requests uint64
+	ok       uint64
+	// lastOutcome/lastError/lastAt record the most recent attempt so the
+	// status panel can show why an exit is being skipped, not just that it is.
+	lastOutcome Outcome
+	lastError   string
+	lastAt      time.Time
 }
 
 type providerState struct {
@@ -128,6 +172,9 @@ type providerState struct {
 	core     []Candidate
 	rr       uint64
 	health   map[string]*healthEntry
+	// disabled holds exits the operator turned off from the dashboard. They
+	// stay visible in the status panel but are never selected.
+	disabled map[string]bool
 	// limitedUntil is keyed by tier: while set, that tier is passed over in
 	// favour of a fallback tier.
 	limitedUntil map[Tier]time.Time
@@ -178,9 +225,15 @@ func (r *Registry) SetCore(provider string, strategy Strategy, cands []Candidate
 	normalised := dedupe(cands)
 	for i := range normalised {
 		normalised[i].Tier = TierPreferred
+		if normalised[i].Source == "" {
+			normalised[i].Source = SourceConfig
+		}
 	}
 	st.strategy = strategy
 	st.core = normalised
+	if st.disabled == nil {
+		st.disabled = make(map[string]bool)
+	}
 	kept := make(map[string]*healthEntry, len(st.core))
 	for _, c := range st.core {
 		if h, ok := st.health[c.Name]; ok {
@@ -193,6 +246,7 @@ func (r *Registry) SetCore(provider string, strategy Strategy, cands []Candidate
 func (r *Registry) newState() *providerState {
 	return &providerState{
 		health:       make(map[string]*healthEntry),
+		disabled:     make(map[string]bool),
 		limitedUntil: make(map[Tier]time.Time),
 	}
 }
@@ -207,16 +261,40 @@ func (r *Registry) Remove(provider string) {
 	r.mu.Unlock()
 }
 
-// Report records what an attempt through a candidate did.
+// SetDisabled replaces the set of exits an operator turned off for a provider.
+// Disabled exits stay visible in the status panel but are never selected.
+// Passing an empty set re-enables everything.
+func (r *Registry) SetDisabled(provider string, names []string) {
+	if r == nil || strings.TrimSpace(provider) == "" {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	st := r.byProvider[provider]
+	if st == nil {
+		st = r.newState()
+		r.byProvider[provider] = st
+	}
+	next := make(map[string]bool, len(names))
+	for _, n := range names {
+		if n = strings.TrimSpace(n); n != "" {
+			next[n] = true
+		}
+	}
+	st.disabled = next
+}
+
+// Report records what an attempt through an exit did. detail is the upstream
+// error or status line shown in the status panel; pass "" when there is none.
 //
-//   - OutcomeOK clears both the candidate's failures and any rate-limit
-//     demotion on its tier.
-//   - OutcomeFailed cools down the candidate itself, so its neighbours in the
+//   - OutcomeOK clears both the exit's failures and any rate-limit demotion
+//     on its tier.
+//   - OutcomeFailed cools down the exit itself, so its neighbours in the
 //     same tier keep serving.
-//   - OutcomeLimited demotes the whole tier: when every local address is being
-//     rate-limited there is no point trying the next one, so the fallback
-//     tier (an extension's VPN endpoints) takes over until the window ends.
-func (r *Registry) Report(provider string, c Candidate, outcome Outcome) {
+//   - OutcomeLimited demotes the whole tier: when every exit in a tier is
+//     being rate-limited there is no point trying the next one, so the next
+//     tier takes over until the window ends.
+func (r *Registry) Report(provider string, c Candidate, outcome Outcome, detail string) {
 	if r == nil || c.Name == "" {
 		return
 	}
@@ -229,14 +307,16 @@ func (r *Registry) Report(provider string, c Candidate, outcome Outcome) {
 	now := r.now()
 	h := st.health[c.Name]
 	if h == nil {
-		if outcome == OutcomeOK {
-			return
-		}
 		h = &healthEntry{}
 		st.health[c.Name] = h
 	}
+	h.requests++
+	h.lastOutcome = outcome
+	h.lastError = detail
+	h.lastAt = now
 	switch outcome {
 	case OutcomeOK:
+		h.ok++
 		h.failures = 0
 		h.downUntil = time.Time{}
 		delete(st.limitedUntil, c.Tier)
@@ -249,8 +329,8 @@ func (r *Registry) Report(provider string, c Candidate, outcome Outcome) {
 		h.failures = 0
 		h.downUntil = time.Time{}
 		// Rate limiting is rarely address-specific: demote the whole tier so
-		// the fallback tier takes over instead of walking the same tier's
-		// remaining addresses one by one.
+		// the next tier takes over instead of walking the same tier's
+		// remaining exits one by one.
 		st.limitedUntil[c.Tier] = now.Add(limitedCoolDown)
 	}
 }
@@ -276,8 +356,9 @@ func (st *providerState) tierLimited(t Tier, now time.Time) bool {
 // tried during this request) are avoided unless every candidate has been
 // tried, which is what turns a retry into a failover to another exit.
 //
-// The lowest usable tier wins: preferred local addresses while they answer,
-// the fallback tier once they fail or get rate-limited.
+// The lowest usable tier wins: tier 0 — the configured source addresses plus
+// any extension exit that asked to join them — while it answers, and the
+// fallback tier once that tier fails or gets rate-limited.
 func (r *Registry) Pick(provider string, exclude map[string]struct{}) (Candidate, bool) {
 	if r == nil {
 		return Candidate{}, false
@@ -291,26 +372,28 @@ func (r *Registry) Pick(provider string, exclude map[string]struct{}) (Candidate
 		core     []Candidate
 		strategy = StrategyRoundRobin
 		rr       uint64
+		disabled map[string]bool
 	)
 	if st != nil {
 		core = dedupe(st.core)
 		strategy = st.strategy
+		disabled = st.disabled
 		// Advance the rotation counter while the state is still guarded.
 		rr = atomic.AddUint64(&st.rr, 1)
 	}
 	r.mu.RUnlock()
 
+	// An extension that returns tier 0 explicitly joins the preferred
+	// rotation — the extended multi-IP set — instead of waiting for the local
+	// addresses to fail. Entries that do not say which tier they want stay in
+	// the fallback tier.
 	var all []Candidate
 	all = dedupe(append(all, core...))
 	if ext != nil {
-		for _, c := range ext(provider) {
-			if c.Tier == TierPreferred {
-				c.Tier = 1
-			}
-			all = append(all, c)
-		}
+		all = append(all, ext(provider)...)
 	}
 	all = dedupe(all)
+	all = filterDisabled(all, disabled)
 	if len(all) == 0 {
 		return Candidate{}, false
 	}
@@ -396,20 +479,198 @@ func (r *Registry) Candidates(provider string) []Candidate {
 	r.mu.RLock()
 	st := r.byProvider[provider]
 	ext := r.ext
+	var (
+		disabled map[string]bool
+		core     []Candidate
+	)
+	if st != nil {
+		disabled = st.disabled
+		core = dedupe(st.core)
+	}
 	r.mu.RUnlock()
 	var out []Candidate
-	if st != nil {
-		out = dedupe(st.core)
+	if core != nil {
+		out = core
 	}
 	if ext != nil {
-		for _, c := range ext(provider) {
-			if c.Tier == 0 {
-				c.Tier = 1
+		out = append(out, ext(provider)...)
+	}
+	return filterDisabled(dedupe(out), disabled)
+}
+
+// filterDisabled drops the exits an operator turned off.
+func filterDisabled(in []Candidate, disabled map[string]bool) []Candidate {
+	if len(disabled) == 0 || len(in) == 0 {
+		return in
+	}
+	out := make([]Candidate, 0, len(in))
+	for _, c := range in {
+		if disabled[c.Name] {
+			continue
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
+// ExitStatus is the operator-facing view of one exit: what it is, where it
+// goes, and why it is or is not being used right now.
+type ExitStatus struct {
+	Name   string `json:"name"`
+	Source string `json:"source"`
+	// Kind is "ip" for a local source address and "proxy" for a tunnelled exit.
+	Kind   string `json:"kind"`
+	Tier   Tier   `json:"tier"`
+	// Address is the local source address, Proxy the tunnel endpoint.
+	Address string `json:"address,omitempty"`
+	Proxy   string `json:"proxy,omitempty"`
+	Weight  int    `json:"weight,omitempty"`
+	// Available is false while the exit is cooling down after failures.
+	Available bool `json:"available"`
+	// Disabled is true when the operator turned this exit off.
+	Disabled bool `json:"disabled"`
+	// TierLimited is true while the exit's whole tier is rate-limited.
+	TierLimited bool `json:"tier_limited"`
+
+	Failures int    `json:"failures"`
+	Requests uint64 `json:"requests"`
+	OK       uint64 `json:"ok"`
+
+	CooldownUntil *time.Time `json:"cooldown_until,omitempty"`
+	LastOutcome   string     `json:"last_outcome,omitempty"`
+	LastError     string     `json:"last_error,omitempty"`
+	LastAt        *time.Time `json:"last_at,omitempty"`
+}
+
+// ProviderEgressStatus is every exit of one provider plus how they are
+// selected.
+type ProviderEgressStatus struct {
+	Provider string       `json:"provider"`
+	Strategy Strategy     `json:"strategy"`
+	Exits    []ExitStatus `json:"exits"`
+}
+
+// Status reports every exit of a provider, including the ones an operator
+// disabled, with the health recorded for each. It returns false when the
+// provider has no configured exits at all.
+func (r *Registry) Status(provider string) (ProviderEgressStatus, bool) {
+	if r == nil {
+		return ProviderEgressStatus{}, false
+	}
+	now := r.now()
+
+	r.mu.RLock()
+	st := r.byProvider[provider]
+	ext := r.ext
+	var (
+		strategy = StrategyRoundRobin
+		disabled = make(map[string]bool)
+		limited  = make(map[Tier]time.Time)
+		health   = make(map[string]healthEntry)
+		core     []Candidate
+	)
+	if st != nil {
+		core = dedupe(st.core)
+		strategy = st.strategy
+		for k, v := range st.disabled {
+			disabled[k] = v
+		}
+		for k, v := range st.limitedUntil {
+			limited[k] = v
+		}
+		for k, v := range st.health {
+			if v != nil {
+				health[k] = *v
 			}
-			out = append(out, c)
 		}
 	}
-	return dedupe(out)
+	r.mu.RUnlock()
+
+	var all []Candidate
+	all = append(all, core...)
+	if ext != nil {
+		all = append(all, ext(provider)...)
+	}
+	all = dedupe(all)
+	if len(all) == 0 {
+		return ProviderEgressStatus{Provider: provider, Strategy: strategy, Exits: []ExitStatus{}}, false
+	}
+
+	out := ProviderEgressStatus{
+		Provider: provider,
+		Strategy: strategy,
+		Exits:    make([]ExitStatus, 0, len(all)),
+	}
+	for _, c := range all {
+		exit := ExitStatus{
+			Name:     c.Name,
+			Source:   c.Source,
+			Tier:     c.Tier,
+			Weight:   c.Weight,
+			Disabled: disabled[c.Name],
+		}
+		if exit.Source == "" {
+			exit.Source = SourceConfig
+		}
+		if c.LocalAddr != nil {
+			exit.Kind = "ip"
+			exit.Address = c.LocalAddr.String()
+		} else {
+			exit.Kind = "proxy"
+			if c.ProxyURL != nil {
+				exit.Proxy = c.ProxyURL.String()
+			}
+		}
+		if h, ok := health[c.Name]; ok {
+			exit.Requests = h.requests
+			exit.OK = h.ok
+			exit.Failures = h.failures
+			if !h.downUntil.IsZero() {
+				until := h.downUntil
+				exit.CooldownUntil = &until
+			}
+			if !h.lastAt.IsZero() {
+				at := h.lastAt
+				exit.LastAt = &at
+			}
+			exit.LastOutcome = h.lastOutcome.String()
+			exit.LastError = h.lastError
+		}
+		if until, ok := limited[c.Tier]; ok && now.Before(until) {
+			exit.TierLimited = true
+		}
+		// An exit is usable unless the operator turned it off or it is
+		// cooling down; a rate-limited tier is reported separately because it
+		// affects every exit in it.
+		exit.Available = !exit.Disabled && (exit.CooldownUntil == nil || !now.Before(*exit.CooldownUntil))
+		out.Exits = append(out.Exits, exit)
+	}
+	sort.SliceStable(out.Exits, func(i, j int) bool {
+		if out.Exits[i].Tier != out.Exits[j].Tier {
+			return out.Exits[i].Tier < out.Exits[j].Tier
+		}
+		return out.Exits[i].Name < out.Exits[j].Name
+	})
+	return out, true
+}
+
+// StatusAll reports the egress status of every provider that has exits.
+// Providers whose only exits come from an extension have no registry state of
+// their own, so callers that know the configured provider names should ask
+// Status(name) for those directly.
+func (r *Registry) StatusAll() []ProviderEgressStatus {
+	if r == nil {
+		return nil
+	}
+	names := r.Providers()
+	out := make([]ProviderEgressStatus, 0, len(names))
+	for _, n := range names {
+		if st, ok := r.Status(n); ok {
+			out = append(out, st)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Provider < out[j].Provider })
+	return out
 }
 
 // Providers lists every provider with configured egress state.

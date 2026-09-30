@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -365,6 +366,55 @@ func (a *App) rebuildWithOverrides(ctx context.Context) error {
 	}
 	registerSessionHubPoolMemberships(a.sessionHub, a.providers.Pools)
 	return nil
+}
+
+// rebuildRetryDelay bounds how soon a failed startup rebuild is retried.
+// providers.Init starts its own model refresh in the background, and the
+// startup rebuild loses the race to it whenever that refresh is slow, so wait
+// for it to unwind before attempting the rebuild again.
+const rebuildRetryDelay = 75 * time.Second
+
+// rebuildRetryAttempts caps the background retries made for one failed
+// startup rebuild.
+const rebuildRetryAttempts = 3
+
+// scheduleRebuildRetry re-applies the persisted provider/pool overrides after
+// a startup rebuild that failed, so a slow or unreachable upstream cannot
+// leave the gateway running with an empty model inventory until somebody
+// triggers a refresh by hand. It is a no-op once models are available.
+func (a *App) scheduleRebuildRetry() {
+	if a == nil {
+		return
+	}
+	go func() {
+		for attempt := 1; attempt <= rebuildRetryAttempts; attempt++ {
+			time.Sleep(rebuildRetryDelay)
+			if registry := a.modelRegistry(); registry != nil && registry.ModelCount() > 0 {
+				return
+			}
+			if a.adminHandler == nil {
+				// app.New never finished; nothing to retry against.
+				return
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), rebuildTimeout)
+			report, err := a.RefreshRuntime(ctx)
+			cancel()
+			if err != nil {
+				slog.Warn("startup rebuild retry failed", "attempt", attempt, "error", err)
+				continue
+			}
+			if report.ModelCount > 0 {
+				slog.Info("recovered persisted provider overrides after a slow startup",
+					"attempt", attempt,
+					"models", report.ModelCount,
+					"providers", report.ProviderCount,
+				)
+				return
+			}
+		}
+		slog.Warn("persisted provider overrides are still not applied",
+			"attempts", rebuildRetryAttempts)
+	}()
 }
 
 // ReloadFallback re-reads the manual fallback rules from disk and swaps the
