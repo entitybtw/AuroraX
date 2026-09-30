@@ -16,6 +16,7 @@ import (
 	"github.com/labstack/echo/v5"
 
 	"aurora/internal/addon"
+	"aurora/internal/hooks"
 )
 
 // ExtensionHeader is one header transformation an extension installs into the
@@ -74,7 +75,13 @@ type ExtensionWidget struct {
 	Stats []map[string]string `json:"stats,omitempty"`
 	// Links are {label,href} pairs for kind=links.
 	Links []ExtensionNavLink `json:"links,omitempty"`
-	Order int                `json:"order,omitempty"`
+	// Source names a live data key on the owning extension's addon. When set
+	// the dashboard fetches GET .../extensions/<id>/data/<source> on an
+	// interval and renders the returned blocks/stats instead of static text.
+	Source string `json:"source,omitempty"`
+	// Refresh is the poll interval in seconds for Source (default 15).
+	Refresh int `json:"refresh,omitempty"`
+	Order   int `json:"order,omitempty"`
 }
 
 // ExtensionNavLink is a labeled link used by widgets/pages.
@@ -93,6 +100,11 @@ type ExtensionUIBlock struct {
 	Links    []ExtensionNavLink `json:"links,omitempty"`
 	// KV is for kind=kv: list of {k,v} or {label,value}.
 	KV []map[string]string `json:"kv,omitempty"`
+	// Source names a live data key on the owning extension's addon. Blocks
+	// carrying one are fetched on an interval instead of being static.
+	Source string `json:"source,omitempty"`
+	// Refresh is the poll interval in seconds for Source (default 15).
+	Refresh int `json:"refresh,omitempty"`
 }
 
 // ExtensionUIPage is a full dashboard page contributed by an extension.
@@ -358,7 +370,7 @@ type Extension struct {
 	// The JSON form accepts either a plain string or an array of lines
 	// (joined with "\n") so authored documents keep embedded sources
 	// readable instead of escaping every newline onto one giant line.
-	Files    ExtensionFiles  `json:"files,omitempty"`
+	Files    ExtensionFiles     `json:"files,omitempty"`
 	Provides *ExtensionProvides `json:"provides,omitempty"`
 	UI       ExtensionUI        `json:"ui,omitempty"`
 	// Config holds user-saved overrides: values for ui.fields keys and
@@ -1023,6 +1035,15 @@ func WithExtensionStore(store *ExtensionStore) Option {
 func WithAddonStore(store *addon.Store) Option {
 	return func(h *Handler) {
 		h.addonStore = store
+	}
+}
+
+// WithHookBridge gives the handler the generic hook bridge so extension pages
+// can pull live data from their addons (Data) with the same payload
+// enrichment the gateway uses elsewhere.
+func WithHookBridge(b *hooks.Bridge) Option {
+	return func(h *Handler) {
+		h.hooks = b
 	}
 }
 
@@ -1876,33 +1897,77 @@ func (h *Handler) ListExtensionUI(c *echo.Context) error {
 	for _, e := range h.extensionUIList() {
 		out = append(out, e)
 	}
-	// Extension-shipped Go addons (kind auth) contribute UI by exporting
-	// UI() as an ExtensionUI JSON document. Contributions are gated on the
-	// owning extension still being applied so a stale addon (crash between
-	// unapply and unload, or an edited files dir) can never keep a disabled
-	// extension's settings tabs on screen.
+	// Extension-shipped Go addons contribute UI by exporting UI() as an
+	// ExtensionUI JSON document. Auth addons carry grant flows; ui addons
+	// carry live presentation (values they compute on each call). Both are
+	// gated on the owning extension still being applied so a stale addon
+	// (crash between unapply and unload, or an edited files dir) can never
+	// keep a disabled extension's settings tabs on screen.
 	if h.addonStore != nil {
-		for _, a := range h.addonStore.ByKind(addon.KindAuth) {
-			if extID := extensionIDForAddonPath(a.Path); extID != "" && !h.extensionApplied(extID) {
-				continue
+		for _, kind := range []addon.Kind{addon.KindAuth, addon.KindUI} {
+			for _, a := range h.addonStore.ByKind(kind) {
+				if extID := ExtensionIDForAddonPath(a.Path); extID != "" && !h.extensionApplied(extID) {
+					continue
+				}
+				raw, err := a.CallString("UI")
+				if err != nil || strings.TrimSpace(raw) == "" {
+					continue
+				}
+				var ui ExtensionUI
+				if json.Unmarshal([]byte(raw), &ui) != nil {
+					continue
+				}
+				out = append(out, ExtensionUIContribution{
+					ID:   "addon:" + a.Name,
+					Name: a.Name,
+					Type: string(kind),
+					UI:   ui,
+				})
 			}
-			raw, err := a.CallString("UI")
-			if err != nil || strings.TrimSpace(raw) == "" {
-				continue
-			}
-			var ui ExtensionUI
-			if json.Unmarshal([]byte(raw), &ui) != nil {
-				continue
-			}
-			out = append(out, ExtensionUIContribution{
-				ID:   "addon:" + a.Name,
-				Name: a.Name,
-				Type: "auth",
-				UI:   ui,
-			})
 		}
 	}
 	return c.JSON(http.StatusOK, map[string]any{"contributions": out})
+}
+
+// GetExtensionData serves one live payload for an extension page or widget.
+//
+// GET /admin/api/v1/sidecar/extensions/:id/data/:key
+//
+// The dashboard asks for a key named by a block's "source" field on an
+// interval; the owning extension's ui addon answers with structured blocks,
+// stats or a list. Only the requesting extension's own addon is consulted, so
+// one extension can never read another's data.
+func (h *Handler) GetExtensionData(c *echo.Context) error {
+	if h.hooks == nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "extension data is unavailable"})
+	}
+	id := strings.TrimSpace(c.Param("id"))
+	key := strings.TrimSpace(c.Param("key"))
+	if id == "" || key == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "extension id and data key are required"})
+	}
+	if !h.extensionApplied(id) {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "extension is not applied"})
+	}
+
+	// Presentation addons normally answer, but a runtime addon may carry the
+	// data too (one file that also owns the state it reports on).
+	var raw string
+	var err error
+	for _, kind := range []addon.Kind{addon.KindUI, addon.KindRuntime} {
+		raw, err = h.hooks.CallOwned(kind, id, "Data", map[string]any{"key": key})
+		if err == nil && strings.TrimSpace(raw) != "" {
+			break
+		}
+	}
+	if err != nil || strings.TrimSpace(raw) == "" {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "no live data for key " + key})
+	}
+	var payload any
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		return c.JSON(http.StatusBadGateway, map[string]string{"error": "addon returned an invalid response"})
+	}
+	return c.JSON(http.StatusOK, payload)
 }
 
 // extensionApplied reports whether an extension exists and is currently
@@ -1915,11 +1980,14 @@ func (h *Handler) extensionApplied(id string) bool {
 	return ok && ext.Applied
 }
 
-// extensionIDForAddonPath maps an addon source path to the id of the
+// ExtensionIDForAddonPath maps an addon source path to the id of the
 // extension that shipped it: configs/extensions/<id>/auth-x.go → <id>.
 // Addons outside the extension files tree (operator drop-ins under
-// configs/addons) return "" and stay ungated.
-func extensionIDForAddonPath(path string) string {
+// configs/addons) return "".
+//
+// Exported so the generic hook bridge can attach an extension's identity,
+// settings and applied state to every payload it hands to an addon.
+func ExtensionIDForAddonPath(path string) string {
 	dir := filepath.Dir(path)
 	id := filepath.Base(dir)
 	if id == "" || id == "." || id == string(filepath.Separator) {

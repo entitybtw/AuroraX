@@ -74,6 +74,8 @@ func (a *App) RefreshRuntime(ctx context.Context) (admin.RuntimeRefreshReport, e
 			}
 		}
 		registerSessionHubPoolMemberships(a.sessionHub, a.providers.Pools)
+		// Source-address edits must reach the rotation without a restart.
+		a.syncEgress()
 		registry = a.modelRegistry()
 		return runtimeRefreshStepResult{message: fmt.Sprintf("rebuilt %d provider%s from current config", count, pluralSuffix(count))}
 	}); err != nil {

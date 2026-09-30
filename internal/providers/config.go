@@ -37,6 +37,12 @@ type ProviderConfig struct {
 	Resilience             config.ResilienceConfig
 	// BindIP optionally sets the local outbound IP for the upstream HTTP client.
 	BindIP string
+	// BindIPs is the full set of local source addresses rotated per attempt.
+	// Always includes BindIP when that is set, so callers can iterate one list.
+	BindIPs []string
+	// EgressStrategy selects among BindIPs and any endpoints an extension
+	// contributes: round_robin (default), random, weighted or first.
+	EgressStrategy string
 	// PoolOnly hides this provider's models from the public model list; the
 	// provider is only reachable through a pool that lists it as a member.
 	PoolOnly bool
@@ -61,6 +67,29 @@ type ProviderConfig struct {
 	// sidecar (Bun) instead of contacting the upstream directly. Used by
 	// extensions that need a client fingerprint Go cannot reproduce.
 	SidecarURL string
+}
+
+// normalizeBindIPs folds the legacy single bind_ip into the rotated list so
+// there is exactly one source of truth for a provider's source addresses.
+func normalizeBindIPs(bindIP string, bindIPs []string) []string {
+	var out []string
+	seen := make(map[string]struct{}, len(bindIPs)+1)
+	add := func(v string) {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			return
+		}
+		if _, ok := seen[strings.ToLower(v)]; ok {
+			return
+		}
+		seen[strings.ToLower(v)] = struct{}{}
+		out = append(out, v)
+	}
+	add(bindIP)
+	for _, v := range bindIPs {
+		add(v)
+	}
+	return out
 }
 
 // resolveProviders applies env var overrides to the raw YAML provider map, filters
@@ -500,6 +529,8 @@ func buildProviderConfig(raw config.RawProviderConfig, global config.ResilienceC
 		ModelMetadataOverrides: config.ProviderModelMetadataOverrides(raw.Models),
 		Resilience:             global,
 		BindIP:                 strings.TrimSpace(raw.BindIP),
+		BindIPs:                normalizeBindIPs(raw.BindIP, raw.BindIPs),
+		EgressStrategy:         strings.TrimSpace(raw.EgressStrategy),
 		PoolOnly:               raw.PoolOnly,
 		UserAgent:              strings.TrimSpace(raw.UserAgent),
 		AutoFetchModels:        raw.AutoFetchModels,

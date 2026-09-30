@@ -9,9 +9,18 @@ import { useExtensionPages } from "@/lib/extensions/ui-context";
  * No HTML/JS from the extension is executed — only structured blocks.
  */
 export function ExtensionPage(): JSX.Element {
-  const params = useParams({ strict: false }) as { pagePath?: string };
+  // The route is declared as `ext/$`, which TanStack Router parses as a splat
+  // named `_splat` (also mirrored as "*"). Older code read `pagePath`, which
+  // never matched, so every extension page rendered as "Not found".
+  const params = useParams({ strict: false }) as {
+    pagePath?: string;
+    _splat?: string;
+    "* "?: string;
+    "*": string;
+  };
   const pages = useExtensionPages();
-  const pagePath = (params.pagePath ?? "").replace(/^\/+|\/+$/g, "");
+  const rawPath = params.pagePath ?? params._splat ?? params["*"] ?? "";
+  const pagePath = rawPath.replace(/^\/+|\/+$/g, "");
   const page = pages.find((p) => p.path.replace(/^\/+|\/+$/g, "") === pagePath);
 
   if (!page) {
@@ -33,7 +42,7 @@ export function ExtensionPage(): JSX.Element {
         subtitle={page.summary ?? ""}
       />
       <div className="border border-border/40 bg-surface/35 p-6">
-        <ExtensionBlocks blocks={page.blocks ?? []} />
+        <ExtensionBlocks blocks={page.blocks ?? []} extensionId={page.extensionId} />
       </div>
     </div>
   );

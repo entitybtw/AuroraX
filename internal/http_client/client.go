@@ -276,6 +276,48 @@ func tlsConfig(caCertPEM string) *tls.Config {
 	return &tls.Config{RootCAs: pool}
 }
 
+// EgressOptions describes one exit for a provider: a source address to bind
+// outbound connections to and/or a proxy to tunnel through.
+type EgressOptions struct {
+	// BindIP binds outbound connections to this local source address.
+	BindIP string
+	// Proxy routes connections through this endpoint. When set it overrides
+	// the globally configured proxy for this client only.
+	Proxy *url.URL
+	// UseUTLS switches to the fingerprint-preserving transport.
+	UseUTLS bool
+}
+
+// NewEgressClient builds an HTTP client dedicated to a single exit.
+//
+// Every exit gets its own connection pool — Transport.Clone yields an
+// independent pool — so rotating the source address can never hand back a
+// connection that was established from a different one.
+func NewEgressClient(opt EgressOptions) *http.Client {
+	bindIP := strings.TrimSpace(opt.BindIP)
+
+	if opt.UseUTLS {
+		return &http.Client{
+			Transport: &utlsRoundTripper{bindAddr: bindIP, proxy: opt.Proxy},
+			Timeout:   600 * time.Second,
+		}
+	}
+
+	base := ensureGlobalTransport().Clone()
+	if opt.Proxy != nil {
+		proxyURL := opt.Proxy
+		base.Proxy = func(*http.Request) (*url.URL, error) { return proxyURL, nil }
+	}
+	if bindIP != "" {
+		base.DialContext = (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+			LocalAddr: &net.TCPAddr{IP: net.ParseIP(bindIP)},
+		}).DialContext
+	}
+	return &http.Client{Transport: base, Timeout: DefaultConfig().Timeout}
+}
+
 // NewHTTPClientWithBindIP creates a new HTTP client whose outbound connections
 // are bound to the given local source IP address. When bindIP is empty it falls
 // back to the shared global transport (connection pool reuse). This is useful
@@ -285,20 +327,5 @@ func NewHTTPClientWithBindIP(bindIP string) *http.Client {
 	if bindIP == "" {
 		return NewDefaultHTTPClient()
 	}
-
-	base := ensureGlobalTransport().Clone()
-	dialer := &net.Dialer{
-		Timeout:   30 * time.Second,
-		KeepAlive: 30 * time.Second,
-	}
-	base.DialContext = (&net.Dialer{
-		Timeout:   dialer.Timeout,
-		KeepAlive: dialer.KeepAlive,
-		LocalAddr: &net.TCPAddr{IP: net.ParseIP(bindIP)},
-	}).DialContext
-
-	return &http.Client{
-		Transport: base,
-		Timeout:   DefaultConfig().Timeout,
-	}
+	return NewEgressClient(EgressOptions{BindIP: bindIP})
 }

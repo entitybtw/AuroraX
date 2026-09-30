@@ -28,11 +28,14 @@ import (
 	"aurora/internal/command_line_tools"
 	"aurora/internal/console"
 	"aurora/internal/core"
+	"aurora/internal/egress"
 	"aurora/internal/externalauth"
 	"aurora/internal/failover"
 	"aurora/internal/gateway"
 	"aurora/internal/guardrails"
+	"aurora/internal/hooks"
 	httpclient "aurora/internal/http_client"
+	llmclient "aurora/internal/language_model_client"
 	"aurora/internal/model_aliases"
 	"aurora/internal/model_combinations"
 	"aurora/internal/model_overrides"
@@ -60,19 +63,24 @@ type App struct {
 	sidecarOverrides  *admin.SidecarOverrideStore
 	extensions        *admin.ExtensionStore
 	addons            *addon.Store
-	providers         *providers.InitResult
-	audit             *auditlog.Result
-	usage             *usage.Result
-	batch             *batch.Result
-	aliases           *aliases.Result
-	combos            *combos.Result
-	modelOverrides    *modeloverrides.Result
-	authKeys          *authkeys.Result
-	guardrails        *guardrails.Result
-	workflows         *workflow.Result
-	server            *server.Server
-	adminHandler      *admin.Handler
-	sessionHub        *sessionhub.Hub
+	hooks             *hooks.Bridge
+	// egress rotates a provider's exits (source addresses plus whatever an
+	// extension contributes) instead of pinning it to one address.
+	egress         *egress.Registry
+	egressSource   *hookEgressSource
+	providers      *providers.InitResult
+	audit          *auditlog.Result
+	usage          *usage.Result
+	batch          *batch.Result
+	aliases        *aliases.Result
+	combos         *combos.Result
+	modelOverrides *modeloverrides.Result
+	authKeys       *authkeys.Result
+	guardrails     *guardrails.Result
+	workflows      *workflow.Result
+	server         *server.Server
+	adminHandler   *admin.Handler
+	sessionHub     *sessionhub.Hub
 
 	// fallbackResolver is a swappable wrapper around the failover resolver so
 	// manual fallback rule changes apply at runtime without a restart.
@@ -151,6 +159,24 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 		extAuth.SetStore(app.addons)
 	}
 
+	// Generic hook bridge — the rest of the extension hook kit. Lifecycle
+	// events, egress decisions, retry policy and live UI data dispatch to
+	// runtime/ui/preset addons through here (auth grant flows keep their own
+	// bridge). Payloads carry the owning extension's identity and settings so
+	// an addon can read its own keys and intervals without reaching into the
+	// extension store itself.
+	app.hooks = hooks.NewBridge()
+	app.hooks.SetStore(app.addons)
+	app.hooks.SetContext(admin.ExtensionIDForAddonPath, app.extensionHookInfo)
+
+	// Exit rotation: preferred tier comes from each provider's source
+	// addresses, fallback tier from extensions (see internal/egress).
+	// Installed before providers are built so every client picks it up.
+	app.egress = egress.NewRegistry()
+	app.egressSource = newHookEgressSource(app.hooks)
+	app.egress.SetExtensionSource(app.egressSource.get)
+	llmclient.SetDefaultEgress(app.egress)
+
 	// Session hub identity header set is extension-driven: sidecar
 	// forward_headers (written on extension apply) decide which inbound
 	// headers count as session/identity. The core hardcodes no client names.
@@ -185,6 +211,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 			admin.AttachExtensionAddons(app.addons, e.ID)
 		}
 	}
+	app.syncEgress()
 
 	// Apply persisted UI provider/pool overrides onto the freshly built runtime so
 	// providers created via the dashboard survive restarts.
@@ -568,6 +595,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 			app.extensions,
 			app.addons,
 			externalAuthFromFactory(cfg.Factory),
+			app.hooks,
 			app,
 			app,
 			app,
@@ -1063,6 +1091,26 @@ func externalAuthFromFactory(factory *providers.ProviderFactory) *externalauth.B
 	return factory.ExternalAuth()
 }
 
+// extensionHookInfo resolves an extension id to the settings its addons may
+// read. A missing extension reports false so the bridge leaves the payload
+// unenriched instead of handing an addon an empty config.
+func (a *App) extensionHookInfo(extID string) (hooks.ExtensionInfo, bool) {
+	if a.extensions == nil || strings.TrimSpace(extID) == "" {
+		return hooks.ExtensionInfo{}, false
+	}
+	ext, ok := a.extensions.Get(extID)
+	if !ok {
+		return hooks.ExtensionInfo{}, false
+	}
+	return hooks.ExtensionInfo{
+		ID:       extID,
+		Dir:      admin.ExtensionFilesDir(extID),
+		Settings: ext.Settings,
+		Config:   ext.Config,
+		Applied:  ext.Applied,
+	}, true
+}
+
 func initAdmin(
 	auditLogger auditlog.LoggerInterface,
 	auditStorage, usageStorage storage.Storage,
@@ -1084,6 +1132,7 @@ func initAdmin(
 	extensions *admin.ExtensionStore,
 	addonStore *addon.Store,
 	extAuth *externalauth.Bridge,
+	hookBridge *hooks.Bridge,
 	runtimeRefresher admin.RuntimeRefresher,
 	fallbackReloader admin.FallbackReloader,
 	settingsManager admin.DashboardSettingsManager,
@@ -1156,6 +1205,7 @@ func initAdmin(
 		admin.WithSidecarStore(sidecarOverrides),
 		admin.WithExtensionStore(extensions),
 		admin.WithAddonStore(addonStore),
+		admin.WithHookBridge(hookBridge),
 		admin.WithExtensionStoreURLs(admin.NewExtensionStoreURLStore()),
 		admin.WithExternalAuth(extAuth),
 		admin.WithDashboardRuntimeConfig(runtimeConfig),

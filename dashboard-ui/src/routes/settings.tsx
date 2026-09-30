@@ -163,7 +163,10 @@ function SettingsPageInner(): JSX.Element {
 
       {activeExtTab && (
         <div className="border border-border/40 bg-surface/35 p-6">
-          <ExtensionBlocks blocks={activeExtTab.blocks ?? []} />
+          <ExtensionBlocks
+            blocks={activeExtTab.blocks ?? []}
+            extensionId={activeExtTab.extensionId}
+          />
         </div>
       )}
 

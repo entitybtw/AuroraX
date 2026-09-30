@@ -15,6 +15,8 @@ vendor-specific flows into default builds.
 | `auth` block | Extension JSON | Device-flow or authorization-code (+ PKCE) endpoints wired through an auth addon |
 | UI contributions | `ui.*` | Pages, settings tabs, banners, widgets |
 | Runtime scripts | `files` → `configs/addons/*.go` | Single-file Go addons evaluated by Yaegi (`internal/addon`) |
+| Hook kit | `internal/hooks` | Lifecycle, egress, retry and live-data hooks dispatched to `runtime`/`ui`/`preset` addons |
+| Exit rotation | `bind_ips` / `egress_strategy` + `EgressCandidates` | Several exits per provider, preferred tier first, fallback tier from extensions |
 
 ### Example: external auth feature without core vendor defaults
 
@@ -95,16 +97,101 @@ func Accent() string { return "#7aa2f7" }
 - Treat `configs/addons/` as trusted operator configuration (same trust level
   as `configs/*.yaml`).
 
-Planned / sample hook kinds:
+### Hook kit (`internal/hooks`)
 
-- **Theme addon** — custom palette logic / chart painters
-- **Preset addon** — custom retry/routing policies
-- **UI addon** — dashboard widgets beyond structured blocks
-- **Auth addon** — account-linking grant types (device flow, authorization code + PKCE) via the external-auth routes above
+Auth grant flows keep their own bridge (the table above). Everything else goes
+through `internal/hooks`, which dispatches to `runtime`, `ui` and `preset`
+addons with the same contract: **one JSON string in, one JSON string out**.
+
+An addon opts in by exporting the hook name. An addon that does not export it
+is skipped, not treated as an error — that is what lets several extensions
+coexist without knowing about each other. A reply of `{"skip": true}` means
+"not mine" and the search continues with the next addon.
+
+| Hook | Kind | Purpose |
+|------|------|---------|
+| `OnInit` | `runtime` | The addon was loaded (after apply, or at startup) |
+| `OnSettingsSave` | `runtime` | The operator changed this extension's settings |
+| `OnApply` / `OnUnapply` | `runtime` | The extension was enabled or disabled |
+| `OnTick` | `runtime` | Periodic best-effort tick |
+| `EgressCandidates` | `runtime` | Ask for the exits this extension contributes (see below) |
+| `RetryPolicy` | `preset` | Per-request retry/routing decision |
+| `Data(key)` | `ui` / `runtime` | One live payload for a page or widget |
+| `UI()` | `ui` | An `ExtensionUI` document computed at request time |
+
+`Fire` (events) is best-effort: a failing addon is logged and never breaks the
+request or the lifecycle transition that triggered it.
+
+#### Payload
+
+Every hook receives one JSON object. The gateway merges the caller's fields
+with the owning extension's identity and settings, so an addon reads its own
+keys and intervals without touching the extension store:
+
+```json
+{
+  "hook": "EgressCandidates",
+  "extension": "vpn-egress",
+  "dir": "configs/extensions/vpn-egress",
+  "provider": "zen-main",
+  "settings": { "node_count": "3" },
+  "config":   { "subscriptions": "https://…" }
+}
+```
+
+`settings` holds the values shipped in the manifest; `config` holds the
+operator's saved values for `ui.fields` and always wins when both define a key.
+`dir` is where the addon may keep state (`os.WriteFile` works — the stdlib is
+linked, `os/exec` is not).
+
+#### Contributing exits (`EgressCandidates`)
+
+```json
+{"candidates":[{"name":"vpn:node-1","proxy":"socks5://127.0.0.1:1080"}]}
+```
+
+Each entry is either a `proxy` URL (`http`, `https`, `socks5`, `socks5h`) or a
+`bind_ip` source address, plus an optional `weight` and `tier`.
+
+Providers rotate between exits per attempt, and a failed attempt moves on to
+the next one instead of repeating the failure. Exits are grouped in tiers:
+
+- **tier 0 — local source addresses** (`bind_ips` on the provider). Preferred:
+  used for as long as they answer.
+- **tier 1 and up — extension-contributed exits.** Reached once the preferred
+  tier is unusable: every address is cooling down, or the tier was demoted by
+  a rate limit (429/403). A demoted tier probes back on its own after a
+  short window, so the gateway returns to direct egress without intervention.
+
+So a provider keeps its single API key while its exit changes: local addresses
+first, extension endpoints as the fallback.
+
+### Live data (`Data`)
+
+A page block or widget may carry `source` (plus optional `refresh` in seconds):
+
+```json
+{ "kind": "data", "source": "status", "refresh": 15 }
+```
+
+The dashboard then polls `GET /admin/api/v1/sidecar/extensions/:id/data/:key`
+through the addon and renders the reply. Supported reply shapes — an addon may
+return any combination:
+
+```json
+{"stats": [{"k": "Answering", "v": "38"}]}
+{"kv":    [{"k": "Last refresh", "v": "2026-09-30 12:00:00"}]}
+{"items": ["ok  vless  1.2.3.4:443  84ms"]}
+{"blocks": [{"kind": "kv", "kv": [{"k": "Nodes", "v": "42"}]}]}
+```
+
+Only the requesting extension's own addon is consulted, so one extension can
+never read another's data. Blocks without `source` stay static.
 
 Prefer pure JSON (`settings`, `ui`, `provides`, `auth`) when the behavior is
 data-shaped so extensions stay portable across gateway versions. Use a Yaegi
-addon only when you need real code.
+addon only when you need real code — network access, probing, parsing or
+state.
 
 ## Authoring guidelines
 

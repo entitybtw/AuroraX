@@ -22,6 +22,7 @@ import (
 	"aurora/internal/core"
 	"aurora/internal/externalauth"
 	"aurora/internal/guardrails"
+	"aurora/internal/hooks"
 	"aurora/internal/model_aliases"
 	"aurora/internal/model_combinations"
 	"aurora/internal/model_overrides"
@@ -68,6 +69,7 @@ type Handler struct {
 	extensionStoreURLs   *ExtensionStoreURLStore
 	extensionStoresOnce  sync.Once
 	addonStore           *addon.Store
+	hooks                *hooks.Bridge
 
 	mutationMu sync.Mutex
 	pricingMu  sync.Mutex

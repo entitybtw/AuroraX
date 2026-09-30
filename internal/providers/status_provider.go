@@ -38,6 +38,10 @@ type SanitizedProviderConfig struct {
 	APIVersion      string                    `json:"api_version,omitempty"`
 	Models          []string                  `json:"models,omitempty"`
 	BindIP          string                    `json:"bind_ip,omitempty"`
+	BindIPs         []string                  `json:"bind_ips,omitempty"`
+	EgressStrategy  string                    `json:"egress_strategy,omitempty"`
+	UseUTLS         bool                      `json:"use_utls,omitempty"`
+	SidecarURL      string                    `json:"sidecar_url,omitempty"`
 	Enabled         bool                      `json:"enabled"`
 	APIKey          string                    `json:"api_key,omitempty"`
 	APIKeySet       bool                      `json:"api_key_set,omitempty"`
@@ -108,6 +112,10 @@ func SanitizeProviderConfigs(configs map[string]ProviderConfig) []SanitizedProvi
 			APIVersion:      strings.TrimSpace(cfg.APIVersion),
 			Models:          models,
 			BindIP:          strings.TrimSpace(cfg.BindIP),
+			BindIPs:         append([]string(nil), cfg.BindIPs...),
+			EgressStrategy:  strings.TrimSpace(cfg.EgressStrategy),
+			UseUTLS:         cfg.UseUTLS,
+			SidecarURL:      strings.TrimSpace(cfg.SidecarURL),
 			Enabled:         true,
 			APIKey:          strings.TrimSpace(cfg.APIKey),
 			APIKeySet:       strings.TrimSpace(cfg.APIKey) != "",

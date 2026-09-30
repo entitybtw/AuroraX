@@ -14,7 +14,11 @@ export function useExtensionUI(): UseQueryResult<ExtensionUIContribution[]> {
   const query = useQuery({
     queryKey: ["extensions", "ui"],
     queryFn: fetchExtensionUI,
-    staleTime: 60_000,
+    staleTime: 30_000,
+    // Extension UI can be computed by an addon on each call, so refresh
+    // periodically instead of only on mount.
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
     retry: false,
   });

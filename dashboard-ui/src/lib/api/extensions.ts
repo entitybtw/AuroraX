@@ -47,20 +47,33 @@ const ExtensionWidgetSchema = z.object({
   id: z.string(),
   slot: z.string().optional(),
   title: z.string().optional(),
-  kind: z.enum(["text", "stats", "links"]).optional(),
+  // Kept loose on purpose: an unknown kind from a newer or older extension
+  // must degrade to "not rendered" rather than invalidate every contribution.
+  kind: z.string().optional(),
   body: z.string().optional(),
   stats: z.array(z.record(z.string())).optional(),
   links: z.array(ExtensionNavLinkSchema).optional(),
+  // source names a live data key on the owning extension's addon; the widget
+  // then polls GET .../extensions/<id>/data/<source> and renders the reply.
+  source: z.string().optional(),
+  refresh: z.number().optional(),
   order: z.number().optional(),
 });
 
 const ExtensionUIBlockSchema = z.object({
-  kind: z.enum(["heading", "text", "code", "list", "links", "divider", "kv"]),
+  // Not an enum: a single unknown kind used to make z.array(...).parse() throw,
+  // which emptied the whole UI contribution list and took every extension's
+  // nav, pages and theme down with it.
+  kind: z.string(),
   text: z.string().optional(),
   language: z.string().optional(),
   items: z.array(z.string()).optional(),
   links: z.array(ExtensionNavLinkSchema).optional(),
   kv: z.array(z.record(z.string())).optional(),
+  // source names a live data key on the owning extension's addon. Blocks with
+  // one are fetched on an interval; without it they render statically.
+  source: z.string().optional(),
+  refresh: z.number().optional(),
 });
 
 const ExtensionUIPageSchema = z.object({
@@ -498,6 +511,13 @@ export async function fetchExtensionUI(): Promise<ExtensionUIContribution[]> {
     "/admin/api/v1/sidecar/extensions/ui",
   );
   return z.array(ExtensionUIContributionSchema).parse(res.contributions ?? []);
+}
+
+/** Live payload for a block/widget `source` key on an extension's addon. */
+export async function fetchExtensionData(id: string, key: string): Promise<unknown> {
+  return apiFetch(
+    `/admin/api/v1/sidecar/extensions/${encodeURIComponent(id)}/data/${encodeURIComponent(key)}`,
+  );
 }
 
 export type { ExtensionUIContribution as ExtensionUIContributionType };
