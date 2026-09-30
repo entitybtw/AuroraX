@@ -28,6 +28,11 @@ type ProviderOverride struct {
 	Models     string `json:"models"`
 	// BindIP optionally sets the local outbound IP for this provider's upstream requests.
 	BindIP string `json:"bind_ip,omitempty"`
+	// BindIPs is the full set of local source addresses rotated per attempt.
+	BindIPs []string `json:"bind_ips,omitempty"`
+	// EgressStrategy selects among bind_ips and extension-supplied endpoints:
+	// round_robin (default), random, weighted or first.
+	EgressStrategy string `json:"egress_strategy,omitempty"`
 	// PoolOnly hides this provider's models from the public model list; it is
 	// only reachable through a pool that lists it as a member.
 	PoolOnly *bool `json:"pool_only,omitempty"`
@@ -51,6 +56,27 @@ type ProviderOverride struct {
 	// DisableAPIKey keeps the stored API key but stops sending it upstream.
 	// Useful when an extension-supplied bearer token supersedes the key.
 	DisableAPIKey *bool `json:"disable_api_key,omitempty"`
+	// UseUTLS enables uTLS fingerprint impersonation. It was absent here, so
+	// editing a static provider from the dashboard silently switched the
+	// transport back to the plain TLS client.
+	UseUTLS *bool `json:"use_utls,omitempty"`
+}
+
+// prependUniqueIP keeps bind_ip as the first entry of the rotated list so a
+// single-address config and a multi-address pool never drift apart.
+func prependUniqueIP(list []string, ip string) []string {
+	ip = strings.TrimSpace(ip)
+	if ip == "" {
+		return list
+	}
+	out := []string{ip}
+	for _, existing := range list {
+		if strings.EqualFold(strings.TrimSpace(existing), ip) {
+			continue
+		}
+		out = append(out, existing)
+	}
+	return out
 }
 
 // IsEnabled reports whether the override is active. Legacy overrides that
@@ -165,6 +191,8 @@ func (s *ProviderOverrideStore) RawConfigs() map[string]config.RawProviderConfig
 			APIVersion:      strings.TrimSpace(override.APIVersion),
 			Models:          rawProviderModelsFromOverride(override.Models),
 			BindIP:          strings.TrimSpace(override.BindIP),
+			BindIPs:         append([]string(nil), override.BindIPs...),
+			EgressStrategy:  strings.TrimSpace(override.EgressStrategy),
 			PoolOnly:        override.PoolOnly != nil && *override.PoolOnly,
 			UserAgent:       strings.TrimSpace(override.UserAgent),
 			SidecarURL:      strings.TrimSpace(override.SidecarURL),
@@ -172,6 +200,7 @@ func (s *ProviderOverrideStore) RawConfigs() map[string]config.RawProviderConfig
 			AutoFetchFilter: autoFetchFilterValue(override.AutoFetchFilter),
 			AuthMethod:      strings.TrimSpace(override.AuthMethod),
 			DisableAPIKey:   override.DisableAPIKey != nil && *override.DisableAPIKey,
+			UseUTLS:         override.UseUTLS != nil && *override.UseUTLS,
 		}
 	}
 	return out
@@ -206,6 +235,11 @@ type providerCreateRequest struct {
 	SidecarURL      string                  `json:"sidecar_url"`
 	AutoFetchModels *bool                   `json:"auto_fetch_models"`
 	AutoFetchFilter *config.AutoFetchFilter `json:"autofetch_filter"`
+	// BindIP was silently dropped here before — the dashboard sends it, so a
+	// created provider used to lose its source address.
+	BindIP         string   `json:"bind_ip"`
+	BindIPs        []string `json:"bind_ips"`
+	EgressStrategy string   `json:"egress_strategy"`
 }
 
 type providerUpdateRequest struct {
@@ -214,6 +248,8 @@ type providerUpdateRequest struct {
 	APIKey          *string                 `json:"api_key"`
 	Models          *string                 `json:"models"`
 	BindIP          *string                 `json:"bind_ip"`
+	BindIPs         *[]string               `json:"bind_ips"`
+	EgressStrategy  *string                 `json:"egress_strategy"`
 	Enabled         *bool                   `json:"enabled"`
 	PoolOnly        *bool                   `json:"pool_only"`
 	UserAgent       *string                 `json:"user_agent"`
@@ -303,6 +339,9 @@ func (h *Handler) CreateProvider(c *echo.Context) error {
 		UserAgent:       strings.TrimSpace(req.UserAgent),
 		SidecarURL:      strings.TrimSpace(req.SidecarURL),
 		AutoFetchModels: req.AutoFetchModels,
+		BindIP:          strings.TrimSpace(req.BindIP),
+		BindIPs:         append([]string(nil), req.BindIPs...),
+		EgressStrategy:  strings.TrimSpace(req.EgressStrategy),
 	})
 	apply := h.applyRuntimeRefresh(c)
 
@@ -347,13 +386,25 @@ func (h *Handler) UpdateProvider(c *echo.Context) error {
 	if exists {
 		updated = existing
 	} else if staticProvider != nil {
+		// Seed everything the dashboard can round-trip. Copying only a few
+		// fields here is what used to silently drop bind_ip (and friends) the
+		// moment an operator edited a static provider from the UI.
 		updated = ProviderOverride{
-			Name:       name,
-			Type:       staticProvider.Type,
-			BaseURL:    staticProvider.BaseURL,
-			APIVersion: staticProvider.APIVersion,
-			Models:     strings.Join(staticProvider.Models, ", "),
-			Enabled:    boolPtr(true),
+			Name:           name,
+			Type:           staticProvider.Type,
+			BaseURL:        staticProvider.BaseURL,
+			APIVersion:     staticProvider.APIVersion,
+			Models:         strings.Join(staticProvider.Models, ", "),
+			Enabled:        boolPtr(true),
+			BindIP:         staticProvider.BindIP,
+			BindIPs:        append([]string(nil), staticProvider.BindIPs...),
+			EgressStrategy: staticProvider.EgressStrategy,
+			UserAgent:      staticProvider.UserAgent,
+			SidecarURL:     staticProvider.SidecarURL,
+			UseUTLS:        boolPtr(staticProvider.UseUTLS),
+			AuthMethod:     staticProvider.AuthMethod,
+			DisableAPIKey:  boolPtr(staticProvider.DisableAPIKey),
+			PoolOnly:       boolPtr(staticProvider.PoolOnly),
 		}
 	}
 
@@ -373,6 +424,18 @@ func (h *Handler) UpdateProvider(c *echo.Context) error {
 	}
 	if req.BindIP != nil {
 		updated.BindIP = strings.TrimSpace(*req.BindIP)
+		// bind_ip stays the first entry so a single-address config and a
+		// rotated list never drift apart.
+		updated.BindIPs = prependUniqueIP(updated.BindIPs, updated.BindIP)
+	}
+	if req.BindIPs != nil {
+		updated.BindIPs = append([]string(nil), (*req.BindIPs)...)
+		if updated.BindIP == "" && len(updated.BindIPs) > 0 {
+			updated.BindIP = updated.BindIPs[0]
+		}
+	}
+	if req.EgressStrategy != nil {
+		updated.EgressStrategy = strings.TrimSpace(*req.EgressStrategy)
 	}
 	if req.Enabled != nil {
 		updated.Enabled = boolPtr(*req.Enabled)
@@ -585,9 +648,9 @@ type DetectProviderPresetRequest struct {
 
 // DetectProviderPresetResponse is the response from preset detection.
 type DetectProviderPresetResponse struct {
-	Matched bool              `json:"matched"`
-	Preset  *presets.Preset   `json:"preset,omitempty"`
-	Message string            `json:"message,omitempty"`
+	Matched bool            `json:"matched"`
+	Preset  *presets.Preset `json:"preset,omitempty"`
+	Message string          `json:"message,omitempty"`
 }
 
 // DetectProviderPreset checks if the given provider config matches a known preset.

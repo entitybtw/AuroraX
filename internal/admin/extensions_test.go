@@ -154,8 +154,8 @@ func TestExtension_ValidateRejectsUnsafeFilesPath(t *testing.T) {
 // lists all problems at once (with field paths), not just the first one.
 func TestExtensionValidate_ReportsEveryBrokenField(t *testing.T) {
 	p := Extension{
-		ID:     "broken ext",
-		Schema: 9,
+		ID:      "broken ext",
+		Schema:  9,
 		BaseURL: "not-a-url",
 		Headers: []ExtensionHeader{
 			{Name: "x-ok", Mode: "static", Length: 0},
@@ -540,8 +540,8 @@ func TestUpdateFromSource_RefreshesLiveFiles(t *testing.T) {
 		t.Fatalf("update = %d body=%s", rec2.Code, rec2.Body.String())
 	}
 	var resp struct {
-		Updated        bool   `json:"updated"`
-		FilesRefreshed bool   `json:"files_refreshed"`
+		Updated        bool `json:"updated"`
+		FilesRefreshed bool `json:"files_refreshed"`
 	}
 	if err := json.Unmarshal(rec2.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode: %v", err)
@@ -1851,14 +1851,14 @@ func TestListExtensionUI_GatesAddonTabsOnApplied(t *testing.T) {
 func TestExtensionIDForAddonPath(t *testing.T) {
 	t.Setenv("AURORA_EXTENSIONS_FILES_DIR", filepath.Join(t.TempDir(), "files"))
 	// Relative path as passed by callers, resolved against the working dir.
-	got := extensionIDForAddonPath(filepath.Join(ExtensionFilesDir("some-ext"), "auth.go"))
+	got := ExtensionIDForAddonPath(filepath.Join(ExtensionFilesDir("some-ext"), "auth.go"))
 	if got != "some-ext" {
 		t.Fatalf("extensionIDForAddonPath = %q, want %q", got, "some-ext")
 	}
-	if id := extensionIDForAddonPath(filepath.Join("configs", "addons", "auth.go")); id != "" {
+	if id := ExtensionIDForAddonPath(filepath.Join("configs", "addons", "auth.go")); id != "" {
 		t.Fatalf("operator drop-in must stay ungated, got %q", id)
 	}
-	if id := extensionIDForAddonPath(ExtensionFilesDir("some-ext")); id != "" {
+	if id := ExtensionIDForAddonPath(ExtensionFilesDir("some-ext")); id != "" {
 		t.Fatalf("a directory (not a file) must map to nothing, got %q", id)
 	}
 }

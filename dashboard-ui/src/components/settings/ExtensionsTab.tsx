@@ -1127,6 +1127,25 @@ export function ExtensionsTab(): JSX.Element {
                       />
                     );
                   }
+                  if (field.type === "textarea") {
+                    // Multi-line for values that are naturally lists: endpoint
+                    // URLs, header JSON, comma-separated targets.
+                    return (
+                      <label key={field.key} className="flex flex-col gap-1.5 sm:col-span-2">
+                        <span className="text-sm font-medium">{field.label}</span>
+                        <textarea
+                          rows={4}
+                          value={value}
+                          onChange={(e) => setField(field.key, e.target.value)}
+                          className="rounded-lg border border-border/60 bg-surface px-3 py-2 font-mono text-sm text-foreground"
+                          placeholder={field.default}
+                        />
+                        {field.description ? (
+                          <span className="text-xs text-muted-foreground">{field.description}</span>
+                        ) : null}
+                      </label>
+                    );
+                  }
                   if (field.type === "select" && field.options?.length) {
                     return (
                       <label key={field.key} className="flex flex-col gap-1.5">

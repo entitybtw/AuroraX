@@ -160,6 +160,15 @@ type RawProviderConfig struct {
 	// provider's HTTP client connects to the upstream. Useful when the host
 	// has multiple public IPs and the upstream rate-limits per source IP.
 	BindIP string `yaml:"bind_ip"`
+	// BindIPs is the full set of local source addresses for this provider.
+	// The gateway rotates between them per attempt and keeps serving from the
+	// healthy ones; bind_ip above is treated as the first entry when this list
+	// is empty, so existing configs keep working unchanged.
+	BindIPs []string `yaml:"bind_ips,omitempty"`
+	// EgressStrategy selects among the entries of bind_ips (and any endpoints
+	// an extension contributes): round_robin (default), random, weighted or
+	// first.
+	EgressStrategy string `yaml:"egress_strategy,omitempty"`
 	// PoolOnly, when true, hides this provider's models from the public model
 	// list. The provider is then only reachable through a pool that lists it as
 	// a member, keeping the /v1/models list uncluttered.

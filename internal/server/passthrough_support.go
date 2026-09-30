@@ -140,7 +140,14 @@ func skipPassthroughHeader(key string) bool {
 		"Cookie", "Forwarded", "Set-Cookie":
 		return true
 	default:
-		return strings.HasPrefix(canonicalKey, "X-Forwarded-")
+		if strings.HasPrefix(canonicalKey, "X-Forwarded-") {
+			return true
+		}
+		// Gateway control headers are set on the way out (source address,
+		// provider type, …). Passing them through would let any caller pick
+		// the exit traffic leaves from, which is exactly what the exit
+		// rotation decides on its own.
+		return strings.HasPrefix(canonicalKey, "X-Aurora-")
 	}
 }
 

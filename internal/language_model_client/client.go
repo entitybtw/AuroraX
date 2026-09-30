@@ -22,6 +22,7 @@ import (
 
 	"aurora/configuration"
 	"aurora/internal/core"
+	"aurora/internal/egress"
 	"aurora/internal/http_client"
 )
 
@@ -74,6 +75,10 @@ type Config struct {
 	BindIP string
 	// UseUTLS enables uTLS fingerprint impersonation for the HTTP client.
 	UseUTLS bool
+	// Egress, when set, lets the provider rotate between several exits
+	// (source addresses and extension-supplied proxies) instead of using a
+	// single fixed one. Nil keeps the classic one-client-per-provider model.
+	Egress *egress.Registry
 }
 
 // DefaultConfig returns default client configuration
@@ -116,6 +121,10 @@ type Client struct {
 	config         Config
 	headerSetter   HeaderSetter
 	circuitBreaker *circuitBreaker
+	// egress selects among several exits per attempt; nil disables rotation.
+	egress *egress.Registry
+	// egressPool holds one HTTP client per exit, built on demand.
+	egressPool *egressPool
 }
 
 // New creates a new LLM client with the given configuration
@@ -125,6 +134,7 @@ func New(cfg Config, headerSetter HeaderSetter) *Client {
 		config:       cfg,
 		headerSetter: headerSetter,
 	}
+	c.attachEgress(cfg)
 
 	if cfg.CircuitBreaker.FailureThreshold > 0 {
 		c.circuitBreaker = newCircuitBreaker(
@@ -135,6 +145,20 @@ func New(cfg Config, headerSetter HeaderSetter) *Client {
 	}
 
 	return c
+}
+
+// attachEgress wires the exit registry and its client pool when configured,
+// falling back to the process-wide registry installed by SetDefaultEgress.
+func (c *Client) attachEgress(cfg Config) {
+	reg := cfg.Egress
+	if reg == nil {
+		reg = DefaultEgress()
+	}
+	if reg == nil {
+		return
+	}
+	c.egress = reg
+	c.egressPool = newEgressPool(cfg.UseUTLS)
 }
 
 func httpClientForConfig(cfg Config) *http.Client {
@@ -157,6 +181,7 @@ func NewWithHTTPClient(httpClient *http.Client, cfg Config, headerSetter HeaderS
 		config:       cfg,
 		headerSetter: headerSetter,
 	}
+	c.attachEgress(cfg)
 
 	if cfg.CircuitBreaker.FailureThreshold > 0 {
 		c.circuitBreaker = newCircuitBreaker(
@@ -263,6 +288,10 @@ func (c *Client) beginRequest(ctx context.Context, req Request, stream bool) (re
 		}
 		scope.halfOpenProbe = probe
 	}
+
+	// One selection state per logical request: every retry attempt consults it
+	// and picks an exit that has not already failed during this request.
+	scope.ctx = withEgress(scope.ctx, c.egress)
 
 	return scope, nil
 }
@@ -649,7 +678,13 @@ func (c *Client) doHTTPRequest(ctx context.Context, req Request) (*http.Response
 		return nil, err
 	}
 
-	resp, err := c.httpClient.Do(httpReq)
+	// Pick an exit for this attempt. With no registry wired this is the
+	// provider's single client, exactly as before.
+	client, cand, used := c.selectEgress(httpReq.Context())
+	resp, err := client.Do(httpReq)
+	if used {
+		c.reportEgress(cand, egressOutcome(err, resp))
+	}
 	if err != nil {
 		return nil, core.NewProviderError(c.config.ProviderName, providerErrorStatusCode(err), "failed to send request: "+err.Error(), err)
 	}

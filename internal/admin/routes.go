@@ -118,6 +118,7 @@ func (h *Handler) RegisterRoutes(g RouteRegistrar) {
 	g.POST("/sidecar/extensions/store/browse", h.BrowseExtensionStore)
 	g.POST("/sidecar/extensions/store/install", h.InstallExtensionFromStore)
 	g.GET("/sidecar/extensions/:id", h.GetExtension)
+	g.GET("/sidecar/extensions/:id/data/:key", h.GetExtensionData)
 	g.PUT("/sidecar/extensions/:id", h.UpdateExtension)
 	g.GET("/sidecar/extensions/:id/export", h.ExportExtension)
 	g.DELETE("/sidecar/extensions/:id", h.DeleteExtension)
