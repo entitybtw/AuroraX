@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net"
 	"net/url"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -143,6 +144,45 @@ func (s *hookEgressSource) invalidate() {
 	s.mu.Lock()
 	s.entries = make(map[string]hookEgressEntry)
 	s.mu.Unlock()
+}
+
+// poolsContaining lists the pools a provider belongs to, excluding a pool
+// that happens to share the provider's name. Pool selection resolves to a
+// member provider before a request reaches the egress registry, so an
+// extension binding written against a pool name is only ever seen here.
+func poolsContaining(pools map[string]config.RawPoolConfig, provider string) []string {
+	want := strings.TrimSpace(provider)
+	if want == "" {
+		return nil
+	}
+	var out []string
+	for name, raw := range pools {
+		if strings.EqualFold(strings.TrimSpace(name), want) {
+			continue
+		}
+		for _, member := range raw.Members {
+			if strings.EqualFold(strings.TrimSpace(member), want) {
+				out = append(out, name)
+				break
+			}
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// extensionCandidates is what the egress registry consults for a provider. It
+// asks the hook about the provider itself and about every pool containing it,
+// so one apply_to list can name providers and pools together.
+func (a *App) extensionCandidates(provider string) []egress.Candidate {
+	if a == nil || a.egressSource == nil {
+		return nil
+	}
+	cands := a.egressSource.get(provider)
+	for _, pool := range poolsContaining(a.runtimeRawPools(), provider) {
+		cands = append(cands, a.egressSource.get(pool)...)
+	}
+	return cands
 }
 
 // egressCandidateDTO is one entry of an addon's EgressCandidates reply.
