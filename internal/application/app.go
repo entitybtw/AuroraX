@@ -177,7 +177,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 	// providers are built so every client picks it up.
 	app.egress = egress.NewRegistry()
 	app.egressSource = newHookEgressSource(app.hooks)
-	app.egress.SetExtensionSource(app.egressSource.get)
+	app.egress.SetExtensionSource(app.extensionCandidates)
 	llmclient.SetDefaultEgress(app.egress)
 
 	// Session hub identity header set is extension-driven: sidecar

@@ -7,7 +7,6 @@ import (
 	"aurora/internal/egress"
 )
 
-
 func TestEgressCandidatesFoldsLegacyBindIP(t *testing.T) {
 	// bind_ips is the newer field; a provider that only carries the singular
 	// bind_ip must still get a preferred-tier exit instead of an empty set.
@@ -79,5 +78,43 @@ func TestParseEgressCandidatesHonoursExclusiveTier(t *testing.T) {
 	}
 	if cands[1].Tier != egress.TierExclusive {
 		t.Fatalf("floored tier = %d, want TierExclusive", cands[1].Tier)
+	}
+}
+
+// A pool request resolves to a member provider before it reaches the egress
+// registry, so an apply_to list naming a pool has to be re-checked against
+// every pool the provider belongs to.
+func TestPoolsContainingResolvesMembers(t *testing.T) {
+	pools := map[string]config.RawPoolConfig{
+		"opencode-zen": {Members: []string{"vllm-zen", "vllm-other"}},
+		"openrouter":   {Members: []string{"openrouter-main"}},
+		"vllm-zen":     {Members: []string{"vllm-cheapvibecode"}},
+		"empty":        {},
+	}
+	got := poolsContaining(pools, "vllm-zen")
+	if len(got) != 1 || got[0] != "opencode-zen" {
+		t.Fatalf("poolsContaining(vllm-zen) = %v, want [opencode-zen]", got)
+	}
+	if got := poolsContaining(pools, "nobody"); len(got) != 0 {
+		t.Fatalf("unknown provider = %v, want none", got)
+	}
+	// A pool sharing the provider's own name must not be listed twice; the
+	// first assertion would read [opencode-zen vllm-zen] if it slipped through.
+	if got := poolsContaining(pools, "openrouter-backup"); len(got) != 0 {
+		t.Fatalf("provider in no pool = %v, want none", got)
+	}
+	if got := poolsContaining(pools, "  "); len(got) != 0 {
+		t.Fatalf("blank provider = %v, want none", got)
+	}
+}
+
+func TestPoolsContainingIsStable(t *testing.T) {
+	pools := map[string]config.RawPoolConfig{
+		"zeta":  {Members: []string{"p"}},
+		"alpha": {Members: []string{"p"}},
+	}
+	got := poolsContaining(pools, "p")
+	if len(got) != 2 || got[0] != "alpha" || got[1] != "zeta" {
+		t.Fatalf("poolsContaining = %v, want [alpha zeta]", got)
 	}
 }
