@@ -257,6 +257,7 @@ function buildCfg(overrides, opts) {
     extraHeaders: overrides.extraHeaders,
     forceStream: overrides.forceStream,
     proxy: opts.proxy,
+    proxies: opts.proxies,
     toolsPath: opts.toolsPath,
     upstreamTimeoutMs: Number(
       process.env.AURORA_SIDECAR_UPSTREAM_HEADERS_TIMEOUT_MS ?? "120000",
@@ -332,7 +333,15 @@ Bun.serve({
     const providerType = (
       req.headers.get("x-aurora-provider-type") || ""
     ).trim();
-    const proxy = BIND_PROXIES.get(bindIP) || "";
+    // The gateway hands the chosen source address (x-aurora-bind-ip) when it
+    // picked one itself. Without it every address is fair game, so rotate
+    // across all of them — that is what keeps one rate-limited address from
+    // stalling the request.
+    const requested = BIND_PROXIES.get(bindIP);
+    const proxy = requested || "";
+    const proxyList = requested
+      ? [requested]
+      : Array.from(BIND_PROXIES.values());
 
     const injectTools =
       overrides.injectTools !== null
@@ -371,6 +380,7 @@ Bun.serve({
       defaultAuth,
       injectTools: inject,
       proxy,
+      proxies: proxyList,
       toolsPath,
     });
 
@@ -388,6 +398,7 @@ Bun.serve({
           AURORA_SIDECAR_USER_AGENT: userAgent,
           AURORA_SIDECAR_DEFAULT_AUTH: defaultAuth,
           AURORA_SIDECAR_PROXY: proxy,
+          AURORA_SIDECAR_PROXIES: proxyList.join(","),
           AURORA_SIDECAR_INJECT_TOOLS: inject ? "true" : "false",
           AURORA_SIDECAR_TOOLS_PATH: toolsPath,
           AURORA_SIDECAR_PATH_TEMPLATE: overrides.pathTemplate,
