@@ -55,6 +55,27 @@ func vpnsPayload(dir, provider, key string, cfg map[string]string) string {
 	return string(raw)
 }
 
+// vpnsState is the persisted runtime state the addon writes after a refresh.
+type vpnsState struct {
+	LastRefresh   time.Time `json:"last_refresh"`
+	Selected      []string  `json:"selected"`
+	Subscriptions int       `json:"subscriptions"`
+	SettingsFP    string    `json:"settings_fp"`
+}
+
+func readVpnState(t *testing.T, dir string) vpnsState {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join(dir, "vpn-support-state.json"))
+	if err != nil {
+		t.Fatalf("state file: %v", err)
+	}
+	var state vpnsState
+	if err := json.Unmarshal(raw, &state); err != nil {
+		t.Fatalf("state json: %v (%s)", err, raw)
+	}
+	return state
+}
+
 func TestVPNSupportRuntimeRefreshUnderYaegi(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "vpn-runtime.go"), []byte(VPNSupportRuntimeSource(t)), 0o600); err != nil {
@@ -184,21 +205,51 @@ func TestVPNSupportRuntimeRefreshUnderYaegi(t *testing.T) {
 	}
 	time.Sleep(6 * time.Second)
 
-	raw, err := os.ReadFile(filepath.Join(dir, "vpn-support-state.json"))
-	if err != nil {
-		t.Fatalf("state file: %v", err)
+	first := readVpnState(t, dir)
+	if len(first.Selected) != 2 {
+		t.Errorf("selected = %v, want 2 kept IPs", first.Selected)
 	}
-	var state struct {
-		Selected      []string `json:"selected"`
-		Subscriptions int      `json:"subscriptions"`
+	if first.Subscriptions != 3 {
+		t.Errorf("subscriptions = %d, want 3", first.Subscriptions)
 	}
-	if err := json.Unmarshal(raw, &state); err != nil {
-		t.Fatalf("state json: %v (%s)", err, raw)
+	if first.SettingsFP == "" {
+		t.Error("state has no settings fingerprint")
 	}
-	if len(state.Selected) != 2 {
-		t.Errorf("selected = %v, want 2 kept IPs", state.Selected)
+
+	// The gateway never invokes OnSettingsSave, so an edited setting has to
+	// invalidate the last refresh on its own. Without that the operator waits
+	// out the whole interval after pasting a subscription.
+	edited := map[string]string{}
+	for k, v := range cfg {
+		edited[k] = v
 	}
-	if state.Subscriptions != 3 {
-		t.Errorf("subscriptions = %d, want 3", state.Subscriptions)
+	edited["node_count"] = "1"
+	if _, err := a.CallString("Data", vpnsPayload(dir, "vllm-zen", "", edited)); err != nil {
+		t.Fatalf("Data (edited): %v", err)
+	}
+	time.Sleep(6 * time.Second)
+
+	second := readVpnState(t, dir)
+	if second.SettingsFP == first.SettingsFP {
+		t.Error("settings fingerprint did not change after editing node_count")
+	}
+	if !second.LastRefresh.After(first.LastRefresh) {
+		t.Errorf("edited setting did not trigger a refresh: %v -> %v", first.LastRefresh, second.LastRefresh)
+	}
+	if len(second.Selected) != 1 {
+		t.Errorf("selected = %v, want 1 kept IP after node_count=1", second.Selected)
+	}
+
+	// Unchanged settings must not spin the fetcher on every dashboard poll.
+	if _, err := a.CallString("Data", vpnsPayload(dir, "vllm-zen", "", edited)); err != nil {
+		t.Fatalf("Data (repeat): %v", err)
+	}
+	if _, err := a.CallString("EgressCandidates", vpnsPayload(dir, "vllm-zen", "", edited)); err != nil {
+		t.Fatalf("EgressCandidates (repeat): %v", err)
+	}
+	time.Sleep(3 * time.Second)
+	third := readVpnState(t, dir)
+	if !third.LastRefresh.Equal(second.LastRefresh) {
+		t.Errorf("refresh loop with unchanged settings: %v -> %v", second.LastRefresh, third.LastRefresh)
 	}
 }
