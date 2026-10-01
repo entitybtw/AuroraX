@@ -13,6 +13,7 @@ import { ExternalAuthDialog } from "./ExternalAuthDialog";
 import { ProviderEgressPanel } from "./ProviderEgressPanel";
 import { IpListEditor } from "./IpListEditor";
 import { IpInventory } from "./IpInventory";
+import { ExternalIpsPanel } from "./ExternalIpsPanel";
 import { fetchExternalAuthProviders } from "@/lib/api/external-auth";
 import { fetchExtensions, type Extension } from "@/lib/api/extensions";
 import { useEgressStatus, useToggleEgressExit } from "@/lib/api/useEgress";
@@ -910,6 +911,8 @@ export function ProvidersTab(): JSX.Element {
           )}
 
           <IpInventory />
+
+          <ExternalIpsPanel providerNames={allIds} />
 
           <div className="flex items-center gap-2">
             <Button onClick={() => { setEditingProvider(null); setModalOpen("add"); }}>

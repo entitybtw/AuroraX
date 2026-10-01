@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bindsTo, EgressServersPayloadSchema } from "./egress-servers";
+import { bindEntries, bindsTo, EgressServersPayloadSchema, toggleBindTarget } from "./egress-servers";
 
 describe("bindsTo", () => {
   it("matches the extension-side apply_to rules", () => {
@@ -44,5 +44,45 @@ describe("EgressServersPayloadSchema", () => {
     const [first, second] = parsed.servers;
     expect(first?.alive).toBe(true);
     expect(second?.alive).toBe(false);
+  });
+});
+
+describe("bindEntries", () => {
+  it("splits every separator and drops blanks", () => {
+    expect(bindEntries("zen, or-main\nbackup ; ")).toEqual(["zen", "or-main", "backup"]);
+    expect(bindEntries(undefined)).toEqual([]);
+    expect(bindEntries("")).toEqual([]);
+  });
+});
+
+describe("toggleBindTarget", () => {
+  const all = ["opencode-zen", "cheapvibecode", "zen", "or-main"];
+
+  it("adds an unbound target", () => {
+    expect(toggleBindTarget("zen", "or-main", all)).toBe("zen, or-main");
+  });
+
+  it("removes one target and keeps the rest", () => {
+    expect(toggleBindTarget("zen, or-main", "zen", all)).toBe("or-main");
+    expect(toggleBindTarget("zen, or-main", "ZEN", all)).toBe("or-main");
+  });
+
+  it("writes out the remaining targets when the list meant everything", () => {
+    // An empty list binds everything; dropping the entry would re-bind it all.
+    expect(toggleBindTarget("", "zen", all)).toBe("opencode-zen, cheapvibecode, or-main");
+    expect(toggleBindTarget("*", "zen", all)).toBe("opencode-zen, cheapvibecode, or-main");
+  });
+
+  it("unbinding the last entry keeps the others bound explicitly", () => {
+    expect(toggleBindTarget("zen", "zen", all)).toBe("opencode-zen, cheapvibecode, or-main");
+  });
+
+  it("collapses back to everything when every target ends up listed", () => {
+    expect(toggleBindTarget("opencode-zen, cheapvibecode, zen", "or-main", all)).toBe("");
+    expect(toggleBindTarget("", "zen", ["zen"])).toBe("");
+  });
+
+  it("leaves the list alone for an unknown empty target", () => {
+    expect(toggleBindTarget("zen", "   ", all)).toBe("zen");
   });
 });
