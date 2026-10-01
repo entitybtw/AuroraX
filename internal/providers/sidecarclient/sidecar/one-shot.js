@@ -38,6 +38,10 @@ const cfg = {
     return raw === "true" ? true : raw === "false" ? false : null;
   })(),
   proxy: (process.env.AURORA_SIDECAR_PROXY ?? "").trim(),
+  proxies: (process.env.AURORA_SIDECAR_PROXIES ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
   toolsPath: process.env.AURORA_SIDECAR_TOOLS_PATH ?? "",
 };
 

@@ -27,6 +27,18 @@ function randomId(prefix) {
   return prefix + crypto.randomUUID().replace(/-/g, "").slice(0, 26);
 }
 
+// nextProxy returns the outbound proxy for this attempt. cfg.proxies is the
+// per-address list the operator configured (one CONNECT entry per source IP);
+// a single cfg.proxy stays supported and is simply a list of one.
+function nextProxy(cfg, attempt) {
+  const list = Array.isArray(cfg.proxies) ? cfg.proxies : [];
+  if (list.length === 0) return cfg.proxy || "";
+  // Spread attempts over the addresses instead of hammering the first one:
+  // attempt 1 uses the first address, a retry after a 403/429 leaves from
+  // the next, and so on.
+  return list[(attempt - 1) % list.length];
+}
+
 // Forward the identity headers the adapter selected (names come from the
 // applied extension's forward_headers / env). No client-specific names or
 // value shapes are hardcoded in the core.
@@ -154,7 +166,11 @@ export async function executeRequest(envelope, cfg) {
       headers: buildHeaders(),
       body: JSON.stringify(payload),
     };
-    if (cfg.proxy) fetchOpts.proxy = cfg.proxy;
+    // Rotate the outbound source across attempts: a rate limit is almost
+    // always scoped to the address that tripped it, so a retry that leaves
+    // from the same IP burns the attempt for nothing.
+    const proxy = nextProxy(cfg, attempt);
+    if (proxy) fetchOpts.proxy = proxy;
 
     // Per-attempt deadline for response headers only: aborting the request
     // also cancels an upstream that stopped responding mid-handshake, and the
