@@ -70,6 +70,11 @@ type LoadResult struct {
 	Config       *Config
 	RawProviders map[string]RawProviderConfig
 	RawPools     map[string]RawPoolConfig
+	// MergedOverrideProviders lists the RawProviders names that only exist
+	// because the startup merge folded the persisted override file into the
+	// map. Callers keeping a long-lived static base must drop them again, or a
+	// provider deleted from the dashboard keeps coming back after every rebuild.
+	MergedOverrideProviders []string
 }
 
 // AutoFetchFilter declares operator-supplied conditions that filter the model
