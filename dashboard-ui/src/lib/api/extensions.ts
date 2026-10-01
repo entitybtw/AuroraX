@@ -19,6 +19,9 @@ const ExtensionFieldSchema = z.object({
   default: z.string().optional(),
   options: z.array(z.string()).optional(),
   secret: z.boolean().optional(),
+  // Advanced fields stay out of the way until an operator opens them, so an
+  // extension can keep its everyday settings down to a handful of inputs.
+  advanced: z.boolean().optional(),
 });
 
 const ExtensionNavLinkSchema = z.object({

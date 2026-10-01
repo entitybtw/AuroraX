@@ -186,6 +186,29 @@ func TestVPNSupportRuntimeRefreshUnderYaegi(t *testing.T) {
 		}
 	}
 
+	// The dashboard reads a machine-readable endpoint list next to pools and
+	// providers: the same endpoints plus the flags it renders, and nothing of
+	// the prose the "nodes" key is formatted for humans.
+	servers, err := a.CallString("Data", vpnsPayload(dir, "vllm-zen", "servers", cfg))
+	if err != nil {
+		t.Fatalf("Data(servers): %v", err)
+	}
+	for _, want := range []string{
+		`"servers":[`,
+		`"apply_to":"vllm-zen,vllm-cheapvibecode"`,
+		`"egress_mode":"rotate"`,
+		`"core_kind":"static"`,
+		`"host":`,
+		`"selected":`,
+	} {
+		if !strings.Contains(servers, want) {
+			t.Errorf("endpoint list is missing %q: %s", want, servers)
+		}
+	}
+	if strings.Contains(servers, `"blocks"`) {
+		t.Errorf("endpoint list should not carry UI blocks: %s", servers)
+	}
+
 	candidates, err := a.CallString("EgressCandidates", vpnsPayload(dir, "vllm-zen", "", cfg))
 	if err != nil {
 		t.Fatalf("EgressCandidates (after): %v", err)

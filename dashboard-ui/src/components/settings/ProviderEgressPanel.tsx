@@ -4,28 +4,7 @@ import { Pill } from "@/components/ui/surface";
 import { cn } from "@/lib/utils";
 import { useEgressStatus, useToggleEgressExit } from "@/lib/api/useEgress";
 import type { ExitStatus } from "@/lib/api/egress-types";
-
-/** Short human label for where an exit came from. */
-function sourceLabel(source: string): string {
-  if (source === "extension") return "extension";
-  return "bind";
-}
-
-/** Short human label for the tier an exit sits in. */
-function tierLabel(tier: number): string {
-  if (tier < 0) return "preferred";
-  if (tier === 0) return "rotation";
-  return "fallback";
-}
-
-/** The one-line state of an exit, worst condition first. */
-function exitState(exit: ExitStatus): { label: string; tone: "muted" | "success" | "warning" | "danger" } {
-  if (exit.disabled) return { label: "off", tone: "muted" };
-  if (exit.cooldown_until) return { label: "cooling down", tone: "warning" };
-  if (exit.tier_limited) return { label: "rate limited", tone: "warning" };
-  if (!exit.available) return { label: "unavailable", tone: "danger" };
-  return { label: "in use", tone: "success" };
-}
+import { exitDestination, exitState, sourceLabel, tierLabel } from "@/lib/egress-view";
 
 function ExitRow({
   exit,
@@ -39,7 +18,7 @@ function ExitRow({
   onToggle: (exit: string, disabled: boolean) => void;
 }): JSX.Element {
   const state = exitState(exit);
-  const destination = exit.kind === "ip" ? exit.address : exit.proxy;
+  const destination = exitDestination(exit);
   return (
     <li
       className={cn(
@@ -57,7 +36,7 @@ function ExitRow({
           <Pill tone={state.tone}>{state.label}</Pill>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
-          <span className="font-mono">{exit.name}</span>
+          {destination !== exit.name ? <span className="font-mono">{exit.name}</span> : null}
           <span>
             {exit.ok}/{exit.requests} ok
           </span>
@@ -129,7 +108,7 @@ export function ProviderEgressPanel({ provider }: ProviderEgressPanelProps): JSX
           ) : null}
           {!isLoading && !error && exits.length === 0 ? (
             <p className="px-1 text-[11px] leading-relaxed text-muted-foreground">
-              No exits configured. Add bind_ips to this provider, or let an extension contribute them.
+              No exits configured. Add source IPs under Edit → Egress, or let an extension contribute them.
             </p>
           ) : null}
           {exits.length > 0 ? (

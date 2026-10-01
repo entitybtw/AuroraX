@@ -20,6 +20,10 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { ProviderEgressPanel } from "@/components/settings/ProviderEgressPanel";
+import { useEgressStatus } from "@/lib/api/useEgress";
+import type { ExitStatus } from "@/lib/api/egress-types";
+import { serversBoundTo, useEgressServerLists } from "@/lib/api/egress-servers";
+import type { EgressServer } from "@/lib/api/egress-servers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ToggleField } from "@/components/ui/toggle-field";
@@ -551,6 +555,8 @@ function PoolView({
         />
       </div>
 
+      <BoundExitsPanel members={pool.members} target={pool.name} />
+
       <MemberTable members={pool.members} strategy={pool.strategy} />
 
       <Surface className="p-4">
@@ -571,6 +577,220 @@ function PoolView({
 }
 
 /* ------------------------------------------------------------------ */
+/*  Bound exits: source IPs and extension endpoints                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Splits a provider's exits into the two groups an operator reasons about:
+ * local source addresses (bind_ips) and endpoint lists contributed by an
+ * extension such as a VPN subscription.
+ */
+function splitExits(exits: ExitStatus[] | undefined): { bind: string[]; servers: string[] } {
+  const bind: string[] = [];
+  const servers: string[] = [];
+  for (const exit of exits ?? []) {
+    if (exit.source === "extension") {
+      const label = exit.name.replace(/^vpn:/, "");
+      if (label && !servers.includes(label)) servers.push(label);
+    } else {
+      const addr = exit.address || exit.name.replace(/^ip:/, "");
+      if (addr && !bind.includes(addr)) bind.push(addr);
+    }
+  }
+  return { bind, servers };
+}
+
+function ChipList({ items, tone }: { items: string[]; tone: "muted" | "accent" }): JSX.Element {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {items.map((item) => (
+        <span
+          key={item}
+          className={
+            tone === "accent"
+              ? "max-w-full truncate border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent"
+              : "max-w-full truncate border border-border/30 bg-background/30 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
+          }
+          title={item}
+        >
+          {item}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * What the pool actually sends from: every member's source IPs plus every
+ * endpoint an extension bound to this pool, deduplicated across members.
+ * With no extension bound only the source IPs show; with both configured the
+ * two groups sit side by side.
+ */
+function BoundExitsPanel({
+  members,
+  target,
+}: {
+  members: PoolSnapshot["members"];
+  target: string;
+}): JSX.Element {
+  const egress = useEgressStatus();
+  const lists = useEgressServerLists();
+  const { bind, servers: rotation } = React.useMemo(() => {
+    const byProvider = new Map((egress.data?.providers ?? []).map((entry) => [entry.provider, entry.exits] as const));
+    const exits = members.flatMap((m) => byProvider.get(m.provider_name) ?? []);
+    return splitExits(exits);
+  }, [egress.data, members]);
+
+  // Endpoints the extension has bound to this pool. They show whether or not
+  // traffic flows through them: an extension running without a tunnel core
+  // still lists its servers here, only the rotation is empty.
+  const bound = React.useMemo(() => serversBoundTo(lists, target), [lists, target]);
+  const endpoints = bound.servers;
+  const total = bound.lists.reduce((sum, list) => sum + list.payload.servers.length, 0);
+  const coreKind = bound.lists[0]?.payload.core_kind ?? "";
+  const mode = bound.lists[0]?.payload.egress_mode ?? "";
+  const inRotation = endpoints.length > 0 && coreKind !== "none";
+  const hasEndpoints = endpoints.length > 0 || rotation.length > 0;
+
+  return (
+    <Surface className="p-4">
+      <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <Globe className="h-3.5 w-3.5" />
+        Bound exits
+      </div>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Source IPs</span>
+            <Pill tone="muted">{bind.length}</Pill>
+          </div>
+          {bind.length > 0 ? (
+            <ChipList items={bind} tone="muted" />
+          ) : (
+            <p className="text-[11px] text-muted-foreground">
+              None. Set source IPs on a member provider to send from a fixed address.
+            </p>
+          )}
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Extension endpoints</span>
+            <Pill tone={hasEndpoints ? "accent" : "muted"}>
+              {endpoints.length > 0 ? endpoints.length : rotation.length}
+            </Pill>
+            {bound.lists.map((list) => (
+              <Pill key={list.id} tone="muted">{list.name}</Pill>
+            ))}
+          </div>
+          {endpoints.length > 0 ? (
+            <>
+              <div className="flex flex-wrap gap-1.5">
+                {endpoints.map((server) => (
+                  <span
+                    key={`${server.host}:${server.port}`}
+                    title={[
+                      server.name,
+                      server.protocol,
+                      server.alive === false ? "not answering" : "answering",
+                      server.latency_ms ? `${server.latency_ms}ms` : "",
+                    ].filter(Boolean).join(" · ")}
+                    className={
+                      server.alive === false
+                        ? "max-w-full truncate border border-border/30 bg-background/30 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground line-through"
+                        : "max-w-full truncate border border-accent/30 bg-accent/10 px-1.5 py-0.5 font-mono text-[10px] text-accent"
+                    }
+                  >
+                    {server.host}:{server.port}
+                  </span>
+                ))}
+              </div>
+              <p className="text-[10px] leading-relaxed text-muted-foreground">
+                {total > endpoints.length ? `${endpoints.length} of ${total} endpoints kept · ` : ""}
+                {inRotation
+                  ? `in the ${mode} rotation.`
+                  : "report-only — no tunnel core is configured, so these servers are listed but traffic is not routed through them."}
+              </p>
+            </>
+          ) : rotation.length > 0 ? (
+            <ChipList items={rotation} tone="accent" />
+          ) : (
+            <p className="text-[11px] text-muted-foreground">
+              None. Bind a VPN subscription to this pool to add endpoints.
+            </p>
+          )}
+        </div>
+        {egress.error ? (
+          <p className="border border-destructive/25 bg-destructive/10 px-3 py-2 font-mono text-[11px] text-destructive">
+            {egress.error.message}
+          </p>
+        ) : null}
+      </div>
+    </Surface>
+  );
+}
+
+/**
+ * The compact exit summary shown inline with a member's name: its source IPs
+ * first, then the endpoints bound to it — the extension's own list when it
+ * has one, otherwise the exits it already contributes to the rotation.
+ */
+function MemberExitChips({
+  exits,
+  servers,
+}: {
+  exits: ExitStatus[] | undefined;
+  servers?: EgressServer[];
+}): JSX.Element | null {
+  const { bind, servers: rotation } = splitExits(exits);
+  const endpoints =
+    servers && servers.length > 0
+      ? servers.slice(0, 2).map((server) => ({
+          label: `${server.host}:${server.port}`,
+          title: [server.name, server.alive === false ? "not answering" : "answering"]
+            .filter(Boolean)
+            .join(" · "),
+          dimmed: server.alive === false,
+          accent: true,
+        }))
+      : rotation.slice(0, 2).map((name) => ({ label: name, title: name, dimmed: false, accent: true }));
+  const endpointTotal = servers && servers.length > 0 ? servers.length : rotation.length;
+  if (bind.length === 0 && endpointTotal === 0) return null;
+  const shownBind = bind.slice(0, 2);
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-1">
+      {shownBind.map((ip) => (
+        <span
+          key={ip}
+          className="border border-border/30 bg-background/30 px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground"
+          title={`Source IP ${ip}`}
+        >
+          {ip}
+        </span>
+      ))}
+      {bind.length > shownBind.length ? (
+        <span className="text-[9px] text-muted-foreground">+{bind.length - shownBind.length} ip</span>
+      ) : null}
+      {endpoints.map((endpoint) => (
+        <span
+          key={endpoint.label}
+          title={endpoint.title}
+          className={
+            endpoint.dimmed
+              ? "max-w-[14rem] truncate border border-border/30 bg-background/30 px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground line-through"
+              : "max-w-[14rem] truncate border border-accent/30 bg-accent/10 px-1.5 py-0.5 font-mono text-[9px] text-accent"
+          }
+        >
+          {endpoint.label}
+        </span>
+      ))}
+      {endpointTotal > endpoints.length ? (
+        <span className="text-[9px] text-accent">+{endpointTotal - endpoints.length} more</span>
+      ) : null}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Member table                                                       */
 /* ------------------------------------------------------------------ */
 
@@ -582,6 +802,12 @@ function MemberTable({
   strategy: string;
 }) {
   const [expandedMembers, setExpandedMembers] = React.useState<Set<string>>(new Set());
+  const egress = useEgressStatus();
+  const lists = useEgressServerLists();
+  const exitsByProvider = React.useMemo(
+    () => new Map((egress.data?.providers ?? []).map((entry) => [entry.provider, entry.exits] as const)),
+    [egress.data],
+  );
   const toggleMember = (name: string) =>
     setExpandedMembers((prev) => {
       const next = new Set(prev);
@@ -636,6 +862,10 @@ function MemberTable({
                     <span className="font-mono font-medium text-foreground">{m.provider_name}</span>
                     <ChevronDown className={cn("h-3 w-3 shrink-0 text-muted-foreground transition-transform", expanded && "rotate-180")} />
                   </button>
+                  <MemberExitChips
+                    exits={exitsByProvider.get(m.provider_name)}
+                    servers={serversBoundTo(lists, m.provider_name).servers}
+                  />
                 </td>
                 <td className="px-4 py-2.5">
                   <span

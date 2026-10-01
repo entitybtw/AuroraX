@@ -239,13 +239,26 @@ func (r *ModelRegistry) fetchAllProviderModels(
 		// This runs before the empty check so a provider whose entire catalog
 		// is filtered away is treated as "returned no models" rather than
 		// registering models the operator explicitly excluded.
-		resp, _ = applyAutoFetchFilter(providerName, autoFetchFilters[providerName], resp)
+		fetchedCount := len(resp.Data)
+		resp, removedByFilter := applyAutoFetchFilter(providerName, autoFetchFilters[providerName], resp)
 
 		if len(resp.Data) == 0 {
+			// Say who emptied the list: an empty upstream response and a
+			// filter that rejected every fetched model are different faults
+			// with different fixes.
 			err := errors.New("provider returned empty model list")
-			slog.Warn("provider returned empty model list",
-				"provider", providerName,
-			)
+			if removedByFilter > 0 {
+				err = fmt.Errorf("autofetch filter removed all %d fetched models", fetchedCount)
+				slog.Warn("autofetch filter removed every model",
+					"provider", providerName,
+					"fetched", fetchedCount,
+					"removed", removedByFilter,
+				)
+			} else {
+				slog.Warn("provider returned empty model list",
+					"provider", providerName,
+				)
+			}
 			out.runtimeUpdates[providerName] = providerRuntimeState{
 				registered:          true,
 				lastModelFetchAt:    fetchAt,
