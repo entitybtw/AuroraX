@@ -140,6 +140,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 		sidecarOverrides:  admin.NewSidecarOverrideStore(),
 		extensions:        admin.NewExtensionStore(),
 	}
+	app.dropStartupMergedOverrides(cfg.AppConfig.MergedOverrideProviders)
 
 	// Yaegi addon store: extension-shipped *.go files (auth addons) and any
 	// operator scripts under the addons directory. Nothing auth-flow-related

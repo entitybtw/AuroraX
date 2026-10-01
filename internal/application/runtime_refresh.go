@@ -439,6 +439,25 @@ func (a *App) modelListURL() string {
 	return strings.TrimSpace(a.config.Cache.Model.ModelList.URL)
 }
 
+// dropStartupMergedOverrides removes the names the startup merge folded into
+// RawProviders from the static provider base.
+//
+// The merge exists so the very first providers.Init registers dashboard
+// providers, but the base lives for as long as the process does. Those names
+// are re-applied — and replaced wholesale — by runtimeRawProviders on every
+// rebuild, so keeping them here would resurrect a provider the dashboard
+// deleted until the process restarts.
+func (a *App) dropStartupMergedOverrides(names []string) {
+	if a == nil || len(a.rawProviders) == 0 || len(names) == 0 {
+		return
+	}
+	for _, name := range names {
+		if trimmed := strings.TrimSpace(name); trimmed != "" {
+			delete(a.rawProviders, trimmed)
+		}
+	}
+}
+
 func (a *App) runtimeRawProviders() map[string]config.RawProviderConfig {
 	if a == nil {
 		return nil

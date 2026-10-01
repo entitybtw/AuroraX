@@ -480,6 +480,10 @@ func main() {
 // like auth_method take effect from the first start (not only after runtime
 // refresh via the admin API). Auth wiring (server/client_id/flows) is not
 // merged: extension auth addons read the raw overrides file themselves.
+//
+// Every name folded in is recorded on the LoadResult so the application can
+// drop it from its static provider base again — the override store, not this
+// snapshot, decides which providers exist.
 func mergeProviderOverridesIntoConfig(result *config.LoadResult) {
 	if result == nil || result.RawProviders == nil {
 		return
@@ -519,13 +523,16 @@ func mergeProviderOverridesIntoConfig(result *config.LoadResult) {
 		}
 		existing, exists := result.RawProviders[name]
 		if !exists {
-			// Create a new entry if it only exists in overrides
+			// Create a new entry if it only exists in overrides. Only these
+			// names are recorded: a name that already existed came from the
+			// static config and must survive if its override is deleted.
 			existing = config.RawProviderConfig{
 				Type:       strings.TrimSpace(o.Type),
 				APIKey:     strings.TrimSpace(o.APIKey),
 				BaseURL:    strings.TrimSpace(o.BaseURL),
 				APIVersion: strings.TrimSpace(o.APIVersion),
 			}
+			result.MergedOverrideProviders = append(result.MergedOverrideProviders, name)
 		}
 		// Merge auth_method and runtime edits from overrides into the config.
 		if o.AuthMethod != "" {

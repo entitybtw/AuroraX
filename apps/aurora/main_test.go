@@ -3,9 +3,13 @@ package main
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
+
+	"aurora/configuration"
 )
 
 type stubLifecycleApp struct {
@@ -140,5 +144,39 @@ func TestStartApplication_StopsWaitingWhenShutdownTimesOut(t *testing.T) {
 	}
 	if calls := app.shutdownCallCount(); calls != 1 {
 		t.Fatalf("shutdownCalls = %d, want 1", calls)
+	}
+}
+
+// Only names that exist solely in the override file are recorded: a name that
+// already came from the static config must survive if its override is deleted.
+func TestMergeProviderOverridesRecordsOnlyOverrideOnlyNames(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "provider-overrides.json")
+	body := `[
+		{"name":"static-provider","type":"vllm","base_url":"https://static.example/v1","auth_method":"key"},
+		{"name":"ui-only-provider","type":"vllm","base_url":"https://ui.example/v1","bind_ip":"203.0.113.7"}
+	]`
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatalf("write overrides: %v", err)
+	}
+	t.Setenv("AURORA_PROVIDER_OVERRIDES_PATH", path)
+
+	result := &config.LoadResult{
+		RawProviders: map[string]config.RawProviderConfig{
+			"static-provider": {Type: "vllm", BaseURL: "https://static.example/v1"},
+		},
+	}
+	mergeProviderOverridesIntoConfig(result)
+
+	if got := len(result.MergedOverrideProviders); got != 1 {
+		t.Fatalf("merged names = %v, want exactly the override-only provider", result.MergedOverrideProviders)
+	}
+	if result.MergedOverrideProviders[0] != "ui-only-provider" {
+		t.Fatalf("merged name = %q, want ui-only-provider", result.MergedOverrideProviders[0])
+	}
+	if _, ok := result.RawProviders["ui-only-provider"]; !ok {
+		t.Fatal("override-only provider missing from RawProviders after merge")
+	}
+	if got := result.RawProviders["static-provider"].AuthMethod; got != "key" {
+		t.Fatalf("static provider auth_method = %q, want key", got)
 	}
 }
