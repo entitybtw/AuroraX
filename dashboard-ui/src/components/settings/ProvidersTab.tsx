@@ -5,44 +5,26 @@ import { Switch } from "@/components/ui/switch";
 import { RuntimeStatusBadge, useSettings, StatusChip } from "./SettingsContext";
 import { ServerIcon, RefreshCwIcon, PlusIcon, Edit3Icon, Trash2Icon, SaveIcon, XIcon, CheckIcon, SquareIcon, CheckSquareIcon, MinusIcon, KeyIcon } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchProviderStatus, createProvider, updateProvider, deleteProvider, setProviderEnabled, refreshRuntime, type ProviderFormData, type AutoFetchFilter, type ProviderStatusResponse } from "@/lib/api/providers";
+import { fetchProviderStatus, createProvider, updateProvider, deleteProvider, setProviderEnabled, refreshRuntime, type ProviderFormData, type ProviderStatusResponse } from "@/lib/api/providers";
 import { withBasePath } from "@/lib/basepath";
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { ExternalAuthDialog } from "./ExternalAuthDialog";
 import { ProviderEgressPanel } from "./ProviderEgressPanel";
+import { IpListEditor } from "./IpListEditor";
+import { IpInventory } from "./IpInventory";
 import { fetchExternalAuthProviders } from "@/lib/api/external-auth";
 import { fetchExtensions, type Extension } from "@/lib/api/extensions";
+import { useEgressStatus, useToggleEgressExit } from "@/lib/api/useEgress";
+import { serversBoundTo, useEgressServerLists } from "@/lib/api/egress-servers";
+import { exitDestination, exitForIp, exitState, toneDotClass } from "@/lib/egress-view";
+import type { ProviderStatusItem } from "@/lib/api/providers-types";
+import { filterToText, hasAdvancedConditions, resolveAutofetchFilter } from "@/lib/autofetch-filter";
 
-// filterToText renders an AutoFetchFilter into the simple comma-separated form
-// the provider form edits. Only `contains` conditions are representable; a
-// filter using regex or price rules shows a generic label.
 /** "Claude OAuth" / "OpenCode Auth" / "Zen Device" → "Link … account". */
 function linkAccountLabel(name: string): string {
   const subject = name.replace(/\s+(oauth|auth|device|account)\b.*$/i, "").trim();
   return subject ? `Link ${subject} account` : "Link account";
-}
-
-function filterToText(filter?: AutoFetchFilter | null): string {
-  if (!filter?.conditions?.length) return "";
-  const contains = filter.conditions
-    .map((condition) => condition.contains ?? "")
-    .filter((value) => value !== "");
-  const advanced = filter.conditions.some((c) => !c.contains || c.contains === "");
-  if (contains.length === 0 && advanced) return "advanced filter";
-  const base = contains.join(", ");
-  return advanced ? `${base}, ...` : base;
-}
-
-// textToFilter parses the comma-separated text back into a filter. An empty
-// string returns an empty filter object (not null) so the backend clears it.
-function textToFilter(text: string): AutoFetchFilter {
-  const values = text
-    .split(",")
-    .map((value) => value.trim())
-    .filter((value) => value !== "");
-  if (values.length === 0) return { mode: "all", conditions: [] };
-  return { mode: "all", conditions: values.map((value) => ({ contains: value })) };
 }
 
 const PROVIDER_LOGOS: Record<string, string> = {
@@ -129,30 +111,224 @@ function ConfigSourceBadge({ source }: { source: string | undefined }): JSX.Elem
   );
 }
 
+/** Short human label for the tier an exit sits in (mirrors the egress panel). */
+function tierName(tier: number): string {
+  if (tier < 0) return "preferred";
+  if (tier === 0) return "rotation";
+  return "fallback";
+}
+
+/**
+ * The endpoint lists an extension (VPN) contributes to this provider, one
+ * checkbox each. Only rendered when such exits exist, so a plain provider
+ * never sees the section.
+ */
+function ExtensionEndpoints({ provider }: { provider: string }): JSX.Element | null {
+  const { data } = useEgressStatus();
+  const toggle = useToggleEgressExit();
+  const lists = useEgressServerLists();
+  const status = data?.providers.find((entry) => entry.provider === provider);
+  const exits = (status?.exits ?? []).filter((exit) => exit.source === "extension");
+  const bound = serversBoundTo(lists, provider);
+  if (!provider || (exits.length === 0 && bound.servers.length === 0)) return null;
+
+  const total = bound.lists.reduce((sum, list) => sum + list.payload.servers.length, 0);
+  const coreKind = bound.lists[0]?.payload.core_kind ?? "";
+
+  // Nothing is routed yet: the extension has endpoints bound here but no
+  // tunnel core to send them through, so there are no exits to toggle.
+  if (exits.length === 0) {
+    return (
+      <div className="flex flex-col gap-2 border border-accent/25 bg-accent/5 px-3 py-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-accent">Extension endpoints</span>
+          <Pill tone="accent">{bound.servers.length}</Pill>
+          {bound.lists.map((list) => (
+            <Pill key={list.id} tone="muted">{list.name}</Pill>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {bound.servers.map((server) => (
+            <span
+              key={`${server.host}:${server.port}`}
+              title={[server.name, server.protocol, server.alive === false ? "not answering" : "answering"].filter(Boolean).join(" · ")}
+              className={
+                server.alive === false
+                  ? "border border-border/30 bg-background/40 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground line-through"
+                  : "border border-accent/30 bg-accent/10 px-1.5 py-0.5 font-mono text-[11px] text-accent"
+              }
+            >
+              {server.host}:{server.port}
+            </span>
+          ))}
+        </div>
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          {total > bound.servers.length ? `${bound.servers.length} of ${total} endpoints kept · ` : ""}
+          {coreKind === "none"
+            ? "report-only: no tunnel core is configured, so traffic does not use them yet."
+            : "bound, but no exit is registered for this provider yet."}
+        </p>
+      </div>
+    );
+  }
+
+  const active = exits.filter((exit) => !exit.disabled).length;
+  return (
+    <div className="flex flex-col gap-2 border border-accent/25 bg-accent/5 px-3 py-2.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-accent">Extension endpoints</span>
+        <Pill tone="accent">{active} of {exits.length} in use</Pill>
+      </div>
+      <ul className="flex max-h-52 flex-col gap-1 overflow-y-auto">
+        {exits.map((exit) => (
+          <li
+            key={exit.name}
+            className={`flex items-center gap-2 border border-border/30 bg-background/40 px-2.5 py-1.5 ${exit.disabled ? "opacity-60" : ""}`}
+          >
+            <button
+              type="button"
+              role="checkbox"
+              aria-checked={!exit.disabled}
+              aria-label={`${exit.disabled ? "Use" : "Stop using"} ${exit.name}`}
+              disabled={toggle.isPending}
+              onClick={() => toggle.mutate({ provider, exit: exit.name, disabled: !exit.disabled })}
+              className="shrink-0 p-0.5 hover:bg-border/20 transition-colors disabled:opacity-50"
+              title={exit.disabled ? "Add this endpoint to the rotation" : "Keep this endpoint out of the rotation"}
+            >
+              {exit.disabled ? (
+                <SquareIcon className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <CheckSquareIcon className="h-4 w-4 text-accent" />
+              )}
+            </button>
+            <span className={`min-w-0 flex-1 truncate text-[12px] text-foreground ${exit.disabled ? "line-through" : ""}`} title={exit.name}>
+              {exit.name.replace(/^vpn:/, "")}
+            </span>
+            <Pill tone="muted">{tierName(exit.tier)}</Pill>
+          </li>
+        ))}
+      </ul>
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        Endpoint lists contributed by an extension. Uncheck one to keep it out of this provider's rotation; the extension keeps refreshing the rest.
+      </p>
+    </div>
+  );
+}
+
+/** One grouped block of the provider form: a titled container so the modal
+ *  reads as Connection / Models / Egress instead of one flat field list. */
+function Section({
+  title,
+  hint,
+  aside,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  aside?: ReactNode;
+  children: ReactNode;
+}): JSX.Element {
+  return (
+    <section className="flex flex-col gap-3 border border-border/40 bg-background/20 px-3 py-3 sm:px-4 sm:py-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="flex flex-col gap-1">
+          <h4 className="text-[11px] font-bold uppercase tracking-wider text-accent">{title}</h4>
+          {hint ? <p className="max-w-prose text-[11px] leading-relaxed text-muted-foreground">{hint}</p> : null}
+        </div>
+        {aside}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/**
+ * The at-a-glance address strip on a provider card: one chip per configured
+ * source IP, coloured by its live state, clickable to take it out of (or back
+ * into) the rotation immediately — no save round-trip. Extension endpoints are
+ * summarised as a count and managed in the Egress drill-down below.
+ */
+function ProviderIpStrip({ name, onManage }: { name: string; onManage: () => void }): JSX.Element | null {
+  const { data } = useEgressStatus();
+  const toggle = useToggleEgressExit();
+  const exits = data?.providers.find((entry) => entry.provider === name)?.exits ?? [];
+  if (exits.length === 0) return null;
+
+  const configExits = exits.filter((exit) => exit.source !== "extension");
+  const extensionCount = exits.length - configExits.length;
+  const shown = configExits.slice(0, 8);
+  const hidden = configExits.length - shown.length;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">IPs</span>
+      {shown.map((exit) => {
+        const state = exitState(exit);
+        return (
+          <button
+            key={exit.name}
+            type="button"
+            disabled={toggle.isPending}
+            onClick={() => toggle.mutate({ provider: name, exit: exit.name, disabled: !exit.disabled })}
+            className={cn(
+              "inline-flex items-center gap-1.5 border px-1.5 py-0.5 font-mono text-[10px] transition-colors disabled:opacity-60",
+              exit.disabled
+                ? "border-border/40 text-muted-foreground hover:border-accent/40"
+                : "border-border/60 text-foreground hover:border-accent/50",
+            )}
+            title={`${exitDestination(exit)} — ${state.label}${exit.requests ? `, ${exit.ok}/${exit.requests} ok` : ""}. Click to ${exit.disabled ? "put it back into" : "take it out of"} the rotation.`}
+            aria-label={`${exit.disabled ? "Resume" : "Pause"} ${exit.name} for ${name}`}
+          >
+            <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", toneDotClass(state.tone))} />
+            <span className={cn(exit.disabled && "line-through")}>{exitDestination(exit)}</span>
+          </button>
+        );
+      })}
+      {hidden > 0 ? <span className="text-[10px] text-muted-foreground">+{hidden} more</span> : null}
+      {extensionCount > 0 ? <Pill tone="accent">{extensionCount} extension exits</Pill> : null}
+      <button
+        type="button"
+        onClick={onManage}
+        className="text-[10px] font-bold uppercase tracking-wider text-accent transition-colors hover:text-accent-hover"
+        title="Open this provider's settings"
+      >
+        Manage IPs
+      </button>
+    </div>
+  );
+}
+
 interface ProviderModalProps {
   mode: "add" | "edit";
   initial: (ProviderFormData & { originalName?: string; apiKeySet?: boolean }) | undefined;
   onClose: () => void;
   onSaved: () => void;
 }
-
 function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps): JSX.Element {
   const [form, setForm] = useState<ProviderFormData>(initial ?? { name: "", type: "", base_url: "", api_version: "", api_key: "", models: "", bind_ip: "", pool_only: false, user_agent: "", disable_api_key: false, auto_fetch_models: true });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [presetConfirm, setPresetConfirm] = useState<{ preset: { name: string; type: string; base_url: string; auth_method?: string; key_optional?: boolean; description: string }; field: string } | null>(null);
+
+  // Live egress rows for the provider being edited: every source IP then
+  // carries its state, its traffic, and a pause/resume control that applies
+  // immediately — the rotation toggle is a runtime switch, not a form field.
+  const egressProvider = initial?.originalName ?? form.name;
+  const { data: egressData } = useEgressStatus();
+  const exitToggle = useToggleEgressExit();
+  const egressExits = (egressData?.providers.find((entry) => entry.provider === egressProvider)?.exits ?? []).filter(
+    (exit) => exit.source !== "extension",
+  );
+  const egressOff = egressExits.filter((exit) => exit.disabled).length;
 
   const handleSave = async () => {
     setSaving(true);
     setError(null);
     try {
-      const { autofetch_filter_text, ...rest } = form;
-      const text = (autofetch_filter_text ?? "").trim();
-      const parsed = textToFilter(text);
+      const { autofetch_filter, autofetch_filter_text, ...rest } = form;
       const payload = {
         ...rest,
-        autofetch_filter: parsed,
+        autofetch_filter: resolveAutofetchFilter(autofetch_filter ?? initial?.autofetch_filter, autofetch_filter_text ?? ""),
       };
       if (mode === "add") {
         await createProvider(payload);
@@ -214,167 +390,181 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full sm:max-w-lg max-h-[90vh] overflow-y-auto border border-border/60 bg-surface sm:p-6 p-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-[15px] tracking-tight text-foreground">{mode === "add" ? "Add Provider" : "Edit Provider"}</h3>
-          <button onClick={onClose} className="p-1 hover:bg-border/20 transition-colors"><XIcon className="h-4 w-4 text-muted-foreground" /></button>
+      <div className="w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto border border-border/60 bg-surface shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border/50 bg-surface px-4 py-3 sm:px-6">
+          <div className="flex flex-col gap-0.5">
+            <h3 className="font-semibold text-[15px] tracking-tight text-foreground">{mode === "add" ? "Add Provider" : "Edit Provider"}</h3>
+            {form.name ? <span className="font-mono text-[11px] text-muted-foreground">{form.name}</span> : null}
+          </div>
+          <button onClick={onClose} aria-label="Close" className="p-1 hover:bg-border/20 transition-colors"><XIcon className="h-4 w-4 text-muted-foreground" /></button>
         </div>
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Name</label>
-            <Input type="text" placeholder="my-provider" value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            {mode === "edit" && (
-              <div className="text-[11px] text-muted-foreground">Rename by editing this value. Pools that referenced the old name are updated automatically.</div>
-            )}
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Type</label>
-            <select className="field-input w-full" value={form.type}
-              onChange={(e) => handleTypeChange(e.target.value)}>
-              <option value="">Select type...</option>
-              {providerTypes.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Base URL</label>
-            <Input type="text" placeholder="https://api.openai.com/v1" value={form.base_url}
-              onChange={(e) => handleBaseUrlChange(e.target.value)} />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">API Version</label>
-            <Input type="text" placeholder="2024-01-01" value={form.api_version}
-              onChange={(e) => setForm({ ...form, api_version: e.target.value })} />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">API Key</label>
-            <Input type="password" placeholder={mode === "edit" && initial?.apiKeySet ? "Leave empty to keep existing key" : "sk-..."} value={form.api_key}
-              onChange={(e) => setForm({ ...form, api_key: e.target.value })} />
-            {mode === "edit" && initial?.apiKeySet && (
-              <div className="text-[11px] text-success">A key is already set for this provider. Leave empty to keep it.</div>
-            )}
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Models</label>
-            <Input type="text" placeholder="gpt-4, gpt-3.5-turbo" value={form.models}
-              onChange={(e) => setForm({ ...form, models: e.target.value })} />
-            <div className="text-[11px] text-muted-foreground">Comma separated model IDs</div>
-          </div>
-
-          <div className="flex items-center justify-between gap-3 border border-border/40 bg-background/30 px-3 py-2.5">
-            <div className="flex flex-col gap-1 pr-2">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Auto-fetch models</label>
-              <div className="text-[11px] text-muted-foreground">Automatically discover available models via the provider's /models endpoint.</div>
-            </div>
-            <Switch
-              checked={form.auto_fetch_models ?? true}
-              size="sm"
-              onCheckedChange={(v) => setForm({ ...form, auto_fetch_models: v })}
-              aria-label="Auto-fetch models"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Auto-fetch filter</label>
-            <div className="relative">
-              <Input type="text" placeholder="free, flash  (empty = keep all)" value={form.autofetch_filter_text ?? ""}
-                onChange={(e) => setForm({ ...form, autofetch_filter_text: e.target.value })}
-                className="pr-8" />
-              {(form.autofetch_filter_text ?? "") !== "" && (
-                <button type="button" onClick={() => setForm({ ...form, autofetch_filter_text: "" })}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 hover:bg-border/30 rounded transition-colors"
-                  title="Clear filter">
-                  <XIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                </button>
+        <div className="flex flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5">
+          <Section title="Connection" hint="Where the gateway reaches this provider.">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Name</label>
+              <Input type="text" placeholder="my-provider" value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              {mode === "edit" && (
+                <div className="text-[11px] text-muted-foreground">Rename by editing this value. Pools that referenced the old name are updated automatically.</div>
               )}
             </div>
-            <div className="text-[11px] text-muted-foreground">Comma-separated substrings. Only models whose ID contains every value are kept. Leave empty to keep all.</div>
-            {initial?.autofetch_filter && (form.autofetch_filter_text ?? "") === "" && (
-              <div className="text-[11px] text-warning">Warning: This provider has an advanced filter set. Clearing the text will remove it.</div>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-accent hover:text-accent-hover transition-colors py-1"
-          >
-            <span className={`transform transition-transform ${showAdvanced ? "rotate-90" : ""}`}>&#9654;</span>
-            {showAdvanced ? "Hide" : "Show"} Advanced Options
-          </button>
-
-          {showAdvanced && (
-            <div className="flex flex-col gap-3 border border-border/30 bg-background/20 p-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Bind IP</label>
-                <Input type="text" placeholder="203.0.113.10" value={form.bind_ip ?? ""}
-                  onChange={(e) => setForm({ ...form, bind_ip: e.target.value })} />
-                <div className="text-[11px] text-muted-foreground">Optional local outbound IP for upstream requests (use when the provider rate-limits per source IP)</div>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Bind IPs</label>
-                <textarea
-                  className="field-input w-full font-mono text-[12px] leading-relaxed min-h-[72px] resize-y"
-                  placeholder={"203.0.113.10\n203.0.113.11"}
-                  value={(form.bind_ips ?? []).join("\n")}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      bind_ips: e.target.value.split("\n").map((v) => v.trim()).filter(Boolean),
-                    })
-                  }
-                />
-                <div className="text-[11px] text-muted-foreground">One local source address per line. The gateway rotates between them per attempt; Bind IP above is kept as the first entry.</div>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Egress strategy</label>
-                <select
-                  className="field-input w-full"
-                  value={form.egress_strategy ?? ""}
-                  onChange={(e) => setForm({ ...form, egress_strategy: e.target.value })}
-                >
-                  <option value="">round_robin (default)</option>
-                  <option value="round_robin">round_robin</option>
-                  <option value="random">random</option>
-                  <option value="weighted">weighted</option>
-                  <option value="first">first</option>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Type</label>
+                <select className="field-input w-full" value={form.type}
+                  onChange={(e) => handleTypeChange(e.target.value)}>
+                  <option value="">Select type...</option>
+                  {providerTypes.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
-                <div className="text-[11px] text-muted-foreground">How one exit is picked from the set: rotate in order, at random, weighted by weight, or always the first.</div>
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">User Agent</label>
-                <Input type="text" placeholder="my-app/1.0" value={form.user_agent ?? ""}
-                  onChange={(e) => setForm({ ...form, user_agent: e.target.value })} />
-                <div className="text-[11px] text-muted-foreground">Custom User-Agent header sent to the upstream provider</div>
-              </div>
-              <div className="flex items-center justify-between gap-3 border border-border/40 bg-background/30 px-3 py-2.5">
-                <div className="flex flex-col gap-1 pr-2">
-                  <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Pool only</label>
-                  <div className="text-[11px] text-muted-foreground">Hide from model list; reachable only through a pool.</div>
-                </div>
-                <Switch
-                  checked={form.pool_only ?? false}
-                  size="sm"
-                  onCheckedChange={(v) => setForm({ ...form, pool_only: v })}
-                  aria-label="Pool only"
-                />
-              </div>
-              <div className="flex items-center justify-between gap-3 border border-border/40 bg-background/30 px-3 py-2.5">
-                <div className="flex flex-col gap-1 pr-2">
-                  <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Disable API Key</label>
-                  <div className="text-[11px] text-muted-foreground">Stop sending the static API key upstream. Use when an auth token supersedes it.</div>
-                </div>
-                <Switch
-                  checked={form.disable_api_key ?? false}
-                  size="sm"
-                  onCheckedChange={(v) => setForm({ ...form, disable_api_key: v })}
-                  aria-label="Disable API key"
-                />
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">API Version</label>
+                <Input type="text" placeholder="2024-01-01" value={form.api_version}
+                  onChange={(e) => setForm({ ...form, api_version: e.target.value })} />
               </div>
             </div>
-          )}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Base URL</label>
+              <Input type="text" placeholder="https://api.openai.com/v1" value={form.base_url}
+                onChange={(e) => handleBaseUrlChange(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">API Key</label>
+              <Input type="password" placeholder={mode === "edit" && initial?.apiKeySet ? "Leave empty to keep existing key" : "sk-..."} value={form.api_key}
+                onChange={(e) => setForm({ ...form, api_key: e.target.value })} />
+              {mode === "edit" && initial?.apiKeySet && (
+                <div className="text-[11px] text-success">A key is already set for this provider. Leave empty to keep it.</div>
+              )}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">User Agent</label>
+              <Input type="text" placeholder="my-app/1.0" value={form.user_agent ?? ""}
+                onChange={(e) => setForm({ ...form, user_agent: e.target.value })} />
+              <div className="text-[11px] text-muted-foreground">Custom User-Agent header sent to the upstream provider</div>
+            </div>
+          </Section>
+
+          <Section title="Models" hint="An explicit list wins over discovery; auto-fetch keeps the inventory in sync with the upstream /models endpoint.">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Models</label>
+              <Input type="text" placeholder="gpt-4, gpt-3.5-turbo" value={form.models}
+                onChange={(e) => setForm({ ...form, models: e.target.value })} />
+              <div className="text-[11px] text-muted-foreground">Comma separated model IDs</div>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 border border-border/40 bg-background/30 px-3 py-2.5">
+              <div className="flex flex-col gap-1 pr-2">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Auto-fetch models</label>
+                <div className="text-[11px] text-muted-foreground">Automatically discover available models via the provider's /models endpoint.</div>
+              </div>
+              <Switch
+                checked={form.auto_fetch_models ?? true}
+                size="sm"
+                onCheckedChange={(v) => setForm({ ...form, auto_fetch_models: v })}
+                aria-label="Auto-fetch models"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Auto-fetch filter</label>
+              <div className="relative">
+                <Input type="text" placeholder="free, flash  (empty = keep all)" value={form.autofetch_filter_text ?? ""}
+                  onChange={(e) => setForm({ ...form, autofetch_filter_text: e.target.value })}
+                  className="pr-8" />
+                {(form.autofetch_filter_text ?? "") !== "" && (
+                  <button type="button" onClick={() => setForm({ ...form, autofetch_filter_text: "" })}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 hover:bg-border/30 rounded transition-colors"
+                    title="Clear filter">
+                    <XIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
+                )}
+              </div>
+              <div className="text-[11px] text-muted-foreground">Comma-separated substrings. Only models whose ID contains every value are kept. Leave empty to keep all.</div>
+              {initial?.autofetch_filter && filterToText(initial.autofetch_filter) !== "" && (form.autofetch_filter_text ?? "") === "" && (
+                <div className="text-[11px] text-warning">Warning: {hasAdvancedConditions(initial.autofetch_filter) ? "This provider has an advanced filter set." : "This provider has an autofetch filter set."} Clearing the text will remove it.</div>
+              )}
+              {initial?.autofetch_filter && hasAdvancedConditions(initial.autofetch_filter) && (form.autofetch_filter_text ?? "").trim() !== filterToText(initial.autofetch_filter).trim() && (
+                <div className="text-[11px] text-warning">Warning: editing this text replaces the advanced rules (not_contains, regex, price) with plain substrings.</div>
+              )}
+            </div>
+          </Section>
+
+          <Section
+            title="Source IPs & egress"
+            hint="Checked addresses are registered as this provider's exits and the first one stays its bind_ip. Pause / Resume flips an address in the live rotation immediately; the checkbox only decides what is saved."
+            aside={
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Pill tone="muted">{form.egress_strategy || "round_robin"}</Pill>
+                {mode === "edit" && egressExits.length > 0 ? (
+                  <Pill tone={egressOff > 0 ? "warning" : "success"}>
+                    {egressExits.length - egressOff} of {egressExits.length} in rotation
+                  </Pill>
+                ) : null}
+              </div>
+            }
+          >
+            <IpListEditor
+              value={
+                form.bind_ips && form.bind_ips.length > 0
+                  ? form.bind_ips
+                  : form.bind_ip
+                    ? [form.bind_ip]
+                    : []
+              }
+              onChange={(next) => setForm({ ...form, bind_ips: next, bind_ip: next[0] ?? "" })}
+              exits={egressExits}
+              onExitToggle={(ip, disabled) => {
+                const exit = exitForIp(egressExits, ip);
+                exitToggle.mutate({ provider: egressProvider, exit: exit?.name ?? ip, disabled });
+              }}
+              togglePending={exitToggle.isPending}
+            />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Egress strategy</label>
+              <select
+                className="field-input w-full"
+                value={form.egress_strategy ?? ""}
+                onChange={(e) => setForm({ ...form, egress_strategy: e.target.value })}
+              >
+                <option value="">round_robin (default)</option>
+                <option value="round_robin">round_robin</option>
+                <option value="random">random</option>
+                <option value="weighted">weighted</option>
+                <option value="first">first</option>
+              </select>
+              <div className="text-[11px] text-muted-foreground">How one exit is picked from the set: rotate in order, at random, weighted by weight, or always the first.</div>
+            </div>
+            {mode === "edit" && <ExtensionEndpoints provider={initial?.originalName ?? form.name} />}
+          </Section>
+
+          <Section title="Advanced" hint="Optional behaviour switches.">
+            <div className="flex items-center justify-between gap-3 border border-border/40 bg-background/30 px-3 py-2.5">
+              <div className="flex flex-col gap-1 pr-2">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Pool only</label>
+                <div className="text-[11px] text-muted-foreground">Hide from model list; reachable only through a pool.</div>
+              </div>
+              <Switch
+                checked={form.pool_only ?? false}
+                size="sm"
+                onCheckedChange={(v) => setForm({ ...form, pool_only: v })}
+                aria-label="Pool only"
+              />
+            </div>
+            <div className="flex items-center justify-between gap-3 border border-border/40 bg-background/30 px-3 py-2.5">
+              <div className="flex flex-col gap-1 pr-2">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Disable API Key</label>
+                <div className="text-[11px] text-muted-foreground">Stop sending the static API key upstream. Use when an auth token supersedes it.</div>
+              </div>
+              <Switch
+                checked={form.disable_api_key ?? false}
+                size="sm"
+                onCheckedChange={(v) => setForm({ ...form, disable_api_key: v })}
+                aria-label="Disable API key"
+              />
+            </div>
+          </Section>
         </div>
         {presetConfirm && (
-          <div className="mt-3 border border-accent/30 bg-accent/5 p-3 rounded">
+          <div className="mx-4 mt-4 border border-accent/30 bg-accent/5 p-3 rounded sm:mx-6">
             <div className="flex items-start gap-2">
               <div className="flex-1">
                 <div className="text-[12px] font-semibold text-accent">Preset detected: {presetConfirm.preset.name}</div>
@@ -405,13 +595,18 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
             </div>
           </div>
         )}
-        {error && <div className="mt-3 text-[13px] font-medium text-destructive">{error}</div>}
-        <div className="flex items-center gap-3 mt-4 pt-3 border-t border-border/50">
+        {error && <div className="px-4 pt-1 text-[13px] font-medium text-destructive sm:px-6">{error}</div>}
+        <div className="sticky bottom-0 flex items-center gap-3 border-t border-border/50 bg-surface px-4 py-3 sm:px-6">
           <Button onClick={handleSave} disabled={saving}>
             <SaveIcon className="mr-1.5 h-3.5 w-3.5" />
             {saving ? "Saving..." : mode === "add" ? "Create Provider" : "Update Provider"}
           </Button>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
+          {mode === "edit" && egressExits.length > 0 ? (
+            <span className="ml-auto hidden text-[11px] text-muted-foreground sm:block">
+              Pause / Resume on an address applies right away — only the checkbox waits for a save.
+            </span>
+          ) : null}
         </div>
       </div>
     </div>
@@ -588,8 +783,38 @@ export function ProvidersTab(): JSX.Element {
     return provider.type === "cli-emulation";
   };
 
-  const allSelected = providers.length > 0 && providers.every((p) => selected.has(p.name));
-  const someSelected = providers.some((p) => selected.has(p.name)) && !allSelected;
+  // One place that turns a live provider row into a form payload, so the card
+  // and the "Manage IPs" shortcut both open the same edit form.
+  const openEdit = (provider: ProviderStatusItem): void => {
+    const bindIps =
+      provider.config?.bind_ips && provider.config.bind_ips.length > 0
+        ? provider.config.bind_ips
+        : provider.config?.bind_ip
+          ? [provider.config.bind_ip]
+          : [];
+    setEditingProvider({
+      name: provider.name,
+      originalName: provider.name,
+      type: provider.config?.type || provider.type || "",
+      base_url: provider.config?.base_url || "",
+      api_version: provider.config?.api_version || "",
+      api_key: provider.config?.api_key || "",
+      models: provider.config?.models?.join(", ") || "",
+      bind_ip: bindIps[0] ?? "",
+      bind_ips: bindIps,
+      egress_strategy: provider.config?.egress_strategy || "",
+      pool_only: provider.config?.pool_only ?? false,
+      user_agent: provider.config?.user_agent || "",
+      disable_api_key: provider.config?.disable_api_key ?? false,
+      auto_fetch_models: provider.config?.auto_fetch_models ?? true,
+      autofetch_filter: provider.config?.autofetch_filter ?? null,
+      autofetch_filter_text: filterToText(provider.config?.autofetch_filter),
+      apiKeySet: provider.config?.api_key_set ?? false,
+    });
+    setModalOpen("edit");
+  };
+
+  const allSelected = providers.length > 0 && providers.every((p) => selected.has(p.name));  const someSelected = providers.some((p) => selected.has(p.name)) && !allSelected;
 
   const allIds = useMemo(() => providers.map((p) => p.name), [providers]);
   const lastClickedRef = useRef<string | null>(null);
@@ -683,6 +908,8 @@ export function ProvidersTab(): JSX.Element {
               </div>
             </div>
           )}
+
+          <IpInventory />
 
           <div className="flex items-center gap-2">
             <Button onClick={() => { setEditingProvider(null); setModalOpen("add"); }}>
@@ -790,7 +1017,11 @@ export function ProvidersTab(): JSX.Element {
                           )}
                           {provider.config?.user_agent && <Pill tone="accent">custom UA</Pill>}
                           {provider.config?.disable_api_key && <Pill tone="warning">key off</Pill>}
-                          {provider.config?.bind_ip && <Pill tone="muted">bind: {provider.config.bind_ip}</Pill>}
+                          {(provider.config?.bind_ips?.length ?? 0) > 1 ? (
+                            <Pill tone="muted">bind: {provider.config?.bind_ips?.length} ips</Pill>
+                          ) : provider.config?.bind_ip ? (
+                            <Pill tone="muted">bind: {provider.config.bind_ip}</Pill>
+                          ) : null}
                           {supportsExternalAuth(provider) && provider.external_auth_status?.has_token && !provider.external_auth_status?.expired && (
                             <Pill tone="success">linked</Pill>
                           )}
@@ -816,7 +1047,7 @@ export function ProvidersTab(): JSX.Element {
                         aria-label={`Toggle provider ${provider.name}`}
                         title={`${provider.config?.enabled === false ? "Enable" : "Disable"} ${provider.name}`}
                       />
-                      <button onClick={() => { setEditingProvider({ name: provider.name, originalName: provider.name, type: provider.config?.type || provider.type || "", base_url: provider.config?.base_url || "", api_version: provider.config?.api_version || "", api_key: provider.config?.api_key || "", models: provider.config?.models?.join(", ") || "", bind_ip: provider.config?.bind_ip || "", bind_ips: provider.config?.bind_ips ?? (provider.config?.bind_ip ? [provider.config.bind_ip] : []), egress_strategy: provider.config?.egress_strategy || "", pool_only: provider.config?.pool_only ?? false, user_agent: provider.config?.user_agent || "", disable_api_key: provider.config?.disable_api_key ?? false, auto_fetch_models: provider.config?.auto_fetch_models ?? true, autofetch_filter_text: filterToText(provider.config?.autofetch_filter), apiKeySet: provider.config?.api_key_set ?? false }); setModalOpen("edit"); }} className="p-1.5 hover:bg-border/20 transition-colors" title="Edit provider">
+                      <button onClick={() => openEdit(provider)} className="p-1.5 hover:bg-border/20 transition-colors" title="Edit provider">
                         <Edit3Icon className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
                       {supportsExternalAuth(provider) &&
@@ -852,12 +1083,13 @@ export function ProvidersTab(): JSX.Element {
                     <StatusChip enabled={provider.status === "healthy"} />
                     <span className="font-mono">{provider.runtime?.discovered_model_count ?? 0} models</span>
                   </div>
-                  {provider.config?.base_url && (
-                    <div className="text-[10px] sm:text-[11px] text-muted-foreground font-mono truncate" title={provider.config.base_url}>
-                      {provider.config.base_url}
-                    </div>
-                  )}
-                  <ProviderEgressPanel provider={provider.name} />
+                   {provider.config?.base_url && (
+                     <div className="text-[10px] sm:text-[11px] text-muted-foreground font-mono truncate" title={provider.config.base_url}>
+                       {provider.config.base_url}
+                     </div>
+                   )}
+                   <ProviderIpStrip name={provider.name} onManage={() => openEdit(provider)} />
+                   <ProviderEgressPanel provider={provider.name} />
                   {provider.config?.models && provider.config.models.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1">
                       {provider.config.models.slice(0, 3).map((m) => (

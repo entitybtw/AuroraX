@@ -46,6 +46,7 @@ import {
   updateExtensionConfig,
   updateExtensionFromSource,
   type Extension,
+  type ExtensionField,
 } from "@/lib/api/extensions";
 import { SidecarPresetImportDialog } from "@/components/settings/SidecarPresetImportDialog";
 import { ExtensionJsonEditor } from "@/components/settings/ExtensionJsonEditor";
@@ -123,6 +124,7 @@ export function ExtensionsTab(): JSX.Element {
   const [sourceValue, setSourceValue] = useState("");
   const [jsonEditorOpen, setJsonEditorOpen] = useState(false);
   const [jsonEditorFile, setJsonEditorFile] = useState<string | null>(null);
+  const [showAdvancedFields, setShowAdvancedFields] = useState(false);
 
   const [storeURL, setStoreURL] = useState("");
   const [storeBusy, setStoreBusy] = useState(false);
@@ -186,6 +188,7 @@ export function ExtensionsTab(): JSX.Element {
       draft[f.key] = fieldValue(selected, f.key, {}, f.default);
     }
     setConfigDraft(draft);
+    setShowAdvancedFields(false);
     setResult(null);
     setRenaming(false);
     setEditingSource(false);
@@ -206,6 +209,108 @@ export function ExtensionsTab(): JSX.Element {
 
   const setField = (key: string, value: string) => {
     setConfigDraft((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const primaryFields = fields.filter((field) => !field.advanced);
+  const advancedFields = fields.filter((field) => Boolean(field.advanced));
+
+  // One setting, rendered from its manifest field. Advanced fields use the
+  // same markup — they are only placed behind the collapsed section so an
+  // extension can keep its everyday settings down to a handful of inputs.
+  const renderField = (field: ExtensionField): JSX.Element | null => {
+    if (!selected) return null;
+    const value = fieldValue(selected, field.key, configDraft, field.default);
+    if (field.type === "boolean") {
+      return (
+        <ToggleField
+          key={field.key}
+          label={field.label}
+          checked={value === "true"}
+          onCheckedChange={(v) => setField(field.key, v ? "true" : "false")}
+          description={field.description}
+        />
+      );
+    }
+    if (field.type === "textarea") {
+      // Multi-line for values that are naturally lists: endpoint
+      // URLs, header JSON, comma-separated targets.
+      return (
+        <label key={field.key} className="flex flex-col gap-1.5 sm:col-span-2">
+          <span className="text-sm font-medium">{field.label}</span>
+          <textarea
+            rows={4}
+            value={value}
+            onChange={(e) => setField(field.key, e.target.value)}
+            className="rounded-lg border border-border/60 bg-surface px-3 py-2 font-mono text-sm text-foreground"
+            placeholder={field.default}
+          />
+          {field.description ? (
+            <span className="text-xs text-muted-foreground">{field.description}</span>
+          ) : null}
+        </label>
+      );
+    }
+    if (field.type === "select" && field.options?.length) {
+      return (
+        <label key={field.key} className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium">{field.label}</span>
+          <select
+            className="h-11 sm:h-9 rounded-lg border border-border/60 bg-surface px-3 text-sm text-foreground"
+            value={value || field.options[0] || ""}
+            onChange={(e) => setField(field.key, e.target.value)}
+          >
+            {field.options.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+          {field.description ? (
+            <span className="text-xs text-muted-foreground">{field.description}</span>
+          ) : null}
+        </label>
+      );
+    }
+    if (field.type === "color") {
+      return (
+        <label key={field.key} className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium">{field.label}</span>
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={normalizeHex(value || field.default || "#000000")}
+              onChange={(e) => setField(field.key, e.target.value)}
+              className="h-11 sm:h-9 w-12 rounded-lg border border-border/60 bg-surface p-1 cursor-pointer"
+              aria-label={`${field.label} color`}
+            />
+            <Input
+              value={value}
+              onChange={(e) => setField(field.key, e.target.value)}
+              className="h-11 sm:h-9 font-mono text-sm"
+              placeholder={field.default || "#000000"}
+            />
+          </div>
+          {field.description ? (
+            <span className="text-xs text-muted-foreground">{field.description}</span>
+          ) : null}
+        </label>
+      );
+    }
+    return (
+      <label key={field.key} className="flex flex-col gap-1.5">
+        <span className="text-sm font-medium">{field.label}</span>
+        <Input
+          type={field.secret ? "password" : field.type === "number" ? "number" : "text"}
+          value={value}
+          onChange={(e) => setField(field.key, e.target.value)}
+          className="h-11 sm:h-9 font-mono text-sm"
+          placeholder={field.secret ? "••••••••" : field.default}
+        />
+        {field.description ? (
+          <span className="text-xs text-muted-foreground">{field.description}</span>
+        ) : null}
+      </label>
+    );
   };
 
   const handleSaveConfig = async () => {
@@ -1114,103 +1219,26 @@ export function ExtensionsTab(): JSX.Element {
                 Extension settings
               </p>
               <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {fields.map((field) => {
-                  const value = fieldValue(selected, field.key, configDraft, field.default);
-                  if (field.type === "boolean") {
-                    return (
-                      <ToggleField
-                        key={field.key}
-                        label={field.label}
-                        checked={value === "true"}
-                        onCheckedChange={(v) => setField(field.key, v ? "true" : "false")}
-                        description={field.description}
-                      />
-                    );
-                  }
-                  if (field.type === "textarea") {
-                    // Multi-line for values that are naturally lists: endpoint
-                    // URLs, header JSON, comma-separated targets.
-                    return (
-                      <label key={field.key} className="flex flex-col gap-1.5 sm:col-span-2">
-                        <span className="text-sm font-medium">{field.label}</span>
-                        <textarea
-                          rows={4}
-                          value={value}
-                          onChange={(e) => setField(field.key, e.target.value)}
-                          className="rounded-lg border border-border/60 bg-surface px-3 py-2 font-mono text-sm text-foreground"
-                          placeholder={field.default}
-                        />
-                        {field.description ? (
-                          <span className="text-xs text-muted-foreground">{field.description}</span>
-                        ) : null}
-                      </label>
-                    );
-                  }
-                  if (field.type === "select" && field.options?.length) {
-                    return (
-                      <label key={field.key} className="flex flex-col gap-1.5">
-                        <span className="text-sm font-medium">{field.label}</span>
-                        <select
-                          className="h-11 sm:h-9 rounded-lg border border-border/60 bg-surface px-3 text-sm text-foreground"
-                          value={value || field.options[0] || ""}
-                          onChange={(e) => setField(field.key, e.target.value)}
-                        >
-                          {field.options.map((opt) => (
-                            <option key={opt} value={opt}>
-                              {opt}
-                            </option>
-                          ))}
-                        </select>
-                        {field.description ? (
-                          <span className="text-xs text-muted-foreground">{field.description}</span>
-                        ) : null}
-                      </label>
-                    );
-                  }
-                  if (field.type === "color") {
-                    return (
-                      <label key={field.key} className="flex flex-col gap-1.5">
-                        <span className="text-sm font-medium">{field.label}</span>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={normalizeHex(value || field.default || "#000000")}
-                            onChange={(e) => setField(field.key, e.target.value)}
-                            className="h-11 sm:h-9 w-12 rounded-lg border border-border/60 bg-surface p-1 cursor-pointer"
-                            aria-label={`${field.label} color`}
-                          />
-                          <Input
-                            value={value}
-                            onChange={(e) => setField(field.key, e.target.value)}
-                            className="h-11 sm:h-9 font-mono text-sm"
-                            placeholder={field.default || "#000000"}
-                          />
-                        </div>
-                        {field.description ? (
-                          <span className="text-xs text-muted-foreground">{field.description}</span>
-                        ) : null}
-                      </label>
-                    );
-                  }
-                  return (
-                    <label key={field.key} className="flex flex-col gap-1.5">
-                      <span className="text-sm font-medium">{field.label}</span>
-                      <Input
-                        type={
-                          field.secret ? "password" : field.type === "number" ? "number" : "text"
-                        }
-                        value={value}
-                        onChange={(e) => setField(field.key, e.target.value)}
-                        className="h-11 sm:h-9 font-mono text-sm"
-                        placeholder={field.secret ? "••••••••" : field.default}
-                      />
-                      {field.description ? (
-                        <span className="text-xs text-muted-foreground">{field.description}</span>
-                      ) : null}
-                    </label>
-                  );
-                })}
+                {primaryFields.map(renderField)}
               </div>
+              {advancedFields.length > 0 ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvancedFields((v) => !v)}
+                    className="mt-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-accent transition-colors hover:text-accent-hover"
+                    aria-expanded={showAdvancedFields}
+                  >
+                    <span className={`transform transition-transform ${showAdvancedFields ? "rotate-90" : ""}`}>&#9654;</span>
+                    {showAdvancedFields ? "Hide" : "Show"} advanced settings ({advancedFields.length})
+                  </button>
+                  {showAdvancedFields ? (
+                    <div className="mt-2 grid grid-cols-1 gap-3 border-t border-border/30 pt-3 sm:grid-cols-2">
+                      {advancedFields.map(renderField)}
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
               <div className="mt-3 flex items-center justify-between gap-2">
                 {selected.source || savedStores.length > 0 ? (
                   <Button

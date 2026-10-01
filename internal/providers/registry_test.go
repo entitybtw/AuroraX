@@ -892,6 +892,51 @@ func TestModelRegistry(t *testing.T) {
 		}
 	})
 
+	t.Run("FilterRemovingEveryFetchedModelRecordsFilteredError", func(t *testing.T) {
+		registry := NewModelRegistry()
+		mock := &registryMockProvider{
+			name: "test",
+			modelsResponse: &core.ModelsResponse{
+				Object: "list",
+				Data: []core.Model{
+					{ID: "test-model", Object: "model", OwnedBy: "test"},
+				},
+			},
+		}
+		registry.RegisterProviderWithNameAndType(mock, "test", "test")
+		if err := registry.Initialize(context.Background()); err != nil {
+			t.Fatalf("initial Initialize() error = %v", err)
+		}
+
+		// A filter that rejects the whole fetched catalog has to be named in
+		// the snapshot: blaming "empty model list" sends the operator hunting
+		// an upstream outage that never happened.
+		if err := registry.SetProviderAutoFetchFilter("test", config.AutoFetchFilter{
+			Mode:       "all",
+			Conditions: []config.AutoFetchFilterCondition{{Contains: "free"}},
+		}); err != nil {
+			t.Fatalf("SetProviderAutoFetchFilter() error = %v", err)
+		}
+		if err := registry.Initialize(context.Background()); err != nil {
+			t.Fatalf("expected filtered refresh with retained inventory to succeed, got %v", err)
+		}
+
+		snapshots := registry.ProviderRuntimeSnapshots()
+		if len(snapshots) != 1 {
+			t.Fatalf("expected 1 provider runtime snapshot, got %d", len(snapshots))
+		}
+		snapshot := snapshots[0]
+		if snapshot.DiscoveredModelCount != 1 {
+			t.Fatalf("expected previous model inventory to remain available, got %d models", snapshot.DiscoveredModelCount)
+		}
+		if !strings.Contains(snapshot.LastModelFetchError, "autofetch filter removed all 1 fetched models") {
+			t.Fatalf("LastModelFetchError = %q, want filter blamed for the empty list", snapshot.LastModelFetchError)
+		}
+		if snapshot.LastModelFetchAt == nil {
+			t.Fatal("expected LastModelFetchAt to be recorded")
+		}
+	})
+
 	t.Run("ListModelsOrdering", func(t *testing.T) {
 		registry := NewModelRegistry()
 		mock := &registryMockProvider{
