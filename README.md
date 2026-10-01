@@ -75,6 +75,7 @@ No SDK changes. No format changes. Just swap the `base_url`.
 - Auto-discovery — set a provider's `_API_KEY`, restart, provider and models appear
 - Per-provider model auto-fetch toggle, filter (substring / regex / price), custom User-Agent and base URL
 - Provider pools — round-robin or weighted distribution, health-aware failover
+- Egress control — source IPs with a live per-IP inventory (state, traffic, pause/resume), extension endpoints joined to the pool's providers
 - Fallback chains — automatic failover on 5xx/429 plus editable manual rules
 - Model aliases & overrides, passthrough routes (`/p/{provider}/*`)
 - Resilience — exponential backoff with jitter, per-provider circuit breaker
@@ -116,7 +117,8 @@ mapping, 7 header modes (`map`, `map_or_generate`, `generate`, `passthrough`,
 and live editing. Full reference: [documentation/SESSION_HUB.md](documentation/SESSION_HUB.md).
 
 **Sidecar** — bundled Bun proxy for extension-driven TLS fingerprinting with
-multi-IP egress (one CONNECT proxy per IP) and extension-supplied headers, tools
+multi-IP egress (one CONNECT proxy per source address, rotated **per request**
+so rate limits spread across addresses) and extension-supplied headers, tools
 and retries. Full reference: [documentation/SIDECAR.md](documentation/SIDECAR.md).
 
 **Extensions & store** — portable JSON bundles that configure the sidecar and

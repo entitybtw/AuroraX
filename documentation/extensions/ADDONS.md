@@ -131,8 +131,8 @@ keys and intervals without touching the extension store:
 ```json
 {
   "hook": "EgressCandidates",
-  "extension": "vpn-egress",
-  "dir": "configs/extensions/vpn-egress",
+  "extension": "vpn-support",
+  "dir": "configs/extensions/vpn-support",
   "provider": "zen-main",
   "settings": { "node_count": "3" },
   "config":   { "subscriptions": "https://…" }
@@ -167,6 +167,11 @@ the lowest usable tier is picked; the tiers are:
 So a provider keeps its single API key while its exit changes, and where the
 extension's endpoints sit is a policy decision the extension states, not
 something the gateway guesses.
+
+The hook is asked per provider: the extension's `apply_to` list may name
+providers, **pools** (a pool name is expanded to every provider that is a
+member of it), or `*` to bind everywhere — so binding an exit list once to a
+pool reaches all of its providers.
 
 The gateway reports the resulting set — every exit, its tier and source,
 whether the operator turned it off, its counters and its last error — at

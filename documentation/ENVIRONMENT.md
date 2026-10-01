@@ -46,6 +46,34 @@ Generate a documented `config.yaml` with `aurora init`. Secrets belong in your
 </details>
 
 <details>
+<summary>Sidecar & multi-IP egress</summary>
+
+The `runtime-sidecar` image (the default `docker build` target) starts the Bun
+sidecar and one `bindproxy` per source address from these variables. They use
+the reserved `SIDECAR`/`BIND` namespace, so provider auto-discovery ignores them.
+
+| Env var | Default | Description |
+|---------|---------|-------------|
+| `AURORA_SIDECAR_ENABLED` | `true` | Start the sidecar and its bind proxies |
+| `AURORA_SIDECAR_PORT` | `8090` | Loopback port the gateway routes through |
+| `AURORA_SIDECAR_BASE_URL` | — | Sidecar URL the Go side dials (e.g. `http://127.0.0.1:8090/v1`) |
+| `AURORA_SIDECAR_UPSTREAM_URL` | — | Upstream the sidecar dials (defaults to the extension's `base_url`) |
+| `AURORA_SIDECAR_BIND_IPS` | — | Comma-separated source addresses; one CONNECT proxy (`8981+`) per address |
+| `AURORA_SIDECAR_BIND_PROXIES` | — | Derived by the entrypoint (`ip:port` list); the sidecar rotates over it **per request**, and a `403`/`429` retry moves to the next address |
+| `AURORA_SIDECAR_USER_AGENT` | — | Upstream User-Agent (set by the applied extension) |
+| `AURORA_SIDECAR_INJECT_TOOLS` | `true` | Add the extension tool schema when the body has none |
+| `AURORA_SIDECAR_DEFAULT_AUTH` | — | Fallback `Authorization` header |
+| `AURORA_SIDECAR_MAX_ATTEMPTS` | `4` | Attempts per request (retries `403`/`429`) |
+| `AURORA_SIDECAR_RETRY_DELAY_MS` | `750` | Base backoff between attempts |
+| `AURORA_SIDECAR_ISOLATED` | `false` | Run each request in a fresh Bun process instead of in-process |
+
+The container needs `network_mode: host` (or the addresses bound to it) —
+otherwise the bind proxies cannot bind the listed source addresses and egress
+falls back to the default route.
+
+</details>
+
+<details>
 <summary>Storage</summary>
 
 | Env var | Default | Description |
