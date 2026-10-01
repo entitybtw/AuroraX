@@ -30,13 +30,17 @@ function randomId(prefix) {
 // nextProxy returns the outbound proxy for this attempt. cfg.proxies is the
 // per-address list the operator configured (one CONNECT entry per source IP);
 // a single cfg.proxy stays supported and is simply a list of one.
+//
+// The list is walked per request, not just per attempt: a rate limit is scoped
+// to the address that tripped it, so spreading consecutive requests over every
+// configured IP is what keeps one throttled address from stalling the pool.
+let proxyCursor = 0;
+
 function nextProxy(cfg, attempt) {
   const list = Array.isArray(cfg.proxies) ? cfg.proxies : [];
   if (list.length === 0) return cfg.proxy || "";
-  // Spread attempts over the addresses instead of hammering the first one:
-  // attempt 1 uses the first address, a retry after a 403/429 leaves from
-  // the next, and so on.
-  return list[(attempt - 1) % list.length];
+  const start = proxyCursor++ % list.length;
+  return list[(start + attempt - 1) % list.length];
 }
 
 // Forward the identity headers the adapter selected (names come from the
