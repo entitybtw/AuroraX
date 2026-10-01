@@ -46,10 +46,7 @@ export interface EgressServerList {
  * whether a list binds the pool or provider currently on screen.
  */
 export function bindsTo(applyTo: string | undefined, name: string): boolean {
-  const patterns = (applyTo ?? "")
-    .split(/[,;\n]/)
-    .map((entry) => entry.trim())
-    .filter((entry) => entry !== "");
+  const patterns = bindEntries(applyTo);
   if (patterns.length === 0) return true;
   const target = name.trim();
   if (target === "") return true;
@@ -59,6 +56,63 @@ export function bindsTo(applyTo: string | undefined, name: string): boolean {
     if (!pattern.endsWith("*")) return false;
     return target.toLowerCase().startsWith(pattern.slice(0, -1).toLowerCase());
   });
+}
+
+/** Splits an apply_to list into its entries, order preserved. */
+export function bindEntries(applyTo: string | undefined): string[] {
+  return (applyTo ?? "")
+    .split(/[,;\n]/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry !== "");
+}
+
+/**
+ * Binds or unbinds one target (a pool or provider) in an apply_to list.
+ *
+ * An empty list means "everything", so unbinding the only target has to
+ * materialise the remaining targets explicitly — dropping the entry would
+ * silently re-bind every one of them. When the result ends up covering every
+ * known target it collapses back to an empty list, which reads as "all" and
+ * keeps providers added later bound too.
+ */
+export function toggleBindTarget(
+  applyTo: string | undefined,
+  target: string,
+  allTargets: string[],
+): string {
+  const wanted = target.trim();
+  if (wanted === "") return (applyTo ?? "").trim();
+  const entries = bindEntries(applyTo);
+
+  if (!bindsTo(applyTo, wanted)) {
+    const next = entries.filter((entry) => entry.toLowerCase() !== wanted.toLowerCase());
+    return joinTargets([...next, wanted], allTargets);
+  }
+
+  // Bound: drop every entry that covers this target. An empty (or wildcard
+  // only) list means everything, so what is left has to be written out
+  // explicitly — dropping the entry would silently re-bind everything.
+  const remaining = entries.filter((entry) => !bindsTo(entry, wanted));
+  if (remaining.length === 0) {
+    return joinTargets(
+      allTargets.filter((name) => name.toLowerCase() !== wanted.toLowerCase()),
+      allTargets,
+    );
+  }
+  return joinTargets(remaining, allTargets);
+}
+
+function joinTargets(entries: string[], allTargets: string[]): string {
+  const joined = entries.map((entry) => entry.trim()).filter((entry) => entry !== "");
+  if (
+    allTargets.length > 0 &&
+    allTargets.every((name) => bindsTo(joined.join(", "), name))
+  ) {
+    // Every known target is listed: say "all" instead so the list keeps
+    // covering pools and providers added later.
+    return "";
+  }
+  return joined.join(", ");
 }
 
 /** The `servers` payloads of every applied extension that provides egress. */
