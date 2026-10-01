@@ -1862,3 +1862,31 @@ func TestExtensionIDForAddonPath(t *testing.T) {
 		t.Fatalf("a directory (not a file) must map to nothing, got %q", id)
 	}
 }
+
+// The settings form renders textarea as a multi-line input for list-shaped
+// values (subscription URLs, header JSON, comma-separated targets), so the
+// validator must accept what the form produces.
+func TestExtensionValidate_AcceptsTextareaFields(t *testing.T) {
+	p := Extension{
+		ID:   "vpn-egress",
+		Name: "VPN egress",
+		UI: ExtensionUI{Fields: []ExtensionField{
+			{Key: "apply_to", Label: "Applies to", Type: "textarea"},
+			{Key: "subscriptions", Label: "Subscriptions", Type: "textarea", Secret: true},
+			{Key: "refresh_interval_minutes", Label: "Refresh interval", Type: "number"},
+			{Key: "egress_mode", Label: "Exit rotation", Type: "select", Options: []string{"rotate"}},
+		}},
+	}
+	if err := p.Validate(); err != nil {
+		t.Fatalf("textarea fields must validate: %v", err)
+	}
+
+	p.UI.Fields[0].Type = "wysiwyg"
+	err := p.Validate()
+	if err == nil {
+		t.Fatal("expected an unknown field type to still be rejected")
+	}
+	if !strings.Contains(err.Error(), `ui.fields[0].type: "wysiwyg" is unknown (text, textarea, number, boolean, select or color)`) {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

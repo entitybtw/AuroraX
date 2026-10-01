@@ -825,7 +825,10 @@ func (p *Extension) Validate() error {
 
 	// UI form fields.
 	fieldKeys := map[string]bool{}
-	validFieldTypes := map[string]bool{"": true, "text": true, "number": true, "boolean": true, "select": true, "color": true}
+	// UI form fields. textarea shares the renderer with the other scalars —
+	// it is the multi-line input the settings form uses for lists, header
+	// JSON and comma-separated targets.
+	validFieldTypes := map[string]bool{"": true, "text": true, "textarea": true, "number": true, "boolean": true, "select": true, "color": true}
 	for i, f := range p.UI.Fields {
 		field := fmt.Sprintf("ui.fields[%d]", i)
 		key := strings.TrimSpace(f.Key)
@@ -837,7 +840,7 @@ func (p *Extension) Validate() error {
 			fieldKeys[key] = true
 		}
 		if !validFieldTypes[strings.TrimSpace(f.Type)] {
-			add("%s.type: %q is unknown (text, number, boolean, select or color)", field, f.Type)
+			add("%s.type: %q is unknown (text, textarea, number, boolean, select or color)", field, f.Type)
 		}
 		if f.Type == "select" && len(f.Options) == 0 {
 			add("%s: select field needs options", field)
