@@ -28,10 +28,10 @@ Go cannot always produce layer 1, and one layer without the others is useless �
 
 ```
 Aurora (Go)
-   │  provider.BindIP → header x-aurora-bind-ip
+   │  provider.BindIP → header x-aurora-bind-ip (preference)
    ▼
 Bun sidecar (adapter.js, :8090)
-   │  picks the per-IP CONNECT proxy by bind_ip
+   │  rotates over every per-IP CONNECT proxy, per request
    ▼
 Go bind-proxy (aurora bindproxy, :8981+)
    │  binds the TCP source IP; does NOT touch TLS
@@ -52,7 +52,7 @@ The sidecar always streams upstream; when the caller asked for a non-streaming r
 
 - **Extension-driven fingerprints** — install a store extension to supply base URL, UA, headers, tools and retries
 - **Paid / API-key traffic** — the sidecar forwards the incoming `Authorization` untouched, so bearer tokens and API keys keep working through the same path
-- **Multi-IP egress** — one Go CONNECT proxy per configured IP (ports `8981+`), selected per provider via `bind_ip`, so rate limits can spread across IPs
+- **Multi-IP egress** — one Go CONNECT proxy per configured IP (ports `8981+`), rotated over **per request**, so consecutive requests leave from different addresses and a `403`/`429` retry moves to the next one
 - **Streaming and non-streaming** — both, with SSE aggregation on the non-streaming path
 - **Runtime tuning** — every knob is editable from **Settings → Sidecar** and persisted to `configs/sidecar-overrides.json`
 
@@ -81,7 +81,7 @@ providers:
     type: vllm
     base_url: https://upstream.example.com/v1   # real upstream, rewritten to the sidecar at runtime
     sidecar_url: http://127.0.0.1:8090/v1       # route this provider through the sidecar
-    bind_ip: 203.0.113.10                       # egress IP → matching CONNECT proxy
+    bind_ip: 203.0.113.10                       # primary source address (preference; rotation uses the whole AURORA_SIDECAR_BIND_IPS list)
     pool_only: true
 ```
 
@@ -104,7 +104,8 @@ All settings are editable in **Settings → Sidecar** (persisted to `configs/sid
 | User-Agent | `AURORA_SIDECAR_USER_AGENT` | — | Upstream UA (set by extension) |
 | Max attempts | `AURORA_SIDECAR_MAX_ATTEMPTS` | `4` | Retries on 403/429 |
 | Retry delay | `AURORA_SIDECAR_RETRY_DELAY_MS` | `750` | Base backoff between retries |
-| Bind IPs | `AURORA_SIDECAR_BIND_IPS` | — | Comma-separated egress IPs |
+| Bind IPs | `AURORA_SIDECAR_BIND_IPS` | — | Comma-separated egress IPs (one bind-proxy each, rotated per request) |
+| Bind proxies | `AURORA_SIDECAR_BIND_PROXIES` | — | Derived by the entrypoint: `ip:port` per address, what the sidecar rotates over |
 | Upstream | `AURORA_SIDECAR_BASE_URL` | — | Provider routing target (Go side) |
 | Sidecar upstream | `AURORA_SIDECAR_UPSTREAM_URL` | — | Sidecar's own upstream (Bun side) |
 
@@ -122,7 +123,7 @@ The fingerprint is emulated, not inherent, so upstream changes can break it. To 
 
 ### Known limitations
 
-- The sidecar variant is **debian-slim + Bun** (~100 MB larger than the distroless default). Use `runtime` when the sidecar is not needed.
+- The sidecar variant is **debian-slim + Bun** (~100 MB larger than the distroless `runtime` target, which must be selected with `--target runtime`).
 - Upstream availability depends on the current policy and can change without notice.
 - Full tool schemas add request-body size on every upstream call.
 

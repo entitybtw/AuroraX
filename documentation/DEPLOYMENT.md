@@ -160,7 +160,7 @@ services:
       - .env
 ```
 
-- The provider sets `bind_ip`; the request carries `x-aurora-bind-ip` so the sidecar picks the matching proxy. Bun does end-to-end TLS inside the tunnel — the proxy only binds the source IP.
+- The request carries `x-aurora-bind-ip` (the provider's primary `bind_ip`) as a *preference*; the sidecar rotates over every address in `AURORA_SIDECAR_BIND_IPS` per request, so consecutive requests leave from different IPs and a `403`/`429` retry moves to the next one. Bun does end-to-end TLS inside the tunnel — the proxy only binds the source IP.
 - Sidecar runtime settings persist to `configs/sidecar-overrides.json` and are editable from **Settings → Sidecar** (or `GET`/`PUT /admin/api/v1/sidecar`). Extensions merge into these settings on apply.
 - Env vars with suffix `SIDECAR`/`BIND` are reserved and ignored by provider auto-discovery (they cannot become phantom providers).
 

@@ -2,14 +2,32 @@
 
 The official published image for this fork is **`entbtw/aurora`** on Docker Hub.
 
-**Current published tags:** `latest`, `v1.1.2`, `v1.0.4`, `v1.0.3`, `v1.0.2`, `v1.0.1`, and `v1.0.0` (linux/amd64). Pull it with:
+**Current release:** `v1.7.0` (also published as `latest`). Pull it with:
 
 ```bash
 docker pull entbtw/aurora:latest
-docker pull entbtw/aurora:v1.1.2
+docker pull entbtw/aurora:v1.7.0
 ```
 
-The `Dockerfile` is multi-stage: it builds the React dashboard, cross-compiles the Go binary, and copies it into a distroless runtime image. This document covers building and pushing your own builds.
+Every published tag is pinned: `vX.Y.Z` maps one-to-one to a git tag, and the
+version string reported by the binary matches the tag:
+
+```bash
+docker exec aurora-gateway /aurora --version
+# aurora [v1.7.0 | commit:f443c93 | go1.26.4]
+```
+
+### Versioning
+
+- Patch releases within a minor series: `v1.6.7` → `v1.6.8` → `v1.6.9`.
+- The patch series **stops before `.10`**: the release after `v1.6.9` is
+  `v1.7.0`, never `v1.6.10`.
+- `latest` always tracks the newest release tag.
+
+The `Dockerfile` is multi-stage: it builds the React dashboard, cross-compiles the
+Go binary, and copies both into a runtime image together with the sidecar and the
+`bindproxy` helper. This document covers building, publishing and deploying your
+own builds.
 
 > Building multi-platform requires Docker **Buildx** (BuildKit). Enable it either via `docker buildx` (Docker 23+) or install the plugin (see below if `docker buildx` is unknown).
 
@@ -39,11 +57,16 @@ Use your Docker Hub username and an **access token** (Account Settings → Secur
 
 ## Build & push (single arch)
 
+The version string carries the `v` prefix so it matches the git tag and the
+image tag:
+
 ```bash
+VERSION=v1.7.0   # next release: bump to v1.7.1
+
 docker buildx build --platform linux/amd64 \
   -t entbtw/aurora:latest \
-  -t entbtw/aurora:v1.1.2 \
-  --build-arg VERSION=1.1.2 \
+  -t entbtw/aurora:$VERSION \
+  --build-arg VERSION=$VERSION \
   --build-arg COMMIT=$(git rev-parse --short HEAD) \
   --build-arg DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
   --progress=plain \
@@ -51,6 +74,35 @@ docker buildx build --platform linux/amd64 \
 ```
 
 Drop `--push` and add `--load` to build only into the local daemon (no push). Use `--platform linux/amd64,linux/arm64` for multi-arch; add `linux/arm/v7` if needed.
+
+## Release flow
+
+A release is four steps; the tag is what the image is named after.
+
+Stage changed files explicitly — `.state` and `hwparam.json` are local state
+and must never be committed.
+
+```bash
+# 1. commit
+git add changed-file changed-file && git commit
+
+# 2. tag and push (both remotes)
+git tag -a $VERSION -m "$VERSION"
+git push origin main && git push github main
+git push origin $VERSION && git push github $VERSION
+
+# 3. build & push the image (command above)
+
+# 4. deploy: pin the new tag, pull, recreate
+cd /root/aurora-gateway
+cp docker-compose.yml backups/docker-compose-$(date -u +%Y%m%d%H%M%S).yml
+sed -i "s|image: entbtw/aurora:.*|image: entbtw/aurora:$VERSION|" docker-compose.yml
+docker compose pull && docker compose up -d --force-recreate
+```
+
+`--force-recreate` matters: `docker compose up -d` alone leaves an existing
+container running when only the tag changed, and the entrypoint (which starts
+the sidecar and one `bindproxy` per source address) does not run again.
 
 ## Build args
 
@@ -63,16 +115,50 @@ Drop `--push` and add `--load` to build only into the local daemon (no push). Us
 
 ## Image targets
 
+The **last stage in the `Dockerfile` is the default**, so a plain
+`docker buildx build … .` produces the sidecar image. Ask for `runtime`
+explicitly when you want the smaller one.
+
 | Target | Contents |
 |--------|----------|
-| `runtime` (default) | Distroless runtime: static binary + dashboard + sidecar sources (sidecar disabled by default). |
-| `runtime-sidecar` | debian-slim + **Bun** sidecar + `aurora bindproxy`; enable with `AURORA_SIDECAR_ENABLED=true` (legacy: `AURORA_SIDECAR_*`). Target name kept for compatibility; content is a generic extension-driven sidecar (~100 MB larger). |
+| `runtime-sidecar` (default) | debian-slim + **Bun** sidecar + `aurora bindproxy`, `ENTRYPOINT /docker-entrypoint.sh`. Starts one CONNECT proxy per source address and the sidecar, then execs the gateway. |
+| `runtime` | Distroless: static binary + dashboard + sidecar sources, no Bun and no `bindproxy`, `ENTRYPOINT /aurora`. Extension-driven sidecar features are unavailable. |
 
 ```bash
-# Sidecar-enabled variant
-docker buildx build --target runtime-sidecar \
-  -t entbtw/aurora:sidecar --push .
+# Distroless variant (no sidecar, no multi-IP rotation)
+docker buildx build --target runtime \
+  -t entbtw/aurora:distroless --push .
 ```
+
+## Multi-IP egress (sidecar image only)
+
+The entrypoint starts one `bindproxy` per address in `AURORA_SIDECAR_BIND_IPS`
+on `127.0.0.1:8981+` and points the sidecar at them, so requests leave from a
+different source address instead of one:
+
+```bash
+# .env next to docker-compose.yml
+AURORA_SIDECAR_ENABLED=true
+AURORA_SIDECAR_BIND_IPS=193.0.2.10,193.0.2.11,198.51.100.7
+AURORA_SIDECAR_PORT=8090
+```
+
+Rotation is per request: consecutive requests walk the address list, and a
+retry after a `403`/`429` moves to the next one. The gateway sends the
+provider's primary address as `x-aurora-bind-ip`, but that is a preference,
+not a pin — otherwise the extra addresses would be configured and unused.
+
+Verify on a live host:
+
+```bash
+ss -lntp | grep -E ':8090|:898[1-6]'      # sidecar + one proxy per address
+curl -s http://127.0.0.1:8090/health       # {"status":"ok"}
+curl -s -x http://127.0.0.1:8982 https://api.ipify.org   # egress of address 2
+```
+
+Note that the container must use `network_mode: host` for the bind proxies to
+bind real addresses; with a bridge network the source addresses are not on the
+container's loopback and egress silently falls back to the default route.
 
 ### BuildKit stale-cache caveat (cross-stage COPY)
 
@@ -123,6 +209,6 @@ services:
 Current published tags: `latest` and a pinned `vX.Y.Z`. Add a tag by adding `-t entbtw/aurora:vX.Y.Z` to the build command, or re-tag an existing image:
 
 ```bash
-docker tag entbtw/aurora:latest entbtw/aurora:v1.1.2
-docker push entbtw/aurora:v1.1.2
+docker tag entbtw/aurora:latest entbtw/aurora:v1.7.0
+docker push entbtw/aurora:v1.7.0
 ```
