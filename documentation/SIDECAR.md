@@ -52,7 +52,8 @@ The sidecar always streams upstream; when the caller asked for a non-streaming r
 
 - **Extension-driven fingerprints** — install a store extension to supply base URL, UA, headers, tools and retries
 - **Paid / API-key traffic** — the sidecar forwards the incoming `Authorization` untouched, so bearer tokens and API keys keep working through the same path
-- **Multi-IP egress** — one Go CONNECT proxy per configured IP (ports `8981+`), rotated over **per request**, so consecutive requests leave from different addresses and a `403`/`429` retry moves to the next one
+- **Multi-IP egress** — one Go CONNECT proxy per source address, rotated over **per request**, so consecutive requests leave from different addresses and a `403`/`429` retry moves to the next one
+- **Follows the providers** — the proxy set is the union of every provider's `bind_ips`: editing the list from the dashboard starts (or stops) the matching proxy and republishes `configs/sidecar-bind-proxies.json`, which the sidecar re-reads. No environment edit, no restart
 - **Streaming and non-streaming** — both, with SSE aggregation on the non-streaming path
 - **Runtime tuning** — every knob is editable from **Settings → Sidecar** and persisted to `configs/sidecar-overrides.json`
 

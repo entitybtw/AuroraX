@@ -59,7 +59,8 @@ the reserved `SIDECAR`/`BIND` namespace, so provider auto-discovery ignores them
 | `AURORA_SIDECAR_BASE_URL` | — | Sidecar URL the Go side dials (e.g. `http://127.0.0.1:8090/v1`) |
 | `AURORA_SIDECAR_UPSTREAM_URL` | — | Upstream the sidecar dials (defaults to the extension's `base_url`) |
 | `AURORA_SIDECAR_BIND_IPS` | — | Comma-separated source addresses; one CONNECT proxy (`8981+`) per address |
-| `AURORA_SIDECAR_BIND_PROXIES` | — | Derived by the entrypoint (`ip:port` list); the sidecar rotates over it **per request**, and a `403`/`429` retry moves to the next address |
+| `AURORA_SIDECAR_BIND_PROXIES` | — | Derived by the entrypoint (`ip:port` list) from `AURORA_SIDECAR_BIND_IPS` |
+| `AURORA_SIDECAR_BIND_PROXIES_FILE` | `/app/configs/sidecar-bind-proxies.json` | Live proxy list the gateway publishes: the union of every provider's `bind_ips`. The sidecar prefers it over the static list and re-reads it when it changes, so addresses join and leave the rotation without a restart |
 | `AURORA_SIDECAR_USER_AGENT` | — | Upstream User-Agent (set by the applied extension) |
 | `AURORA_SIDECAR_INJECT_TOOLS` | `true` | Add the extension tool schema when the body has none |
 | `AURORA_SIDECAR_DEFAULT_AUTH` | — | Fallback `Authorization` header |

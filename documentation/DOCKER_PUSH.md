@@ -2,11 +2,11 @@
 
 The official published image for this fork is **`entbtw/aurora`** on Docker Hub.
 
-**Current release:** `v1.7.2` (also published as `latest`). Pull it with:
+**Current release:** `v1.7.3` (also published as `latest`). Pull it with:
 
 ```bash
 docker pull entbtw/aurora:latest
-docker pull entbtw/aurora:v1.7.2
+docker pull entbtw/aurora:v1.7.3
 ```
 
 Every published tag is pinned: `vX.Y.Z` maps one-to-one to a git tag, and the
@@ -14,7 +14,7 @@ version string reported by the binary matches the tag:
 
 ```bash
 docker exec aurora-gateway /aurora --version
-# aurora [v1.7.2 | commit:<short> | go1.26.4]
+# aurora [v1.7.3 | commit:<short> | go1.26.4]
 ```
 
 ### Versioning
@@ -61,7 +61,7 @@ The version string carries the `v` prefix so it matches the git tag and the
 image tag:
 
 ```bash
-VERSION=v1.7.2   # next release: bump to v1.7.3
+VERSION=v1.7.3   # next release: bump to v1.7.4
 
 docker buildx build --platform linux/amd64 \
   -t entbtw/aurora:latest \
@@ -148,6 +148,13 @@ retry after a `403`/`429` moves to the next one. The gateway sends the
 provider's primary address as `x-aurora-bind-ip`, but that is a preference,
 not a pin — otherwise the extra addresses would be configured and unused.
 
+The set is live: the gateway publishes the union of every provider's
+`bind_ips` to `configs/sidecar-bind-proxies.json` (one CONNECT proxy per
+address, the entrypoint's ones adopted rather than bound twice) and the
+sidecar re-reads it, so adding an address to a provider makes it usable
+immediately and dropping it from every provider takes it out of the
+rotation.
+
 Verify on a live host:
 
 ```bash
@@ -209,6 +216,6 @@ services:
 Current published tags: `latest` and a pinned `vX.Y.Z`. Add a tag by adding `-t entbtw/aurora:vX.Y.Z` to the build command, or re-tag an existing image:
 
 ```bash
-docker tag entbtw/aurora:latest entbtw/aurora:v1.7.2
-docker push entbtw/aurora:v1.7.2
+docker tag entbtw/aurora:latest entbtw/aurora:v1.7.3
+docker push entbtw/aurora:v1.7.3
 ```

@@ -35,9 +35,15 @@ func (a *App) syncEgress() {
 	}
 	rawProviders := a.runtimeRawProviders()
 	seen := make(map[string]struct{}, len(rawProviders))
+	sourceIPs := make([]string, 0, len(rawProviders))
 	for name, raw := range rawProviders {
 		seen[name] = struct{}{}
 		cands := egressCandidates(raw)
+		for _, c := range cands {
+			if c.LocalAddr != nil {
+				sourceIPs = append(sourceIPs, c.LocalAddr.String())
+			}
+		}
 		if len(cands) == 0 {
 			// Still records the disabled set: a provider whose only exits come
 			// from an extension keeps its operator-marked "off" list.
@@ -52,6 +58,10 @@ func (a *App) syncEgress() {
 			a.egress.Remove(name)
 		}
 	}
+	// The sidecar's CONNECT proxies follow the same set, so an address added
+	// to a provider's bind_ips becomes usable immediately and one removed
+	// from every provider drops out of the rotation.
+	a.sidecarBind.Sync(sourceIPs)
 }
 
 // egressCandidates turns a provider's configured source addresses into

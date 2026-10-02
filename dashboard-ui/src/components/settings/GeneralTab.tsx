@@ -149,7 +149,7 @@ export function GeneralTab(): JSX.Element {
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Server port & base path</div>
-              <div className="grid grid-cols-2 gap-3 mt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
                 <div>
                   <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Port</label>
                   <Input placeholder="e.g. 4000" className="w-full mt-1" value={dashboardSettings.client.port ?? ""} onChange={e => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, port: e.target.value } })} />

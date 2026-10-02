@@ -16,9 +16,12 @@
 // process per request instead (legacy; buffered, only needed if an upstream
 // rejects a reused process even with Connection: close).
 //
-// Multi-IP: the caller may send `x-aurora-bind-ip`. When it matches an entry
-// in AURORA_SIDECAR_BIND_PROXIES (comma-separated `ip:port` CONNECT proxies),
-// the request is relayed through that proxy so it egresses from the chosen IP.
+// Multi-IP: requests rotate over every known CONNECT proxy (one per source
+// address), and the caller may send `x-aurora-bind-ip` as a preference for
+// where to start. The list is the entrypoint's AURORA_SIDECAR_BIND_PROXIES
+// plus the gateway's live file (AURORA_SIDECAR_BIND_PROXIES_FILE), which
+// follows the providers' bind_ips as they are edited, so addresses join and
+// leave the rotation without a restart.
 //
 // Provider scoping: the caller may send `x-aurora-provider-type`. Tool
 // injection and identity headers are only applied when that type is listed
@@ -34,6 +37,7 @@
 //	AURORA_SIDECAR_DEFAULT_AUTH   fallback Authorization (default "Bearer public")
 //	AURORA_SIDECAR_USER_AGENT     upstream User-Agent   (default empty)
 //	AURORA_SIDECAR_BIND_PROXIES   ip:port[,ip:port...]  (default empty)
+//	AURORA_SIDECAR_BIND_PROXIES_FILE  live proxy list JSON (gateway-published)
 //	AURORA_SIDECAR_OVERRIDES_PATH sidecar-overrides.json (mtime-cached)
 //	AURORA_SIDECAR_TOOLS_PATH     extension tool schema JSON (optional)
 //	AURORA_SIDECAR_UPSTREAM_HEADERS_TIMEOUT_MS  headers deadline (default 120000)
@@ -189,7 +193,11 @@ function loadOverridesSync() {
 
 loadOverridesSync();
 
-// Map of local IP -> CONNECT proxy URL (http://127.0.0.1:port).
+// Map of local IP -> CONNECT proxy URL (http://127.0.0.1:port), seeded from
+// the entrypoint's static list. The gateway publishes the live set — it
+// follows every provider's bind_ips — to a JSON file, re-read whenever that
+// file changes, so addresses added or removed at runtime join or leave the
+// rotation without restarting anything.
 const BIND_PROXIES = new Map();
 const proxiesRaw = process.env.AURORA_SIDECAR_BIND_PROXIES ?? "";
 for (const entry of proxiesRaw.split(",")) {
@@ -200,6 +208,34 @@ for (const entry of proxiesRaw.split(",")) {
   const ip = trimmed.slice(0, idx).trim();
   const port = trimmed.slice(idx + 1).trim();
   if (ip && port) BIND_PROXIES.set(ip, `http://127.0.0.1:${port}`);
+}
+
+const BIND_PROXIES_FILE = (
+  process.env.AURORA_SIDECAR_BIND_PROXIES_FILE ??
+  "/app/configs/sidecar-bind-proxies.json"
+).trim();
+let proxiesFileCache = { mtimeMs: -1, map: null };
+
+function bindProxies() {
+  if (!BIND_PROXIES_FILE) return BIND_PROXIES;
+  try {
+    const st = Bun.statSync(BIND_PROXIES_FILE);
+    if (st && proxiesFileCache.mtimeMs !== st.mtimeMs) {
+      const parsed = JSON.parse(
+        require("node:fs").readFileSync(BIND_PROXIES_FILE, "utf8"),
+      );
+      const next = new Map();
+      for (const entry of parsed?.proxies ?? []) {
+        if (!entry || !entry.ip || !entry.port) continue;
+        next.set(String(entry.ip), `http://127.0.0.1:${Number(entry.port)}`);
+      }
+      proxiesFileCache = { mtimeMs: st.mtimeMs, map: next };
+    }
+  } catch {
+    // No file yet (first boot, before the gateway published a set): keep the
+    // last known list and fall back to the entrypoint's environment.
+  }
+  return proxiesFileCache.map ?? BIND_PROXIES;
 }
 
 function resolveUpstream() {
@@ -282,7 +318,7 @@ Bun.serve({
 
     if (url.pathname === "/proxies") {
       return json(
-        Array.from(BIND_PROXIES.entries()).map(([ip, proxy]) => ({
+        Array.from(bindProxies().entries()).map(([ip, proxy]) => ({
           ip,
           proxy,
         })),
@@ -339,9 +375,10 @@ Bun.serve({
     // dial happens here in the sidecar, not in the gateway's egress registry.
     // With a single address configured the list holds one entry, so the
     // preference is still honoured.
-    const requested = BIND_PROXIES.get(bindIP) || "";
+    const proxies = bindProxies();
+    const requested = bindIP ? proxies.get(bindIP) || "" : "";
     const proxy = requested;
-    const proxyList = Array.from(BIND_PROXIES.values());
+    const proxyList = Array.from(proxies.values());
 
     const injectTools =
       overrides.injectTools !== null
@@ -489,5 +526,5 @@ Bun.serve({
 console.log(
   `sidecar listening on http://${HOST}:${PORT} -> ${resolveUpstream() || "(unset)"}` +
     (ISOLATED ? " [isolated]" : " [inline]") +
-    (BIND_PROXIES.size ? ` (${BIND_PROXIES.size} bind proxies)` : ""),
+    (bindProxies().size ? ` (${bindProxies().size} bind proxies)` : ""),
 );

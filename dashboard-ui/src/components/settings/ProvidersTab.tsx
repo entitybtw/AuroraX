@@ -5,7 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { RuntimeStatusBadge, useSettings, StatusChip } from "./SettingsContext";
 import { ServerIcon, RefreshCwIcon, PlusIcon, Edit3Icon, Trash2Icon, SaveIcon, XIcon, CheckIcon, SquareIcon, CheckSquareIcon, MinusIcon, KeyIcon } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchProviderStatus, createProvider, updateProvider, deleteProvider, setProviderEnabled, refreshRuntime, type ProviderFormData, type ProviderStatusResponse } from "@/lib/api/providers";
+import { fetchProviderStatus, createProvider, createProviders, updateProvider, deleteProvider, setProviderEnabled, refreshRuntime, type ProviderFormData, type ProviderStatusResponse } from "@/lib/api/providers";
 import { withBasePath } from "@/lib/basepath";
 import { useState, useCallback, useMemo, useRef, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
@@ -21,6 +21,7 @@ import { serversBoundTo, useEgressServerLists } from "@/lib/api/egress-servers";
 import { exitDestination, exitForIp, exitState, toneDotClass } from "@/lib/egress-view";
 import type { ProviderStatusItem } from "@/lib/api/providers-types";
 import { filterToText, hasAdvancedConditions, resolveAutofetchFilter } from "@/lib/autofetch-filter";
+import { parseProviderNames } from "@/lib/provider-names";
 
 /** "Claude OAuth" / "OpenCode Auth" / "Zen Device" → "Link … account". */
 function linkAccountLabel(name: string): string {
@@ -113,6 +114,27 @@ function ConfigSourceBadge({ source }: { source: string | undefined }): JSX.Elem
 }
 
 /** Short human label for the tier an exit sits in (mirrors the egress panel). */
+/** Live count of what the Name field will create, once it holds more than one. */
+function bulkNamePreview(value: string): JSX.Element | null {
+  if (value.trim() === "") return null;
+  const { names, invalid } = parseProviderNames(value);
+  if (invalid.length > 0) {
+    return (
+      <p className="text-[11px] font-medium text-destructive">
+        Not a valid name: {invalid.join(", ")}
+      </p>
+    );
+  }
+  if (names.length > 1) {
+    return (
+      <p className="text-[11px] font-medium text-accent">
+        {names.length} providers will be created with this form.
+      </p>
+    );
+  }
+  return null;
+}
+
 function tierName(tier: number): string {
   if (tier < 0) return "preferred";
   if (tier === 0) return "rotation";
@@ -332,7 +354,35 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
         autofetch_filter: resolveAutofetchFilter(autofetch_filter ?? initial?.autofetch_filter, autofetch_filter_text ?? ""),
       };
       if (mode === "add") {
-        await createProvider(payload);
+        const { names, invalid } = parseProviderNames(form.name);
+        if (names.length === 0) {
+          setError("Enter at least one provider name.");
+          return;
+        }
+        if (invalid.length > 0) {
+          setError(
+            `Not a valid provider name: ${invalid.join(", ")}. Use letters, digits, dots, dashes or underscores.`,
+          );
+          return;
+        }
+        if (names.length === 1) {
+          await createProvider({ ...payload, name: names[0] ?? "" });
+        } else {
+          // A batch: create them one at a time so a single failure leaves the
+          // rest standing, then keep only the failures in the field so a
+          // second attempt retries exactly those.
+          const { created, failed } = await createProviders(payload, names);
+          if (failed.length > 0) {
+            setForm({ ...form, name: failed.map((entry) => entry.name).join(", ") });
+            setError(
+              `Created ${created.length} of ${names.length}. Failed: ${failed
+                .map((entry) => `${entry.name} — ${entry.error}`)
+                .join("; ")}`,
+            );
+            onSaved();
+            return;
+          }
+        }
       } else {
         const originalName = initial?.originalName ?? form.name;
         if (originalName && form.name !== originalName) {
@@ -403,11 +453,17 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
           <Section title="Connection" hint="Where the gateway reaches this provider.">
             <div className="flex flex-col gap-1.5">
               <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Name</label>
-              <Input type="text" placeholder="my-provider" value={form.name}
+              <Input type="text" placeholder={mode === "add" ? "my-provider, backup-1 backup-2" : "my-provider"} value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })} />
               {mode === "edit" && (
                 <div className="text-[11px] text-muted-foreground">Rename by editing this value. Pools that referenced the old name are updated automatically.</div>
               )}
+              {mode === "add" && (
+                <div className="text-[11px] text-muted-foreground">
+                  One name per provider. Separate several with a comma or a space to create them all at once — everything else on this form applies to each.
+                </div>
+              )}
+              {mode === "add" && bulkNamePreview(form.name)}
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
@@ -1016,7 +1072,7 @@ export function ProvidersTab(): JSX.Element {
                           {provider.config?.pool_only && <Pill tone="accent">pool-only</Pill>}
                           {provider.config?.auto_fetch_models === false && <Pill tone="muted">no auto-fetch</Pill>}
                           {provider.config?.auto_fetch_models !== false && filterToText(provider.config?.autofetch_filter) && (
-                            <Pill tone="accent">filter: {filterToText(provider.config?.autofetch_filter)}</Pill>
+                            <Pill tone="accent" className="max-w-[14rem] truncate">filter: {filterToText(provider.config?.autofetch_filter)}</Pill>
                           )}
                           {provider.config?.user_agent && <Pill tone="accent">custom UA</Pill>}
                           {provider.config?.disable_api_key && <Pill tone="warning">key off</Pill>}

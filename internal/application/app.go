@@ -66,8 +66,13 @@ type App struct {
 	hooks             *hooks.Bridge
 	// egress rotates a provider's exits (source addresses plus whatever an
 	// extension contributes) instead of pinning it to one address.
-	egress         *egress.Registry
-	egressSource   *hookEgressSource
+	egress       *egress.Registry
+	egressSource *hookEgressSource
+	// sidecarBind owns the local CONNECT proxies behind the sidecar's
+	// multi-IP rotation and keeps them in step with the providers' bind_ips,
+	// so editing an address list from the dashboard changes the rotation
+	// without touching the environment or restarting the container.
+	sidecarBind    *sidecarBindProxies
 	providers      *providers.InitResult
 	audit          *auditlog.Result
 	usage          *usage.Result
@@ -179,6 +184,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 	app.egressSource = newHookEgressSource(app.hooks)
 	app.egress.SetExtensionSource(app.extensionCandidates)
 	llmclient.SetDefaultEgress(app.egress)
+	app.sidecarBind = newSidecarBindProxies(sidecarBindProxiesFile)
 
 	// Session hub identity header set is extension-driven: sidecar
 	// forward_headers (written on extension apply) decide which inbound

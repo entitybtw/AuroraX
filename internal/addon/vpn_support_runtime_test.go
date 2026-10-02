@@ -215,6 +215,9 @@ func TestVPNSupportRuntimeRefreshUnderYaegi(t *testing.T) {
 	if !strings.Contains(data, `"k":"Endpoints","v":"5"`) {
 		t.Errorf("status does not report 5 endpoints: %s", data)
 	}
+	if !strings.Contains(data, `"k":"Local ports"`) {
+		t.Errorf("status does not report the local port range: %s", data)
+	}
 
 	nodes, err := a.CallString("Data", vpnsPayload(dir, "vllm-zen", "nodes", cfg))
 	if err != nil {
@@ -395,6 +398,9 @@ func TestVPNSupportRuntimeRefreshUnderYaegi(t *testing.T) {
 		keepAll[k] = v
 	}
 	keepAll["node_count"] = "9"
+	// One base port: the range must size itself to the kept count instead of
+	// collapsing several exits onto one port.
+	keepAll["local_socks_ports"] = "1080"
 	if _, err := a.CallString("Data", vpnsPayload(dir, "vllm-zen", "", keepAll)); err != nil {
 		t.Fatalf("Data (keep all): %v", err)
 	}
@@ -424,5 +430,37 @@ func TestVPNSupportRuntimeRefreshUnderYaegi(t *testing.T) {
 			t.Errorf("duplicate selected identity %q in %v", key, fourth.SelectedKeys)
 		}
 		seenKeys[key] = true
+	}
+
+	// Auto-sized ports: base 1080 with one port per kept endpoint.
+	autoCandidates, err := a.CallString("EgressCandidates", vpnsPayload(dir, "vllm-zen", "", keepAll))
+	if err != nil {
+		t.Fatalf("EgressCandidates (auto ports): %v", err)
+	}
+	var auto struct {
+		Candidates []vpnsCandidate `json:"candidates"`
+	}
+	if err := json.Unmarshal([]byte(autoCandidates), &auto); err != nil {
+		t.Fatalf("auto candidates json: %v (%s)", err, autoCandidates)
+	}
+	if len(auto.Candidates) != len(fourth.Selected) {
+		t.Fatalf("got %d candidates, want %d kept endpoints: %s", len(auto.Candidates), len(fourth.Selected), autoCandidates)
+	}
+	seenPorts := map[string]bool{}
+	for _, c := range auto.Candidates {
+		if !strings.HasPrefix(c.Proxy, "socks5://127.0.0.1:") {
+			t.Errorf("proxy = %q, want a local socks port", c.Proxy)
+			continue
+		}
+		seenPorts[strings.TrimPrefix(c.Proxy, "socks5://127.0.0.1:")] = true
+	}
+	if len(seenPorts) != len(fourth.Selected) {
+		t.Errorf("distinct local ports = %d (%v), want one per kept endpoint (%d)", len(seenPorts), seenPorts, len(fourth.Selected))
+	}
+	for port := 1080; port < 1080+len(fourth.Selected); port++ {
+		if !seenPorts[strconv.Itoa(port)] {
+			t.Errorf("auto ports = %v, want the range starting at 1080", seenPorts)
+			break
+		}
 	}
 }
