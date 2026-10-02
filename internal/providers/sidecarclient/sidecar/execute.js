@@ -20,6 +20,9 @@
 // and falls back to the bundled default-tools.json. The schema is cached in
 // memory and only re-read when the file mtime changes.
 import bundledTools from "./default-tools.json" with { type: "json" };
+// Bun 1.3 has no Bun.statSync; without it the extension tool schema was
+// never re-read from disk.
+import { statSync } from "node:fs";
 
 const emit = (obj) => JSON.stringify(obj);
 
@@ -61,14 +64,14 @@ function loadTools(toolsPath) {
   if (!toolsPath) return bundledTools;
   if (toolsCache.path === toolsPath) {
     try {
-      const st = Bun.statSync(toolsPath);
+      const st = statSync(toolsPath);
       if (st && st.mtimeMs === toolsCache.mtimeMs) return toolsCache.tools;
     } catch {
       return toolsCache.tools;
     }
   }
   try {
-    const st = Bun.statSync(toolsPath);
+    const st = statSync(toolsPath);
     const parsed = JSON.parse(require("node:fs").readFileSync(toolsPath, "utf8"));
     if (Array.isArray(parsed) && parsed.length > 0) {
       toolsCache = {

@@ -60,6 +60,9 @@
 //	force_stream
 
 import { executeRequest } from "./execute.js";
+// Bun 1.3 has no Bun.statSync (it is undefined, not a function); the node:fs
+// shim is what the rest of the sidecar reads files with.
+import { statSync } from "node:fs";
 
 const env = (name, fallback) => process.env[name] ?? fallback;
 
@@ -158,7 +161,7 @@ function parseOverrides(parsed) {
 // Load sidecar-overrides.json (mtime-cached). Falls back to env when absent.
 async function loadOverridesAsync() {
   try {
-    const st = Bun.statSync(OVERRIDES_PATH);
+    const st = statSync(OVERRIDES_PATH);
     if (!st) return overridesCache;
     if (overridesCache.mtimeMs === st.mtimeMs) {
       return overridesCache;
@@ -219,7 +222,7 @@ let proxiesFileCache = { mtimeMs: -1, map: null };
 function bindProxies() {
   if (!BIND_PROXIES_FILE) return BIND_PROXIES;
   try {
-    const st = Bun.statSync(BIND_PROXIES_FILE);
+    const st = statSync(BIND_PROXIES_FILE);
     if (st && proxiesFileCache.mtimeMs !== st.mtimeMs) {
       const parsed = JSON.parse(
         require("node:fs").readFileSync(BIND_PROXIES_FILE, "utf8"),
