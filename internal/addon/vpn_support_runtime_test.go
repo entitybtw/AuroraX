@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -59,8 +60,16 @@ func vpnsPayload(dir, provider, key string, cfg map[string]string) string {
 type vpnsState struct {
 	LastRefresh   time.Time `json:"last_refresh"`
 	Selected      []string  `json:"selected"`
+	SelectedKeys  []string  `json:"selected_keys"`
 	Subscriptions int       `json:"subscriptions"`
 	SettingsFP    string    `json:"settings_fp"`
+}
+
+// vpnsCandidate is one exit the addon offers to the gateway.
+type vpnsCandidate struct {
+	Name  string `json:"name"`
+	Proxy string `json:"proxy"`
+	Tier  int    `json:"tier"`
 }
 
 func readVpnState(t *testing.T, dir string) vpnsState {
@@ -88,16 +97,45 @@ func TestVPNSupportRuntimeRefreshUnderYaegi(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = ln.Close() }()
-	go func() {
-		for {
-			conn, err := ln.Accept()
-			if err != nil {
-				return
+	acceptLoop := func(l net.Listener) {
+		go func() {
+			for {
+				conn, err := l.Accept()
+				if err != nil {
+					return
+				}
+				_ = conn.Close()
 			}
-			_ = conn.Close()
-		}
-	}()
+		}()
+	}
+	acceptLoop(ln)
 	port := ln.Addr().(*net.TCPAddr).Port
+
+	// A second address carrying the same display label as the US entry: a
+	// subscription repeats labels freely, and the addon must keep the two
+	// nodes apart instead of burning a slot on the label.
+	ln2, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = ln2.Close() }()
+	acceptLoop(ln2)
+	port2 := ln2.Addr().(*net.TCPAddr).Port
+
+	// One more listener per remaining node: two nodes sharing protocol and
+	// address are the same endpoint, so each needs its own port to survive
+	// deduplication.
+	listen := func() int {
+		l, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = l.Close() })
+		acceptLoop(l)
+		return l.Addr().(*net.TCPAddr).Port
+	}
+	port3 := listen()
+	port4 := listen()
 
 	vmessJSON := fmt.Sprintf(`{"add":"127.0.0.1","port":%d,"ps":"DE Frankfurt 03","id":"11111111-2222-3333-4444-555555555555","aid":"0","net":"tcp","type":"none"}`, port)
 	plain := strings.Join([]string{
@@ -105,9 +143,11 @@ func TestVPNSupportRuntimeRefreshUnderYaegi(t *testing.T) {
 		fmt.Sprintf("trojan://secret@127.0.0.1:%d#NL Amsterdam 02", port),
 		"vmess://" + base64.StdEncoding.EncodeToString([]byte(vmessJSON)),
 		"this-is-not-a-uri",
+		// Same label as the first line, different address.
+		fmt.Sprintf("vless://bbbbbbbb-bbbb-cccc-dddd-eeeeeeeeeeee@127.0.0.1:%d?type=tcp&security=none#US Ashburn 01", port2),
 	}, "\n")
 	b64 := base64.StdEncoding.EncodeToString([]byte(
-		fmt.Sprintf("vless://aaaaaaaa-bbbb-cccc-dddd-ffffffffffff@127.0.0.1:%d?type=tcp#JP Tokyo 05", port),
+		fmt.Sprintf("vless://aaaaaaaa-bbbb-cccc-dddd-ffffffffffff@127.0.0.1:%d?type=tcp#JP Tokyo 05", port3),
 	))
 
 	srvPlain := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -128,7 +168,7 @@ func TestVPNSupportRuntimeRefreshUnderYaegi(t *testing.T) {
 
 	cfg := map[string]string{
 		"apply_to":                 "vllm-zen,vllm-cheapvibecode",
-		"subscriptions":            srvPlain.URL + "\n" + srvB64.URL + "\nvless://aaaaaaaa-bbbb-cccc-dddd-999999999999@127.0.0.1:" + fmt.Sprint(port) + "#Inline 09",
+		"subscriptions":            srvPlain.URL + "\n" + srvB64.URL + "\nvless://aaaaaaaa-bbbb-cccc-dddd-999999999999@127.0.0.1:" + fmt.Sprint(port4) + "#Inline 09",
 		"refresh_interval_minutes": "1",
 		"node_count":               "2",
 		"node_order":               "best_first",
@@ -172,8 +212,8 @@ func TestVPNSupportRuntimeRefreshUnderYaegi(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Data: %v", err)
 	}
-	if !strings.Contains(data, `"k":"Endpoints","v":"4"`) {
-		t.Errorf("status does not report 4 endpoints: %s", data)
+	if !strings.Contains(data, `"k":"Endpoints","v":"5"`) {
+		t.Errorf("status does not report 5 endpoints: %s", data)
 	}
 
 	nodes, err := a.CallString("Data", vpnsPayload(dir, "vllm-zen", "nodes", cfg))
@@ -208,6 +248,37 @@ func TestVPNSupportRuntimeRefreshUnderYaegi(t *testing.T) {
 	if strings.Contains(servers, `"blocks"`) {
 		t.Errorf("endpoint list should not carry UI blocks: %s", servers)
 	}
+	// One row per distinct endpoint, so exactly the kept ones light up —
+	// not every repetition of a kept label or address.
+	var srvPayload struct {
+		Servers []struct {
+			Host     string `json:"host"`
+			Port     int    `json:"port"`
+			Protocol string `json:"protocol"`
+			Selected bool   `json:"selected"`
+		} `json:"servers"`
+	}
+	if err := json.Unmarshal([]byte(servers), &srvPayload); err != nil {
+		t.Fatalf("servers json: %v (%s)", err, servers)
+	}
+	if len(srvPayload.Servers) != 5 {
+		t.Errorf("endpoint list has %d rows, want 5 distinct endpoints", len(srvPayload.Servers))
+	}
+	seenRows := map[string]bool{}
+	selectedRows := 0
+	for _, row := range srvPayload.Servers {
+		rowKey := row.Protocol + "|" + row.Host + "|" + strconv.Itoa(row.Port)
+		if seenRows[rowKey] {
+			t.Errorf("duplicate row %q in the endpoint list", rowKey)
+		}
+		seenRows[rowKey] = true
+		if row.Selected {
+			selectedRows++
+		}
+	}
+	if selectedRows != 2 {
+		t.Errorf("endpoint list marks %d selected, want 2", selectedRows)
+	}
 
 	candidates, err := a.CallString("EgressCandidates", vpnsPayload(dir, "vllm-zen", "", cfg))
 	if err != nil {
@@ -220,6 +291,31 @@ func TestVPNSupportRuntimeRefreshUnderYaegi(t *testing.T) {
 	if !strings.Contains(candidates, `"tier":0`) {
 		t.Errorf("rotate mode should stay on tier 0: %s", candidates)
 	}
+	var emitted struct {
+		Candidates []vpnsCandidate `json:"candidates"`
+	}
+	if err := json.Unmarshal([]byte(candidates), &emitted); err != nil {
+		t.Fatalf("candidates json: %v (%s)", err, candidates)
+	}
+	// node_count is 2, so the gateway must see exactly two exits.
+	if len(emitted.Candidates) != 2 {
+		t.Errorf("got %d candidates, want 2 (node_count): %s", len(emitted.Candidates), candidates)
+	}
+	seenNames := map[string]bool{}
+	for _, c := range emitted.Candidates {
+		// The gateway keys exit health by name: without the address two
+		// same-labelled nodes collapse into one exit.
+		if !strings.Contains(c.Name, " @ ") || !strings.Contains(c.Name, ":") {
+			t.Errorf("exit name %q does not carry its address: %s", c.Name, candidates)
+		}
+		if seenNames[c.Name] {
+			t.Errorf("duplicate exit name %q: %s", c.Name, candidates)
+		}
+		seenNames[c.Name] = true
+		if !strings.HasPrefix(c.Proxy, "socks5://127.0.0.1:") {
+			t.Errorf("exit proxy = %q, want a local socks port", c.Proxy)
+		}
+	}
 
 	if out, err := a.CallString("OnSettingsSave", vpnsPayload(dir, "vllm-zen", "", cfg)); err != nil {
 		t.Fatalf("OnSettingsSave: %v", err)
@@ -231,6 +327,21 @@ func TestVPNSupportRuntimeRefreshUnderYaegi(t *testing.T) {
 	first := readVpnState(t, dir)
 	if len(first.Selected) != 2 {
 		t.Errorf("selected = %v, want 2 kept IPs", first.Selected)
+	}
+	// The addresses ride along so two endpoints sharing one label stay two
+	// endpoints (they are what the exit name and the "selected" flag key on).
+	if len(first.SelectedKeys) != len(first.Selected) {
+		t.Errorf("selected = %v, selected_keys = %v, want one address per kept IP", first.Selected, first.SelectedKeys)
+	}
+	seenLabels := map[string]bool{}
+	for i, name := range first.Selected {
+		if seenLabels[name] {
+			t.Errorf("selected labels are not unique: %v", first.Selected)
+		}
+		seenLabels[name] = true
+		if strings.Count(first.SelectedKeys[i], "|") != 2 {
+			t.Errorf("selected_keys[%d] = %q, want a protocol|host|port identity", i, first.SelectedKeys[i])
+		}
 	}
 	if first.Subscriptions != 3 {
 		t.Errorf("subscriptions = %d, want 3", first.Subscriptions)
@@ -274,5 +385,44 @@ func TestVPNSupportRuntimeRefreshUnderYaegi(t *testing.T) {
 	third := readVpnState(t, dir)
 	if !third.LastRefresh.Equal(second.LastRefresh) {
 		t.Errorf("refresh loop with unchanged settings: %v -> %v", second.LastRefresh, third.LastRefresh)
+	}
+
+	// Keeping more IPs than the subscription has distinct labels has to fill
+	// the remaining slots by address instead of dropping them: the duplicated
+	// US label stays in twice, behind two different addresses.
+	keepAll := map[string]string{}
+	for k, v := range edited {
+		keepAll[k] = v
+	}
+	keepAll["node_count"] = "9"
+	if _, err := a.CallString("Data", vpnsPayload(dir, "vllm-zen", "", keepAll)); err != nil {
+		t.Fatalf("Data (keep all): %v", err)
+	}
+	time.Sleep(6 * time.Second)
+	fourth := readVpnState(t, dir)
+	if !fourth.LastRefresh.After(third.LastRefresh) {
+		t.Errorf("node_count=9 did not trigger a refresh: %v -> %v", third.LastRefresh, fourth.LastRefresh)
+	}
+	if len(fourth.Selected) != 5 {
+		t.Errorf("selected = %v, want all 5 endpoints kept", fourth.Selected)
+	}
+	duplicated := 0
+	for _, name := range fourth.Selected {
+		if name == "US Ashburn 01" {
+			duplicated++
+		}
+	}
+	if duplicated != 2 {
+		t.Errorf("selected = %v, want the repeated label kept twice", fourth.Selected)
+	}
+	if len(fourth.SelectedKeys) != len(fourth.Selected) {
+		t.Errorf("selected = %v, selected_keys = %v, want one address per entry", fourth.Selected, fourth.SelectedKeys)
+	}
+	seenKeys := map[string]bool{}
+	for _, key := range fourth.SelectedKeys {
+		if seenKeys[key] {
+			t.Errorf("duplicate selected identity %q in %v", key, fourth.SelectedKeys)
+		}
+		seenKeys[key] = true
 	}
 }
