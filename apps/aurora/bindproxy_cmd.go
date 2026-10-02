@@ -1,13 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"io"
-	"log"
 	"net"
-	"net/http"
 	"os"
+
+	"aurora/internal/bindproxy"
 )
 
 // runBindProxySubcommand implements `aurora bindproxy`, a minimal HTTP CONNECT
@@ -17,6 +16,10 @@ import (
 // handshake, but Bun's fetch ignores a source address. This proxy lets
 // the sidecar dial through a chosen egress IP while Bun still performs the
 // TLS handshake end-to-end (the proxy only relays bytes).
+//
+// The gateway starts the same proxy in-process for any address a provider
+// gains at runtime (see internal/application/bindproxy.go); this subcommand
+// is the entrypoint's static variant.
 //
 // Environment:
 //
@@ -45,41 +48,6 @@ func runBindProxySubcommand(args []string, stdout, stderr io.Writer) (bool, int)
 		return true, 1
 	}
 	fmt.Fprintf(stdout, "bindproxy listening on %s (egress %s)\n", listen, bindIP)
-
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			log.Printf("bindproxy: accept: %v", err)
-			continue
-		}
-		go serveBindProxyConn(conn, parsed)
-	}
-}
-
-func serveBindProxyConn(conn net.Conn, bindIP net.IP) {
-	defer conn.Close()
-
-	br := bufio.NewReader(conn)
-	req, err := http.ReadRequest(br)
-	if err != nil || req.Method != http.MethodConnect {
-		_, _ = conn.Write([]byte("HTTP/1.1 400 Bad Request\r\n\r\n"))
-		return
-	}
-
-	dialer := &net.Dialer{LocalAddr: &net.TCPAddr{IP: bindIP}}
-	upstream, err := dialer.Dial("tcp", req.Host)
-	if err != nil {
-		_, _ = conn.Write([]byte("HTTP/1.1 502 Bad Gateway\r\n\r\n"))
-		return
-	}
-	defer upstream.Close()
-
-	if _, err := conn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n")); err != nil {
-		return
-	}
-
-	done := make(chan struct{}, 2)
-	go func() { _, _ = io.Copy(upstream, br); done <- struct{}{} }()
-	go func() { _, _ = io.Copy(conn, upstream); done <- struct{}{} }()
-	<-done
+	bindproxy.Serve(ln, parsed)
+	return true, 0
 }

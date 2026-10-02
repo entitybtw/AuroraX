@@ -78,6 +78,36 @@ export function createProvider(data: ProviderFormData): Promise<{ message: strin
   }) as Promise<{ message: string; provider: string }>;
 }
 
+export interface BulkCreateResult {
+  created: string[];
+  failed: { name: string; error: string }[];
+}
+
+/**
+ * Creates several providers from one form. Names go one at a time so a single
+ * failure (a name that already exists, an upstream URL the gateway refuses)
+ * does not lose the rest — the caller reports what is left to do.
+ */
+export async function createProviders(
+  data: ProviderFormData,
+  names: string[],
+): Promise<BulkCreateResult> {
+  const created: string[] = [];
+  const failed: { name: string; error: string }[] = [];
+  for (const name of names) {
+    try {
+      await createProvider({ ...data, name });
+      created.push(name);
+    } catch (err) {
+      failed.push({
+        name,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+  return { created, failed };
+}
+
 export function updateProvider(name: string, data: Partial<ProviderFormData>): Promise<{ message: string; provider: string }> {
   return apiFetch(`/admin/api/v1/providers/${encodeURIComponent(name)}`, {
     method: "PUT",

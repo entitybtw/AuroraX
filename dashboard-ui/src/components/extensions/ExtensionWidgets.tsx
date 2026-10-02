@@ -158,7 +158,7 @@ function LiveContent({ data }: { data: unknown }): JSX.Element | null {
         {pairs.map(([k, v], j) => (
           <React.Fragment key={j}>
             <dt className="text-muted-foreground">{k}</dt>
-            <dd className="text-foreground font-medium">{v}</dd>
+            <dd className="text-foreground font-medium break-words">{v}</dd>
           </React.Fragment>
         ))}
       </dl>
@@ -297,7 +297,7 @@ export function ExtensionBlocks({
                 {pairs.map(([k, v], j) => (
                   <React.Fragment key={j}>
                     <dt className="text-muted-foreground">{k}</dt>
-                    <dd className="text-foreground font-medium">{v}</dd>
+                    <dd className="text-foreground font-medium break-words">{v}</dd>
                   </React.Fragment>
                 ))}
               </dl>

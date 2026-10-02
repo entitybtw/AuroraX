@@ -272,8 +272,13 @@ function BindSection({
           Bound to
         </span>
         <Pill tone={(applyTo ?? "").trim() === "" ? "warning" : "muted"}>
-          {(applyTo ?? "").trim() === "" ? "all pools and providers" : applyTo}
+          {(applyTo ?? "").trim() === "" ? "all pools and providers" : "bound to"}
         </Pill>
+        {(applyTo ?? "").trim() !== "" && (
+          <span className="min-w-0 max-w-full break-all border border-border/60 bg-surface/60 px-2 py-1 font-mono text-[10px] text-muted-foreground">
+            {applyTo}
+          </span>
+        )}
       </div>
 
       <div className="flex flex-col gap-1.5">

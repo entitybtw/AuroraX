@@ -40,6 +40,11 @@ if [ -n "$BIND_IPS" ]; then
 	export AURORA_SIDECAR_BIND_PROXIES="$BIND_PROXIES"
 fi
 
+# The gateway publishes the live proxy set (it follows the providers' bind_ips,
+# so addresses come and go at runtime) next to the other config files. The
+# sidecar prefers that file over the static list above.
+export AURORA_SIDECAR_BIND_PROXIES_FILE="${AURORA_SIDECAR_BIND_PROXIES_FILE:-/app/configs/sidecar-bind-proxies.json}"
+
 if [ "$SIDECAR_ENABLED" = "true" ] && [ -f "$SIDECAR_DIR/adapter.js" ]; then
 	/usr/local/bin/bun "$SIDECAR_DIR/adapter.js" &
 	SIDECAR_PID=$!
