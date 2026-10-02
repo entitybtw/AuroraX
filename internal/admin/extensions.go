@@ -42,6 +42,10 @@ type ExtensionField struct {
 	Default     string   `json:"default,omitempty"`
 	Options     []string `json:"options,omitempty"`
 	Secret      bool     `json:"secret,omitempty"`
+	// Advanced hides the field behind the "show advanced settings" toggle
+	// instead of showing it right away. Without it on this struct the flag
+	// was parsed and dropped, and every extension rendered all its fields.
+	Advanced bool `json:"advanced,omitempty"`
 }
 
 // ExtensionNavEntry adds a sidebar link for an extension-provided page

@@ -103,7 +103,7 @@ func TestExtension_ExtendedSchemaRoundTrip(t *testing.T) {
 	  "auth": {"server":"https://auth.example.test","client_id":"cli","verification_base":"https://auth.example.test"},
 	  "files": {"tools/cli-emulation.json":"[]","scripts/helper.js":"// helper"},
 	  "headers": [{"name":"x-session","mode":"generate","prefix":"s_","length":24,"charset":"hex"}],
-	  "ui": {"accent":"#123456","fields":[{"key":"region","label":"Region","type":"select","options":["eu","us"]}]}
+	  "ui": {"accent":"#123456","fields":[{"key":"region","label":"Region","type":"select","options":["eu","us"],"advanced":true}]}
 	}`
 	var p Extension
 	if err := json.Unmarshal([]byte(raw), &p); err != nil {
@@ -133,9 +133,17 @@ func TestExtension_ExtendedSchemaRoundTrip(t *testing.T) {
 	if len(p.UI.Fields) != 1 || p.UI.Fields[0].Key != "region" {
 		t.Fatalf("ui.fields not parsed: %+v", p.UI.Fields)
 	}
+	// The dashboard hides advanced fields behind a toggle; dropping the flag
+	// here rendered every extension field up front.
+	if !p.UI.Fields[0].Advanced {
+		t.Fatalf("ui.fields advanced flag not parsed: %+v", p.UI.Fields)
+	}
 	out, err := json.Marshal(p)
 	if err != nil || !json.Valid(out) {
 		t.Fatalf("round-trip invalid: %v", err)
+	}
+	if !strings.Contains(string(out), `"advanced":true`) {
+		t.Fatalf("advanced flag dropped on round-trip: %s", out)
 	}
 }
 
