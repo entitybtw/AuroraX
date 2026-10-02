@@ -2,11 +2,11 @@
 
 The official published image for this fork is **`entbtw/aurora`** on Docker Hub.
 
-**Current release:** `v1.7.3` (also published as `latest`). Pull it with:
+**Current release:** `v1.7.4` (also published as `latest`). Pull it with:
 
 ```bash
 docker pull entbtw/aurora:latest
-docker pull entbtw/aurora:v1.7.3
+docker pull entbtw/aurora:v1.7.4
 ```
 
 Every published tag is pinned: `vX.Y.Z` maps one-to-one to a git tag, and the
@@ -14,7 +14,7 @@ version string reported by the binary matches the tag:
 
 ```bash
 docker exec aurora-gateway /aurora --version
-# aurora [v1.7.3 | commit:<short> | go1.26.4]
+# aurora [v1.7.4 | commit:<short> | go1.26.4]
 ```
 
 ### Versioning
@@ -61,7 +61,7 @@ The version string carries the `v` prefix so it matches the git tag and the
 image tag:
 
 ```bash
-VERSION=v1.7.3   # next release: bump to v1.7.4
+VERSION=v1.7.4   # next release: bump to v1.7.5
 
 docker buildx build --platform linux/amd64 \
   -t entbtw/aurora:latest \
@@ -216,6 +216,6 @@ services:
 Current published tags: `latest` and a pinned `vX.Y.Z`. Add a tag by adding `-t entbtw/aurora:vX.Y.Z` to the build command, or re-tag an existing image:
 
 ```bash
-docker tag entbtw/aurora:latest entbtw/aurora:v1.7.3
-docker push entbtw/aurora:v1.7.3
+docker tag entbtw/aurora:latest entbtw/aurora:v1.7.4
+docker push entbtw/aurora:v1.7.4
 ```
