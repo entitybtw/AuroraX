@@ -14,6 +14,7 @@ import {
   FileCodeIcon,
   FileJsonIcon,
   GlobeIcon,
+  LanguagesIcon,
   PencilIcon,
   PlugZapIcon,
   PuzzleIcon,
@@ -33,6 +34,7 @@ import {
   deleteExtensionStore,
   ensureExtensionHeaders,
   exportExtensionUrl,
+  fetchExtensionLocale,
   fetchExtensions,
   fullApplyExtension,
   importExtension,
@@ -41,6 +43,7 @@ import {
   renameExtension,
   reorderExtensions,
   resetExtensionConfig,
+  setExtensionLocale,
   setExtensionSource,
   unapplyExtension,
   updateExtensionConfig,
@@ -92,6 +95,35 @@ interface ApplyResult {
   kept: string[];
 }
 
+// Native-language names for locale codes offered by language packs; unknown
+// codes fall back to the raw tag.
+const LOCALE_LABELS: Record<string, string> = {
+  ru: "Русский",
+  uk: "Українська",
+  de: "Deutsch",
+  fr: "Français",
+  es: "Español",
+  "pt-br": "Português (BR)",
+  it: "Italiano",
+  pl: "Polski",
+  nl: "Nederlands",
+  cs: "Čeština",
+  tr: "Türkçe",
+  ja: "日本語",
+  "zh-CN": "简体中文",
+  "zh-TW": "繁體中文",
+  ko: "한국어",
+  ar: "العربية",
+  he: "עברית",
+  hi: "हिन्दी",
+  id: "Bahasa Indonesia",
+  vi: "Tiếng Việt",
+};
+
+function localeLabel(code: string): string {
+  return LOCALE_LABELS[code] ?? LOCALE_LABELS[code.toLowerCase()] ?? code;
+}
+
 export function ExtensionsTab(): JSX.Element {
   const qc = useQueryClient();
   const {
@@ -102,6 +134,13 @@ export function ExtensionsTab(): JSX.Element {
     queryKey: ["extensions"],
     queryFn: fetchExtensions,
   });
+
+  // Active extension locale + locales offered by installed i18n / packs.
+  const { data: localeInfo } = useQuery({
+    queryKey: ["extensions", "locale"],
+    queryFn: fetchExtensionLocale,
+  });
+  const [localeBusy, setLocaleBusy] = useState(false);
 
   const [selectedId, setSelectedId] = useState("");
   const [configDraft, setConfigDraft] = useState<Record<string, string>>({});
@@ -198,6 +237,25 @@ export function ExtensionsTab(): JSX.Element {
   const invalidateExtensionQueries = async () => {
     await qc.invalidateQueries({ queryKey: ["extensions"] });
     await qc.invalidateQueries({ queryKey: ["extensions", "ui"] });
+  };
+
+  // Persist the active extension language: list + UI contributions are
+  // re-fetched, so every extension name, label and help text switches at once.
+  const handleLocaleChange = async (locale: string) => {
+    setLocaleBusy(true);
+    try {
+      await setExtensionLocale(locale);
+      await invalidateExtensionQueries();
+    } catch (err) {
+      setResult({
+        ok: false,
+        message: err instanceof Error ? err.message : "Failed to set the extension language",
+        added: [],
+        kept: [],
+      });
+    } finally {
+      setLocaleBusy(false);
+    }
   };
 
   const fields = selected?.ui?.fields ?? [];
@@ -743,6 +801,26 @@ export function ExtensionsTab(): JSX.Element {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            <label
+              className="flex h-10 items-center gap-1.5 rounded-md border border-border/50 bg-background/60 pl-2.5 pr-1 sm:h-9"
+              title="Language for extension names, labels and help — apply language packs to add more"
+            >
+              <LanguagesIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <select
+                className="h-full max-w-[11rem] bg-transparent pl-0.5 pr-1 text-sm text-foreground focus:outline-none disabled:opacity-60"
+                value={localeInfo?.locale ?? ""}
+                disabled={localeBusy}
+                onChange={(e) => void handleLocaleChange(e.target.value)}
+                aria-label="Extension language"
+              >
+                <option value="">Source language</option>
+                {(localeInfo?.available ?? []).map((code) => (
+                  <option key={code} value={code}>
+                    {localeLabel(code)}
+                  </option>
+                ))}
+              </select>
+            </label>
             <Button variant="outline" size="sm" onClick={() => setImportOpen(true)} className="h-10 gap-1.5 sm:h-9">
               <UploadIcon className="h-3.5 w-3.5" />
               Import

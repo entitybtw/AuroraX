@@ -114,6 +114,8 @@ func (h *Handler) RegisterRoutes(g RouteRegistrar) {
 
 	g.GET("/sidecar/extensions", h.ListExtensions)
 	g.GET("/sidecar/extensions/ui", h.ListExtensionUI)
+	g.GET("/sidecar/extensions/locale", h.GetExtensionLocale)
+	g.PUT("/sidecar/extensions/locale", h.SetExtensionLocale)
 	g.POST("/sidecar/extensions/import", h.ImportExtension)
 	g.POST("/sidecar/extensions/reorder", h.ReorderExtensions)
 	g.GET("/sidecar/extensions/stores", h.ListExtensionStores)

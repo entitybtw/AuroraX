@@ -388,6 +388,15 @@ type Extension struct {
 	Order   int    `json:"order,omitempty"`
 	Builtin bool   `json:"builtin"`
 	Source  string `json:"source,omitempty"`
+	// I18n carries embedded per-locale translations of this extension's
+	// translatable surface (i18n.locales.<code>). See extensions_i18n.go.
+	I18n *ExtensionI18n `json:"i18n,omitempty"`
+	// Locale pins a type="localization" extension to the locale code its
+	// Catalog is written in (e.g. "ru", "pt-BR"). Ignored otherwise.
+	Locale string `json:"locale,omitempty"`
+	// Catalog maps target extension id → translation for that extension.
+	// Only read when Type == "localization" (a language pack).
+	Catalog map[string]ExtensionTranslation `json:"catalog,omitempty"`
 }
 
 // ExtensionStore holds imported extensions, persisting them to disk so they
@@ -861,6 +870,12 @@ func (p *Extension) Validate() error {
 		}
 	}
 
+	// Embedded translations and language packs.
+	p.validateI18n(add)
+	if strings.EqualFold(p.Type, "localization") {
+		p.validateLocalization(add)
+	}
+
 	if p.Files != nil {
 		for rel, entry := range p.Files {
 			if !safeExtRelPath(rel) {
@@ -1080,13 +1095,27 @@ func (h *Handler) ListAddons(c *echo.Context) error {
 }
 
 // ListExtensions returns all imported extensions. Theme detection uses
-// type/ui.theme in the dashboard.
+// type/ui.theme in the dashboard. Responses are localized to the active
+// extension locale (or an explicit ?locale=<code> per-request override).
 func (h *Handler) ListExtensions(c *echo.Context) error {
 	if h.extensions == nil {
 		return c.JSON(http.StatusOK, map[string]any{"extensions": []any{}, "presets": []any{}})
 	}
+	locale := h.requestedLocale(c)
+	list := h.extensions.List()
+	if loc := h.newLocalizer(locale); loc != nil {
+		localized := make([]Extension, len(list))
+		for i, e := range list {
+			localized[i] = loc.extension(e)
+		}
+		list = localized
+	}
 	// "presets" is a temporary alias for older dashboard builds.
-	return c.JSON(http.StatusOK, map[string]any{"extensions": h.extensions.List(), "presets": h.extensions.List()})
+	return c.JSON(http.StatusOK, map[string]any{
+		"extensions": list,
+		"presets":    list,
+		"locale":     normalizeLocale(locale),
+	})
 }
 
 // GetExtension returns a single extension by id.
@@ -1473,6 +1502,24 @@ func (h *Handler) buildApplyResponse(c *echo.Context) (map[string]any, Extension
 	ext, ok := h.extensions.Get(c.Param("id"))
 	if !ok {
 		return nil, Extension{}, &applyFailure{http.StatusNotFound, "extension not found"}
+	}
+	// Language packs (type "localization") install translations only: they
+	// are applied like any other extension (Applied=true, contributing their
+	// catalog to ListExtensions/ListExtensionUI) but never touch sidecar
+	// settings, headers, auth wiring or client profiles. Several packs may
+	// stay applied at once — unlike themes.
+	if strings.EqualFold(ext.Type, "localization") {
+		ext.Applied = true
+		h.extensions.Upsert(ext)
+		return map[string]any{
+			"status":       "ok",
+			"extension":    ext.ID,
+			"preset":       ext.ID,
+			"localization": true,
+			"locale":       normalizeLocale(ext.Locale),
+			"headers":      []ExtensionHeader{},
+			"tools":        []string{},
+		}, ext, nil
 	}
 	if h.sidecarStore == nil {
 		return nil, Extension{}, &applyFailure{http.StatusServiceUnavailable, "sidecar store unavailable"}
@@ -1895,14 +1942,20 @@ func (h *Handler) refreshExtensionFiles(ext Extension) error {
 
 // ListExtensionUI returns merged UI contributions from applied extensions.
 // The dashboard uses this to modify navigation, pages, banners, widgets, theme.
+// Contributions are localized to the active extension locale (or an explicit
+// ?locale=<code> override).
 // GET /admin/api/v1/sidecar/extensions/ui
 func (h *Handler) ListExtensionUI(c *echo.Context) error {
 	if h.extensions == nil && h.addonStore == nil {
 		return c.JSON(http.StatusOK, map[string]any{"contributions": []any{}})
 	}
-	out := make([]ExtensionUIContribution, 0)
+	type owned struct {
+		contribution ExtensionUIContribution
+		owner        string
+	}
+	out := make([]owned, 0)
 	for _, e := range h.extensionUIList() {
-		out = append(out, e)
+		out = append(out, owned{contribution: e, owner: e.ID})
 	}
 	// Extension-shipped Go addons contribute UI by exporting UI() as an
 	// ExtensionUI JSON document. Auth addons carry grant flows; ui addons
@@ -1913,7 +1966,8 @@ func (h *Handler) ListExtensionUI(c *echo.Context) error {
 	if h.addonStore != nil {
 		for _, kind := range []addon.Kind{addon.KindAuth, addon.KindUI} {
 			for _, a := range h.addonStore.ByKind(kind) {
-				if extID := ExtensionIDForAddonPath(a.Path); extID != "" && !h.extensionApplied(extID) {
+				extID := ExtensionIDForAddonPath(a.Path)
+				if extID != "" && !h.extensionApplied(extID) {
 					continue
 				}
 				raw, err := a.CallString("UI")
@@ -1924,16 +1978,32 @@ func (h *Handler) ListExtensionUI(c *echo.Context) error {
 				if json.Unmarshal([]byte(raw), &ui) != nil {
 					continue
 				}
-				out = append(out, ExtensionUIContribution{
-					ID:   "addon:" + a.Name,
-					Name: a.Name,
-					Type: string(kind),
-					UI:   ui,
+				out = append(out, owned{
+					contribution: ExtensionUIContribution{
+						ID:   "addon:" + a.Name,
+						Name: a.Name,
+						Type: string(kind),
+						UI:   ui,
+					},
+					owner: extID,
 				})
 			}
 		}
 	}
-	return c.JSON(http.StatusOK, map[string]any{"contributions": out})
+	locale := h.requestedLocale(c)
+	loc := h.newLocalizer(locale)
+	contributions := make([]ExtensionUIContribution, 0, len(out))
+	for _, entry := range out {
+		if loc != nil {
+			contributions = append(contributions, loc.contribution(entry.contribution, entry.owner))
+			continue
+		}
+		contributions = append(contributions, entry.contribution)
+	}
+	return c.JSON(http.StatusOK, map[string]any{
+		"contributions": contributions,
+		"locale":        normalizeLocale(locale),
+	})
 }
 
 // GetExtensionData serves one live payload for an extension page or widget.

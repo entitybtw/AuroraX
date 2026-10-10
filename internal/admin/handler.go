@@ -71,6 +71,8 @@ type Handler struct {
 	egressSyncer         func()
 	extensionStoreURLs   *ExtensionStoreURLStore
 	extensionStoresOnce  sync.Once
+	extensionLocaleStore *ExtensionLocaleStore
+	extensionLocaleOnce  sync.Once
 	addonStore           *addon.Store
 	hooks                *hooks.Bridge
 

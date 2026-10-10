@@ -163,6 +163,74 @@ const ExtensionProvidesSchema = z.object({
   features: z.array(z.string()).optional(),
 });
 
+// --- Localization (i18n) -------------------------------------------------
+//
+// Translations live either embedded in the manifest (i18n.locales.<code>) or
+// in an applied language pack (type "localization", locale + catalog keyed by
+// target extension id). The gateway resolves the active locale server-side;
+// list responses are already localized.
+
+const ExtensionFieldTranslationSchema = z.object({
+  label: z.string().optional(),
+  description: z.string().optional(),
+});
+
+const ExtensionBannerTranslationSchema = z.object({
+  message: z.string().optional(),
+  link_label: z.string().optional(),
+});
+
+const ExtensionWidgetTranslationSchema = z.object({
+  title: z.string().optional(),
+  body: z.string().optional(),
+});
+
+// One block translation, keyed by the block's decimal index inside the
+// source manifest: `text` replaces heading/text/code text, `items`
+// replaces a list block's items wholesale.
+const ExtensionBlockTranslationSchema = z.object({
+  text: z.string().optional(),
+  items: z.array(z.string()).optional(),
+});
+
+const ExtensionPageTranslationSchema = z.object({
+  title: z.string().optional(),
+  summary: z.string().optional(),
+  blocks: z.record(ExtensionBlockTranslationSchema).optional(),
+});
+
+const ExtensionSettingsTabTranslationSchema = z.object({
+  label: z.string().optional(),
+  blocks: z.record(ExtensionBlockTranslationSchema).optional(),
+});
+
+const ExtensionUITranslationSchema = z.object({
+  help: z.string().optional(),
+  logo_text: z.string().optional(),
+  fields: z.record(ExtensionFieldTranslationSchema).optional(),
+  nav: z.record(z.string()).optional(),
+  banners: z.record(ExtensionBannerTranslationSchema).optional(),
+  widgets: z.record(ExtensionWidgetTranslationSchema).optional(),
+  pages: z.record(ExtensionPageTranslationSchema).optional(),
+  settings_tabs: z.record(ExtensionSettingsTabTranslationSchema).optional(),
+});
+
+const ExtensionTranslationSchema = z.object({
+  name: z.string().optional(),
+  tagline: z.string().optional(),
+  description: z.string().optional(),
+  ui: ExtensionUITranslationSchema.optional(),
+});
+
+const ExtensionI18nSchema = z.object({
+  locales: z.record(ExtensionTranslationSchema).optional(),
+});
+
+const ExtensionLocaleResponseSchema = z.object({
+  locale: z.string(),
+  available: z.array(z.string()).optional(),
+});
+
 const ExtensionAuthSchema = z.object({
   server: z.string().optional(),
   client_id: z.string().optional(),
@@ -210,6 +278,12 @@ const ExtensionSchema = z.object({
   builtin: z.boolean(),
   order: z.number().optional(),
   source: z.string().optional(),
+  // Localization: embedded per-locale translations, the locale code a
+  // language pack is written in, and the pack's catalog (target id →
+  // translation). Only type "localization" reads locale/catalog.
+  i18n: ExtensionI18nSchema.optional(),
+  locale: z.string().optional(),
+  catalog: z.record(ExtensionTranslationSchema).optional(),
 });
 
 export type Extension = z.infer<typeof ExtensionSchema>;
@@ -225,6 +299,34 @@ export type ExtensionUIPage = z.infer<typeof ExtensionUIPageSchema>;
 export type ExtensionSettingsTab = z.infer<typeof ExtensionSettingsTabSchema>;
 export type ExtensionUIContribution = z.infer<typeof ExtensionUIContributionSchema>;
 export type ExtensionNavLink = z.infer<typeof ExtensionNavLinkSchema>;
+export type ExtensionI18n = z.infer<typeof ExtensionI18nSchema>;
+export type ExtensionTranslation = z.infer<typeof ExtensionTranslationSchema>;
+
+/** Read the active extension locale and every available locale. */
+export async function fetchExtensionLocale(): Promise<{
+  locale: string;
+  available: string[];
+}> {
+  const res = await apiFetch<unknown>("/admin/api/v1/sidecar/extensions/locale");
+  const parsed = ExtensionLocaleResponseSchema.parse(res);
+  return { locale: parsed.locale, available: parsed.available ?? [] };
+}
+
+/**
+ * Persist the active extension locale ("" resets to the source language).
+ * List endpoints re-localize on the next fetch.
+ */
+export async function setExtensionLocale(locale: string): Promise<{
+  locale: string;
+  available: string[];
+}> {
+  const res = await apiFetch<unknown>("/admin/api/v1/sidecar/extensions/locale", {
+    method: "PUT",
+    json: { locale },
+  });
+  const parsed = ExtensionLocaleResponseSchema.parse(res);
+  return { locale: parsed.locale, available: parsed.available ?? [] };
+}
 
 /** @deprecated Prefer Extension aliases kept for older imports. */
 export type SidecarPreset = Extension;

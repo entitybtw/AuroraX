@@ -12,12 +12,15 @@ theme, only sidecar routing, or any mixture of the three.
 | **Themes** | `theme` | Dashboard look: colors, CSS variables, light/dark variants |
 | **Presets** | `sidecar` | One-click sidecar + Session Hub configuration (base URL, auth, headers, tools, account linking) |
 | **Addons** | (sidecar / custom) | Optional capabilities via `provides` and `files` (scripts, tool schemas, future runtime hooks) |
+| **Language packs** | `localization` | Translations for other extensions' names, labels and help text |
 
 See also:
 
 - [THEMES.md](THEMES.md) — CSS variables, open theme surface, light/dark
 - [PRESETS.md](PRESETS.md) — sidecar knobs, headers, tools, multi-IP
 - [ADDONS.md](ADDONS.md) — `provides`, auth wiring, file materialization
+- [LOCALIZATION.md](LOCALIZATION.md) — `i18n.locales`, language packs,
+  active locale (`GET/PUT /sidecar/extensions/locale`)
 
 ## Install / apply
 
