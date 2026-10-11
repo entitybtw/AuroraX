@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { Check, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { modelDisplayName, type ModelInventoryItem } from "@/lib/api/models-types";
+import { t } from "@/lib/i18n";
+
 
 interface ModelPickerDialogProps {
   open: boolean;
@@ -52,9 +54,9 @@ export function ModelPickerDialog({ open, title, selectedModel, models, onSelect
       <div className="flex min-w-0 items-center justify-between gap-3 border-b border-border/50 px-3 py-2">
           <div className="min-w-0">
             <h3 className="truncate text-sm font-semibold text-foreground">{title}</h3>
-            <p className="break-words text-xs text-muted-foreground">Search and select a model from this gateway's inventory.</p>
+            <p className="break-words text-xs text-muted-foreground">{t("Search and select a model from this gateway's inventory.")}</p>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close model picker">
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label={t("Close model picker")}>
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -65,13 +67,13 @@ export function ModelPickerDialog({ open, title, selectedModel, models, onSelect
               className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search provider or model..."
+              placeholder={t("Search provider or model...")}
             />
           </label>
         </div>
         <div className="max-h-72 min-w-0 overflow-auto p-3">
           {groups.length === 0 ? (
-            <div className="min-w-0 break-words rounded-lg border border-dashed border-border bg-background/20 p-4 text-sm text-muted-foreground">No models match your search. You can still type a custom model manually.</div>
+            <div className="min-w-0 break-words rounded-lg border border-dashed border-border bg-background/20 p-4 text-sm text-muted-foreground">{t("No models match your search. You can still type a custom model manually.")}</div>
           ) : (
             <div className="min-w-0 space-y-3">
               {groups.map((group) => (

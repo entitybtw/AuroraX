@@ -43,6 +43,8 @@ import {
   hiddenFeatureSet,
 } from "@/lib/features/features";
 import type { ExtensionNavEntry } from "@/lib/api/extensions";
+import { t as i18nT } from "@/lib/i18n";
+
 
 type IconType = React.ComponentType<{ className?: string }>;
 
@@ -59,36 +61,36 @@ interface NavEntry {
 }
 
 const NAV: readonly NavEntry[] = [
-  { to: "/admin/dashboard/overview", label: "Overview", Icon: LayoutDashboard, requiredResource: "admin/dashboard" },
-  { to: "/admin/dashboard/pools", label: "Pools", Icon: Network, requiredResource: "admin/pools", featureId: "pools" },
-  { to: "/admin/dashboard/guide", label: "Guide", Icon: BookOpen, featureId: "guide" },
-  { to: "/admin/dashboard/playground", label: "Playground", Icon: MessageSquareText, featureId: "playground" },
-  { to: "/admin/dashboard/models", label: "Models", Icon: Box, requiredResource: "admin/models" },
-  { to: "/admin/dashboard/combos", label: "Combos", Icon: Layers, requiredResource: "admin/models", featureId: "combos" },
-  { to: "/admin/dashboard/fallback", label: "Fallback", Icon: Workflow, requiredResource: "admin/models", featureId: "fallback" },
-  { to: "/admin/dashboard/audit-logs", label: "Audit Logs", Icon: History, requiredResource: "admin/audit", featureId: "audit_logs" },
-  { to: "/admin/dashboard/console", label: "Live Console", Icon: Terminal, requiredResource: "admin/audit", featureId: "console" },
-  { to: "/admin/dashboard/usage", label: "Usage", Icon: ChartColumn, requiredResource: "admin/usage", featureId: "usage" },
+  { to: "/admin/dashboard/overview", label: i18nT("Overview"), Icon: LayoutDashboard, requiredResource: "admin/dashboard" },
+  { to: "/admin/dashboard/pools", label: i18nT("Pools"), Icon: Network, requiredResource: "admin/pools", featureId: "pools" },
+  { to: "/admin/dashboard/guide", label: i18nT("Guide"), Icon: BookOpen, featureId: "guide" },
+  { to: "/admin/dashboard/playground", label: i18nT("Playground"), Icon: MessageSquareText, featureId: "playground" },
+  { to: "/admin/dashboard/models", label: i18nT("Models"), Icon: Box, requiredResource: "admin/models" },
+  { to: "/admin/dashboard/combos", label: i18nT("Combos"), Icon: Layers, requiredResource: "admin/models", featureId: "combos" },
+  { to: "/admin/dashboard/fallback", label: i18nT("Fallback"), Icon: Workflow, requiredResource: "admin/models", featureId: "fallback" },
+  { to: "/admin/dashboard/audit-logs", label: i18nT("Audit Logs"), Icon: History, requiredResource: "admin/audit", featureId: "audit_logs" },
+  { to: "/admin/dashboard/console", label: i18nT("Live Console"), Icon: Terminal, requiredResource: "admin/audit", featureId: "console" },
+  { to: "/admin/dashboard/usage", label: i18nT("Usage"), Icon: ChartColumn, requiredResource: "admin/usage", featureId: "usage" },
   {
     to: "/admin/dashboard/cache",
-    label: "Cache",
+    label: i18nT("Cache"),
     Icon: Database,
     show: (cfg) => flagOn(cfg?.CACHE_ENABLED),
     requiredResource: "admin/cache",
     featureId: "cache",
   },
 
-  { to: "/admin/dashboard/auth-keys", label: "API Keys", Icon: KeyRound, requiredResource: "admin/keys", featureId: "auth_keys" },
-  { to: "/admin/dashboard/workflows", label: "Workflows", Icon: Workflow, requiredResource: "admin/workflows", featureId: "workflows" },
+  { to: "/admin/dashboard/auth-keys", label: i18nT("API Keys"), Icon: KeyRound, requiredResource: "admin/keys", featureId: "auth_keys" },
+  { to: "/admin/dashboard/workflows", label: i18nT("Workflows"), Icon: Workflow, requiredResource: "admin/workflows", featureId: "workflows" },
   {
     to: "/admin/dashboard/guardrails",
-    label: "Guardrails",
+    label: i18nT("Guardrails"),
     Icon: ShieldCheck,
     show: (cfg) => flagOn(cfg?.GUARDRAILS_ENABLED),
     requiredResource: "admin/guardrails",
     featureId: "guardrails",
   },
-  { to: "/admin/dashboard/settings", label: "Settings", Icon: Settings, requiredResource: "admin/settings" },
+  { to: "/admin/dashboard/settings", label: i18nT("Settings"), Icon: Settings, requiredResource: "admin/settings" },
 ];
 
 /** Whitelisted lucide icon names extensions may reference in ui.nav. */
@@ -222,7 +224,7 @@ export function Sidebar({
         "fixed inset-y-0 left-0 transition-transform duration-300 ease-[var(--ease-ios)]",
         mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
       )}
-      aria-label="Primary navigation"
+      aria-label={i18nT("Primary navigation")}
     >
       <header className="flex items-center pb-4 pt-5 px-4 gap-3">
         <span className="shrink-0">
@@ -243,7 +245,7 @@ export function Sidebar({
         <div className="min-w-0 flex-1">
           <h1 className="font-display text-lg font-bold tracking-tight text-foreground whitespace-nowrap overflow-hidden">{brandLabel}</h1>
         </div>
-        <button onClick={onCloseMobile} className="md:hidden p-2 -mr-1 text-muted-foreground hover:text-foreground active:scale-95 transition-all rounded-lg hover:bg-surface-hover" aria-label="Close menu">
+        <button onClick={onCloseMobile} className="md:hidden p-2 -mr-1 text-muted-foreground hover:text-foreground active:scale-95 transition-all rounded-lg hover:bg-surface-hover" aria-label={i18nT("Close menu")}>
           <X className="h-5 w-5" />
         </button>
       </header>
@@ -350,7 +352,7 @@ export function Sidebar({
             <button
               type="button"
               onClick={handleLogout}
-              title="Sign out"
+              title={i18nT("Sign out")}
               className="shrink-0 p-1.5 text-muted-foreground hover:text-foreground hover:bg-surface-hover/60 transition-colors rounded"
             >
               <LogOut className="h-4 w-4" />
@@ -358,13 +360,11 @@ export function Sidebar({
           </div>
         ) : apiKey.key && !isLoggedIn() ? (
           <div className="flex items-center gap-2 py-2 px-3 text-[12px] font-medium border border-border/30 bg-surface/30 rounded-lg">
-            <span className="flex-1 truncate text-muted-foreground">
-              Verified admin key
-            </span>
+            <span className="flex-1 truncate text-muted-foreground">{i18nT("Verified admin key")}</span>
             <button
               type="button"
               onClick={handleDisconnectKey}
-              title="Disconnect key"
+              title={i18nT("Disconnect key")}
               className="shrink-0 p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors rounded"
             >
               <LogOut className="h-4 w-4" />
@@ -377,7 +377,7 @@ export function Sidebar({
             className="flex items-center justify-center gap-2 py-2.5 px-3 text-[13px] font-medium transition-all duration-200 ease-[var(--ease-ios)] text-muted-foreground bg-background/40 hover:bg-surface-hover/60 hover:text-foreground border border-border/30 rounded-lg"
           >
             <LockKeyhole className="h-4 w-4 shrink-0" aria-hidden />
-            <span className="truncate whitespace-nowrap">Enter API key</span>
+            <span className="truncate whitespace-nowrap">{i18nT("Enter API key")}</span>
           </button>
         )}
       </footer>
@@ -400,15 +400,15 @@ interface ThemeToggleProps {
 
 function ThemeToggle({ theme }: ThemeToggleProps): JSX.Element {
   const choices: ReadonlyArray<{ value: Theme; Icon: IconType; label: string }> = [
-    { value: "light", Icon: Sun, label: "Light theme" },
-    { value: "system", Icon: Monitor, label: "System theme" },
-    { value: "dark", Icon: Moon, label: "Dark theme" },
+    { value: "light", Icon: Sun, label: i18nT("Light theme") },
+    { value: "system", Icon: Monitor, label: i18nT("System theme") },
+    { value: "dark", Icon: Moon, label: i18nT("Dark theme") },
   ];
   return (
     <div
       className="hidden grid-cols-3 overflow-hidden bg-background/30 p-0.5 md:grid border border-border/40"
       role="radiogroup"
-      aria-label="Color theme"
+      aria-label={i18nT("Color theme")}
     >
       {choices.map(({ value, Icon, label }) => {
         const active = theme === value;
@@ -436,12 +436,12 @@ function ThemeToggle({ theme }: ThemeToggleProps): JSX.Element {
 
 function MobileThemeButton({ theme }: ThemeToggleProps): JSX.Element {
   const choices: ReadonlyArray<{ value: Theme; Icon: IconType; label: string }> = [
-    { value: "light", Icon: Sun, label: "Light" },
-    { value: "system", Icon: Monitor, label: "System" },
-    { value: "dark", Icon: Moon, label: "Dark" },
+    { value: "light", Icon: Sun, label: i18nT("Light") },
+    { value: "system", Icon: Monitor, label: i18nT("System") },
+    { value: "dark", Icon: Moon, label: i18nT("Dark") },
   ];
   return (
-    <div className="grid grid-cols-3 overflow-hidden bg-background/30 md:hidden border border-border/40" role="radiogroup" aria-label="Color theme">
+    <div className="grid grid-cols-3 overflow-hidden bg-background/30 md:hidden border border-border/40" role="radiogroup" aria-label={i18nT("Color theme")}>
       {choices.map(({ value, Icon, label }) => {
         const active = theme === value;
         return (

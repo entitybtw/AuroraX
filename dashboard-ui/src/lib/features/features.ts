@@ -1,4 +1,6 @@
 import { useDashboardConfig } from "@/lib/api/useDashboardConfig";
+import { t } from "@/lib/i18n";
+
 
 /** Catalog of operator-hideable dashboard features. */
 export interface FeatureMeta {
@@ -12,25 +14,25 @@ export interface FeatureMeta {
  * models/overview/settings are intentionally not hideable.
  */
 export const HIDEABLE_FEATURES: readonly FeatureMeta[] = [
-  { id: "pools", label: "Pools", description: "Pool definitions stay on disk; only the page leaves the nav." },
-  { id: "guide", label: "Guide", description: "Hide the onboarding / CLI configurator page." },
-  { id: "playground", label: "Playground", description: "Hide the interactive chat playground." },
-  { id: "combos", label: "Combos", description: "Hide combo presets; model overrides are kept." },
-  { id: "fallback", label: "Fallback", description: "Hide fallback UI; fallback rules remain configured." },
-  { id: "audit_logs", label: "Audit Logs", description: "Stop showing the audit log UI; historical rows are kept." },
-  { id: "console", label: "Live Console", description: "Hide the live request console; stored logs are kept." },
-  { id: "usage", label: "Usage", description: "Hide usage analytics; usage data is retained." },
-  { id: "cache", label: "Cache", description: "Hide the cache page; cache config and data stay." },
-  { id: "auth_keys", label: "API Keys", description: "Hide key management UI; existing keys remain valid." },
-  { id: "workflows", label: "Workflows", description: "Hide workflows UI; workflow files stay on disk." },
-  { id: "guardrails", label: "Guardrails", description: "Hide guardrails UI; policy config is not deleted." },
-  { id: "providers", label: "Settings · Providers", description: "Hide the Providers settings tab only." },
-  { id: "infrastructure", label: "Settings · Infrastructure", description: "Hide the Infrastructure settings tab only." },
-  { id: "caching", label: "Settings · Caching", description: "Hide the Caching settings tab only." },
-  { id: "networking", label: "Settings · Networking", description: "Hide the Networking settings tab only." },
-  { id: "sessionhub", label: "Settings · Session Hub", description: "Hide the Session Hub settings tab only." },
-  { id: "sidecar", label: "Settings · Sidecar", description: "Hide the Sidecar settings tab only." },
-  { id: "extensions", label: "Settings · Extensions", description: "Hide the Extensions settings tab only." },
+  { id: "pools", label: t("Pools"), description: t("Pool definitions stay on disk; only the page leaves the nav.") },
+  { id: "guide", label: t("Guide"), description: t("Hide the onboarding / CLI configurator page.") },
+  { id: "playground", label: t("Playground"), description: t("Hide the interactive chat playground.") },
+  { id: "combos", label: t("Combos"), description: t("Hide combo presets; model overrides are kept.") },
+  { id: "fallback", label: t("Fallback"), description: t("Hide fallback UI; fallback rules remain configured.") },
+  { id: "audit_logs", label: t("Audit Logs"), description: t("Stop showing the audit log UI; historical rows are kept.") },
+  { id: "console", label: t("Live Console"), description: t("Hide the live request console; stored logs are kept.") },
+  { id: "usage", label: t("Usage"), description: t("Hide usage analytics; usage data is retained.") },
+  { id: "cache", label: t("Cache"), description: t("Hide the cache page; cache config and data stay.") },
+  { id: "auth_keys", label: t("API Keys"), description: t("Hide key management UI; existing keys remain valid.") },
+  { id: "workflows", label: t("Workflows"), description: t("Hide workflows UI; workflow files stay on disk.") },
+  { id: "guardrails", label: t("Guardrails"), description: t("Hide guardrails UI; policy config is not deleted.") },
+  { id: "providers", label: t("Settings · Providers"), description: t("Hide the Providers settings tab only.") },
+  { id: "infrastructure", label: t("Settings · Infrastructure"), description: t("Hide the Infrastructure settings tab only.") },
+  { id: "caching", label: t("Settings · Caching"), description: t("Hide the Caching settings tab only.") },
+  { id: "networking", label: t("Settings · Networking"), description: t("Hide the Networking settings tab only.") },
+  { id: "sessionhub", label: t("Settings · Session Hub"), description: t("Hide the Session Hub settings tab only.") },
+  { id: "sidecar", label: t("Settings · Sidecar"), description: t("Hide the Sidecar settings tab only.") },
+  { id: "extensions", label: t("Settings · Extensions"), description: t("Hide the Extensions settings tab only.") },
 ];
 
 const HIDEABLE_IDS = new Set(HIDEABLE_FEATURES.map((f) => f.id));

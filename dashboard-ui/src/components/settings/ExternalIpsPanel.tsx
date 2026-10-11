@@ -13,11 +13,13 @@ import {
 } from "@/lib/api/egress-servers";
 import { useEgressStatus } from "@/lib/api/useEgress";
 import { usePools } from "@/lib/api/usePools";
+import { t } from "@/lib/i18n";
+
 
 const EGRESS_MODES = [
-  { value: "rotate", label: "Rotate with the source IPs (tier 0)" },
-  { value: "fallback", label: "Fallback after the source IPs (tier 1)" },
-  { value: "vpn_only", label: "Preferred, source IPs last (tier -1)" },
+  { value: "rotate", label: t("Rotate with the source IPs (tier 0)") },
+  { value: "fallback", label: t("Fallback after the source IPs (tier 1)") },
+  { value: "vpn_only", label: t("Preferred, source IPs last (tier -1)") },
 ];
 
 /** "1 endpoint" / "3 endpoints" — the pill reads better in full. */
@@ -108,7 +110,7 @@ function EndpointRows({ servers }: { servers: EgressServer[] }): JSX.Element {
           onClick={() => setShowAll((value) => !value)}
           className="self-start text-[11px] text-accent transition-colors hover:text-accent-hover"
         >
-          {showAll ? "Show fewer" : `Show all ${listed.length} endpoints`}
+          {showAll ? t("Show fewer") : `Show all ${listed.length} endpoints`}
         </button>
       ) : null}
     </div>
@@ -169,18 +171,14 @@ export function ExternalIpsPanel({ providerNames }: ExternalIpsPanelProps): JSX.
   return (
     <div className="flex flex-col gap-3 border border-border/50 bg-background/30 px-3 py-3 sm:px-4 sm:py-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-accent">
-          External IP addresses
-        </span>
-        <span className="text-[11px] text-muted-foreground">
-          endpoints contributed by the VPN extension
-        </span>
+        <span className="text-[11px] font-bold uppercase tracking-wider text-accent">{t("External IP addresses")}</span>
+        <span className="text-[11px] text-muted-foreground">{t("endpoints contributed by the VPN extension")}</span>
         {save.isPending ? <Loader2Icon className="h-3 w-3 animate-spin text-muted-foreground" /> : null}
       </div>
 
       {save.isError ? (
         <p className="border border-destructive/30 bg-destructive/10 px-2.5 py-1.5 text-[11px] text-destructive">
-          {save.error instanceof Error ? save.error.message : "Failed to save the binding."}
+          {save.error instanceof Error ? save.error.message : t("Failed to save the binding.")}
         </p>
       ) : null}
 
@@ -198,8 +196,7 @@ export function ExternalIpsPanel({ providerNames }: ExternalIpsPanelProps): JSX.
               )}
             </Pill>
             <Pill tone="success">
-              {list.payload.servers.filter((server) => server.alive).length} alive
-            </Pill>
+              {list.payload.servers.filter((server) => server.alive).length}{t(" alive")}</Pill>
             {list.payload.egress_mode ? <Pill tone="muted">{list.payload.egress_mode}</Pill> : null}
             {list.payload.core_kind ? (
               <Pill tone={list.payload.core_kind === "none" ? "warning" : "muted"}>
@@ -218,25 +215,17 @@ export function ExternalIpsPanel({ providerNames }: ExternalIpsPanelProps): JSX.
           />
 
           <div className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Endpoints
-            </span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Endpoints")}</span>
             <EndpointRows servers={list.payload.servers} />
           </div>
         </div>
       ))}
 
       {liveByProvider.length > 0 ? (
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
-          In the rotation right now:{" "}
-          {liveByProvider.map((entry) => `${entry.count} on ${entry.provider}`).join(", ")}. Pause or
-          resume a single address from the provider's Egress drill-down below.
-        </p>
+        <p className="text-[11px] leading-relaxed text-muted-foreground">{t("In the rotation right now:")}{" "}
+          {liveByProvider.map((entry) => `${entry.count} on ${entry.provider}`).join(", ")}{t(". Pause or resume a single address from the provider's Egress drill-down below.")}</p>
       ) : (
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
-          No extension endpoint is in a rotation yet — with <span className="font-mono">core: none</span>{" "}
-          the endpoints are listed for review only; a tunnel core makes them usable exits.
-        </p>
+        <p className="text-[11px] leading-relaxed text-muted-foreground">{t("No extension endpoint is in a rotation yet — with ")}<span className="font-mono">{t("core: none")}</span>{" "}{t("the endpoints are listed for review only; a tunnel core makes them usable exits.")}</p>
       )}
     </div>
   );
@@ -268,11 +257,9 @@ function BindSection({
   return (
     <div className="flex flex-col gap-2 border-t border-border/30 pt-2.5">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-          Bound to
-        </span>
+        <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Bound to")}</span>
         <Pill tone={(applyTo ?? "").trim() === "" ? "warning" : "muted"}>
-          {(applyTo ?? "").trim() === "" ? "all pools and providers" : "bound to"}
+          {(applyTo ?? "").trim() === "" ? t("all pools and providers") : t("bound to")}
         </Pill>
         {(applyTo ?? "").trim() !== "" && (
           <span className="min-w-0 max-w-full break-all border border-border/60 bg-surface/60 px-2 py-1 font-mono text-[10px] text-muted-foreground">
@@ -282,7 +269,7 @@ function BindSection({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Pools</span>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t("Pools")}</span>
         <div className="flex flex-wrap gap-1.5">
           {poolNames.length > 0 ? (
             poolNames.map((name) => (
@@ -296,15 +283,13 @@ function BindSection({
               />
             ))
           ) : (
-            <span className="text-[11px] text-muted-foreground">No pools configured.</span>
+            <span className="text-[11px] text-muted-foreground">{t("No pools configured.")}</span>
           )}
         </div>
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-          Providers
-        </span>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t("Providers")}</span>
         <div className="flex flex-wrap gap-1.5">
           {providerNames.map((name) => (
             <BindTarget
@@ -317,17 +302,12 @@ function BindSection({
             />
           ))}
         </div>
-        <p className="text-[10px] leading-relaxed text-muted-foreground">
-          A bound pool reaches every provider that is a member of it. Unchecking writes the remaining
-          targets out explicitly, so nothing re-binds by accident.
-        </p>
+        <p className="text-[10px] leading-relaxed text-muted-foreground">{t("A bound pool reaches every provider that is a member of it. Unchecking writes the remaining targets out explicitly, so nothing re-binds by accident.")}</p>
       </div>
 
       {list.payload.egress_mode !== undefined ? (
         <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-            Where they sit in the rotation
-          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t("Where they sit in the rotation")}</label>
           <select
             className="field-input w-full sm:max-w-md"
             value={list.payload.egress_mode}

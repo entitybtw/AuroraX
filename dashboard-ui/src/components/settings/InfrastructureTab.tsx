@@ -3,6 +3,8 @@ import { SiMongodb, SiPostgresql, SiSqlite } from "react-icons/si";
 import type { IconType } from "react-icons";
 import { Surface, SectionHeader } from "@/components/ui/surface";
 import { useSettings, StatusChip } from "./SettingsContext";
+import { t } from "@/lib/i18n";
+
 
 type ServiceCard = {
   id: string;
@@ -64,39 +66,39 @@ export function InfrastructureTab(): JSX.Element {
     {
       id: "sqlite",
       name: "SQLite",
-      description: "Default local storage backend for audit logs, usage records, batches, aliases, and admin-managed state.",
+      description: t("Default local storage backend for audit logs, usage records, batches, aliases, and admin-managed state."),
       enabled: storageType === "sqlite",
       icon: SiSqlite,
       color: "#003B57",
       details: [
-        { label: "Backend", value: storageType === "sqlite" ? "Active" : "Available" },
-        { label: "Path", value: valueOrDefault(storage.sqlite_path, "data/aurora.db") },
+        { label: t("Backend"), value: storageType === "sqlite" ? "Active" : "Available" },
+        { label: t("Path"), value: valueOrDefault(storage.sqlite_path, "data/aurora.db") },
       ],
     },
     {
       id: "postgresql",
       name: "PostgreSQL",
-      description: "Relational storage option for durable usage, audit, budget, key, and workflow data.",
+      description: t("Relational storage option for durable usage, audit, budget, key, and workflow data."),
       enabled: storageType === "postgresql",
       icon: SiPostgresql,
       color: "#4169E1",
       details: [
-        { label: "Backend", value: storageType === "postgresql" ? "Active" : "Available" },
-        { label: "URL", value: valueOrDefault(storage.postgresql_url) },
-        { label: "Max conns", value: valueOrDefault(storage.postgresql_max_conns, "10") },
+        { label: t("Backend"), value: storageType === "postgresql" ? "Active" : "Available" },
+        { label: t("URL"), value: valueOrDefault(storage.postgresql_url) },
+        { label: t("Max conns"), value: valueOrDefault(storage.postgresql_max_conns, "10") },
       ],
     },
     {
       id: "mongodb",
       name: "MongoDB",
-      description: "Document storage option for deployments that prefer MongoDB-backed operational records.",
+      description: t("Document storage option for deployments that prefer MongoDB-backed operational records."),
       enabled: storageType === "mongodb",
       icon: SiMongodb,
       color: "#47A248",
       details: [
-        { label: "Backend", value: storageType === "mongodb" ? "Active" : "Available" },
-        { label: "URL", value: valueOrDefault(storage.mongodb_url) },
-        { label: "Database", value: valueOrDefault(storage.mongodb_database, "aurora") },
+        { label: t("Backend"), value: storageType === "mongodb" ? "Active" : "Available" },
+        { label: t("URL"), value: valueOrDefault(storage.mongodb_url) },
+        { label: t("Database"), value: valueOrDefault(storage.mongodb_database, "aurora") },
       ],
     },
   ];
@@ -110,12 +112,10 @@ export function InfrastructureTab(): JSX.Element {
               <div className="border border-border/40 bg-background/80 p-2">
                 <DatabaseIcon className="h-4 w-4 text-accent" />
               </div>
-              <SectionHeader title="Storage Infrastructure" subtitle="Durable storage backends configured for audit logs, usage records, batches, aliases, and admin-managed state." />
+              <SectionHeader title={t("Storage Infrastructure")} subtitle={t("Durable storage backends configured for audit logs, usage records, batches, aliases, and admin-managed state.")} />
             </div>
             <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
-              <NetworkIcon className="h-4 w-4" />
-              Secrets are redacted server-side
-            </div>
+              <NetworkIcon className="h-4 w-4" />{t("Secrets are redacted server-side")}</div>
           </div>
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             {services.map(service => <ConfigCard key={service.id} service={service} />)}

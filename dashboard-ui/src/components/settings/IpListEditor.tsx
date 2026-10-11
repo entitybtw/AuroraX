@@ -6,6 +6,8 @@ import { Pill } from "@/components/ui/surface";
 import { cn } from "@/lib/utils";
 import type { ExitStatus } from "@/lib/api/egress-types";
 import { exitForIp, exitState, exitSuccessRate, relativeTime, tierLabel } from "@/lib/egress-view";
+import { t } from "@/lib/i18n";
+
 
 /** Literal IPv4 or a compact IPv6 form — providers only ever bind addresses. */
 export function isLiteralIp(value: string): boolean {
@@ -124,10 +126,9 @@ export function IpListEditor({
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
         <Pill tone={includedCount > 0 ? "accent" : "muted"}>
-          {includedCount} of {rows.length} used
-        </Pill>
+          {includedCount}{t(" of ")}{rows.length}{t(" used")}</Pill>
         {exits && rows.length > 0 ? (
-          <Pill tone={liveCount > 0 ? "success" : "muted"}>{liveCount} registered</Pill>
+          <Pill tone={liveCount > 0 ? "success" : "muted"}>{liveCount}{t(" registered")}</Pill>
         ) : null}
       </div>
 
@@ -158,7 +159,7 @@ export function IpListEditor({
                     aria-label={`${row.included ? "Use" : "Not using"} ${row.ip}`}
                     onClick={() => toggle(row.ip)}
                     className="shrink-0 p-0.5 hover:bg-border/20 transition-colors"
-                    title={row.included ? "Click to stop saving this address" : "Click to save this address"}
+                    title={row.included ? t("Click to stop saving this address") : t("Click to save this address")}
                   >
                     {row.included ? (
                       <CheckSquareIcon className="h-4 w-4 text-accent" />
@@ -177,18 +178,17 @@ export function IpListEditor({
                       >
                         {row.ip}
                       </span>
-                      {!row.included ? <Pill tone="muted">dropped on save</Pill> : null}
+                      {!row.included ? <Pill tone="muted">{t("dropped on save")}</Pill> : null}
                       {state ? <Pill tone={state.tone}>{state.label}</Pill> : null}
                       {exit ? <Pill tone="muted">{tierLabel(exit.tier)}</Pill> : null}
                     </div>
                     {exit ? (
                       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
                         <span className="font-mono">
-                          {exit.ok}/{exit.requests} ok
-                        </span>
+                          {exit.ok}/{exit.requests}{t(" ok")}</span>
                         {rate !== null ? <span>{rate}%</span> : null}
-                        {exit.failures > 0 ? <span className="text-warning">{exit.failures} failing</span> : null}
-                        {exit.last_at ? <span>last {relativeTime(exit.last_at)}</span> : null}
+                        {exit.failures > 0 ? <span className="text-warning">{exit.failures}{t(" failing")}</span> : null}
+                        {exit.last_at ? <span>{t("last ")}{relativeTime(exit.last_at)}</span> : null}
                         {exit.last_error ? (
                           <span className="max-w-[18rem] truncate text-destructive" title={exit.last_error}>
                             {exit.last_error}
@@ -214,11 +214,11 @@ export function IpListEditor({
                         onClick={() => onExitToggle(row.ip, !exit.disabled)}
                         disabled={togglePending}
                         className="flex items-center gap-1 border border-border/40 px-1.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground transition-colors hover:border-accent/40 hover:text-accent disabled:opacity-50"
-                        title={exit.disabled ? "Put this address back into the rotation" : "Take this address out of the rotation without saving"}
+                        title={exit.disabled ? t("Put this address back into the rotation") : t("Take this address out of the rotation without saving")}
                         aria-label={exit.disabled ? `Resume ${row.ip} in the rotation` : `Pause ${row.ip} in the rotation`}
                       >
                         {exit.disabled ? <PlayIcon className="h-3 w-3" /> : <PauseIcon className="h-3 w-3" />}
-                        {exit.disabled ? "Resume" : "Pause"}
+                        {exit.disabled ? t("Resume") : t("Pause")}
                       </button>
                     ) : null}
                     <button
@@ -247,57 +247,54 @@ export function IpListEditor({
                   <dl className="grid grid-cols-1 gap-x-4 gap-y-1 border-t border-border/30 pt-1.5 text-[11px] sm:grid-cols-2">
                     {exitName ? (
                       <div className="flex gap-2">
-                        <dt className="w-24 shrink-0 text-muted-foreground">Exit name</dt>
+                        <dt className="w-24 shrink-0 text-muted-foreground">{t("Exit name")}</dt>
                         <dd className="min-w-0 break-all font-mono text-foreground">{exitName}</dd>
                       </div>
                     ) : null}
                     {exit ? (
                       <>
                         <div className="flex gap-2">
-                          <dt className="w-24 shrink-0 text-muted-foreground">Source</dt>
-                          <dd className="text-foreground">{exit.source === "extension" ? "extension" : "provider config"}</dd>
+                          <dt className="w-24 shrink-0 text-muted-foreground">{t("Source")}</dt>
+                          <dd className="text-foreground">{exit.source === "extension" ? "extension" : t("provider config")}</dd>
                         </div>
                         <div className="flex gap-2">
-                          <dt className="w-24 shrink-0 text-muted-foreground">Tier</dt>
+                          <dt className="w-24 shrink-0 text-muted-foreground">{t("Tier")}</dt>
                           <dd className="text-foreground">{tierLabel(exit.tier)}</dd>
                         </div>
                         {exit.weight ? (
                           <div className="flex gap-2">
-                            <dt className="w-24 shrink-0 text-muted-foreground">Weight</dt>
+                            <dt className="w-24 shrink-0 text-muted-foreground">{t("Weight")}</dt>
                             <dd className="text-foreground">{exit.weight}</dd>
                           </div>
                         ) : null}
                         <div className="flex gap-2">
-                          <dt className="w-24 shrink-0 text-muted-foreground">Traffic</dt>
+                          <dt className="w-24 shrink-0 text-muted-foreground">{t("Traffic")}</dt>
                           <dd className="text-foreground">
-                            {exit.ok} ok / {exit.requests} requests, {exit.failures} failing
-                          </dd>
+                            {exit.ok}{t(" ok / ")}{exit.requests}{t(" requests, ")}{exit.failures}{t(" failing")}</dd>
                         </div>
                         <div className="flex gap-2">
-                          <dt className="w-24 shrink-0 text-muted-foreground">Last seen</dt>
+                          <dt className="w-24 shrink-0 text-muted-foreground">{t("Last seen")}</dt>
                           <dd className="text-foreground">{exit.last_at ? relativeTime(exit.last_at) : "never"}</dd>
                         </div>
                         <div className="flex gap-2">
-                          <dt className="w-24 shrink-0 text-muted-foreground">Last outcome</dt>
+                          <dt className="w-24 shrink-0 text-muted-foreground">{t("Last outcome")}</dt>
                           <dd className="min-w-0 break-all text-foreground">{exit.last_outcome || "—"}</dd>
                         </div>
                         {exit.cooldown_until ? (
                           <div className="flex gap-2">
-                            <dt className="w-24 shrink-0 text-muted-foreground">Cooldown</dt>
-                            <dd className="text-warning">until {relativeTime(exit.cooldown_until)}</dd>
+                            <dt className="w-24 shrink-0 text-muted-foreground">{t("Cooldown")}</dt>
+                            <dd className="text-warning">{t("until ")}{relativeTime(exit.cooldown_until)}</dd>
                           </div>
                         ) : null}
                         {exit.last_error ? (
                           <div className="flex gap-2 sm:col-span-2">
-                            <dt className="w-24 shrink-0 text-muted-foreground">Last error</dt>
+                            <dt className="w-24 shrink-0 text-muted-foreground">{t("Last error")}</dt>
                             <dd className="min-w-0 break-all text-destructive">{exit.last_error}</dd>
                           </div>
                         ) : null}
                       </>
                     ) : (
-                      <p className="text-muted-foreground sm:col-span-2">
-                        Not registered with the egress rotation yet — it appears after the next runtime refresh.
-                      </p>
+                      <p className="text-muted-foreground sm:col-span-2">{t("Not registered with the egress rotation yet — it appears after the next runtime refresh.")}</p>
                     )}
                   </dl>
                 ) : null}
@@ -306,9 +303,7 @@ export function IpListEditor({
           })}
         </ul>
       ) : (
-        <div className="border border-dashed border-border/40 bg-background/20 px-3 py-3 text-[11px] text-muted-foreground">
-          No source IPs yet. Add one below — the gateway rotates between every checked address per attempt.
-        </div>
+        <div className="border border-dashed border-border/40 bg-background/20 px-3 py-3 text-[11px] text-muted-foreground">{t("No source IPs yet. Add one below — the gateway rotates between every checked address per attempt.")}</div>
       )}
 
       <div className="flex items-center gap-2">
@@ -327,16 +322,15 @@ export function IpListEditor({
             }
           }}
           className="h-9 flex-1 font-mono text-[12px]"
-          aria-label="New source IP"
+          aria-label={t("New source IP")}
         />
         <Button type="button" variant="outline" size="sm" onClick={add} className="h-9 shrink-0">
-          <PlusIcon className="mr-1 h-3.5 w-3.5" /> Add
-        </Button>
+          <PlusIcon className="mr-1 h-3.5 w-3.5" />{t(" Add")}</Button>
       </div>
       {error ? <p className="text-[11px] font-medium text-destructive">{error}</p> : null}
       <p className="text-[11px] leading-relaxed text-muted-foreground">
         {description ??
-          "Checked addresses are the ones this provider sends from; the first one is its bind_ip. Unchecked rows are dropped when you save."}
+          t("Checked addresses are the ones this provider sends from; the first one is its bind_ip. Unchecked rows are dropped when you save.")}
       </p>
     </div>
   );

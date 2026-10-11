@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 import { useEgressStatus, useToggleEgressExit } from "@/lib/api/useEgress";
 import { buildIpInventory, inventoryState, toneDotClass } from "@/lib/egress-view";
 import type { IpInventoryRow } from "@/lib/egress-view";
+import { t } from "@/lib/i18n";
+
 
 /**
  * Every source address the gateway can send from, across all providers, in one
@@ -41,10 +43,10 @@ export function IpInventory(): JSX.Element | null {
         aria-expanded={open}
         className="flex w-full flex-wrap items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-surface-hover/30"
       >
-        <span className="text-[11px] font-bold uppercase tracking-wider text-accent">Source IP inventory</span>
+        <span className="text-[11px] font-bold uppercase tracking-wider text-accent">{t("Source IP inventory")}</span>
         <Pill tone="muted">{isLoading && rows.length === 0 ? "…" : `${rows.length} ${rows.length === 1 ? "address" : "addresses"}`}</Pill>
-        {attention > 0 ? <Pill tone="warning">{attention} need attention</Pill> : null}
-        {off > 0 ? <Pill tone="warning">{off} off</Pill> : null}
+        {attention > 0 ? <Pill tone="warning">{attention}{t(" need attention")}</Pill> : null}
+        {off > 0 ? <Pill tone="warning">{off}{t(" off")}</Pill> : null}
         {isLoading ? <Loader2Icon className="h-3 w-3 animate-spin text-muted-foreground" /> : null}
         <ChevronDownIcon className={cn("ml-auto h-3.5 w-3.5 text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
@@ -73,9 +75,8 @@ export function IpInventory(): JSX.Element | null {
                   ))}
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
                     <span className="font-mono">
-                      {ok}/{requests} ok
-                    </span>
-                    {failures > 0 ? <span className="text-warning">{failures} failing</span> : null}
+                      {ok}/{requests}{t(" ok")}</span>
+                    {failures > 0 ? <span className="text-warning">{failures}{t(" failing")}</span> : null}
                   </div>
                   <button
                     type="button"
@@ -86,16 +87,13 @@ export function IpInventory(): JSX.Element | null {
                     aria-label={`${paused ? "Resume" : "Pause"} ${row.ip} everywhere`}
                   >
                     {paused ? <PlayIcon className="h-3 w-3" /> : <PauseIcon className="h-3 w-3" />}
-                    {paused ? "Resume" : "Pause"}
+                    {paused ? t("Resume") : t("Pause")}
                   </button>
                 </li>
               );
             })}
           </ul>
-          <p className="text-[10px] leading-relaxed text-muted-foreground">
-            Addresses are grouped across providers: pausing one takes it out of every provider that sends through it.
-            The checkbox in a provider's settings decides whether the address is kept at all — this switch only pauses it.
-          </p>
+          <p className="text-[10px] leading-relaxed text-muted-foreground">{t("Addresses are grouped across providers: pausing one takes it out of every provider that sends through it. The checkbox in a provider's settings decides whether the address is kept at all — this switch only pauses it.")}</p>
         </div>
       ) : null}
     </div>

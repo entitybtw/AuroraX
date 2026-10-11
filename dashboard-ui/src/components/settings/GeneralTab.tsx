@@ -13,6 +13,8 @@ import {
   SaveIcon, GaugeIcon, EyeOffIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { t } from "@/lib/i18n";
+
 
 function formatToggle(enabled: boolean): string {
   return enabled ? "Enabled" : "Disabled";
@@ -44,7 +46,7 @@ function StatusChip({ enabled }: { enabled: boolean }): JSX.Element {
         : "border-border/60 bg-background/70 text-muted-foreground"
         }`}
     >
-      {enabled ? "Active" : "Off"}
+      {enabled ? t("Active") : t("Off")}
     </span>
   );
 }
@@ -100,8 +102,8 @@ export function GeneralTab(): JSX.Element {
                 <ServerIcon className="h-4 w-4 text-accent" />
               </div>
               <SectionHeader
-                title="Client Settings"
-                subtitle="Gateway and dashboard surface controls that shape how the admin UI and OpenAI-compatible surface are exposed."
+                title={t("Client Settings")}
+                subtitle={t("Gateway and dashboard surface controls that shape how the admin UI and OpenAI-compatible surface are exposed.")}
               />
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -112,88 +114,88 @@ export function GeneralTab(): JSX.Element {
           </div>
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Passthrough routes</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Passthrough routes")}</div>
               <div className="mt-2 text-[14px] font-medium text-foreground">{formatToggle(passthroughRoutesEnabled)}</div>
-              <div className="mt-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Enabled passthrough providers</div>
-              <Input placeholder="openai, anthropic" className="w-full mt-1" value={passthroughProvidersText} onChange={e => setPassthroughProvidersText(e.target.value)} />
+              <div className="mt-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Enabled passthrough providers")}</div>
+              <Input placeholder={t("openai, anthropic")} className="w-full mt-1" value={passthroughProvidersText} onChange={e => setPassthroughProvidersText(e.target.value)} />
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <div className="flex items-center justify-between">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Anthropic ingress</div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Anthropic ingress")}</div>
                 <StatusChip enabled={dashboardSettings.client.enable_anthropic_ingress ?? false} />
               </div>
               <ToggleField
-                label="Enable Anthropic ingress"
-                description="Expose /v1/messages endpoint for Anthropic-format chat completions. Allows Anthropic SDK clients and Claude Code CLI to route through the gateway. Requires restart."
+                label={t("Enable Anthropic ingress")}
+                description={t("Expose /v1/messages endpoint for Anthropic-format chat completions. Allows Anthropic SDK clients and Claude Code CLI to route through the gateway. Requires restart.")}
                 checked={dashboardSettings.client.enable_anthropic_ingress ?? false}
                 onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, enable_anthropic_ingress: checked } })}
-                aria-label="Enable Anthropic ingress"
+                aria-label={t("Enable Anthropic ingress")}
               />
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Admin API</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Admin API")}</div>
               <ToggleField
-                label="Enable admin API endpoints"
+                label={t("Enable admin API endpoints")}
                 checked={dashboardSettings.client.admin_endpoints_enabled ?? adminEndpointsEnabled}
                 onCheckedChange={(checked) => handleAdminEndpointToggle(checked)}
-                aria-label="Enable admin API endpoints"
+                aria-label={t("Enable admin API endpoints")}
               />
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mt-2">Admin UI</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mt-2">{t("Admin UI")}</div>
               <ToggleField
-                label="Enable admin dashboard UI"
-                description="Requires restart."
+                label={t("Enable admin dashboard UI")}
+                description={t("Requires restart.")}
                 checked={dashboardSettings.client.admin_ui_enabled ?? adminUIEnabled}
                 onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, admin_ui_enabled: checked } })}
-                aria-label="Enable admin dashboard UI"
+                aria-label={t("Enable admin dashboard UI")}
               />
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Server port & base path</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Server port & base path")}</div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
                 <div>
-                  <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Port</label>
-                  <Input placeholder="e.g. 4000" className="w-full mt-1" value={dashboardSettings.client.port ?? ""} onChange={e => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, port: e.target.value } })} />
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Port")}</label>
+                  <Input placeholder={t("e.g. 4000")} className="w-full mt-1" value={dashboardSettings.client.port ?? ""} onChange={e => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, port: e.target.value } })} />
                 </div>
                 <div>
-                  <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Base path</label>
-                  <Input placeholder="e.g. /api/v1" className="w-full mt-1" value={dashboardSettings.client.base_path ?? ""} onChange={e => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, base_path: e.target.value } })} />
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Base path")}</label>
+                  <Input placeholder={t("e.g. /api/v1")} className="w-full mt-1" value={dashboardSettings.client.base_path ?? ""} onChange={e => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, base_path: e.target.value } })} />
                 </div>
               </div>
-              <div className="mt-1 text-[12px] text-muted-foreground">Changes take effect after server restart.</div>
+              <div className="mt-1 text-[12px] text-muted-foreground">{t("Changes take effect after server restart.")}</div>
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Debug endpoints</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Debug endpoints")}</div>
               <ToggleField
-                label="Swagger / OpenAPI docs"
+                label={t("Swagger / OpenAPI docs")}
                 checked={dashboardSettings.client.swagger_enabled ?? false}
                 onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, swagger_enabled: checked } })}
-                aria-label="Enable Swagger / OpenAPI docs"
+                aria-label={t("Enable Swagger / OpenAPI docs")}
               />
               <ToggleField
-                label="pprof profiling"
-                description="Requires restart."
+                label={t("pprof profiling")}
+                description={t("Requires restart.")}
                 checked={dashboardSettings.client.pprof_enabled ?? false}
                 onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, pprof_enabled: checked } })}
-                aria-label="Enable pprof profiling"
+                aria-label={t("Enable pprof profiling")}
               />
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Request audit logging</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Request audit logging")}</div>
               <ToggleField
-                label="Capture request logs"
-                description="On by default. Controlled by settings, not environment variables; feeds the Audit Logs page."
+                label={t("Capture request logs")}
+                description={t("On by default. Controlled by settings, not environment variables; feeds the Audit Logs page.")}
                 checked={dashboardSettings.logging.enabled ?? false}
                 onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, logging: { ...dashboardSettings.logging, enabled: checked } })}
-                aria-label="Enable request audit logging"
+                aria-label={t("Enable request audit logging")}
               />
             </div>
           </div>
           <div className="flex items-center gap-3 mt-2 border-t border-border/50 pt-4">
             <Button onClick={handleDashboardSettingsSave} disabled={mutations.saveDashboardSettingsMutation.isPending}>
               <SaveIcon className="mr-2 h-4 w-4" />
-              {mutations.saveDashboardSettingsMutation.isPending ? "Saving..." : "Save Client Settings"}
+              {mutations.saveDashboardSettingsMutation.isPending ? t("Saving...") : t("Save Client Settings")}
             </Button>
-            {mutations.saveDashboardSettingsMutation.isSuccess && <span className="text-[13px] font-medium text-success">Saved</span>}
+            {mutations.saveDashboardSettingsMutation.isSuccess && <span className="text-[13px] font-medium text-success">{t("Saved")}</span>}
             {mutations.saveDashboardSettingsMutation.isError && <span className="text-[13px] font-medium text-destructive">{mutations.saveDashboardSettingsMutation?.error?.message}</span>}
           </div>
         </div>
@@ -207,8 +209,8 @@ export function GeneralTab(): JSX.Element {
                 <ArrowRightLeftIcon className="h-4 w-4 text-accent" />
               </div>
               <SectionHeader
-                title="Compatibility"
-                subtitle="Request conversion controls that shape how provider model lists and aliases are exposed through the API surface."
+                title={t("Compatibility")}
+                subtitle={t("Request conversion controls that shape how provider model lists and aliases are exposed through the API surface.")}
               />
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -219,45 +221,45 @@ export function GeneralTab(): JSX.Element {
           </div>
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Model compatibility mode</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Model compatibility mode")}</div>
               <select className="field-input w-full mt-1" value={dashboardSettings.client.configured_provider_models_mode} onChange={e => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, configured_provider_models_mode: e.target.value } })}>
-                <option value="fallback">Fallback (use configured list if upstream fails)</option>
-                <option value="allowlist">Allowlist (use configured list exclusively)</option>
+                <option value="fallback">{t("Fallback (use configured list if upstream fails)")}</option>
+                <option value="allowlist">{t("Allowlist (use configured list exclusively)")}</option>
               </select>
-              <div className="mt-1 text-[12px] text-muted-foreground">Controls how configured provider model lists are applied to discovery.</div>
+              <div className="mt-1 text-[12px] text-muted-foreground">{t("Controls how configured provider model lists are applied to discovery.")}</div>
             </div>
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Alias projection</div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Alias projection")}</div>
                 <ToggleField
-                  label="Include concrete models"
-                  description="Whether /v1/models keeps provider catalog entries in addition to aliases."
+                  label={t("Include concrete models")}
+                  description={t("Whether /v1/models keeps provider catalog entries in addition to aliases.")}
                   checked={!dashboardSettings.client.keep_only_aliases_at_models_endpoint}
                   onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, keep_only_aliases_at_models_endpoint: !checked } })}
-                  aria-label="Include concrete models"
+                  aria-label={t("Include concrete models")}
                 />
               </div>
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">OpenAI passthrough alias</div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("OpenAI passthrough alias")}</div>
                 <ToggleField
-                  label={"Allow /p/{provider}/v1"}
-                  description="Lets /p/{provider}/v1/... behave like the canonical /p/{provider}/... path."
+                  label={t("Allow /p/{provider}/v1")}
+                  description={t("Lets /p/{provider}/v1/... behave like the canonical /p/{provider}/... path.")}
                   checked={dashboardSettings.client.allow_passthrough_v1_alias}
                   onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, allow_passthrough_v1_alias: checked } })}
-                  aria-label="Allow /p/{provider}/v1"
+                  aria-label={t("Allow /p/{provider}/v1")}
                 />
               </div>
             <div className="border border-border/60 bg-surface-hover/20 p-4">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Compatibility status</div>
-              <div className="mt-2 text-[14px] font-medium text-foreground">Handled by the gateway</div>
-              <div className="mt-1 text-[12px] text-muted-foreground">aurora already normalizes requests and responses server-side, so no separate toggle panel exists yet.</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Compatibility status")}</div>
+              <div className="mt-2 text-[14px] font-medium text-foreground">{t("Handled by the gateway")}</div>
+              <div className="mt-1 text-[12px] text-muted-foreground">{t("aurora already normalizes requests and responses server-side, so no separate toggle panel exists yet.")}</div>
             </div>
           </div>
           <div className="flex items-center gap-3 mt-2 border-t border-border/50 pt-4">
             <Button onClick={handleDashboardSettingsSave} disabled={mutations.saveDashboardSettingsMutation.isPending}>
               <SaveIcon className="mr-2 h-4 w-4" />
-              {mutations.saveDashboardSettingsMutation.isPending ? "Saving..." : "Save Compatibility Settings"}
+              {mutations.saveDashboardSettingsMutation.isPending ? t("Saving...") : t("Save Compatibility Settings")}
             </Button>
-            {mutations.saveDashboardSettingsMutation.isSuccess && <span className="text-[13px] font-medium text-success">Saved</span>}
+            {mutations.saveDashboardSettingsMutation.isSuccess && <span className="text-[13px] font-medium text-success">{t("Saved")}</span>}
             {mutations.saveDashboardSettingsMutation.isError && <span className="text-[13px] font-medium text-destructive">{mutations.saveDashboardSettingsMutation?.error?.message}</span>}
           </div>
         </div>
@@ -271,8 +273,8 @@ export function GeneralTab(): JSX.Element {
                 <GaugeIcon className="h-4 w-4 text-accent" />
               </div>
               <SectionHeader
-                title="AuroraX Token Saver"
-                subtitle="Policy-driven prompt and tool-output compression with an optional concise response profile. Disabled by default and scoped by endpoint, model, and provider."
+                title={t("AuroraX Token Saver")}
+                subtitle={t("Policy-driven prompt and tool-output compression with an optional concise response profile. Disabled by default and scoped by endpoint, model, and provider.")}
               />
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -283,86 +285,86 @@ export function GeneralTab(): JSX.Element {
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <ToggleField
-                label="Enable Token Saver"
-                description="Applies deterministic compression before provider dispatch when the request matches this policy."
+                label={t("Enable Token Saver")}
+                description={t("Applies deterministic compression before provider dispatch when the request matches this policy.")}
                 checked={tokenSaver.enabled}
                 onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, enabled: checked } })}
-                aria-label="Enable Token Saver"
+                aria-label={t("Enable Token Saver")}
               />
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <ToggleField
-                label="Apply to streaming requests"
-                description="When disabled, streaming chat completions skip compression."
+                label={t("Apply to streaming requests")}
+                description={t("When disabled, streaming chat completions skip compression.")}
                 checked={tokenSaver.apply_streaming}
                 onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, apply_streaming: checked } })}
-                aria-label="Apply to streaming requests"
+                aria-label={t("Apply to streaming requests")}
               />
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">On error</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("On error")}</div>
               <select className="field-input w-full mt-1" value={tokenSaver.on_error} onChange={e => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, on_error: e.target.value } })}>
-                <option value="allow">Allow original request</option>
-                <option value="block">Block request</option>
+                <option value="allow">{t("Allow original request")}</option>
+                <option value="block">{t("Block request")}</option>
               </select>
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <ToggleField
-                label="Concise output profile"
-                description="Adds a safe concise-response instruction except when JSON response format is requested."
+                label={t("Concise output profile")}
+                description={t("Adds a safe concise-response instruction except when JSON response format is requested.")}
                 checked={tokenSaver.output_enabled}
                 onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, output_enabled: checked } })}
-                aria-label="Enable concise output profile"
+                aria-label={t("Enable concise output profile")}
               />
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Output level</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Output level")}</div>
               <select className="field-input w-full mt-1" value={tokenSaver.output_level} onChange={e => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, output_level: e.target.value } })}>
-                <option value="lite">Lite</option>
-                <option value="full">Full</option>
-                <option value="ultra">Ultra</option>
-                <option value="wenyan">Wenyan</option>
+                <option value="lite">{t("Lite")}</option>
+                <option value="full">{t("Full")}</option>
+                <option value="ultra">{t("Ultra")}</option>
+                <option value="wenyan">{t("Wenyan")}</option>
               </select>
-              <div className="mt-1 text-[12px] text-muted-foreground">Controls response profile verbosity. Full is the balanced default; ultra and wenyan are more aggressive.</div>
+              <div className="mt-1 text-[12px] text-muted-foreground">{t("Controls response profile verbosity. Full is the balanced default; ultra and wenyan are more aggressive.")}</div>
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <ToggleField
-                label="Emit observability headers"
-                description="Headers include only status and character counts, never prompt content."
+                label={t("Emit observability headers")}
+                description={t("Headers include only status and character counts, never prompt content.")}
                 checked={tokenSaver.emit_headers}
                 onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, emit_headers: checked } })}
-                aria-label="Emit observability headers"
+                aria-label={t("Emit observability headers")}
               />
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <ToggleField
-                label="Audit logging"
-                description="Logs token saver decisions to the audit trail. Disabled by default; enable for compliance visibility."
+                label={t("Audit logging")}
+                description={t("Logs token saver decisions to the audit trail. Disabled by default; enable for compliance visibility.")}
                 checked={tokenSaver.audit_enabled}
                 onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, audit_enabled: checked } })}
-                aria-label="Enable audit logging"
+                aria-label={t("Enable audit logging")}
               />
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30 xl:col-span-2">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Endpoint scope</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Endpoint scope")}</div>
               <Input value={tokenSaver.endpoints.join(", ")} onChange={e => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, endpoints: parseCommaList(e.target.value) } })} />
-              <div className="mt-1 text-[12px] text-muted-foreground">Comma-separated endpoints. Use chat_completions for OpenAI-compatible chat requests.</div>
+              <div className="mt-1 text-[12px] text-muted-foreground">{t("Comma-separated endpoints. Use chat_completions for OpenAI-compatible chat requests.")}</div>
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-3 transition-colors hover:bg-surface-hover/30 xl:col-span-2">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Model scope</div>
-                  <div className="mt-1 text-[12px] text-muted-foreground">Select exact provider/model inventory entries. Empty include means all models are eligible unless excluded.</div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Model scope")}</div>
+                  <div className="mt-1 text-[12px] text-muted-foreground">{t("Select exact provider/model inventory entries. Empty include means all models are eligible unless excluded.")}</div>
                 </div>
-                <span className="text-[11px] text-muted-foreground">{modelsQuery.isLoading ? "Loading models…" : `${availableModels.length} models`}</span>
+                <span className="text-[11px] text-muted-foreground">{modelsQuery.isLoading ? t("Loading models…") : `${availableModels.length} models`}</span>
               </div>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <Input placeholder="Include models manually" value={tokenSaver.model_include.join(", ")} onChange={e => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, model_include: parseCommaList(e.target.value) } })} />
-                <Input placeholder="Exclude models manually" value={tokenSaver.model_exclude.join(", ")} onChange={e => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, model_exclude: parseCommaList(e.target.value) } })} />
+                <Input placeholder={t("Include models manually")} value={tokenSaver.model_include.join(", ")} onChange={e => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, model_include: parseCommaList(e.target.value) } })} />
+                <Input placeholder={t("Exclude models manually")} value={tokenSaver.model_exclude.join(", ")} onChange={e => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, model_exclude: parseCommaList(e.target.value) } })} />
               </div>
               <div className="max-h-44 overflow-auto border border-border/40 bg-background/40 p-2">
                 {availableModels.length === 0 ? (
-                  <div className="p-2 text-[12px] text-muted-foreground">No model inventory loaded yet. Use Runtime Refresh or enter model selectors manually.</div>
+                  <div className="p-2 text-[12px] text-muted-foreground">{t("No model inventory loaded yet. Use Runtime Refresh or enter model selectors manually.")}</div>
                 ) : availableModels.map(model => (
                   <label key={model} className="flex items-center justify-between gap-3 px-2 py-1.5 text-[12px] hover:bg-surface-hover/40">
                     <span className="font-mono text-foreground/90">{model}</span>
@@ -387,18 +389,18 @@ export function GeneralTab(): JSX.Element {
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-3 transition-colors hover:bg-surface-hover/30 xl:col-span-2">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Provider scope</div>
-                  <div className="mt-1 text-[12px] text-muted-foreground">Select provider names or provider types discovered from provider status and model inventory.</div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Provider scope")}</div>
+                  <div className="mt-1 text-[12px] text-muted-foreground">{t("Select provider names or provider types discovered from provider status and model inventory.")}</div>
                 </div>
-                <span className="text-[11px] text-muted-foreground">{providerStatusQuery.isLoading ? "Loading providers…" : `${availableProviders.length} providers/types`}</span>
+                <span className="text-[11px] text-muted-foreground">{providerStatusQuery.isLoading ? t("Loading providers…") : `${availableProviders.length} providers/types`}</span>
               </div>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <Input placeholder="Include providers manually" value={tokenSaver.provider_include.join(", ")} onChange={e => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, provider_include: parseCommaList(e.target.value) } })} />
-                <Input placeholder="Exclude providers manually" value={tokenSaver.provider_exclude.join(", ")} onChange={e => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, provider_exclude: parseCommaList(e.target.value) } })} />
+                <Input placeholder={t("Include providers manually")} value={tokenSaver.provider_include.join(", ")} onChange={e => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, provider_include: parseCommaList(e.target.value) } })} />
+                <Input placeholder={t("Exclude providers manually")} value={tokenSaver.provider_exclude.join(", ")} onChange={e => setDashboardSettings({ ...dashboardSettings, token_saver: { ...tokenSaver, provider_exclude: parseCommaList(e.target.value) } })} />
               </div>
               <div className="max-h-40 overflow-auto border border-border/40 bg-background/40 p-2">
                 {availableProviders.length === 0 ? (
-                  <div className="p-2 text-[12px] text-muted-foreground">No provider inventory loaded yet. Use Runtime Refresh or enter provider selectors manually.</div>
+                  <div className="p-2 text-[12px] text-muted-foreground">{t("No provider inventory loaded yet. Use Runtime Refresh or enter provider selectors manually.")}</div>
                 ) : availableProviders.map(provider => (
                   <label key={provider} className="flex items-center justify-between gap-3 px-2 py-1.5 text-[12px] hover:bg-surface-hover/40">
                     <span className="font-mono text-foreground/90">{provider}</span>
@@ -424,9 +426,9 @@ export function GeneralTab(): JSX.Element {
           <div className="flex items-center gap-3 mt-2 border-t border-border/50 pt-4">
             <Button onClick={handleDashboardSettingsSave} disabled={mutations.saveDashboardSettingsMutation.isPending}>
               <SaveIcon className="mr-2 h-4 w-4" />
-              {mutations.saveDashboardSettingsMutation.isPending ? "Saving..." : "Save Token Saver Settings"}
+              {mutations.saveDashboardSettingsMutation.isPending ? t("Saving...") : t("Save Token Saver Settings")}
             </Button>
-            {mutations.saveDashboardSettingsMutation.isSuccess && <span className="text-[13px] font-medium text-success">Saved</span>}
+            {mutations.saveDashboardSettingsMutation.isSuccess && <span className="text-[13px] font-medium text-success">{t("Saved")}</span>}
             {mutations.saveDashboardSettingsMutation.isError && <span className="text-[13px] font-medium text-destructive">{mutations.saveDashboardSettingsMutation?.error?.message}</span>}
           </div>
         </div>
@@ -440,8 +442,8 @@ export function GeneralTab(): JSX.Element {
               <EyeOffIcon className="h-4 w-4 text-accent" />
             </div>
             <SectionHeader
-              title="Feature visibility"
-              subtitle="Hide optional dashboard surfaces without deleting config, pools, logs, or keys. Hidden features leave the nav; direct URLs show a disabled banner until re-enabled."
+              title={t("Feature visibility")}
+              subtitle={t("Hide optional dashboard surfaces without deleting config, pools, logs, or keys. Hidden features leave the nav; direct URLs show a disabled banner until re-enabled.")}
             />
           </div>
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -459,7 +461,7 @@ export function GeneralTab(): JSX.Element {
                     <StatusChip enabled={!hidden} />
                   </div>
                   <ToggleField
-                    label={hidden ? "Hidden" : "Visible"}
+                    label={hidden ? t("Hidden") : t("Visible")}
                     description={feature.description}
                     checked={!hidden}
                     onCheckedChange={(checked) => handleHiddenFeatureToggle(feature.id, !checked)}
@@ -472,9 +474,9 @@ export function GeneralTab(): JSX.Element {
           <div className="flex items-center gap-3 mt-2 border-t border-border/50 pt-4">
             <Button onClick={handleDashboardSettingsSave} disabled={mutations.saveDashboardSettingsMutation.isPending}>
               <SaveIcon className="mr-2 h-4 w-4" />
-              {mutations.saveDashboardSettingsMutation.isPending ? "Saving..." : "Save Feature Visibility"}
+              {mutations.saveDashboardSettingsMutation.isPending ? t("Saving...") : t("Save Feature Visibility")}
             </Button>
-            {mutations.saveDashboardSettingsMutation.isSuccess && <span className="text-[13px] font-medium text-success">Saved</span>}
+            {mutations.saveDashboardSettingsMutation.isSuccess && <span className="text-[13px] font-medium text-success">{t("Saved")}</span>}
             {mutations.saveDashboardSettingsMutation.isError && <span className="text-[13px] font-medium text-destructive">{mutations.saveDashboardSettingsMutation?.error?.message}</span>}
           </div>
         </div>
@@ -483,34 +485,32 @@ export function GeneralTab(): JSX.Element {
       <Surface className="p-6">
         <div className="flex flex-col gap-6">
           <SectionHeader
-            title="Timezone"
-            subtitle="Day-based analytics, charts, and date filters use your effective timezone. Usage and audit logs keep UTC in the hover title while rendering row timestamps in your effective timezone."
+            title={t("Timezone")}
+            subtitle={t("Day-based analytics, charts, and date filters use your effective timezone. Usage and audit logs keep UTC in the hover title while rendering row timestamps in your effective timezone.")}
           />
           <div className="flex flex-col gap-4 max-w-sm">
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-muted-foreground">Timezone Override</label>
+              <label className="text-sm font-medium text-muted-foreground">{t("Timezone Override")}</label>
               <select
                 className="field-input"
                 value={timezoneOverride}
                 onChange={(e) => handleTimezoneChange(e.target.value)}
               >
-                <option value="">Automatic ({detectedTz})</option>
-                <option value="UTC">UTC</option>
-                <option value="America/New_York">America/New_York</option>
-                <option value="America/Chicago">America/Chicago</option>
-                <option value="America/Denver">America/Denver</option>
-                <option value="America/Los_Angeles">America/Los_Angeles</option>
-                <option value="Europe/London">Europe/London</option>
-                <option value="Europe/Paris">Europe/Paris</option>
-                <option value="Asia/Tokyo">Asia/Tokyo</option>
-                <option value="Asia/Shanghai">Asia/Shanghai</option>
-                <option value="Australia/Sydney">Australia/Sydney</option>
+                <option value="">{t("Automatic (")}{detectedTz})</option>
+                <option value="UTC">{t("UTC")}</option>
+                <option value="America/New_York">{t("America/New_York")}</option>
+                <option value="America/Chicago">{t("America/Chicago")}</option>
+                <option value="America/Denver">{t("America/Denver")}</option>
+                <option value="America/Los_Angeles">{t("America/Los_Angeles")}</option>
+                <option value="Europe/London">{t("Europe/London")}</option>
+                <option value="Europe/Paris">{t("Europe/Paris")}</option>
+                <option value="Asia/Tokyo">{t("Asia/Tokyo")}</option>
+                <option value="Asia/Shanghai">{t("Asia/Shanghai")}</option>
+                <option value="Australia/Sydney">{t("Australia/Sydney")}</option>
               </select>
             </div>
             {timezoneOverride && (
-              <Button variant="outline" size="sm" onClick={() => handleTimezoneChange("")} className="w-max">
-                Use Browser Timezone
-              </Button>
+              <Button variant="outline" size="sm" onClick={() => handleTimezoneChange("")} className="w-max">{t("Use Browser Timezone")}</Button>
             )}
           </div>
         </div>
@@ -523,91 +523,91 @@ export function GeneralTab(): JSX.Element {
               <GaugeIcon className="h-4 w-4 text-accent" />
             </div>
             <SectionHeader
-              title="Response Headers"
-              subtitle="Add debug headers to responses showing actual provider, model, and fallback chain information. Each header can be toggled independently and custom headers are supported."
+              title={t("Response Headers")}
+              subtitle={t("Add debug headers to responses showing actual provider, model, and fallback chain information. Each header can be toggled independently and custom headers are supported.")}
             />
           </div>
 
           <ToggleField
-            label={<span className="text-[14px] font-semibold">Enable response headers</span>}
-            description="Master switch for all response debug headers."
+            label={<span className="text-[14px] font-semibold">{t("Enable response headers")}</span>}
+            description={t("Master switch for all response debug headers.")}
             checked={dashboardSettings.response_headers?.enabled ?? false}
             onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, enabled: checked } })}
-            aria-label="Enable response headers"
+            aria-label={t("Enable response headers")}
           />
 
           <div className="flex flex-col gap-2">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">When to add headers</label>
+            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("When to add headers")}</label>
             <select
               className="field-input w-full max-w-xs"
               value={dashboardSettings.response_headers?.mode ?? "success"}
               onChange={(e) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, mode: e.target.value as "success" | "error" | "always" } })}
             >
-              <option value="success">Only successful responses (2xx)</option>
-              <option value="error">Only error responses (4xx/5xx)</option>
-              <option value="always">All responses</option>
+              <option value="success">{t("Only successful responses (2xx)")}</option>
+              <option value="error">{t("Only error responses (4xx/5xx)")}</option>
+              <option value="always">{t("All responses")}</option>
             </select>
-            <span className="text-[11px] text-muted-foreground">Control when debug headers are injected into responses.</span>
+            <span className="text-[11px] text-muted-foreground">{t("Control when debug headers are injected into responses.")}</span>
           </div>
 
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <ToggleField
-                label="Include on fallback requests"
-                description="Add headers when a fallback provider was used (request failed over to another provider)."
+                label={t("Include on fallback requests")}
+                description={t("Add headers when a fallback provider was used (request failed over to another provider).")}
                 checked={dashboardSettings.response_headers?.include_fallback ?? true}
                 onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, include_fallback: checked } })}
-                aria-label="Include headers on fallback requests"
+                aria-label={t("Include headers on fallback requests")}
               />
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <ToggleField
-                label="Include on non-fallback requests"
-                description="Add headers even when no fallback occurred (normal successful request)."
+                label={t("Include on non-fallback requests")}
+                description={t("Add headers even when no fallback occurred (normal successful request).")}
                 checked={dashboardSettings.response_headers?.include_non_fallback ?? true}
                 onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, include_non_fallback: checked } })}
-                aria-label="Include headers on non-fallback requests"
+                aria-label={t("Include headers on non-fallback requests")}
               />
             </div>
           </div>
 
           <div className="flex flex-col gap-2">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Built-in headers</div>
+            <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Built-in headers")}</div>
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               <div className="border border-border/40 bg-surface p-4 transition-colors hover:bg-surface-hover/30">
                 <ToggleField
                   label={<code className="text-[12px] font-semibold">X-Actual-Provider</code>}
-                  description="The provider that actually served the response."
+                  description={t("The provider that actually served the response.")}
                   checked={dashboardSettings.response_headers?.actual_provider_header ?? true}
                   onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, actual_provider_header: checked } })}
-                  aria-label="X-Actual-Provider header"
+                  aria-label={t("X-Actual-Provider header")}
                 />
               </div>
               <div className="border border-border/40 bg-surface p-4 transition-colors hover:bg-surface-hover/30">
                 <ToggleField
                   label={<code className="text-[12px] font-semibold">X-Actual-Model</code>}
-                  description="The model that actually produced the response."
+                  description={t("The model that actually produced the response.")}
                   checked={dashboardSettings.response_headers?.actual_model_header ?? true}
                   onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, actual_model_header: checked } })}
-                  aria-label="X-Actual-Model header"
+                  aria-label={t("X-Actual-Model header")}
                 />
               </div>
               <div className="border border-border/40 bg-surface p-4 transition-colors hover:bg-surface-hover/30">
                 <ToggleField
                   label={<code className="text-[12px] font-semibold">X-Requested-Model</code>}
-                  description="The originally requested model selector."
+                  description={t("The originally requested model selector.")}
                   checked={dashboardSettings.response_headers?.requested_model_header ?? true}
                   onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, requested_model_header: checked } })}
-                  aria-label="X-Requested-Model header"
+                  aria-label={t("X-Requested-Model header")}
                 />
               </div>
               <div className="border border-border/40 bg-surface p-4 transition-colors hover:bg-surface-hover/30">
                 <ToggleField
                   label={<code className="text-[12px] font-semibold">X-Fallback-Chain</code>}
-                  description="Comma-separated models attempted before a success."
+                  description={t("Comma-separated models attempted before a success.")}
                   checked={dashboardSettings.response_headers?.fallback_chain_header ?? true}
                   onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, fallback_chain_header: checked } })}
-                  aria-label="X-Fallback-Chain header"
+                  aria-label={t("X-Fallback-Chain header")}
                 />
               </div>
             </div>
@@ -615,14 +615,12 @@ export function GeneralTab(): JSX.Element {
 
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Custom headers</div>
-              <Button variant="outline" size="sm" onClick={() => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, custom_headers: [...(dashboardSettings.response_headers?.custom_headers ?? []), { name: "", value: "", enabled: true }] } })}>
-                Add custom header
-              </Button>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Custom headers")}</div>
+              <Button variant="outline" size="sm" onClick={() => setDashboardSettings({ ...dashboardSettings, response_headers: { ...dashboardSettings.response_headers, custom_headers: [...(dashboardSettings.response_headers?.custom_headers ?? []), { name: "", value: "", enabled: true }] } })}>{t("Add custom header")}</Button>
             </div>
-            <span className="text-[11px] text-muted-foreground">Values support placeholders: {"{actual_provider}, {actual_model}, {requested_model}, {fallback_chain}, {request_id}"}</span>
+            <span className="text-[11px] text-muted-foreground">{t("Values support placeholders: ")}{t("{actual_provider}, {actual_model}, {requested_model}, {fallback_chain}, {request_id}")}</span>
             {(dashboardSettings.response_headers?.custom_headers ?? []).length === 0 ? (
-              <div className="border border-dashed border-border/60 bg-background/40 p-4 text-[12px] text-muted-foreground">No custom headers configured. Add one to emit an additional response header.</div>
+              <div className="border border-dashed border-border/60 bg-background/40 p-4 text-[12px] text-muted-foreground">{t("No custom headers configured. Add one to emit an additional response header.")}</div>
             ) : (
               <div className="flex flex-col gap-2">
                 {(dashboardSettings.response_headers?.custom_headers ?? []).map((header, index) => (
@@ -641,7 +639,7 @@ export function GeneralTab(): JSX.Element {
                       />
                     </div>
                     <Input
-                      placeholder="X-Custom-Header"
+                      placeholder={t("X-Custom-Header")}
                       className="flex-1"
                       value={header.name}
                       onChange={e => setDashboardSettings({
@@ -653,7 +651,7 @@ export function GeneralTab(): JSX.Element {
                       })}
                     />
                     <Input
-                      placeholder="{actual_model} via {actual_provider}"
+                      placeholder={t("{actual_model} via {actual_provider}")}
                       className="flex-1"
                       value={header.value}
                       onChange={e => setDashboardSettings({
@@ -674,9 +672,7 @@ export function GeneralTab(): JSX.Element {
                           custom_headers: (dashboardSettings.response_headers?.custom_headers ?? []).filter((_, i) => i !== index),
                         },
                       })}
-                    >
-                      Remove
-                    </Button>
+                    >{t("Remove")}</Button>
                   </div>
                 ))}
               </div>
@@ -685,9 +681,9 @@ export function GeneralTab(): JSX.Element {
           <div className="flex items-center gap-3 mt-2 border-t border-border/50 pt-4">
             <Button onClick={handleDashboardSettingsSave} disabled={mutations.saveDashboardSettingsMutation.isPending}>
               <SaveIcon className="mr-2 h-4 w-4" />
-              {mutations.saveDashboardSettingsMutation.isPending ? "Saving..." : "Save Response Headers"}
+              {mutations.saveDashboardSettingsMutation.isPending ? t("Saving...") : t("Save Response Headers")}
             </Button>
-            {mutations.saveDashboardSettingsMutation.isSuccess && <span className="text-[13px] font-medium text-success">Saved</span>}
+            {mutations.saveDashboardSettingsMutation.isSuccess && <span className="text-[13px] font-medium text-success">{t("Saved")}</span>}
             {mutations.saveDashboardSettingsMutation.isError && <span className="text-[13px] font-medium text-destructive">{mutations.saveDashboardSettingsMutation?.error?.message}</span>}
           </div>
         </div>

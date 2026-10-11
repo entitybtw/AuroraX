@@ -25,6 +25,8 @@ import { LogSidebarFilters, type LogFilterValues } from "@/components/logs/LogSi
 import { useLiveLogs } from "@/lib/hooks/useLiveLogs";
 import { TenantScopeSelect } from "@/components/tenant/TenantScopeSelect";
 import { useTenantScope } from "@/lib/tenant/tenant-scope";
+import { t } from "@/lib/i18n";
+
 
 const PAGE_LIMIT = 50;
 const LIVE_TAIL_INTERVAL_MS = 3000;
@@ -173,8 +175,8 @@ export function AuditLogsPage(): JSX.Element {
     <div className="flex flex-col gap-6">
       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 pt-4 border-b border-border/60">
         <div className="min-w-0 flex-1">
-          <h1 className="font-display text-[28px] md:text-[34px] font-normal leading-tight tracking-tight text-foreground">Audit Logs</h1>
-          <p className="mt-1.5 text-sm md:text-[15px] text-muted-foreground">View detailed request logs and conversations.</p>
+          <h1 className="font-display text-[28px] md:text-[34px] font-normal leading-tight tracking-tight text-foreground">{t("Audit Logs")}</h1>
+          <p className="mt-1.5 text-sm md:text-[15px] text-muted-foreground">{t("View detailed request logs and conversations.")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <TenantScopeSelect />
@@ -187,8 +189,8 @@ export function AuditLogsPage(): JSX.Element {
           <div className="flex">
             <AlertTriangleIcon className="h-5 w-5 shrink-0 mt-0.5" />
             <div className="ml-3">
-              <h3 className="text-sm font-medium">Audit logging is off</h3>
-              <p className="mt-2 text-sm opacity-90">Turn on “Request audit logging” in Settings → General to capture new request logs. Existing logs can still be viewed.</p>
+              <h3 className="text-sm font-medium">{t("Audit logging is off")}</h3>
+              <p className="mt-2 text-sm opacity-90">{t("Turn on “Request audit logging” in Settings → General to capture new request logs. Existing logs can still be viewed.")}</p>
             </div>
           </div>
         </div>
@@ -196,12 +198,12 @@ export function AuditLogsPage(): JSX.Element {
 
       {stats && stats.visible > 0 && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          <AnalyticsCard title="Status" headline={topBucketLabel(stats.status)} buckets={stats.status} />
-          <AnalyticsCard title="Methods" headline={topBucketLabel(stats.methods)} buckets={stats.methods} />
-          <AnalyticsCard title="Providers" headline={topBucketLabel(stats.providers)} buckets={stats.providers} />
-          <AnalyticsCard title="Models" headline={topBucketLabel(stats.models)} buckets={stats.models} />
-          <AnalyticsCard title="Errors" headline={`${stats.error_count ?? 0} errors \u00b7 ${stats.stream_count ?? 0} stream`} buckets={stats.errors} />
-          <AnalyticsCard title="Runtime" headline={`${stats.failover_count ?? 0} failover \u00b7 ${(stats.total_duration_ms ?? 0).toFixed(0)}ms`} buckets={stats.auth_methods} />
+          <AnalyticsCard title={t("Status")} headline={topBucketLabel(stats.status)} buckets={stats.status} />
+          <AnalyticsCard title={t("Methods")} headline={topBucketLabel(stats.methods)} buckets={stats.methods} />
+          <AnalyticsCard title={t("Providers")} headline={topBucketLabel(stats.providers)} buckets={stats.providers} />
+          <AnalyticsCard title={t("Models")} headline={topBucketLabel(stats.models)} buckets={stats.models} />
+          <AnalyticsCard title={t("Errors")} headline={`${stats.error_count ?? 0} errors \u00b7 ${stats.stream_count ?? 0} stream`} buckets={stats.errors} />
+          <AnalyticsCard title={t("Runtime")} headline={`${stats.failover_count ?? 0} failover \u00b7 ${(stats.total_duration_ms ?? 0).toFixed(0)}ms`} buckets={stats.auth_methods} />
         </div>
       )}
 
@@ -214,42 +216,36 @@ export function AuditLogsPage(): JSX.Element {
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 bg-muted/20 px-4 py-2.5">
             <div className="flex flex-wrap items-center gap-2">
               <select className="field-input h-10 md:h-8 w-40 bg-background text-xs" value={sort} onChange={(e) => { setSort(e.target.value); setOffset(0); }}>
-                <option value="-timestamp">Newest</option>
-                <option value="timestamp">Oldest</option>
-                <option value="-duration_ns">Slowest</option>
-                <option value="duration_ns">Fastest</option>
-                <option value="-status_code">Highest status</option>
-                <option value="status_code">Lowest status</option>
-                <option value="provider">Provider A-Z</option>
-                <option value="requested_model">Model A-Z</option>
+                <option value="-timestamp">{t("Newest")}</option>
+                <option value="timestamp">{t("Oldest")}</option>
+                <option value="-duration_ns">{t("Slowest")}</option>
+                <option value="duration_ns">{t("Fastest")}</option>
+                <option value="-status_code">{t("Highest status")}</option>
+                <option value="status_code">{t("Lowest status")}</option>
+                <option value="provider">{t("Provider A-Z")}</option>
+                <option value="requested_model">{t("Model A-Z")}</option>
               </select>
               <div className="hidden sm:block h-5 w-px bg-border/40" />
               <span className="text-xs text-muted-foreground tabular-nums">
-                {offset + 1}-{Math.min(offset + PAGE_LIMIT, total)} of {total}
+                {offset + 1}-{Math.min(offset + PAGE_LIMIT, total)}{t(" of ")}{total}
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Button variant="outline" size="sm" className="h-8 md:h-7 text-[10px]" onClick={handleRefresh}>
-                <RefreshCwIcon className="mr-1 h-3 w-3" />
-                Refresh
-              </Button>
+                <RefreshCwIcon className="mr-1 h-3 w-3" />{t("Refresh")}</Button>
               <Button variant={liveTail ? "default" : "outline"} size="sm" className="h-8 md:h-7 text-[10px] font-bold uppercase tracking-wider" onClick={() => setLiveTail(!liveTail)}>
-                {liveTail ? "Live" : "Live tail"}
+                {liveTail ? t("Live") : t("Live tail")}
               </Button>
               <Button variant="outline" size="sm" className="h-8 md:h-7 text-[10px]" disabled={exporting} onClick={exportCSV}>
-                <DownloadIcon className="mr-1 h-3 w-3" />
-                CSV
-              </Button>
+                <DownloadIcon className="mr-1 h-3 w-3" />{t("CSV")}</Button>
             </div>
           </div>
 
           <div className="flex-1 overflow-auto min-h-[300px] md:min-h-[400px] md:max-h-[600px]">
             {isLoading ? (
-              <div className="flex items-center justify-center p-12 text-sm text-muted-foreground">Loading audit logs </div>
+              <div className="flex items-center justify-center p-12 text-sm text-muted-foreground">{t("Loading audit logs ")}</div>
             ) : displayEntries.length === 0 ? (
-              <EmptyState title="No audit log entries found.">
-                Try widening the date range or clearing filters.
-              </EmptyState>
+              <EmptyState title={t("No audit log entries found.")}>{t("Try widening the date range or clearing filters.")}</EmptyState>
             ) : (
               <div className="divide-y divide-border/40">
                 {displayEntries.map((entry) => {
@@ -283,7 +279,7 @@ export function AuditLogsPage(): JSX.Element {
                       </div>
                       <div className="flex items-center gap-3 shrink-0 text-xs">
                         {totalTokens > 0 && (
-                          <span className="font-mono text-muted-foreground hidden sm:inline">{totalTokens.toLocaleString()} tok</span>
+                          <span className="font-mono text-muted-foreground hidden sm:inline">{totalTokens.toLocaleString()}{t(" tok")}</span>
                         )}
                         {totalCost !== undefined && totalCost !== null && (
                           <span className="font-mono text-success font-semibold hidden sm:inline">{formatCost(totalCost)}</span>
@@ -303,14 +299,10 @@ export function AuditLogsPage(): JSX.Element {
 
           {total > PAGE_LIMIT && (
             <div className="flex flex-wrap items-center justify-between gap-2 border-t bg-muted/10 px-4 py-2.5">
-              <div className="text-xs text-muted-foreground">{total} total</div>
+              <div className="text-xs text-muted-foreground">{total}{t(" total")}</div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="h-9 md:h-7 text-xs" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_LIMIT))}>
-                  Previous
-                </Button>
-                <Button variant="outline" size="sm" className="h-9 md:h-7 text-xs" disabled={offset + PAGE_LIMIT >= total} onClick={() => setOffset(offset + PAGE_LIMIT)}>
-                  Next
-                </Button>
+                <Button variant="outline" size="sm" className="h-9 md:h-7 text-xs" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_LIMIT))}>{t("Previous")}</Button>
+                <Button variant="outline" size="sm" className="h-9 md:h-7 text-xs" disabled={offset + PAGE_LIMIT >= total} onClick={() => setOffset(offset + PAGE_LIMIT)}>{t("Next")}</Button>
               </div>
             </div>
           )}

@@ -30,6 +30,8 @@ import {
 import { useModels } from "@/lib/api/useModels";
 import { modelDisplayName } from "@/lib/api/models-types";
 import { cn } from "@/lib/utils";
+import { t as i18nT } from "@/lib/i18n";
+
 
 const POLL_MS = 10_000;
 
@@ -223,9 +225,9 @@ export function FallbackPage(): JSX.Element {
   return (
     <div className="flex flex-col gap-4 md:gap-6">
       <PageHeader
-        title="Fallback"
-        subtitle="Configure fallback routing. Order from configs/fallback.json."
-        actions={<Button onClick={openCreate}><Plus className="h-4 w-4" /> Add Rule</Button>}
+        title={i18nT("Fallback")}
+        subtitle={i18nT("Configure fallback routing. Order from configs/fallback.json.")}
+        actions={<Button onClick={openCreate}><Plus className="h-4 w-4" />{i18nT(" Add Rule")}</Button>}
       />
 
       {error ? <Banner tone="warning">{error}</Banner> : null}
@@ -233,18 +235,17 @@ export function FallbackPage(): JSX.Element {
 
       {bulk.selectedCount > 0 && (
         <BulkActionsBar count={bulk.selectedCount} onClear={bulk.clear}>
-          <Button size="sm" variant="secondary" onClick={() => void bulkEnable()}>Enable</Button>
-          <Button size="sm" variant="secondary" onClick={() => void bulkDisable()}>Disable</Button>
-          <Button size="sm" variant="destructive" onClick={() => void bulkDelete()}><Trash2 className="h-3 w-3" /> Delete</Button>
+          <Button size="sm" variant="secondary" onClick={() => void bulkEnable()}>{i18nT("Enable")}</Button>
+          <Button size="sm" variant="secondary" onClick={() => void bulkDisable()}>{i18nT("Disable")}</Button>
+          <Button size="sm" variant="destructive" onClick={() => void bulkDelete()}><Trash2 className="h-3 w-3" />{i18nT(" Delete")}</Button>
         </BulkActionsBar>
       )}
 
       {loading ? (
         <Surface className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading rules…
-        </Surface>
+          <Loader2 className="h-4 w-4 animate-spin" />{i18nT(" Loading rules…")}</Surface>
       ) : rules.length === 0 ? (
-        <EmptyState title="No fallback rules" description="Add a rule to configure fallback routing." action={<Button onClick={openCreate}><Plus className="h-4 w-4" /> Add Rule</Button>} />
+        <EmptyState title={i18nT("No fallback rules")} description={i18nT("Add a rule to configure fallback routing.")} action={<Button onClick={openCreate}><Plus className="h-4 w-4" />{i18nT(" Add Rule")}</Button>} />
       ) : (
         <>
           <div className="flex items-center gap-2">
@@ -252,9 +253,9 @@ export function FallbackPage(): JSX.Element {
               checked={bulk.allSelected(allIndices)}
               indeterminate={bulk.someSelected(allIndices)}
               onClick={(e: React.MouseEvent) => e.shiftKey ? null : bulk.toggleAll(allIndices)}
-              title="Select all"
+              title={i18nT("Select all")}
             />
-            <span className="text-xs text-muted-foreground">Select all</span>
+            <span className="text-xs text-muted-foreground">{i18nT("Select all")}</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {rules.map((rule, idx) => (
@@ -279,14 +280,14 @@ export function FallbackPage(): JSX.Element {
                       disabled={saving}
                       onCheckedChange={() => void toggleRule(idx)}
                       aria-label={`Toggle rule for ${rule.source}`}
-                      title={rule.enabled === false ? "Enable rule" : "Disable rule"}
+                      title={rule.enabled === false ? i18nT("Enable rule") : i18nT("Disable rule")}
                     />
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(idx)} title="Edit rule"><Edit3 className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => void deleteRule(idx)} title="Delete rule"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(idx)} title={i18nT("Edit rule")}><Edit3 className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => void deleteRule(idx)} title={i18nT("Delete rule")}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                   </div>
                 </div>
                 <div className="border border-border/60 bg-background/40 p-3">
-                  <div className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground mb-2">Target Chain</div>
+                  <div className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground mb-2">{i18nT("Target Chain")}</div>
                   <div className="flex flex-col">
                     {rule.targets.map((target, tIdx) => (
                       <React.Fragment key={`${target}-${tIdx}`}>
@@ -382,37 +383,37 @@ function EditDialog({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="w-screen max-w-none sm:w-[calc(100vw-2rem)] sm:max-w-2xl h-screen max-h-none sm:h-auto sm:max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6 rounded-none sm:rounded-xl">
         <DialogHeader>
-          <DialogTitle className="text-lg">{isEdit ? "Edit Fallback Rule" : "Add Fallback Rule"}</DialogTitle>
-          <DialogDescription>Define a chain name and ordered fallback targets. Clients call the chain by name.</DialogDescription>
+          <DialogTitle className="text-lg">{isEdit ? i18nT("Edit Fallback Rule") : i18nT("Add Fallback Rule")}</DialogTitle>
+          <DialogDescription>{i18nT("Define a chain name and ordered fallback targets. Clients call the chain by name.")}</DialogDescription>
         </DialogHeader>
 
         <div className="flex w-full min-w-0 flex-col gap-4">
           <label className="block w-full space-y-2">
-            <span className="text-sm font-medium text-muted-foreground">Chain name</span>
+            <span className="text-sm font-medium text-muted-foreground">{i18nT("Chain name")}</span>
             <input
               className="w-full h-12 sm:h-11 border border-border/50 bg-background/40 px-3 sm:px-4 font-mono text-base sm:text-sm focus:outline-none focus:border-accent/70 focus:ring-2 focus:ring-accent/15 rounded-lg"
-              placeholder="e.g. deepseek-chain"
+              placeholder={i18nT("e.g. deepseek-chain")}
               value={source}
               onChange={(e) => onSourceChange(e.target.value)}
             />
-            <div className="text-[12px] text-muted-foreground">Clients can call this fallback chain by name (e.g. <code>model="deepseek-chain"</code>).</div>
+            <div className="text-[12px] text-muted-foreground">{i18nT("Clients can call this fallback chain by name (e.g. ")}<code>model="deepseek-chain"</code>).</div>
           </label>
 
           <label className="block w-full space-y-2">
-            <span className="text-sm font-medium text-muted-foreground">Add target</span>
+            <span className="text-sm font-medium text-muted-foreground">{i18nT("Add target")}</span>
             <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row">
               <select className="min-w-0 flex-1 w-full h-12 sm:h-11 border border-border/50 bg-background/40 px-3 sm:px-4 font-mono text-base sm:text-sm focus:outline-none focus:border-accent/70 rounded-lg"
                 value={targetInput} onChange={(e) => setTargetInput(e.target.value)}>
-                <option value="">Select model…</option>
+                <option value="">{i18nT("Select model…")}</option>
                 {available.map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
-              <Button type="button" variant="secondary" onClick={addTarget} disabled={!targetInput.trim()} className="h-12 sm:h-11 px-5 shrink-0 w-full sm:w-auto">Add</Button>
+              <Button type="button" variant="secondary" onClick={addTarget} disabled={!targetInput.trim()} className="h-12 sm:h-11 px-5 shrink-0 w-full sm:w-auto">{i18nT("Add")}</Button>
             </div>
           </label>
 
           {targets.length > 0 && (
             <div className="w-full space-y-2">
-              <span className="text-sm font-medium text-muted-foreground">Target chain ({targets.length})</span>
+              <span className="text-sm font-medium text-muted-foreground">{i18nT("Target chain (")}{targets.length})</span>
               <div className="border border-border/60 bg-background/40 divide-y divide-border/40 max-h-48 sm:max-h-60 overflow-y-auto rounded-lg">
                 {targets.map((t, idx) => (
                   <div key={`${t}-${idx}`} className="flex min-w-0 w-full items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2.5">
@@ -436,10 +437,9 @@ function EditDialog({
         {error ? <p className="text-sm text-warning bg-warning/10 border border-warning/30 rounded-lg p-2">{error}</p> : null}
 
         <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-2">
-          <Button variant="secondary" onClick={onClose} disabled={saving} className="w-full sm:w-auto flex-1 sm:flex-none h-12 sm:h-10">Cancel</Button>
+          <Button variant="secondary" onClick={onClose} disabled={saving} className="w-full sm:w-auto flex-1 sm:flex-none h-12 sm:h-10">{i18nT("Cancel")}</Button>
           <Button onClick={onSave} disabled={saving || !source || targets.length === 0} className="w-full sm:w-auto flex-1 sm:flex-none h-12 sm:h-10">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save
-          </Button>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}{i18nT(" Save")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

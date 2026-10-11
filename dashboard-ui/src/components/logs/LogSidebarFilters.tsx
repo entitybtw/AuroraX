@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/components/ui/search-input";
 import { cn } from "@/lib/utils";
+import { t } from "@/lib/i18n";
+
 
 export interface LogFilterValues {
   search: string;
@@ -34,51 +36,49 @@ export function LogSidebarFilters({ filters, onChange, onClear, entryCount }: Lo
   return (
     <div className="w-full shrink-0 border-b border-border/50 bg-surface/50 p-4 flex flex-col gap-4 md:w-64 md:border-b-0 md:border-r md:overflow-y-auto">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Filters</h3>
+        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{t("Filters")}</h3>
         <div className="flex items-center gap-2">
           {entryCount !== undefined && (
-            <span className="text-[10px] font-mono text-muted-foreground">{entryCount} results</span>
+            <span className="text-[10px] font-mono text-muted-foreground">{entryCount}{t(" results")}</span>
           )}
           <button
             type="button"
             onClick={() => setMobileOpen((v) => !v)}
             aria-expanded={mobileOpen}
-            aria-label={mobileOpen ? "Hide filters" : "Show filters"}
+            aria-label={mobileOpen ? t("Hide filters") : t("Show filters")}
             className={cn(
               "flex h-11 items-center gap-1.5 border border-border/50 bg-background px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground md:hidden",
               hasFilters && !mobileOpen && "border-accent/40 text-accent",
             )}
           >
             <SlidersHorizontalIcon className="h-3.5 w-3.5" />
-            {mobileOpen ? "Hide" : "Filters"}
+            {mobileOpen ? t("Hide") : t("Filters")}
           </button>
         </div>
       </div>
 
       <div className={cn("flex flex-col gap-4", !mobileOpen && "hidden md:flex")}>
         <SearchInput
-          placeholder="Search logs..."
+          placeholder={t("Search logs...")}
           value={filters.search}
           onChange={(e) => { set("search", e.target.value); }}
           className="h-11 md:h-9 text-xs bg-background"
         />
 
         <div className="space-y-3">
-          <FilterSelect label="Method" value={filters.method} onChange={(v) => set("method", v)} options={["", "GET", "POST", "PUT", "PATCH", "DELETE"]} displayLabels={["All methods", "GET", "POST", "PUT", "PATCH", "DELETE"]} />
-          <FilterSelect label="Status" value={filters.statusCode} onChange={(v) => set("statusCode", v)} options={["", "200", "201", "400", "401", "403", "404", "429", "500", "502", "503", "504"]} displayLabels={["All statuses", "200", "201", "400", "401", "403", "404", "429", "500", "502", "503", "504"]} />
-          <FilterSelect label="Mode" value={filters.stream} onChange={(v) => set("stream", v)} options={["", "true", "false"]} displayLabels={["All modes", "Streaming", "Non-streaming"]} />
-          <FilterInput label="Model" value={filters.requestedModel} onChange={(v) => set("requestedModel", v)} placeholder="e.g. gpt-4" />
-          <FilterInput label="Provider" value={filters.provider} onChange={(v) => set("provider", v)} placeholder="e.g. openai" />
-          <FilterInput label="Path" value={filters.path} onChange={(v) => set("path", v)} placeholder="e.g. /v1/chat/completions" />
-          <FilterInput label="User path" value={filters.userPath} onChange={(v) => set("userPath", v)} placeholder="e.g. /team/alpha" />
-          <FilterInput label="Error type" value={filters.errorType} onChange={(v) => set("errorType", v)} placeholder="e.g. rate_limit" />
+          <FilterSelect label={t("Method")} value={filters.method} onChange={(v) => set("method", v)} options={["", "GET", "POST", "PUT", "PATCH", "DELETE"]} displayLabels={["All methods", "GET", "POST", "PUT", "PATCH", "DELETE"]} />
+          <FilterSelect label={t("Status")} value={filters.statusCode} onChange={(v) => set("statusCode", v)} options={["", "200", "201", "400", "401", "403", "404", "429", "500", "502", "503", "504"]} displayLabels={["All statuses", "200", "201", "400", "401", "403", "404", "429", "500", "502", "503", "504"]} />
+          <FilterSelect label={t("Mode")} value={filters.stream} onChange={(v) => set("stream", v)} options={["", "true", "false"]} displayLabels={["All modes", "Streaming", "Non-streaming"]} />
+          <FilterInput label={t("Model")} value={filters.requestedModel} onChange={(v) => set("requestedModel", v)} placeholder={t("e.g. gpt-4")} />
+          <FilterInput label={t("Provider")} value={filters.provider} onChange={(v) => set("provider", v)} placeholder={t("e.g. openai")} />
+          <FilterInput label={t("Path")} value={filters.path} onChange={(v) => set("path", v)} placeholder={t("e.g. /v1/chat/completions")} />
+          <FilterInput label={t("User path")} value={filters.userPath} onChange={(v) => set("userPath", v)} placeholder={t("e.g. /team/alpha")} />
+          <FilterInput label={t("Error type")} value={filters.errorType} onChange={(v) => set("errorType", v)} placeholder={t("e.g. rate_limit")} />
         </div>
 
         {hasFilters && (
           <Button variant="outline" size="sm" onClick={onClear} className="w-full gap-2">
-            <FilterXIcon className="h-3.5 w-3.5" />
-            Clear all
-          </Button>
+            <FilterXIcon className="h-3.5 w-3.5" />{t("Clear all")}</Button>
         )}
       </div>
     </div>

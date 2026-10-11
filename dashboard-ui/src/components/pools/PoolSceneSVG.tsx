@@ -1,5 +1,7 @@
 import * as React from "react";
 import type { PoolSnapshot } from "@/lib/api/pools-types";
+import { t } from "@/lib/i18n";
+
 
 export interface PoolSceneSVGProps {
   pool: PoolSnapshot;
@@ -180,8 +182,7 @@ export function PoolSceneSVG({ pool, onMemberHover }: PoolSceneSVGProps) {
                 fontFamily="monospace"
                 opacity="0.55"
               >
-                {member.active_requests} act · {errorPct}% err
-              </text>
+                {member.active_requests}{t(" act · ")}{errorPct}{t("% err")}</text>
             </g>
           );
         })}
@@ -197,8 +198,7 @@ export function PoolSceneSVG({ pool, onMemberHover }: PoolSceneSVGProps) {
         <rect x={14} y={44} rx="6" ry="6" width="100" height="22"
           fill={colors.surface} stroke={colors.border} strokeWidth="0.5" opacity="0.9" />
         <text x={26} y={59} fill={colors.textMuted} fontSize="9" fontWeight="600" fontFamily="monospace">
-          {totalTraffic.toLocaleString()} total
-        </text>
+          {totalTraffic.toLocaleString()}{t(" total")}</text>
 
         {/* Pool name bottom-right */}
         <text

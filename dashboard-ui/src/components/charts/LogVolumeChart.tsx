@@ -9,6 +9,8 @@ import {
   CartesianGrid,
 } from "recharts";
 import { format } from "date-fns";
+import { t as i18nT } from "@/lib/i18n";
+
 
 interface VolumeBucket {
   time: number;
@@ -82,17 +84,15 @@ export function LogVolumeChart({ entries, isConnected }: LogVolumeChartProps) {
     <div className="border border-border/60 bg-surface/70 p-4">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h4 className="font-display text-xl font-normal tracking-tight text-foreground">
-            Request Volume
-          </h4>
+          <h4 className="font-display text-xl font-normal tracking-tight text-foreground">{i18nT("Request Volume")}</h4>
           <span className="text-xs font-mono text-muted-foreground">
-            {total} request{total !== 1 ? "s" : ""}
+            {total}{i18nT(" request")}{total !== 1 ? "s" : ""}
           </span>
         </div>
         {isConnected !== undefined && (
           <span className={`inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider ${isConnected ? "text-success" : "text-muted-foreground"}`}>
             <span className={`inline-block h-1.5 w-1.5  ${isConnected ? "bg-success animate-pulse" : "bg-muted-foreground"}`} />
-            {isConnected ? "Live" : "Buffered"}
+            {isConnected ? i18nT("Live") : i18nT("Buffered")}
           </span>
         )}
       </div>
@@ -129,7 +129,7 @@ export function LogVolumeChart({ entries, isConnected }: LogVolumeChartProps) {
                   return (
                     <div className="rounded-lg border border-border/60 bg-surface/90 p-2 text-xs shadow-lg backdrop-blur-sm">
                       <div className="font-mono text-muted-foreground">{formatTime(d.time)}</div>
-                      <div className="font-semibold text-foreground">{d.count} requests</div>
+                      <div className="font-semibold text-foreground">{d.count}{i18nT(" requests")}</div>
                     </div>
                   );
                 }}
@@ -144,9 +144,7 @@ export function LogVolumeChart({ entries, isConnected }: LogVolumeChartProps) {
             </AreaChart>
           </ResponsiveContainer>
         ) : (
-          <div className="flex h-full items-center justify-center text-[11px] text-muted-foreground">
-            No request volume data yet
-          </div>
+          <div className="flex h-full items-center justify-center text-[11px] text-muted-foreground">{i18nT("No request volume data yet")}</div>
         )}
       </div>
     </div>

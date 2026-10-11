@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 import { useEgressStatus, useToggleEgressExit } from "@/lib/api/useEgress";
 import type { ExitStatus } from "@/lib/api/egress-types";
 import { exitDestination, exitState, sourceLabel, tierLabel } from "@/lib/egress-view";
+import { t } from "@/lib/i18n";
+
 
 function ExitRow({
   exit,
@@ -38,9 +40,8 @@ function ExitRow({
         <div className="flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
           {destination !== exit.name ? <span className="font-mono">{exit.name}</span> : null}
           <span>
-            {exit.ok}/{exit.requests} ok
-          </span>
-          {exit.failures > 0 ? <span className="text-warning">{exit.failures} failing</span> : null}
+            {exit.ok}/{exit.requests}{t(" ok")}</span>
+          {exit.failures > 0 ? <span className="text-warning">{exit.failures}{t(" failing")}</span> : null}
           {exit.last_error ? (
             <span className="truncate text-destructive" title={exit.last_error}>
               {exit.last_error}
@@ -55,7 +56,7 @@ function ExitRow({
         className="shrink-0 border border-border/40 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground transition-colors hover:border-accent/40 hover:text-accent disabled:opacity-50"
         title={exit.disabled ? `Enable this exit for ${provider}` : `Turn this exit off for ${provider}`}
       >
-        {exit.disabled ? "Enable" : "Disable"}
+        {exit.disabled ? t("Enable") : t("Disable")}
       </button>
     </li>
   );
@@ -91,11 +92,11 @@ export function ProviderEgressPanel({ provider }: ProviderEgressPanelProps): JSX
         className="flex w-full items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
         aria-expanded={open}
       >
-        <span>Egress</span>
+        <span>{t("Egress")}</span>
         <span className="font-mono normal-case tracking-normal">
           {isLoading && !status ? "…" : `${exits.length} exit${exits.length === 1 ? "" : "s"}`}
         </span>
-        {disabledCount > 0 ? <Pill tone="warning">{disabledCount} off</Pill> : null}
+        {disabledCount > 0 ? <Pill tone="warning">{disabledCount}{t(" off")}</Pill> : null}
         <ChevronDownIcon className={cn("h-3.5 w-3.5 ml-auto transition-transform", open && "rotate-180")} />
       </button>
 
@@ -107,9 +108,7 @@ export function ProviderEgressPanel({ provider }: ProviderEgressPanelProps): JSX
             </p>
           ) : null}
           {!isLoading && !error && exits.length === 0 ? (
-            <p className="px-1 text-[11px] leading-relaxed text-muted-foreground">
-              No exits configured. Add source IPs under Edit → Egress, or let an extension contribute them.
-            </p>
+            <p className="px-1 text-[11px] leading-relaxed text-muted-foreground">{t("No exits configured. Add source IPs under Edit → Egress, or let an extension contribute them.")}</p>
           ) : null}
           {exits.length > 0 ? (
             <ul className="space-y-1.5">
@@ -126,15 +125,12 @@ export function ProviderEgressPanel({ provider }: ProviderEgressPanelProps): JSX
           ) : null}
           {status ? (
             <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
-              <span>Strategy</span>
+              <span>{t("Strategy")}</span>
               <span className="font-mono normal-case tracking-normal text-foreground">{status.strategy}</span>
               {isLoading && !status ? <Loader2Icon className="h-3 w-3 animate-spin" /> : null}
             </div>
           ) : null}
-          <p className="text-[10px] leading-relaxed text-muted-foreground">
-            Each attempt picks one exit from the lowest tier still available. A failed exit is cooled down
-            on its own; a rate limit holds back its whole tier until the window ends.
-          </p>
+          <p className="text-[10px] leading-relaxed text-muted-foreground">{t("Each attempt picks one exit from the lowest tier still available. A failed exit is cooled down on its own; a rate limit holds back its whole tier until the window ends.")}</p>
         </div>
       ) : null}
     </div>

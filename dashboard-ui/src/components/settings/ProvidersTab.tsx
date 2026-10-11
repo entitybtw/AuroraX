@@ -22,6 +22,8 @@ import { exitDestination, exitForIp, exitState, toneDotClass } from "@/lib/egres
 import type { ProviderStatusItem } from "@/lib/api/providers-types";
 import { filterToText, hasAdvancedConditions, resolveAutofetchFilter } from "@/lib/autofetch-filter";
 import { parseProviderNames } from "@/lib/provider-names";
+import { t as i18nT } from "@/lib/i18n";
+
 
 /** "Claude OAuth" / "ExampleClient Auth" / "Zen Device" → "Link … account". */
 function linkAccountLabel(name: string): string {
@@ -120,16 +122,14 @@ function bulkNamePreview(value: string): JSX.Element | null {
   const { names, invalid } = parseProviderNames(value);
   if (invalid.length > 0) {
     return (
-      <p className="text-[11px] font-medium text-destructive">
-        Not a valid name: {invalid.join(", ")}
+      <p className="text-[11px] font-medium text-destructive">{i18nT("Not a valid name: ")}{invalid.join(", ")}
       </p>
     );
   }
   if (names.length > 1) {
     return (
       <p className="text-[11px] font-medium text-accent">
-        {names.length} providers will be created with this form.
-      </p>
+        {names.length}{i18nT(" providers will be created with this form.")}</p>
     );
   }
   return null;
@@ -164,7 +164,7 @@ function ExtensionEndpoints({ provider }: { provider: string }): JSX.Element | n
     return (
       <div className="flex flex-col gap-2 border border-accent/25 bg-accent/5 px-3 py-2.5">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-accent">Extension endpoints</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-accent">{i18nT("Extension endpoints")}</span>
           <Pill tone="accent">{bound.servers.length}</Pill>
           {bound.lists.map((list) => (
             <Pill key={list.id} tone="muted">{list.name}</Pill>
@@ -188,8 +188,8 @@ function ExtensionEndpoints({ provider }: { provider: string }): JSX.Element | n
         <p className="text-[11px] leading-relaxed text-muted-foreground">
           {total > bound.servers.length ? `${bound.servers.length} of ${total} endpoints kept · ` : ""}
           {coreKind === "none"
-            ? "report-only: no tunnel core is configured, so traffic does not use them yet."
-            : "bound, but no exit is registered for this provider yet."}
+            ? i18nT("report-only: no tunnel core is configured, so traffic does not use them yet.")
+            : i18nT("bound, but no exit is registered for this provider yet.")}
         </p>
       </div>
     );
@@ -199,8 +199,8 @@ function ExtensionEndpoints({ provider }: { provider: string }): JSX.Element | n
   return (
     <div className="flex flex-col gap-2 border border-accent/25 bg-accent/5 px-3 py-2.5">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-accent">Extension endpoints</span>
-        <Pill tone="accent">{active} of {exits.length} in use</Pill>
+        <span className="text-[11px] font-bold uppercase tracking-wider text-accent">{i18nT("Extension endpoints")}</span>
+        <Pill tone="accent">{active}{i18nT(" of ")}{exits.length}{i18nT(" in use")}</Pill>
       </div>
       <ul className="flex max-h-52 flex-col gap-1 overflow-y-auto">
         {exits.map((exit) => (
@@ -216,7 +216,7 @@ function ExtensionEndpoints({ provider }: { provider: string }): JSX.Element | n
               disabled={toggle.isPending}
               onClick={() => toggle.mutate({ provider, exit: exit.name, disabled: !exit.disabled })}
               className="shrink-0 p-0.5 hover:bg-border/20 transition-colors disabled:opacity-50"
-              title={exit.disabled ? "Add this endpoint to the rotation" : "Keep this endpoint out of the rotation"}
+              title={exit.disabled ? i18nT("Add this endpoint to the rotation") : i18nT("Keep this endpoint out of the rotation")}
             >
               {exit.disabled ? (
                 <SquareIcon className="h-4 w-4 text-muted-foreground" />
@@ -231,9 +231,7 @@ function ExtensionEndpoints({ provider }: { provider: string }): JSX.Element | n
           </li>
         ))}
       </ul>
-      <p className="text-[11px] leading-relaxed text-muted-foreground">
-        Endpoint lists contributed by an extension. Uncheck one to keep it out of this provider's rotation; the extension keeps refreshing the rest.
-      </p>
+      <p className="text-[11px] leading-relaxed text-muted-foreground">{i18nT("Endpoint lists contributed by an extension. Uncheck one to keep it out of this provider's rotation; the extension keeps refreshing the rest.")}</p>
     </div>
   );
 }
@@ -284,7 +282,7 @@ function ProviderIpStrip({ name, onManage }: { name: string; onManage: () => voi
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">IPs</span>
+      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{i18nT("IPs")}</span>
       {shown.map((exit) => {
         const state = exitState(exit);
         return (
@@ -307,16 +305,14 @@ function ProviderIpStrip({ name, onManage }: { name: string; onManage: () => voi
           </button>
         );
       })}
-      {hidden > 0 ? <span className="text-[10px] text-muted-foreground">+{hidden} more</span> : null}
-      {extensionCount > 0 ? <Pill tone="accent">{extensionCount} extension exits</Pill> : null}
+      {hidden > 0 ? <span className="text-[10px] text-muted-foreground">+{hidden}{i18nT(" more")}</span> : null}
+      {extensionCount > 0 ? <Pill tone="accent">{extensionCount}{i18nT(" extension exits")}</Pill> : null}
       <button
         type="button"
         onClick={onManage}
         className="text-[10px] font-bold uppercase tracking-wider text-accent transition-colors hover:text-accent-hover"
-        title="Open this provider's settings"
-      >
-        Manage IPs
-      </button>
+        title={i18nT("Open this provider's settings")}
+      >{i18nT("Manage IPs")}</button>
     </div>
   );
 }
@@ -444,117 +440,114 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
       <div className="w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto border border-border/60 bg-surface shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border/50 bg-surface px-4 py-3 sm:px-6">
           <div className="flex flex-col gap-0.5">
-            <h3 className="font-semibold text-[15px] tracking-tight text-foreground">{mode === "add" ? "Add Provider" : "Edit Provider"}</h3>
+            <h3 className="font-semibold text-[15px] tracking-tight text-foreground">{mode === "add" ? i18nT("Add Provider") : i18nT("Edit Provider")}</h3>
             {form.name ? <span className="font-mono text-[11px] text-muted-foreground">{form.name}</span> : null}
           </div>
-          <button onClick={onClose} aria-label="Close" className="p-1 hover:bg-border/20 transition-colors"><XIcon className="h-4 w-4 text-muted-foreground" /></button>
+          <button onClick={onClose} aria-label={i18nT("Close")} className="p-1 hover:bg-border/20 transition-colors"><XIcon className="h-4 w-4 text-muted-foreground" /></button>
         </div>
         <div className="flex flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5">
-          <Section title="Connection" hint="Where the gateway reaches this provider.">
+          <Section title={i18nT("Connection")} hint={i18nT("Where the gateway reaches this provider.")}>
             <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Name</label>
-              <Input type="text" placeholder={mode === "add" ? "my-provider, backup-1 backup-2" : "my-provider"} value={form.name}
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{i18nT("Name")}</label>
+              <Input type="text" placeholder={mode === "add" ? i18nT("my-provider, backup-1 backup-2") : "my-provider"} value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })} />
               {mode === "edit" && (
-                <div className="text-[11px] text-muted-foreground">Rename by editing this value. Pools that referenced the old name are updated automatically.</div>
+                <div className="text-[11px] text-muted-foreground">{i18nT("Rename by editing this value. Pools that referenced the old name are updated automatically.")}</div>
               )}
               {mode === "add" && (
-                <div className="text-[11px] text-muted-foreground">
-                  One name per provider. Separate several with a comma or a space to create them all at once — everything else on this form applies to each.
-                </div>
+                <div className="text-[11px] text-muted-foreground">{i18nT("One name per provider. Separate several with a comma or a space to create them all at once — everything else on this form applies to each.")}</div>
               )}
               {mode === "add" && bulkNamePreview(form.name)}
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Type</label>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{i18nT("Type")}</label>
                 <select className="field-input w-full" value={form.type}
                   onChange={(e) => handleTypeChange(e.target.value)}>
-                  <option value="">Select type...</option>
+                  <option value="">{i18nT("Select type...")}</option>
                   {providerTypes.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">API Version</label>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{i18nT("API Version")}</label>
                 <Input type="text" placeholder="2024-01-01" value={form.api_version}
                   onChange={(e) => setForm({ ...form, api_version: e.target.value })} />
               </div>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Base URL</label>
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{i18nT("Base URL")}</label>
               <Input type="text" placeholder="https://api.openai.com/v1" value={form.base_url}
                 onChange={(e) => handleBaseUrlChange(e.target.value)} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">API Key</label>
-              <Input type="password" placeholder={mode === "edit" && initial?.apiKeySet ? "Leave empty to keep existing key" : "sk-..."} value={form.api_key}
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{i18nT("API Key")}</label>
+              <Input type="password" placeholder={mode === "edit" && initial?.apiKeySet ? i18nT("Leave empty to keep existing key") : "sk-..."} value={form.api_key}
                 onChange={(e) => setForm({ ...form, api_key: e.target.value })} />
               {mode === "edit" && initial?.apiKeySet && (
-                <div className="text-[11px] text-success">A key is already set for this provider. Leave empty to keep it.</div>
+                <div className="text-[11px] text-success">{i18nT("A key is already set for this provider. Leave empty to keep it.")}</div>
               )}
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">User Agent</label>
-              <Input type="text" placeholder="my-app/1.0" value={form.user_agent ?? ""}
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{i18nT("User Agent")}</label>
+              <Input type="text" placeholder={i18nT("my-app/1.0")} value={form.user_agent ?? ""}
                 onChange={(e) => setForm({ ...form, user_agent: e.target.value })} />
-              <div className="text-[11px] text-muted-foreground">Custom User-Agent header sent to the upstream provider</div>
+              <div className="text-[11px] text-muted-foreground">{i18nT("Custom User-Agent header sent to the upstream provider")}</div>
             </div>
           </Section>
 
-          <Section title="Models" hint="An explicit list wins over discovery; auto-fetch keeps the inventory in sync with the upstream /models endpoint.">
+          <Section title={i18nT("Models")} hint={i18nT("An explicit list wins over discovery; auto-fetch keeps the inventory in sync with the upstream /models endpoint.")}>
             <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Models</label>
-              <Input type="text" placeholder="gpt-4, gpt-3.5-turbo" value={form.models}
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{i18nT("Models")}</label>
+              <Input type="text" placeholder={i18nT("gpt-4, gpt-3.5-turbo")} value={form.models}
                 onChange={(e) => setForm({ ...form, models: e.target.value })} />
-              <div className="text-[11px] text-muted-foreground">Comma separated model IDs</div>
+              <div className="text-[11px] text-muted-foreground">{i18nT("Comma separated model IDs")}</div>
             </div>
 
             <div className="flex items-center justify-between gap-3 border border-border/40 bg-background/30 px-3 py-2.5">
               <div className="flex flex-col gap-1 pr-2">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Auto-fetch models</label>
-                <div className="text-[11px] text-muted-foreground">Automatically discover available models via the provider's /models endpoint.</div>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{i18nT("Auto-fetch models")}</label>
+                <div className="text-[11px] text-muted-foreground">{i18nT("Automatically discover available models via the provider's /models endpoint.")}</div>
               </div>
               <Switch
                 checked={form.auto_fetch_models ?? true}
                 size="sm"
                 onCheckedChange={(v) => setForm({ ...form, auto_fetch_models: v })}
-                aria-label="Auto-fetch models"
+                aria-label={i18nT("Auto-fetch models")}
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Auto-fetch filter</label>
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{i18nT("Auto-fetch filter")}</label>
               <div className="relative">
-                <Input type="text" placeholder="free, flash  (empty = keep all)" value={form.autofetch_filter_text ?? ""}
+                <Input type="text" placeholder={i18nT("free, flash  (empty = keep all)")} value={form.autofetch_filter_text ?? ""}
                   onChange={(e) => setForm({ ...form, autofetch_filter_text: e.target.value })}
                   className="pr-8" />
                 {(form.autofetch_filter_text ?? "") !== "" && (
                   <button type="button" onClick={() => setForm({ ...form, autofetch_filter_text: "" })}
                     className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 hover:bg-border/30 rounded transition-colors"
-                    title="Clear filter">
+                    title={i18nT("Clear filter")}>
                     <XIcon className="h-3.5 w-3.5 text-muted-foreground" />
                   </button>
                 )}
               </div>
-              <div className="text-[11px] text-muted-foreground">Comma-separated substrings. Only models whose ID contains every value are kept. Leave empty to keep all.</div>
+              <div className="text-[11px] text-muted-foreground">{i18nT("Comma-separated substrings. Only models whose ID contains every value are kept. Leave empty to keep all.")}</div>
               {initial?.autofetch_filter && filterToText(initial.autofetch_filter) !== "" && (form.autofetch_filter_text ?? "") === "" && (
-                <div className="text-[11px] text-warning">Warning: {hasAdvancedConditions(initial.autofetch_filter) ? "This provider has an advanced filter set." : "This provider has an autofetch filter set."} Clearing the text will remove it.</div>
+                <div className="text-[11px] text-warning">{i18nT("Warning: ")}{hasAdvancedConditions(initial.autofetch_filter) ? i18nT("This provider has an advanced filter set.") : i18nT("This provider has an autofetch filter set.")}{i18nT(" Clearing the text will remove it.")}</div>
               )}
               {initial?.autofetch_filter && hasAdvancedConditions(initial.autofetch_filter) && (form.autofetch_filter_text ?? "").trim() !== filterToText(initial.autofetch_filter).trim() && (
-                <div className="text-[11px] text-warning">Warning: editing this text replaces the advanced rules (not_contains, regex, price) with plain substrings.</div>
+                <div className="text-[11px] text-warning">{i18nT("Warning: editing this text replaces the advanced rules (not_contains, regex, price) with plain substrings.")}</div>
               )}
             </div>
           </Section>
 
           <Section
-            title="Source IPs & egress"
-            hint="Checked addresses are registered as this provider's exits and the first one stays its bind_ip. Pause / Resume flips an address in the live rotation immediately; the checkbox only decides what is saved."
+            title={i18nT("Source IPs & egress")}
+            hint={i18nT("Checked addresses are registered as this provider's exits and the first one stays its bind_ip. Pause / Resume flips an address in the live rotation immediately; the checkbox only decides what is saved.")}
             aside={
               <div className="flex flex-wrap items-center gap-1.5">
                 <Pill tone="muted">{form.egress_strategy || "round_robin"}</Pill>
                 {mode === "edit" && egressExits.length > 0 ? (
                   <Pill tone={egressOff > 0 ? "warning" : "success"}>
-                    {egressExits.length - egressOff} of {egressExits.length} in rotation
-                  </Pill>
+                    {egressExits.length - egressOff}{i18nT(" of ")}{egressExits.length}{i18nT(" in rotation")}</Pill>
                 ) : null}
               </div>
             }
@@ -576,46 +569,46 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
               togglePending={exitToggle.isPending}
             />
             <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Egress strategy</label>
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{i18nT("Egress strategy")}</label>
               <select
                 className="field-input w-full"
                 value={form.egress_strategy ?? ""}
                 onChange={(e) => setForm({ ...form, egress_strategy: e.target.value })}
               >
-                <option value="">round_robin (default)</option>
+                <option value="">{i18nT("round_robin (default)")}</option>
                 <option value="round_robin">round_robin</option>
                 <option value="random">random</option>
                 <option value="weighted">weighted</option>
                 <option value="first">first</option>
               </select>
-              <div className="text-[11px] text-muted-foreground">How one exit is picked from the set: rotate in order, at random, weighted by weight, or always the first.</div>
+              <div className="text-[11px] text-muted-foreground">{i18nT("How one exit is picked from the set: rotate in order, at random, weighted by weight, or always the first.")}</div>
             </div>
             {mode === "edit" && <ExtensionEndpoints provider={initial?.originalName ?? form.name} />}
           </Section>
 
-          <Section title="Advanced" hint="Optional behaviour switches.">
+          <Section title={i18nT("Advanced")} hint={i18nT("Optional behaviour switches.")}>
             <div className="flex items-center justify-between gap-3 border border-border/40 bg-background/30 px-3 py-2.5">
               <div className="flex flex-col gap-1 pr-2">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Pool only</label>
-                <div className="text-[11px] text-muted-foreground">Hide from model list; reachable only through a pool.</div>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{i18nT("Pool only")}</label>
+                <div className="text-[11px] text-muted-foreground">{i18nT("Hide from model list; reachable only through a pool.")}</div>
               </div>
               <Switch
                 checked={form.pool_only ?? false}
                 size="sm"
                 onCheckedChange={(v) => setForm({ ...form, pool_only: v })}
-                aria-label="Pool only"
+                aria-label={i18nT("Pool only")}
               />
             </div>
             <div className="flex items-center justify-between gap-3 border border-border/40 bg-background/30 px-3 py-2.5">
               <div className="flex flex-col gap-1 pr-2">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Disable API Key</label>
-                <div className="text-[11px] text-muted-foreground">Stop sending the static API key upstream. Use when an auth token supersedes it.</div>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{i18nT("Disable API Key")}</label>
+                <div className="text-[11px] text-muted-foreground">{i18nT("Stop sending the static API key upstream. Use when an auth token supersedes it.")}</div>
               </div>
               <Switch
                 checked={form.disable_api_key ?? false}
                 size="sm"
                 onCheckedChange={(v) => setForm({ ...form, disable_api_key: v })}
-                aria-label="Disable API key"
+                aria-label={i18nT("Disable API key")}
               />
             </div>
           </Section>
@@ -624,14 +617,12 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
           <div className="mx-4 mt-4 border border-accent/30 bg-accent/5 p-3 rounded sm:mx-6">
             <div className="flex items-start gap-2">
               <div className="flex-1">
-                <div className="text-[12px] font-semibold text-accent">Preset detected: {presetConfirm.preset.name}</div>
+                <div className="text-[12px] font-semibold text-accent">{i18nT("Preset detected: ")}{presetConfirm.preset.name}</div>
                 <div className="text-[11px] text-muted-foreground mt-1">{presetConfirm.preset.description}</div>
-                <div className="text-[11px] text-muted-foreground mt-1">
-                  Base URL: <span className="font-mono text-foreground">{presetConfirm.preset.base_url}</span>
+                <div className="text-[11px] text-muted-foreground mt-1">{i18nT("Base URL: ")}<span className="font-mono text-foreground">{presetConfirm.preset.base_url}</span>
                 </div>
                 {presetConfirm.preset.auth_method && (
-                  <div className="text-[11px] text-muted-foreground">
-                    Auth: <span className="font-mono text-foreground">{presetConfirm.preset.auth_method}</span>
+                  <div className="text-[11px] text-muted-foreground">{i18nT("Auth: ")}<span className="font-mono text-foreground">{presetConfirm.preset.auth_method}</span>
                   </div>
                 )}
               </div>
@@ -640,15 +631,11 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
               <button
                 onClick={() => applyPreset(presetConfirm.preset)}
                 className="px-3 py-1 text-[11px] font-medium bg-accent text-accent-foreground hover:bg-accent/80 transition-colors"
-              >
-                Apply Preset
-              </button>
+              >{i18nT("Apply Preset")}</button>
               <button
                 onClick={dismissPreset}
                 className="px-3 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Dismiss
-              </button>
+              >{i18nT("Dismiss")}</button>
             </div>
           </div>
         )}
@@ -656,13 +643,11 @@ function ProviderModal({ mode, initial, onClose, onSaved }: ProviderModalProps):
         <div className="sticky bottom-0 flex items-center gap-3 border-t border-border/50 bg-surface px-4 py-3 sm:px-6">
           <Button onClick={handleSave} disabled={saving}>
             <SaveIcon className="mr-1.5 h-3.5 w-3.5" />
-            {saving ? "Saving..." : mode === "add" ? "Create Provider" : "Update Provider"}
+            {saving ? i18nT("Saving...") : mode === "add" ? i18nT("Create Provider") : i18nT("Update Provider")}
           </Button>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" onClick={onClose}>{i18nT("Cancel")}</Button>
           {mode === "edit" && egressExits.length > 0 ? (
-            <span className="ml-auto hidden text-[11px] text-muted-foreground sm:block">
-              Pause / Resume on an address applies right away — only the checkbox waits for a save.
-            </span>
+            <span className="ml-auto hidden text-[11px] text-muted-foreground sm:block">{i18nT("Pause / Resume on an address applies right away — only the checkbox waits for a save.")}</span>
           ) : null}
         </div>
       </div>
@@ -930,8 +915,8 @@ export function ProvidersTab(): JSX.Element {
                 <ServerIcon className="h-4 w-4 text-accent" />
               </div>
               <SectionHeader
-                title="Provider Configuration"
-                subtitle="Active providers, pool assignments, and current provider health."
+                title={i18nT("Provider Configuration")}
+                subtitle={i18nT("Active providers, pool assignments, and current provider health.")}
               />
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -945,23 +930,23 @@ export function ProvidersTab(): JSX.Element {
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               <div className="border border-border/60 bg-surface-hover/20 p-3 text-center">
                 <div className="text-[20px] font-bold text-foreground">{summary.total}</div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mt-1">Total</div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mt-1">{i18nT("Total")}</div>
               </div>
               <div className="border border-success/20 bg-success/5 p-3 text-center">
                 <div className="text-[20px] font-bold text-success">{summary.healthy}</div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-success/70 mt-1">Healthy</div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-success/70 mt-1">{i18nT("Healthy")}</div>
               </div>
               <div className="border border-warning/20 bg-warning/5 p-3 text-center">
                 <div className="text-[20px] font-bold text-warning">{summary.degraded}</div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-warning/70 mt-1">Degraded</div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-warning/70 mt-1">{i18nT("Degraded")}</div>
               </div>
               <div className="border border-destructive/20 bg-destructive/5 p-3 text-center">
                 <div className="text-[20px] font-bold text-destructive">{summary.unhealthy}</div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-destructive/70 mt-1">Unhealthy</div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-destructive/70 mt-1">{i18nT("Unhealthy")}</div>
               </div>
               <div className="border border-border/40 bg-background/40 p-3 text-center">
                 <div className="text-[20px] font-bold text-muted-foreground">{summary.disabled ?? 0}</div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 mt-1">Disabled</div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 mt-1">{i18nT("Disabled")}</div>
               </div>
             </div>
           )}
@@ -972,50 +957,32 @@ export function ProvidersTab(): JSX.Element {
 
           <div className="flex items-center gap-2">
             <Button onClick={() => { setEditingProvider(null); setModalOpen("add"); }}>
-              <PlusIcon className="mr-1.5 h-4 w-4" /> Add Provider
-            </Button>
+              <PlusIcon className="mr-1.5 h-4 w-4" />{i18nT(" Add Provider")}</Button>
             <Button variant="outline" onClick={() => refetch()} disabled={isLoading}>
-              <RefreshCwIcon className={`mr-1.5 h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
+              <RefreshCwIcon className={`mr-1.5 h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />{i18nT("Refresh")}</Button>
           </div>
 
           {/* Bulk actions toolbar */}
           {selected.size > 0 && (
             <div className="border border-accent/30 bg-accent/5 px-3 sm:px-4 py-2.5">
               <div className="flex items-center gap-3 mb-2">
-                <span className="text-[12px] font-medium text-accent">{selected.size} selected</span>
+                <span className="text-[12px] font-medium text-accent">{selected.size}{i18nT(" selected")}</span>
                 <div className="ml-auto">
-                  <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} className="text-[11px] h-7">
-                    Clear
-                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} className="text-[11px] h-7">{i18nT("Clear")}</Button>
                 </div>
               </div>
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mb-1">
                 <Button size="sm" variant="outline" onClick={() => setBulkConfirm("enable")} className="text-[11px] h-7 shrink-0">
-                  <CheckIcon className="mr-1 h-3 w-3" /> Enable
-                </Button>
+                  <CheckIcon className="mr-1 h-3 w-3" />{i18nT(" Enable")}</Button>
                 <Button size="sm" variant="outline" onClick={() => setBulkConfirm("disable")} className="text-[11px] h-7 shrink-0">
-                  <MinusIcon className="mr-1 h-3 w-3" /> Disable
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setBulkConfirm("auto-fetch-on")} className="text-[11px] h-7 shrink-0">
-                  Auto-fetch On
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setBulkConfirm("auto-fetch-off")} className="text-[11px] h-7 shrink-0">
-                  Auto-fetch Off
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => { setBulkEditField("bind_ip"); setBulkEditValue(""); }} className="text-[11px] h-7 shrink-0">
-                  Set Bind IP
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => { setBulkEditField("user_agent"); setBulkEditValue(""); }} className="text-[11px] h-7 shrink-0">
-                  Set User Agent
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => { setBulkEditField("autofetch_filter"); setBulkEditValue(""); }} className="text-[11px] h-7 shrink-0">
-                  Set Filter
-                </Button>
+                  <MinusIcon className="mr-1 h-3 w-3" />{i18nT(" Disable")}</Button>
+                <Button size="sm" variant="outline" onClick={() => setBulkConfirm("auto-fetch-on")} className="text-[11px] h-7 shrink-0">{i18nT("Auto-fetch On")}</Button>
+                <Button size="sm" variant="outline" onClick={() => setBulkConfirm("auto-fetch-off")} className="text-[11px] h-7 shrink-0">{i18nT("Auto-fetch Off")}</Button>
+                <Button size="sm" variant="outline" onClick={() => { setBulkEditField("bind_ip"); setBulkEditValue(""); }} className="text-[11px] h-7 shrink-0">{i18nT("Set Bind IP")}</Button>
+                <Button size="sm" variant="outline" onClick={() => { setBulkEditField("user_agent"); setBulkEditValue(""); }} className="text-[11px] h-7 shrink-0">{i18nT("Set User Agent")}</Button>
+                <Button size="sm" variant="outline" onClick={() => { setBulkEditField("autofetch_filter"); setBulkEditValue(""); }} className="text-[11px] h-7 shrink-0">{i18nT("Set Filter")}</Button>
                 <Button size="sm" variant="outline" onClick={() => setBulkConfirm("delete")} className="text-[11px] h-7 shrink-0 text-destructive hover:bg-destructive/10">
-                  <Trash2Icon className="mr-1 h-3 w-3" /> Delete
-                </Button>
+                  <Trash2Icon className="mr-1 h-3 w-3" />{i18nT(" Delete")}</Button>
               </div>
             </div>
           )}
@@ -1035,7 +1002,7 @@ export function ProvidersTab(): JSX.Element {
                   ) : (
                     <SquareIcon className="h-4 w-4" />
                   )}
-                  {allSelected ? "Deselect all" : someSelected ? `Select all (${providers.length})` : `Select all (${providers.length})`}
+                  {allSelected ? i18nT("Deselect all") : someSelected ? `Select all (${providers.length})` : `Select all (${providers.length})`}
                 </button>
               </div>
 
@@ -1055,7 +1022,7 @@ export function ProvidersTab(): JSX.Element {
                       <button
                         onClick={(e: React.MouseEvent) => toggleSelect(provider.name, e)}
                         className="shrink-0 p-0.5 hover:bg-border/20 transition-colors"
-                        title={selected.has(provider.name) ? "Deselect" : "Select"}
+                        title={selected.has(provider.name) ? i18nT("Deselect") : i18nT("Select")}
                       >
                         {selected.has(provider.name) ? (
                           <CheckSquareIcon className="h-4 w-4 text-accent" />
@@ -1070,16 +1037,16 @@ export function ProvidersTab(): JSX.Element {
                           <ConfigSourceBadge source={provider.config_source} />
                           {provider.config?.enabled === false && <Pill tone="muted">disabled</Pill>}
                           {provider.config?.pool_only && <Pill tone="accent">pool-only</Pill>}
-                          {provider.config?.auto_fetch_models === false && <Pill tone="muted">no auto-fetch</Pill>}
+                          {provider.config?.auto_fetch_models === false && <Pill tone="muted">{i18nT("no auto-fetch")}</Pill>}
                           {provider.config?.auto_fetch_models !== false && filterToText(provider.config?.autofetch_filter) && (
-                            <Pill tone="accent" className="max-w-[14rem] truncate">filter: {filterToText(provider.config?.autofetch_filter)}</Pill>
+                            <Pill tone="accent" className="max-w-[14rem] truncate">{i18nT("filter: ")}{filterToText(provider.config?.autofetch_filter)}</Pill>
                           )}
-                          {provider.config?.user_agent && <Pill tone="accent">custom UA</Pill>}
-                          {provider.config?.disable_api_key && <Pill tone="warning">key off</Pill>}
+                          {provider.config?.user_agent && <Pill tone="accent">{i18nT("custom UA")}</Pill>}
+                          {provider.config?.disable_api_key && <Pill tone="warning">{i18nT("key off")}</Pill>}
                           {(provider.config?.bind_ips?.length ?? 0) > 1 ? (
-                            <Pill tone="muted">bind: {provider.config?.bind_ips?.length} ips</Pill>
+                            <Pill tone="muted">{i18nT("bind: ")}{provider.config?.bind_ips?.length}{i18nT(" ips")}</Pill>
                           ) : provider.config?.bind_ip ? (
-                            <Pill tone="muted">bind: {provider.config.bind_ip}</Pill>
+                            <Pill tone="muted">{i18nT("bind: ")}{provider.config.bind_ip}</Pill>
                           ) : null}
                           {supportsExternalAuth(provider) && provider.external_auth_status?.has_token && !provider.external_auth_status?.expired && (
                             <Pill tone="success">linked</Pill>
@@ -1093,7 +1060,7 @@ export function ProvidersTab(): JSX.Element {
                         onClick={() => void syncModels(provider.name)}
                         className="p-1.5 hover:bg-accent/10 transition-colors disabled:opacity-50"
                         disabled={syncingProvider !== null}
-                        title="Sync models — fetch the model list now"
+                        title={i18nT("Sync models — fetch the model list now")}
                         aria-label={`Sync models for ${provider.name}`}
                       >
                         <RefreshCwIcon className={cn("h-3.5 w-3.5 text-muted-foreground", syncingProvider === provider.name && "animate-spin")} />
@@ -1106,7 +1073,7 @@ export function ProvidersTab(): JSX.Element {
                         aria-label={`Toggle provider ${provider.name}`}
                         title={`${provider.config?.enabled === false ? "Enable" : "Disable"} ${provider.name}`}
                       />
-                      <button onClick={() => openEdit(provider)} className="p-1.5 hover:bg-border/20 transition-colors" title="Edit provider">
+                      <button onClick={() => openEdit(provider)} className="p-1.5 hover:bg-border/20 transition-colors" title={i18nT("Edit provider")}>
                         <Edit3Icon className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
                       {supportsExternalAuth(provider) &&
@@ -1127,20 +1094,20 @@ export function ProvidersTab(): JSX.Element {
                               <button
                                 onClick={() => setExternalAuthDialogProvider(provider.name)}
                                 className="p-1.5 hover:bg-accent/10 transition-colors text-accent"
-                                title="Link account"
+                                title={i18nT("Link account")}
                                 aria-label={`Link account for ${provider.name}`}
                               >
                                 <KeyIcon className="h-3.5 w-3.5" />
                               </button>
                             ))}
-                      <button onClick={() => setDeleteConfirm(provider.name)} className="p-1.5 hover:bg-destructive/10 transition-colors" title="Delete provider">
+                      <button onClick={() => setDeleteConfirm(provider.name)} className="p-1.5 hover:bg-destructive/10 transition-colors" title={i18nT("Delete provider")}>
                         <Trash2Icon className="h-3.5 w-3.5 text-destructive/70" />
                       </button>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 text-[11px] sm:text-[12px] text-muted-foreground">
                     <StatusChip enabled={provider.status === "healthy"} />
-                    <span className="font-mono">{provider.runtime?.discovered_model_count ?? 0} models</span>
+                    <span className="font-mono">{provider.runtime?.discovered_model_count ?? 0}{i18nT(" models")}</span>
                   </div>
                    {provider.config?.base_url && (
                      <div className="text-[10px] sm:text-[11px] text-muted-foreground font-mono truncate" title={provider.config.base_url}>
@@ -1154,20 +1121,20 @@ export function ProvidersTab(): JSX.Element {
                       {provider.config.models.slice(0, 3).map((m) => (
                         <span key={m} className="inline-flex items-center border border-border/30 bg-background/30 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-medium text-muted-foreground">{m}</span>
                       ))}
-                      {provider.config.models.length > 3 && <span className="text-[9px] sm:text-[10px] text-muted-foreground self-center">+{provider.config.models.length - 3} more</span>}
+                      {provider.config.models.length > 3 && <span className="text-[9px] sm:text-[10px] text-muted-foreground self-center">+{provider.config.models.length - 3}{i18nT(" more")}</span>}
                     </div>
                   )}
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-[13px] leading-relaxed text-foreground/80">No provider data available. Add a provider or check the config file.</p>
+            <p className="text-[13px] leading-relaxed text-foreground/80">{i18nT("No provider data available. Add a provider or check the config file.")}</p>
           )}
 
           {runtimeSettings?.client?.enabled_passthrough_providers && (
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Pool assignments</div>
-              <div className="mt-2 text-[14px] font-medium text-foreground">Passthrough providers: {(runtimeSettings.client.enabled_passthrough_providers as string[])?.join(", ") || "None"}</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{i18nT("Pool assignments")}</div>
+              <div className="mt-2 text-[14px] font-medium text-foreground">{i18nT("Passthrough providers: ")}{(runtimeSettings.client.enabled_passthrough_providers as string[])?.join(", ") || i18nT("None")}</div>
             </div>
           )}
         </div>
@@ -1185,13 +1152,13 @@ export function ProvidersTab(): JSX.Element {
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setDeleteConfirm(null)}>
           <div className="w-full sm:max-w-sm border border-border/60 bg-surface p-4 sm:p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-semibold text-[15px] tracking-tight text-foreground mb-2">Delete Provider</h3>
-            <p className="text-[13px] text-foreground/80 mb-4">Are you sure you want to delete provider <strong>{deleteConfirm}</strong>? This will remove any UI-created overrides for this provider.</p>
+            <h3 className="font-semibold text-[15px] tracking-tight text-foreground mb-2">{i18nT("Delete Provider")}</h3>
+            <p className="text-[13px] text-foreground/80 mb-4">{i18nT("Are you sure you want to delete provider ")}<strong>{deleteConfirm}</strong>{i18nT("? This will remove any UI-created overrides for this provider.")}</p>
             <div className="flex items-center gap-3">
               <Button onClick={() => deleteMutation.mutate(deleteConfirm)} disabled={deleteMutation.isPending} className="bg-destructive hover:bg-destructive/90">
-                {deleteMutation.isPending ? "Deleting..." : "Delete"}
+                {deleteMutation.isPending ? i18nT("Deleting...") : i18nT("Delete")}
               </Button>
-              <Button variant="outline" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setDeleteConfirm(null)}>{i18nT("Cancel")}</Button>
             </div>
             {deleteMutation.isError && <div className="mt-3 text-[13px] font-medium text-destructive">{deleteMutation.error?.message}</div>}
           </div>
@@ -1201,13 +1168,13 @@ export function ProvidersTab(): JSX.Element {
       {bulkConfirm && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setBulkConfirm(null)}>
           <div className="w-full sm:max-w-sm border border-border/60 bg-surface p-4 sm:p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-semibold text-[15px] tracking-tight text-foreground mb-2">Bulk Action</h3>
+            <h3 className="font-semibold text-[15px] tracking-tight text-foreground mb-2">{i18nT("Bulk Action")}</h3>
             <p className="text-[13px] text-foreground/80 mb-4">
-              {bulkConfirm === "enable" && <>Enable <strong>{selected.size}</strong> selected provider{selected.size !== 1 ? "s" : ""}?</>}
-              {bulkConfirm === "disable" && <>Disable <strong>{selected.size}</strong> selected provider{selected.size !== 1 ? "s" : ""}?</>}
-              {bulkConfirm === "auto-fetch-on" && <>Turn on auto-fetch for <strong>{selected.size}</strong> provider{selected.size !== 1 ? "s" : ""}?</>}
-              {bulkConfirm === "auto-fetch-off" && <>Turn off auto-fetch for <strong>{selected.size}</strong> provider{selected.size !== 1 ? "s" : ""}?</>}
-              {bulkConfirm === "delete" && <>Delete <strong>{selected.size}</strong> selected provider{selected.size !== 1 ? "s" : ""}? This cannot be undone.</>}
+              {bulkConfirm === "enable" && <>{i18nT("Enable ")}<strong>{selected.size}</strong>{i18nT(" selected provider")}{selected.size !== 1 ? "s" : ""}?</>}
+              {bulkConfirm === "disable" && <>{i18nT("Disable ")}<strong>{selected.size}</strong>{i18nT(" selected provider")}{selected.size !== 1 ? "s" : ""}?</>}
+              {bulkConfirm === "auto-fetch-on" && <>{i18nT("Turn on auto-fetch for ")}<strong>{selected.size}</strong>{i18nT(" provider")}{selected.size !== 1 ? "s" : ""}?</>}
+              {bulkConfirm === "auto-fetch-off" && <>{i18nT("Turn off auto-fetch for ")}<strong>{selected.size}</strong>{i18nT(" provider")}{selected.size !== 1 ? "s" : ""}?</>}
+              {bulkConfirm === "delete" && <>{i18nT("Delete ")}<strong>{selected.size}</strong>{i18nT(" selected provider")}{selected.size !== 1 ? "s" : ""}{i18nT("? This cannot be undone.")}</>}
             </p>
             <div className="flex items-center gap-3">
               <Button
@@ -1215,9 +1182,9 @@ export function ProvidersTab(): JSX.Element {
                 disabled={bulkMutation.isPending}
                 className={bulkConfirm === "delete" ? "bg-destructive hover:bg-destructive/90" : ""}
               >
-                {bulkMutation.isPending ? "Processing..." : "Confirm"}
+                {bulkMutation.isPending ? i18nT("Processing...") : i18nT("Confirm")}
               </Button>
-              <Button variant="outline" onClick={() => setBulkConfirm(null)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setBulkConfirm(null)}>{i18nT("Cancel")}</Button>
             </div>
             {bulkMutation.isError && <div className="mt-3 text-[13px] font-medium text-destructive">{bulkMutation.error?.message}</div>}
           </div>
@@ -1241,18 +1208,17 @@ export function ProvidersTab(): JSX.Element {
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setBulkEditField(null)}>
           <div className="w-full sm:max-w-md border border-border/60 bg-surface p-4 sm:p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-semibold text-[15px] tracking-tight text-foreground mb-1">
-              {bulkEditField === "bind_ip" && "Set Bind IP"}
-              {bulkEditField === "user_agent" && "Set User Agent"}
-              {bulkEditField === "autofetch_filter" && "Set Auto-fetch Filter"}
+              {bulkEditField === "bind_ip" && i18nT("Set Bind IP")}
+              {bulkEditField === "user_agent" && i18nT("Set User Agent")}
+              {bulkEditField === "autofetch_filter" && i18nT("Set Auto-fetch Filter")}
             </h3>
-            <p className="text-[12px] text-muted-foreground mb-4">
-              Applied to <strong>{selected.size}</strong> selected provider{selected.size !== 1 ? "s" : ""}.
-              {bulkEditField === "autofetch_filter" ? " Comma-separated substrings. Leave empty to clear." : " Leave empty to clear."}
+            <p className="text-[12px] text-muted-foreground mb-4">{i18nT("Applied to ")}<strong>{selected.size}</strong>{i18nT(" selected provider")}{selected.size !== 1 ? "s" : ""}.
+              {bulkEditField === "autofetch_filter" ? i18nT(" Comma-separated substrings. Leave empty to clear.") : i18nT(" Leave empty to clear.")}
             </p>
             <div className="relative">
               <Input
                 type="text"
-                placeholder={bulkEditField === "bind_ip" ? "203.0.113.10" : bulkEditField === "user_agent" ? "my-app/1.0" : "free, flash  (empty = clear)"}
+                placeholder={bulkEditField === "bind_ip" ? "203.0.113.10" : bulkEditField === "user_agent" ? i18nT("my-app/1.0") : i18nT("free, flash  (empty = clear)")}
                 value={bulkEditValue}
                 onChange={(e) => setBulkEditValue(e.target.value)}
                 autoFocus
@@ -1261,16 +1227,16 @@ export function ProvidersTab(): JSX.Element {
               {bulkEditValue !== "" && (
                 <button type="button" onClick={() => setBulkEditValue("")}
                   className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 hover:bg-border/30 rounded transition-colors"
-                  title="Clear">
+                  title={i18nT("Clear")}>
                   <XIcon className="h-3.5 w-3.5 text-muted-foreground" />
                 </button>
               )}
             </div>
             <div className="flex items-center gap-3 mt-4">
               <Button onClick={handleBulkEdit} disabled={bulkEditSaving}>
-                {bulkEditSaving ? "Applying..." : "Apply to All"}
+                {bulkEditSaving ? i18nT("Applying...") : i18nT("Apply to All")}
               </Button>
-              <Button variant="outline" onClick={() => setBulkEditField(null)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setBulkEditField(null)}>{i18nT("Cancel")}</Button>
             </div>
           </div>
         </div>

@@ -12,6 +12,8 @@ import {
 } from "recharts";
 import { formatRequests } from "@/lib/format/numbers";
 import type { CacheOverviewDaily, DailyUsage } from "@/lib/api/usage-types";
+import { t } from "@/lib/i18n";
+
 
 export interface ThroughputChartProps {
   daily: DailyUsage[] | undefined;
@@ -75,11 +77,11 @@ export function ThroughputChart({
     <div className="border border-border bg-surface p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <h2 className="font-display text-xl font-normal tracking-tight text-foreground">Throughput</h2>
-          <p className="mt-1 text-xs text-muted-foreground">Requests per day across the selected range.</p>
+          <h2 className="font-display text-xl font-normal tracking-tight text-foreground">{t("Throughput")}</h2>
+          <p className="mt-1 text-xs text-muted-foreground">{t("Requests per day across the selected range.")}</p>
         </div>
         {isLoading ? (
-          <span className="text-xs text-muted-foreground">Loading…</span>
+          <span className="text-xs text-muted-foreground">{t("Loading…")}</span>
         ) : null}
       </div>
       <div className="h-64 w-full">

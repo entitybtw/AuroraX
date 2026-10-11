@@ -29,6 +29,8 @@ import {
   sessionHeaderRule,
   type HeaderRule,
 } from "@/components/settings/HeaderRulesEditor";
+import { t } from "@/lib/i18n";
+
 
 type TargetKind = "pool" | "provider" | "fallback" | "all";
 
@@ -192,10 +194,10 @@ function ModeChip({ header }: { header: HeaderRule }) {
       className={`inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium ${
         warn ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"
       }`}
-      title={warn ? "Non-default generate shape (check length/charset)" : undefined}
+      title={warn ? t("Non-default generate shape (check length/charset)") : undefined}
     >
       {warn && <AlertTriangleIcon className="h-2.5 w-2.5" />}
-      {header.name || "(unnamed)"}: {header.mode}
+      {header.name || t("(unnamed)")}: {header.mode}
     </span>
   );
 }
@@ -250,7 +252,7 @@ function ProviderCard({
               )}
             </div>
             <div className="mt-0.5 text-[12px] text-muted-foreground">
-              {provider.headers.length} header rule{provider.headers.length !== 1 ? "s" : ""}
+              {provider.headers.length}{t(" header rule")}{provider.headers.length !== 1 ? "s" : ""}
             </div>
           </div>
           <span className="ml-auto shrink-0 text-muted-foreground">
@@ -278,7 +280,7 @@ function ProviderCard({
         <div className="border-t border-border/40 bg-background/40 p-4 flex flex-col gap-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <ToggleField
-              label="Rule enabled"
+              label={t("Rule enabled")}
               checked={enabled}
               onCheckedChange={setEnabled}
               className="max-w-xs"
@@ -293,14 +295,12 @@ function ProviderCard({
               className="self-start sm:self-auto"
             >
               <SparklesIcon className="mr-1.5 h-3.5 w-3.5" />
-              {ensuring ? "Applying..." : "Add missing headers"}
+              {ensuring ? t("Applying...") : t("Add missing headers")}
             </Button>
           </div>
 
           <div>
-            <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Header rules
-            </div>
+            <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Header rules")}</div>
             <HeaderRulesEditor headers={headers} onChange={setHeaders} compact />
           </div>
 
@@ -310,11 +310,9 @@ function ProviderCard({
               onClick={() => onSave(provider.name, { name: provider.name, enabled, headers })}
               disabled={!dirty || saving}
             >
-              {saving ? "Saving..." : "Save changes"}
+              {saving ? t("Saving...") : t("Save changes")}
             </Button>
-            <Button size="sm" variant="outline" onClick={reset} disabled={!dirty || saving}>
-              Reset
-            </Button>
+            <Button size="sm" variant="outline" onClick={reset} disabled={!dirty || saving}>{t("Reset")}</Button>
           </div>
         </div>
       )}
@@ -328,11 +326,11 @@ function MappingRow({ mapping }: { mapping: MappingEntry }) {
       <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-success" />
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="shrink-0 text-[12px] text-muted-foreground">in:</span>
+          <span className="shrink-0 text-[12px] text-muted-foreground">{t("in:")}</span>
           <span className="truncate font-mono text-[12px] text-foreground">{mapping.inbound_value}</span>
         </div>
         <div className="mt-1 flex min-w-0 items-center gap-2">
-          <span className="shrink-0 text-[12px] text-muted-foreground">out:</span>
+          <span className="shrink-0 text-[12px] text-muted-foreground">{t("out:")}</span>
           <span className="truncate font-mono text-[12px] font-medium text-accent">{mapping.outbound_value}</span>
         </div>
       </div>
@@ -397,17 +395,9 @@ export function SessionHubTab(): JSX.Element {
       <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
         <ShieldAlertIcon className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
         <div className="text-sm">
-          <p className="font-medium text-amber-600 dark:text-amber-400">Use at your own risk</p>
-          <p className="mt-1 leading-snug text-muted-foreground">
-            The Session Hub rewrites upstream headers to present client identities. Header handling
-            differs between providers and upstreams, and fingerprint hardening can break these
-            transformations at any time. Use only the rules you need, and review the documentation
-            before relying on them.
-          </p>
-          <p className="mt-2 leading-snug text-muted-foreground">
-            Rules imported from other extensions are unreviewed modifications. Treat them as
-            untrusted code: review the JSON before applying, and prefer sources you trust.
-          </p>
+          <p className="font-medium text-amber-600 dark:text-amber-400">{t("Use at your own risk")}</p>
+          <p className="mt-1 leading-snug text-muted-foreground">{t("The Session Hub rewrites upstream headers to present client identities. Header handling differs between providers and upstreams, and fingerprint hardening can break these transformations at any time. Use only the rules you need, and review the documentation before relying on them.")}</p>
+          <p className="mt-2 leading-snug text-muted-foreground">{t("Rules imported from other extensions are unreviewed modifications. Treat them as untrusted code: review the JSON before applying, and prefer sources you trust.")}</p>
         </div>
       </div>
 
@@ -420,8 +410,8 @@ export function SessionHubTab(): JSX.Element {
                 <KeyIcon className="h-4 w-4 text-accent" />
               </div>
               <SectionHeader
-                title="Session Hub"
-                subtitle="Header transformation engine. Maps inbound session IDs to unique outbound values per provider, preventing upstream detection of shared clients."
+                title={t("Session Hub")}
+                subtitle={t("Header transformation engine. Maps inbound session IDs to unique outbound values per provider, preventing upstream detection of shared clients.")}
               />
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -433,8 +423,7 @@ export function SessionHubTab(): JSX.Element {
               )}
               {status && (
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-surface px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
-                  {status.total_mappings} mappings
-                </span>
+                  {status.total_mappings}{t(" mappings")}</span>
               )}
             </div>
           </div>
@@ -442,19 +431,19 @@ export function SessionHubTab(): JSX.Element {
           {status && (
             <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
               <div className="border border-border/40 bg-surface p-4">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Total mappings</div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Total mappings")}</div>
                 <div className="mt-2 font-mono text-[20px] font-medium text-foreground">{status.total_mappings}</div>
               </div>
               <div className="border border-border/40 bg-surface p-4">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Providers</div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Providers")}</div>
                 <div className="mt-2 font-mono text-[20px] font-medium text-foreground">{status.configured_providers}</div>
               </div>
               <div className="border border-border/40 bg-surface p-4">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Active</div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Active")}</div>
                 <div className="mt-2 font-mono text-[20px] font-medium text-success">{status.enabled_providers}</div>
               </div>
               <div className="col-span-2 border border-border/40 bg-surface p-4 xl:col-span-1">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">By provider</div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("By provider")}</div>
                 <div className="mt-2 flex flex-wrap gap-1">
                   {Object.entries(status.by_provider).length === 0 ? (
                     <span className="text-[12px] text-muted-foreground/60">none</span>
@@ -481,8 +470,8 @@ export function SessionHubTab(): JSX.Element {
                 <ZapIcon className="h-4 w-4 text-accent" />
               </div>
               <SectionHeader
-                title="Provider Rules"
-                subtitle="Give each pool or provider its own client identity. Click a rule to edit it in place."
+                title={t("Provider Rules")}
+                subtitle={t("Give each pool or provider its own client identity. Click a rule to edit it in place.")}
               />
             </div>
             <Button
@@ -495,7 +484,7 @@ export function SessionHubTab(): JSX.Element {
               className="self-start"
             >
               <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
-              {showAdd ? "Close" : "Add rule"}
+              {showAdd ? t("Close") : t("Add rule")}
             </Button>
           </div>
 
@@ -518,18 +507,14 @@ export function SessionHubTab(): JSX.Element {
           ) : (
             <div className="border border-dashed border-border/60 bg-surface/50 p-8 text-center">
               <KeyIcon className="mx-auto h-8 w-8 text-muted-foreground/40" />
-              <p className="mt-2 text-[13px] text-muted-foreground">
-                No provider rules configured. Add one below to start transforming headers.
-              </p>
+              <p className="mt-2 text-[13px] text-muted-foreground">{t("No provider rules configured. Add one below to start transforming headers.")}</p>
             </div>
           )}
 
           {/* Binding overview */}
           {(pools.length > 0 || serverProviders.length > 0) && (
             <div>
-              <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                Binding overview
-              </div>
+              <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Binding overview")}</div>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 {pools.map((p) => {
                   const bound = boundTargets.some((b) => b.name === p.name);
@@ -596,12 +581,12 @@ export function SessionHubTab(): JSX.Element {
             <div className="flex flex-col gap-4 rounded-lg border border-accent/30 bg-accent/5 p-4">
               <div className="flex items-center gap-2">
                 <PencilIcon className="h-4 w-4 text-accent" />
-                <span className="text-[13px] font-semibold text-foreground">New rule</span>
+                <span className="text-[13px] font-semibold text-foreground">{t("New rule")}</span>
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="flex flex-col gap-1">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Apply to</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Apply to")}</span>
                   <select
                     value={addTargetKind}
                     onChange={(e) => {
@@ -610,16 +595,16 @@ export function SessionHubTab(): JSX.Element {
                     }}
                     className="h-11 md:h-9 rounded-lg border border-border/60 bg-surface px-3 text-base md:text-[13px] text-foreground"
                   >
-                    <option value="pool">Pool</option>
-                    <option value="provider">Provider</option>
-                    <option value="fallback">Fallback</option>
-                    <option value="all">All (wildcard)</option>
+                    <option value="pool">{t("Pool")}</option>
+                    <option value="provider">{t("Provider")}</option>
+                    <option value="fallback">{t("Fallback")}</option>
+                    <option value="all">{t("All (wildcard)")}</option>
                   </select>
                 </label>
 
                 {addTargetKind === "pool" && (
                   <label className="flex flex-col gap-1">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Target pool</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Target pool")}</span>
                     <select
                       value={newSelectedPool}
                       onChange={(e) => {
@@ -628,7 +613,7 @@ export function SessionHubTab(): JSX.Element {
                       }}
                       className="h-11 md:h-9 rounded-lg border border-border/60 bg-surface px-3 text-base md:text-[13px] text-foreground"
                     >
-                      <option value="">Select a pool...</option>
+                      <option value="">{t("Select a pool...")}</option>
                       {pools.map((p) => (
                         <option key={p.name} value={p.name}>{p.name}</option>
                       ))}
@@ -638,7 +623,7 @@ export function SessionHubTab(): JSX.Element {
 
                 {addTargetKind === "provider" && (
                   <label className="flex flex-col gap-1">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Target provider</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Target provider")}</span>
                     <select
                       value={newSelectedProvider}
                       onChange={(e) => {
@@ -647,7 +632,7 @@ export function SessionHubTab(): JSX.Element {
                       }}
                       className="h-11 md:h-9 rounded-lg border border-border/60 bg-surface px-3 text-base md:text-[13px] text-foreground"
                     >
-                      <option value="">Select a provider...</option>
+                      <option value="">{t("Select a provider...")}</option>
                       {serverProviders.map((p) => (
                         <option key={p.name} value={p.name}>{p.name}</option>
                       ))}
@@ -657,9 +642,9 @@ export function SessionHubTab(): JSX.Element {
 
                 {(addTargetKind === "fallback" || addTargetKind === "all") && (
                   <label className="flex flex-col gap-1">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Target key</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Target key")}</span>
                     <Input
-                      placeholder={addTargetKind === "all" ? "* (all providers)" : "fallback target name"}
+                      placeholder={addTargetKind === "all" ? t("* (all providers)") : t("fallback target name")}
                       value={newName}
                       onChange={(e) => setNewName(e.target.value)}
                     />
@@ -668,7 +653,7 @@ export function SessionHubTab(): JSX.Element {
               </div>
 
               <ToggleField
-                label="Rule enabled"
+                label={t("Rule enabled")}
                 checked={newEnabled}
                 onCheckedChange={setNewEnabled}
                 className="max-w-xs"
@@ -676,22 +661,20 @@ export function SessionHubTab(): JSX.Element {
 
               <div className="text-[12px] text-muted-foreground">
                 {newName ? (
-                  <>Rule will be bound to <span className="font-mono text-foreground">{newName}</span></>
+                  <>{t("Rule will be bound to ")}<span className="font-mono text-foreground">{newName}</span></>
                 ) : (
-                  "Select a pool or provider above to bind this rule."
+                  t("Select a pool or provider above to bind this rule.")
                 )}
               </div>
 
               <div>
-                <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Header rules
-                </div>
+                <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Header rules")}</div>
                 <HeaderRulesEditor headers={newHeaders} onChange={setNewHeaders} />
               </div>
 
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Button onClick={handleAdd} disabled={!newName || mutations.createProvider.isPending}>
-                  {mutations.createProvider.isPending ? "Creating..." : "Create rule"}
+                  {mutations.createProvider.isPending ? t("Creating...") : t("Create rule")}
                 </Button>
                 <Button
                   variant="outline"
@@ -699,9 +682,7 @@ export function SessionHubTab(): JSX.Element {
                     setShowAdd(false);
                     resetAddForm();
                   }}
-                >
-                  Cancel
-                </Button>
+                >{t("Cancel")}</Button>
               </div>
             </div>
           )}
@@ -717,23 +698,23 @@ export function SessionHubTab(): JSX.Element {
                 <RefreshCwIcon className="h-4 w-4 text-accent" />
               </div>
               <SectionHeader
-                title="Live Mappings"
-                subtitle="Active inbound-to-outbound session mappings from each provider."
+                title={t("Live Mappings")}
+                subtitle={t("Active inbound-to-outbound session mappings from each provider.")}
               />
             </div>
             <div className="flex w-full flex-col gap-2 lg:w-auto lg:items-end">
               <ToggleField
-                label="Persist to disk"
+                label={t("Persist to disk")}
                 description={
                   status?.storage_mode === "disk"
-                    ? "Mappings are saved to disk and restored after restart."
-                    : "Mappings are kept in memory and reset on restart."
+                    ? t("Mappings are saved to disk and restored after restart.")
+                    : t("Mappings are kept in memory and reset on restart.")
                 }
                 checked={status?.storage_mode === "disk"}
                 onCheckedChange={(checked) => mutations.setStorageMode.mutate(checked ? "disk" : "memory")}
                 disabled={mutations.setStorageMode.isPending}
                 size="sm"
-                aria-label="Toggle session mapping persistence"
+                aria-label={t("Toggle session mapping persistence")}
                 className="w-full max-w-sm lg:max-w-xs"
               />
               <Button
@@ -743,9 +724,7 @@ export function SessionHubTab(): JSX.Element {
                 disabled={mutations.clearMappings.isPending}
                 className="self-start lg:self-end"
               >
-                <Trash2Icon className="mr-1.5 h-3.5 w-3.5" />
-                Clear all
-              </Button>
+                <Trash2Icon className="mr-1.5 h-3.5 w-3.5" />{t("Clear all")}</Button>
             </div>
           </div>
 
@@ -755,17 +734,13 @@ export function SessionHubTab(): JSX.Element {
                 <MappingRow key={idx} mapping={m} />
               ))}
               {mappingsData.mappings.length > 50 && (
-                <div className="py-2 text-center text-[12px] text-muted-foreground sm:col-span-2">
-                  Showing 50 of {mappingsData.mappings.length} mappings
-                </div>
+                <div className="py-2 text-center text-[12px] text-muted-foreground sm:col-span-2">{t("Showing 50 of ")}{mappingsData.mappings.length}{t(" mappings")}</div>
               )}
             </div>
           ) : (
             <div className="border border-dashed border-border/60 bg-surface/50 p-8 text-center">
               <RefreshCwIcon className="mx-auto h-8 w-8 text-muted-foreground/40" />
-              <p className="mt-2 text-[13px] text-muted-foreground">
-                No active mappings yet. Mappings appear when requests flow through the gateway.
-              </p>
+              <p className="mt-2 text-[13px] text-muted-foreground">{t("No active mappings yet. Mappings appear when requests flow through the gateway.")}</p>
             </div>
           )}
         </div>

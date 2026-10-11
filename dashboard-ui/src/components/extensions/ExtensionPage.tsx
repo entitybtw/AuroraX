@@ -2,6 +2,8 @@ import { useParams } from "@tanstack/react-router";
 import { PageHeader } from "@/components/ui/page-header";
 import { ExtensionBlocks } from "@/components/extensions/ExtensionWidgets";
 import { useExtensionPages } from "@/lib/extensions/ui-context";
+import { t } from "@/lib/i18n";
+
 
 /**
  * Renders a dashboard page contributed by an applied extension.
@@ -26,10 +28,8 @@ export function ExtensionPage(): JSX.Element {
   if (!page) {
     return (
       <div className="flex flex-col gap-6">
-        <PageHeader title="Extension page" subtitle="Not found" />
-        <p className="text-sm text-muted-foreground">
-          This extension page is not available. The extension may be removed or not applied.
-        </p>
+        <PageHeader title={t("Extension page")} subtitle={t("Not found")} />
+        <p className="text-sm text-muted-foreground">{t("This extension page is not available. The extension may be removed or not applied.")}</p>
       </div>
     );
   }

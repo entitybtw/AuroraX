@@ -149,6 +149,40 @@ Then embedded translations are layered first and applied packs on top
 `GET /sidecar/extensions` and `GET /sidecar/extensions/ui`. Editing what you
 see is never corrupted by the active language.
 
+## Dashboard UI localization
+
+The built-in dashboard UI localizes itself from the **same persisted locale**
+(there is one language switch for the whole product). English source strings
+double as translation keys, so any string missing from a catalog simply falls
+back to English:
+
+```ts
+import { t } from "@/lib/i18n";
+
+t("Save")                     // "Сохранить" for locale=ru, "Save" otherwise
+t("Delete {count} items", { count: 3 })
+```
+
+Catalogs live at `dashboard-ui/src/lib/i18n/locales/<code>.json` (one JSON
+object per locale, key → translation) and are **code-split**: only the active
+locale is fetched, each is ~45 KB gzipped.
+
+- `initI18n()` runs before the app bundle loads (`src/main.tsx`), so the first
+  paint is already in the operator's language.
+- Changing **Settings → Extensions → Interface language** saves the shared
+  locale (same `PUT /sidecar/extensions/locale`) and reloads the page.
+- RTL locales (`ar`, `he`) set `document.documentElement.dir = "rtl"`.
+- After login/SSO the client re-syncs (`ensureLocaleSynced()`) and reloads if
+  the persisted locale differs from the one the bundle started with.
+
+Regenerating catalogs after UI changes:
+
+```bash
+node scripts/i18n-extract-keys.cjs      # rebuild scripts/i18n-keys.json
+# translators update scripts/i18n-translations/<code>.json (ordered arrays)
+python3 scripts/i18n-merge-catalogs.py  # rebuild src/lib/i18n/locales/*.json
+```
+
 ## See also
 
 - [README.md](README.md) — extension layers, install/apply flow

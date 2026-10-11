@@ -1,4 +1,6 @@
 import { cn } from "@/lib/utils";
+import { t } from "@/lib/i18n";
+
 
 interface ApiEndpoint {
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -22,11 +24,11 @@ export function DocsCollapsible({ title, manual, endpoints, authNote }: DocsColl
       </summary>
       <div className="border-t border-border/20 px-5 py-4 space-y-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Via UI</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">{t("Via UI")}</p>
           <p className="text-sm text-muted-foreground leading-relaxed">{manual}</p>
         </div>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Via API</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">{t("Via API")}</p>
           {authNote && (
             <div className="mb-3 rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
               {authNote}

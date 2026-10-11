@@ -9,6 +9,8 @@ import {
   loadTimezoneOverride,
 } from "@/lib/timezone/timezone";
 import type { DailyUsage } from "@/lib/api/usage-types";
+import { t } from "@/lib/i18n";
+
 
 export interface ContributionCalendarProps {
   daily: DailyUsage[] | undefined;
@@ -146,14 +148,14 @@ export function ContributionCalendar({
     <section className="border border-border/40 bg-surface">
       <header className="p-6 flex flex-wrap items-start justify-between gap-3 border-b border-border/40">
         <div>
-          <div className="text-[10px] font-bold tracking-widest uppercase text-accent mb-2">[ Activity ]</div>
-          <h2 className="font-display text-lg font-normal text-foreground">Contribution Calendar</h2>
-          <p className="mt-1 text-xs text-muted-foreground">Daily {MODE_LABEL[mode]} over the last {weeks} weeks.</p>
+          <div className="text-[10px] font-bold tracking-widest uppercase text-accent mb-2">{t("[ Activity ]")}</div>
+          <h2 className="font-display text-lg font-normal text-foreground">{t("Contribution Calendar")}</h2>
+          <p className="mt-1 text-xs text-muted-foreground">{t("Daily ")}{MODE_LABEL[mode]}{t(" over the last ")}{weeks}{t(" weeks.")}</p>
         </div>
         {isLoading ? (
-          <span className="text-xs text-muted-foreground">Loading…</span>
+          <span className="text-xs text-muted-foreground">{t("Loading…")}</span>
         ) : (
-          <div className="inline-flex border border-border bg-background/40 p-0.5" aria-label="Activity metric">
+          <div className="inline-flex border border-border bg-background/40 p-0.5" aria-label={t("Activity metric")}>
             {CALENDAR_MODES.map((entry) => (
               <button
                 key={entry}
@@ -165,7 +167,7 @@ export function ContributionCalendar({
                     : "px-3 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
                 }
               >
-                {entry === "cost" ? "Cost" : entry[0]!.toUpperCase() + entry.slice(1)}
+                {entry === "cost" ? t("Cost") : entry[0]!.toUpperCase() + entry.slice(1)}
               </button>
             ))}
           </div>
@@ -215,9 +217,9 @@ export function ContributionCalendar({
           </div>
         </div>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[10px] text-muted-foreground border-t border-border/40 pt-4">
-          <span>{MODE_FORMATTER[mode](total)} in the visible window</span>
+          <span>{MODE_FORMATTER[mode](total)}{t(" in the visible window")}</span>
           <div className="flex items-center gap-1">
-            <span>Less</span>
+            <span>{t("Less")}</span>
             {[0, 1, 2, 3, 4].map((lvl) => (
               <span
                 key={lvl}
@@ -225,7 +227,7 @@ export function ContributionCalendar({
                 style={{ background: `var(--cal-level-${lvl})` }}
               />
             ))}
-            <span>More</span>
+            <span>{t("More")}</span>
           </div>
         </div>
       </div>

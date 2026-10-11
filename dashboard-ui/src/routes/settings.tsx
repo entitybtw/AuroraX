@@ -29,6 +29,8 @@ import { cn } from "@/lib/utils";
 import { useDashboardConfig } from "@/lib/api/useDashboardConfig";
 import { extractHiddenFeatures, hiddenFeatureSet } from "@/lib/features/features";
 import type { SettingsTab } from "@/components/settings/types";
+import { t as i18nT } from "@/lib/i18n";
+
 
 const BUILTIN_TABS: {
   id: SettingsTab;
@@ -36,14 +38,14 @@ const BUILTIN_TABS: {
   icon: React.ComponentType<{ className?: string }>;
   featureId?: string;
 }[] = [
-  { id: "general", label: "General", icon: SettingsIcon },
-  { id: "providers", label: "Providers", icon: ServerIcon, featureId: "providers" },
-  { id: "infrastructure", label: "Infrastructure", icon: BoxesIcon, featureId: "infrastructure" },
-  { id: "caching", label: "Caching", icon: DatabaseIcon, featureId: "caching" },
-  { id: "networking", label: "Networking", icon: GlobeIcon, featureId: "networking" },
-  { id: "sessionhub", label: "Session Hub", icon: KeyIcon, featureId: "sessionhub" },
-  { id: "extensions", label: "Extensions", icon: PuzzleIcon, featureId: "extensions" },
-  { id: "sidecar", label: "Sidecar", icon: CpuIcon, featureId: "sidecar" },
+  { id: "general", label: i18nT("General"), icon: SettingsIcon },
+  { id: "providers", label: i18nT("Providers"), icon: ServerIcon, featureId: "providers" },
+  { id: "infrastructure", label: i18nT("Infrastructure"), icon: BoxesIcon, featureId: "infrastructure" },
+  { id: "caching", label: i18nT("Caching"), icon: DatabaseIcon, featureId: "caching" },
+  { id: "networking", label: i18nT("Networking"), icon: GlobeIcon, featureId: "networking" },
+  { id: "sessionhub", label: i18nT("Session Hub"), icon: KeyIcon, featureId: "sessionhub" },
+  { id: "extensions", label: i18nT("Extensions"), icon: PuzzleIcon, featureId: "extensions" },
+  { id: "sidecar", label: i18nT("Sidecar"), icon: CpuIcon, featureId: "sidecar" },
 ];
 
 type TabItem = {
@@ -123,7 +125,7 @@ function SettingsPageInner(): JSX.Element {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <PageHeader title="Settings" subtitle="Configure gateway runtime behavior including providers, caching, security, and networking." />
+        <PageHeader title={i18nT("Settings")} subtitle={i18nT("Configure gateway runtime behavior including providers, caching, security, and networking.")} />
         <EditionStatusChip />
       </div>
 

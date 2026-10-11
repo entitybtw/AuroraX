@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/surface";
 import { Loader2, CheckCircle, AlertCircle, Copy, ExternalLink, WifiOff, Unlink2, Link, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { t } from "@/lib/i18n";
+
 
 interface ExternalAuthDialogProps {
   providerName: string;
@@ -387,45 +389,41 @@ export function ExternalAuthDialog({
               <Unlink2 className="h-5 w-5 text-success" />
             )}
             {checkingStatus
-              ? "Checking status..."
+              ? t("Checking status...")
               : step === "success"
                 ? alreadyLinked
-                  ? "Account Linked"
-                  : "Authorized!"
+                  ? t("Account Linked")
+                  : t("Authorized!")
                 : step === "unlinked"
-                  ? "Account Unlinked"
+                  ? t("Account Unlinked")
                   : step === "error"
-                    ? "Link Failed"
-                    : "Link Account"}
+                    ? t("Link Failed")
+                    : t("Link Account")}
           </DialogTitle>
           <DialogDescription>
-            {checkingStatus && "Checking auth status for this provider..."}
+            {checkingStatus && t("Checking auth status for this provider...")}
             {!checkingStatus && step === "success" && alreadyLinked && (
-              "This provider is already linked to an account."
+              t("This provider is already linked to an account.")
             )}
-            {!checkingStatus && step === "waiting" && "Starting device authorization flow..."}
+            {!checkingStatus && step === "waiting" && t("Starting device authorization flow...")}
             {!checkingStatus && step === "polling" && grant === "authorization_code" && (
-              <>
-                Open the authorize link, then paste the redirect result below.
-                <br />
+              <>{t("Open the authorize link, then paste the redirect result below.")}<br />
                 <span className="font-mono text-lg text-primary">{formatTime(displayTime)}</span>
                 {" "}
                 <span className="text-xs text-muted-foreground">remaining</span>
               </>
             )}
             {!checkingStatus && step === "polling" && grant !== "authorization_code" && (
-              <>
-                Authorize in browser, then wait for confirmation.
-                <br />
+              <>{t("Authorize in browser, then wait for confirmation.")}<br />
                 <span className="font-mono text-lg text-primary">{formatTime(displayTime)}</span>
                 {" "}
                 <span className="text-xs text-muted-foreground">remaining</span>
               </>
             )}
-            {!checkingStatus && step === "success" && !alreadyLinked && "Your account is now linked."}
+            {!checkingStatus && step === "success" && !alreadyLinked && t("Your account is now linked.")}
             {!checkingStatus &&
               step === "unlinked" &&
-              "Successfully unlinked. You can link a new account whenever you want."}
+              t("Successfully unlinked. You can link a new account whenever you want.")}
             {!checkingStatus && step === "error" && error}
           </DialogDescription>
         </DialogHeader>
@@ -434,7 +432,7 @@ export function ExternalAuthDialog({
           <Surface variant="subtle" className="p-4">
             <div className="grid gap-3 text-sm">
               <div>
-                <label className="text-xs text-muted-foreground block mb-1">User Code</label>
+                <label className="text-xs text-muted-foreground block mb-1">{t("User Code")}</label>
                 <div className="flex items-center gap-2 mt-1">
                   <CodeBlock className="flex-1 text-lg font-mono tracking-widest">
                     {userCode}
@@ -443,7 +441,7 @@ export function ExternalAuthDialog({
                     variant="ghost"
                     size="icon"
                     onClick={() => copyToClipboard(userCode, "user code")}
-                    aria-label="Copy user code"
+                    aria-label={t("Copy user code")}
                   >
                     <Copy className="h-4 w-4" />
                   </Button>
@@ -451,7 +449,7 @@ export function ExternalAuthDialog({
               </div>
 
               <div>
-                <label className="text-xs text-muted-foreground block mb-1">Verification URL</label>
+                <label className="text-xs text-muted-foreground block mb-1">{t("Verification URL")}</label>
                 <div className="flex items-center gap-2 mt-1">
                   <Input
                     readOnly
@@ -462,7 +460,7 @@ export function ExternalAuthDialog({
                     variant="ghost"
                     size="icon"
                     onClick={() => copyToClipboard(fullVerificationUri(), "verification URL")}
-                    aria-label="Copy verification URL"
+                    aria-label={t("Copy verification URL")}
                   >
                     <Copy className="h-4 w-4" />
                   </Button>
@@ -470,7 +468,7 @@ export function ExternalAuthDialog({
                     href={fullVerificationUri()}
                     target="_blank"
                     rel="noopener noreferrer"
-                    aria-label="Open in browser"
+                    aria-label={t("Open in browser")}
                   >
                     <Button variant="ghost" size="icon">
                       <ExternalLink className="h-4 w-4" />
@@ -488,8 +486,7 @@ export function ExternalAuthDialog({
                 }}
               />
             </div>
-            <p className="text-xs text-muted-foreground text-center mt-1">
-              Auto-polling every {pollInterval}s • Expires in {formatTime(timeRemaining)}
+            <p className="text-xs text-muted-foreground text-center mt-1">{t("Auto-polling every ")}{pollInterval}{t("s • Expires in ")}{formatTime(timeRemaining)}
             </p>
           </Surface>
         )}
@@ -499,25 +496,25 @@ export function ExternalAuthDialog({
             <div className="grid gap-2 text-sm">
               {accountInfo?.email && (
                 <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">Email:</span>
+                  <span className="text-muted-foreground">{t("Email:")}</span>
                   <span className="font-medium">{accountInfo.email}</span>
                 </div>
               )}
               {accountInfo?.account_id && (
                 <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">Account ID:</span>
+                  <span className="text-muted-foreground">{t("Account ID:")}</span>
                   <CodeBlock className="text-xs">{accountInfo.account_id}</CodeBlock>
                 </div>
               )}
               {accountInfo?.expires_at && (
                 <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">Token expires:</span>
+                  <span className="text-muted-foreground">{t("Token expires:")}</span>
                   <span>
                     {new Date(accountInfo.expires_at).toLocaleString()}
                   </span>
                 </div>
               )}
-              <Pill tone="success">Standard plan enabled</Pill>
+              <Pill tone="success">{t("Standard plan enabled")}</Pill>
             </div>
             <div className="flex items-center gap-2 mt-3 pt-3 border-t">
               <Button
@@ -526,9 +523,7 @@ export function ExternalAuthDialog({
                 onClick={handleStart}
                 className="flex-1"
               >
-                <Link2 className="mr-1.5 h-3.5 w-3.5" />
-                Relink Account
-              </Button>
+                <Link2 className="mr-1.5 h-3.5 w-3.5" />{t("Relink Account")}</Button>
               <Button
                 variant="ghost"
                 size="sm"
@@ -538,14 +533,10 @@ export function ExternalAuthDialog({
               >
                 {unlinking ? (
                   <>
-                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                    Unlinking...
-                  </>
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />{t("Unlinking...")}</>
                 ) : (
                   <>
-                    <Unlink2 className="mr-1.5 h-3.5 w-3.5" />
-                    Unlink
-                  </>
+                    <Unlink2 className="mr-1.5 h-3.5 w-3.5" />{t("Unlink")}</>
                 )}
               </Button>
             </div>
@@ -554,9 +545,7 @@ export function ExternalAuthDialog({
                 variant="ghost"
                 size="sm"
                 onClick={() => onOpenChange(false)}
-              >
-                Done
-              </Button>
+              >{t("Done")}</Button>
             </div>
           </Surface>
         )}
@@ -566,12 +555,8 @@ export function ExternalAuthDialog({
             <div className="flex items-start gap-3">
               <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-success" />
               <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">Successfully unlinked</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  The stored token for <span className="font-mono">{providerName}</span> was
-                  removed. Upstream requests will no longer use this account until you link
-                  another one.
-                </p>
+                <p className="text-sm font-medium text-foreground">{t("Successfully unlinked")}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{t("The stored token for ")}<span className="font-mono">{providerName}</span>{t(" was removed. Upstream requests will no longer use this account until you link another one.")}</p>
               </div>
             </div>
           </Surface>
@@ -583,9 +568,9 @@ export function ExternalAuthDialog({
             <p className="text-xs text-muted-foreground mt-1">
               {!isProviderScopeError
                 ? grant === "authorization_code"
-                  ? "The authorize session may have expired. Start a new authorization."
-                  : "The device code may have expired. Try starting a new authorization."
-                : "This provider is not owned by the linked-account extension, so no flow can start for it."}
+                  ? t("The authorize session may have expired. Start a new authorization.")
+                  : t("The device code may have expired. Try starting a new authorization.")
+                : t("This provider is not owned by the linked-account extension, so no flow can start for it.")}
             </p>
           </Surface>
         )}
@@ -595,7 +580,7 @@ export function ExternalAuthDialog({
           <Surface variant="subtle" className="p-4">
             <div className="grid gap-3 text-sm">
               <div>
-                <label className="text-xs text-muted-foreground block mb-1">Authorize URL</label>
+                <label className="text-xs text-muted-foreground block mb-1">{t("Authorize URL")}</label>
                 <div className="flex items-center gap-2 mt-1">
                   <Input
                     readOnly
@@ -606,7 +591,7 @@ export function ExternalAuthDialog({
                     variant="ghost"
                     size="icon"
                     onClick={() => copyToClipboard(authorizeUrl, "authorize URL")}
-                    aria-label="Copy authorize URL"
+                    aria-label={t("Copy authorize URL")}
                   >
                     <Copy className="h-4 w-4" />
                   </Button>
@@ -614,7 +599,7 @@ export function ExternalAuthDialog({
                     href={authorizeUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    aria-label="Open authorize URL in browser"
+                    aria-label={t("Open authorize URL in browser")}
                   >
                     <Button variant="ghost" size="icon">
                       <ExternalLink className="h-4 w-4" />
@@ -624,14 +609,12 @@ export function ExternalAuthDialog({
               </div>
 
               <div>
-                <label className="text-xs text-muted-foreground block mb-1">
-                  Redirect result (CODE#STATE or full callback URL)
-                </label>
+                <label className="text-xs text-muted-foreground block mb-1">{t("Redirect result (CODE#STATE or full callback URL)")}</label>
                 <div className="flex items-center gap-2 mt-1">
                   <Input
                     value={manualCode}
                     onChange={(e) => setManualCode(e.target.value)}
-                    placeholder="Paste code#state or callback URL"
+                    placeholder={t("Paste code#state or callback URL")}
                     className="text-xs"
                     autoComplete="off"
                   />
@@ -644,14 +627,11 @@ export function ExternalAuthDialog({
                     {completing ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      "Complete"
+                      t("Complete")
                     )}
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1.5">
-                  After authorize, the browser may land on a localhost callback that
-                  does not open — copy the full URL (or CODE#STATE) and paste it here.
-                </p>
+                <p className="text-xs text-muted-foreground mt-1.5">{t("After authorize, the browser may land on a localhost callback that does not open — copy the full URL (or CODE#STATE) and paste it here.")}</p>
               </div>
             </div>
 
@@ -663,31 +643,22 @@ export function ExternalAuthDialog({
                 }}
               />
             </div>
-            <p className="text-xs text-muted-foreground text-center mt-1">
-              Session expires in {formatTime(timeRemaining)}
+            <p className="text-xs text-muted-foreground text-center mt-1">{t("Session expires in ")}{formatTime(timeRemaining)}
             </p>
           </Surface>
         )}
 
         {step === "polling" && grant !== "authorization_code" && (
-            <Button variant="secondary" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
+            <Button variant="secondary" onClick={() => onOpenChange(false)}>{t("Cancel")}</Button>
           )}
           {step === "error" && !isProviderScopeError && (
-            <Button variant="default" onClick={handleStart}>
-              Try Again
-            </Button>
+            <Button variant="default" onClick={handleStart}>{t("Try Again")}</Button>
           )}
           {step === "unlinked" && (
             <>
-              <Button variant="secondary" onClick={() => onOpenChange(false)}>
-                Close
-              </Button>
+              <Button variant="secondary" onClick={() => onOpenChange(false)}>{t("Close")}</Button>
               <Button variant="default" onClick={handleStart}>
-                <Link2 className="mr-1.5 h-3.5 w-3.5" />
-                Link Account
-              </Button>
+                <Link2 className="mr-1.5 h-3.5 w-3.5" />{t("Link Account")}</Button>
             </>
           )}
         </DialogFooter>

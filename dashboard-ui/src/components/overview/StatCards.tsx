@@ -1,6 +1,8 @@
 import { Loader2 } from "lucide-react";
 import { formatCost, formatPercent, formatRequests, formatTokens } from "@/lib/format/numbers";
 import type { CacheOverview, UsageSummary } from "@/lib/api/usage-types";
+import { t } from "@/lib/i18n";
+
 
 export interface StatCardsProps {
   summary: UsageSummary | undefined;
@@ -10,10 +12,10 @@ export interface StatCardsProps {
 }
 
 const stats = [
-  { key: "requests", label: "Requests", kicker: "Total volume" },
-  { key: "tokens", label: "Tokens Processed", kicker: "All models" },
-  { key: "cost", label: "Estimated Cost", kicker: "This period" },
-  { key: "cache", label: "Cache Rate", kicker: "Hit ratio" },
+  { key: "requests", label: t("Requests"), kicker: "Total volume" },
+  { key: "tokens", label: t("Tokens Processed"), kicker: "All models" },
+  { key: "cost", label: t("Estimated Cost"), kicker: "This period" },
+  { key: "cache", label: t("Cache Rate"), kicker: "Hit ratio" },
 ] as const;
 
 export function StatCards({
@@ -48,7 +50,7 @@ export function StatCards({
   }
 
   return (
-    <section aria-label="Usage summary" className="border border-border/40 divide-y divide-border/40">
+    <section aria-label={t("Usage summary")} className="border border-border/40 divide-y divide-border/40">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border/40">
         {stats.map((stat, idx) => (
           <div

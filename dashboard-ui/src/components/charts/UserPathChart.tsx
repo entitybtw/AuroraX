@@ -11,6 +11,8 @@ import {
 } from "recharts";
 import { formatCost, formatTokens } from "@/lib/format/numbers";
 import type { UserPathUsage } from "@/lib/api/usage-types";
+import { t } from "@/lib/i18n";
+
 
 export interface UserPathChartProps {
   userPaths: UserPathUsage[] | undefined;
@@ -51,9 +53,9 @@ export function UserPathChart({ userPaths, isLoading, mode }: UserPathChartProps
   return (
     <div className="w-full p-4" style={{ height: 350 }}>
       {isLoading ? (
-        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading...</div>
+        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{t("Loading...")}</div>
       ) : data.length === 0 ? (
-        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">No user path data available.</div>
+        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{t("No user path data available.")}</div>
       ) : (
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 0 }}>

@@ -18,6 +18,8 @@ import {
   PuzzleIcon,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api/client";
+import { t } from "@/lib/i18n";
+
 
 // --- Types ---
 
@@ -78,7 +80,7 @@ function StatusBadge({ running }: { running: boolean }) {
       }`}
     >
       {running ? <CheckCircleIcon className="h-3 w-3" /> : <XCircleIcon className="h-3 w-3" />}
-      {running ? "Running" : "Stopped"}
+      {running ? t("Running") : t("Stopped")}
     </span>
   );
 }
@@ -88,18 +90,9 @@ function RiskNotice() {
     <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
       <ShieldAlertIcon className="h-5 w-5 shrink-0 text-amber-500 mt-0.5" />
       <div className="text-sm">
-        <p className="font-medium text-amber-600 dark:text-amber-400">Use at your own risk</p>
-        <p className="text-muted-foreground mt-1 leading-snug">
-          The sidecar aligns outbound requests with the upstream client signature (TLS
-          fingerprint, headers and tool schema). Upstream hardening can change or break this
-          at any time.
-        </p>
-        <p className="text-muted-foreground mt-2 leading-snug">
-          Import extensions only from sources you trust. Community extensions are unreviewed
-          modifications and may contain harmful instructions, data-exfiltration URLs, or
-          configuration that conflicts with a provider&apos;s rules. Review an extension&apos;s JSON
-          before importing and keep a copy of anything you import.
-        </p>
+        <p className="font-medium text-amber-600 dark:text-amber-400">{t("Use at your own risk")}</p>
+        <p className="text-muted-foreground mt-1 leading-snug">{t("The sidecar aligns outbound requests with the upstream client signature (TLS fingerprint, headers and tool schema). Upstream hardening can change or break this at any time.")}</p>
+        <p className="text-muted-foreground mt-2 leading-snug">{t("Import extensions only from sources you trust. Community extensions are unreviewed modifications and may contain harmful instructions, data-exfiltration URLs, or configuration that conflicts with a provider's rules. Review an extension's JSON before importing and keep a copy of anything you import.")}</p>
       </div>
     </div>
   );
@@ -146,14 +139,14 @@ function BindIPEditor({
           </span>
         ))}
         {bindIPs.length === 0 && (
-          <span className="text-xs text-muted-foreground">No bind IPs configured</span>
+          <span className="text-xs text-muted-foreground">{t("No bind IPs configured")}</span>
         )}
       </div>
       <div className="flex gap-2">
         <Input
           value={newIP}
           onChange={(e) => setNewIP(e.target.value)}
-          placeholder="Add IP address..."
+          placeholder={t("Add IP address...")}
           className="flex-1 h-11 sm:h-8 text-sm sm:text-xs font-mono"
           onKeyDown={(e) => e.key === "Enter" && addIP()}
         />
@@ -199,17 +192,13 @@ export function SidecarTab(): JSX.Element {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">
-        Loading sidecar configuration...
-      </div>
+      <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">{t("Loading sidecar configuration...")}</div>
     );
   }
 
   if (!settings) {
     return (
-      <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">
-        Failed to load sidecar settings.
-      </div>
+      <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">{t("Failed to load sidecar settings.")}</div>
     );
   }
 
@@ -225,12 +214,8 @@ export function SidecarTab(): JSX.Element {
               <CpuIcon className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h3 className="text-base font-semibold">Sidecar</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                Optional Bun-based TLS proxy that reproduces extension-supplied upstream client
-                signatures (TLS fingerprint, headers, tool schema). Configured through extensions;
-                requires the Bun runtime.
-              </p>
+              <h3 className="text-base font-semibold">{t("Sidecar")}</h3>
+              <p className="text-sm text-muted-foreground mt-1">{t("Optional Bun-based TLS proxy that reproduces extension-supplied upstream client signatures (TLS fingerprint, headers, tool schema). Configured through extensions; requires the Bun runtime.")}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -241,9 +226,7 @@ export function SidecarTab(): JSX.Element {
               disabled={!form || updateSettings.isPending}
               className="gap-1.5 h-11 sm:h-9"
             >
-              <RefreshCwIcon className={`h-3.5 w-3.5 ${updateSettings.isPending ? "animate-spin" : ""}`} />
-              Save
-            </Button>
+              <RefreshCwIcon className={`h-3.5 w-3.5 ${updateSettings.isPending ? "animate-spin" : ""}`} />{t("Save")}</Button>
           </div>
         </div>
       </Surface>
@@ -256,16 +239,11 @@ export function SidecarTab(): JSX.Element {
               <PuzzleIcon className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h3 className="text-base font-semibold">Extensions</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                Install and apply extensions (sidecar presets, themes, session hub headers) from
-                the Extensions tab.
-              </p>
+              <h3 className="text-base font-semibold">{t("Extensions")}</h3>
+              <p className="text-sm text-muted-foreground mt-1">{t("Install and apply extensions (sidecar presets, themes, session hub headers) from the Extensions tab.")}</p>
             </div>
           </div>
-          <Button variant="link" onClick={goToExtensionsTab} className="self-start sm:self-auto gap-1.5">
-            Open Extensions
-            <GlobeIcon className="h-3.5 w-3.5" />
+          <Button variant="link" onClick={goToExtensionsTab} className="self-start sm:self-auto gap-1.5">{t("Open Extensions")}<GlobeIcon className="h-3.5 w-3.5" />
           </Button>
         </div>
       </Surface>
@@ -278,10 +256,8 @@ export function SidecarTab(): JSX.Element {
               <ZapIcon className="h-5 w-5 text-blue-500" />
             </div>
             <div>
-              <h3 className="text-base font-semibold">Core Settings</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                Enable/disable the sidecar and configure base behavior.
-              </p>
+              <h3 className="text-base font-semibold">{t("Core Settings")}</h3>
+              <p className="text-sm text-muted-foreground mt-1">{t("Enable/disable the sidecar and configure base behavior.")}</p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -291,19 +267,19 @@ export function SidecarTab(): JSX.Element {
 
         <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-2">
           <ToggleField
-            label="Enable sidecar"
+            label={t("Enable sidecar")}
             checked={settings.enabled}
             onCheckedChange={(v) => update("enabled", v)}
-            description="Route matching provider traffic through the Bun TLS proxy"
+            description={t("Route matching provider traffic through the Bun TLS proxy")}
           />
           <ToggleField
-            label="Inject tool schema"
+            label={t("Inject tool schema")}
             checked={settings.inject_tools}
             onCheckedChange={(v) => update("inject_tools", v)}
-            description="Add the preset's bundled tool schema when the request has none"
+            description={t("Add the preset's bundled tool schema when the request has none")}
           />
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium">Listen port</label>
+            <label className="text-sm font-medium">{t("Listen port")}</label>
             <Input
               type="number"
               value={settings.port}
@@ -312,17 +288,17 @@ export function SidecarTab(): JSX.Element {
               min={1}
               max={65535}
             />
-            <p className="text-xs text-muted-foreground">Sidecar HTTP port (default 8090)</p>
+            <p className="text-xs text-muted-foreground">{t("Sidecar HTTP port (default 8090)")}</p>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium">Upstream base URL</label>
+            <label className="text-sm font-medium">{t("Upstream base URL")}</label>
             <Input
               value={settings.base_url}
               onChange={(e) => update("base_url", e.target.value)}
               className="h-11 sm:h-9 font-mono text-sm"
               placeholder="https://upstream.example.com/v1"
             />
-            <p className="text-xs text-muted-foreground">Extension / operator upstream base URL</p>
+            <p className="text-xs text-muted-foreground">{t("Extension / operator upstream base URL")}</p>
           </div>
         </div>
       </Surface>
@@ -335,37 +311,35 @@ export function SidecarTab(): JSX.Element {
               <GlobeIcon className="h-5 w-5 text-amber-500" />
             </div>
             <div>
-              <h3 className="text-base font-semibold">Authentication & Retry</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                Default auth header and retry behavior for failed requests.
-              </p>
+              <h3 className="text-base font-semibold">{t("Authentication & Retry")}</h3>
+              <p className="text-sm text-muted-foreground mt-1">{t("Default auth header and retry behavior for failed requests.")}</p>
             </div>
           </div>
         </div>
 
         <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-2">
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium">Default Authorization</label>
+            <label className="text-sm font-medium">{t("Default Authorization")}</label>
             <Input
               value={settings.default_auth}
               onChange={(e) => update("default_auth", e.target.value)}
               className="h-11 sm:h-9 font-mono text-sm"
-              placeholder="Bearer public"
+              placeholder={t("Bearer public")}
             />
-            <p className="text-xs text-muted-foreground">Fallback when no provider auth is set</p>
+            <p className="text-xs text-muted-foreground">{t("Fallback when no provider auth is set")}</p>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium">User-Agent</label>
+            <label className="text-sm font-medium">{t("User-Agent")}</label>
             <Input
               value={settings.user_agent}
               onChange={(e) => update("user_agent", e.target.value)}
               className="h-11 sm:h-9 font-mono text-sm"
-              placeholder="Mozilla/5.0 ..."
+              placeholder={t("Mozilla/5.0 ...")}
             />
-            <p className="text-xs text-muted-foreground">Upstream User-Agent header</p>
+            <p className="text-xs text-muted-foreground">{t("Upstream User-Agent header")}</p>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium">Max retry attempts</label>
+            <label className="text-sm font-medium">{t("Max retry attempts")}</label>
             <Input
               type="number"
               value={settings.max_attempts}
@@ -374,10 +348,10 @@ export function SidecarTab(): JSX.Element {
               min={1}
               max={10}
             />
-            <p className="text-xs text-muted-foreground">Retry on 403/429 (1-10)</p>
+            <p className="text-xs text-muted-foreground">{t("Retry on 403/429 (1-10)")}</p>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium">Retry delay (ms)</label>
+            <label className="text-sm font-medium">{t("Retry delay (ms)")}</label>
             <Input
               type="number"
               value={settings.retry_delay_ms}
@@ -386,7 +360,7 @@ export function SidecarTab(): JSX.Element {
               min={100}
               max={5000}
             />
-            <p className="text-xs text-muted-foreground">Base delay between retries (100-5000ms)</p>
+            <p className="text-xs text-muted-foreground">{t("Base delay between retries (100-5000ms)")}</p>
           </div>
         </div>
       </Surface>
@@ -399,44 +373,37 @@ export function SidecarTab(): JSX.Element {
               <ServerIcon className="h-5 w-5 text-violet-500" />
             </div>
             <div>
-              <h3 className="text-base font-semibold">Multi-IP Bind Proxies</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                Egress from specific IPs via per-IP CONNECT proxies. Each IP gets its own Go
-                proxy process on the loopback interface.
-              </p>
+              <h3 className="text-base font-semibold">{t("Multi-IP Bind Proxies")}</h3>
+              <p className="text-sm text-muted-foreground mt-1">{t("Egress from specific IPs via per-IP CONNECT proxies. Each IP gets its own Go proxy process on the loopback interface.")}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">
-              {proxies.length} proxy{proxies.length !== 1 ? "ies" : ""}
+              {proxies.length}{t(" proxy")}{proxies.length !== 1 ? "ies" : ""}
             </span>
           </div>
         </div>
 
         <div className="mt-6">
-          <label className="text-sm font-medium mb-2 block">Bind IP addresses</label>
+          <label className="text-sm font-medium mb-2 block">{t("Bind IP addresses")}</label>
           <BindIPEditor
             bindIPs={settings.bind_ips ?? []}
             onChange={(ips) => update("bind_ips", ips)}
           />
-          <p className="text-xs text-muted-foreground mt-2">
-            Add local IPs to enable per-IP egress. The entrypoint starts a Go CONNECT proxy for
-            each (ports 8981+). Providers with a matching{" "}
-            <code className="mx-0.5 rounded bg-muted px-1 py-0.5 text-[11px]">bind_ip</code>
-            will route through the corresponding proxy.
-          </p>
+          <p className="text-xs text-muted-foreground mt-2">{t("Add local IPs to enable per-IP egress. The entrypoint starts a Go CONNECT proxy for each (ports 8981+). Providers with a matching")}{" "}
+            <code className="mx-0.5 rounded bg-muted px-1 py-0.5 text-[11px]">bind_ip</code>{t("will route through the corresponding proxy.")}</p>
         </div>
 
         {proxies.length > 0 && (
           <div className="mt-4">
-            <label className="text-sm font-medium mb-2 block">Active proxies</label>
+            <label className="text-sm font-medium mb-2 block">{t("Active proxies")}</label>
             <div className="rounded-lg border border-border/60 overflow-x-auto">
               <table className="w-full text-sm min-w-[320px]">
                 <thead>
                   <tr className="border-b border-border/60 bg-muted/30">
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">IP Address</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Proxy Port</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Status</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">{t("IP Address")}</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">{t("Proxy Port")}</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">{t("Status")}</th>
                   </tr>
                 </thead>
                 <tbody>

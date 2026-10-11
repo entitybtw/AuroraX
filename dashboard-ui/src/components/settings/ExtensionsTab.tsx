@@ -53,6 +53,8 @@ import {
 } from "@/lib/api/extensions";
 import { SidecarPresetImportDialog } from "@/components/settings/SidecarPresetImportDialog";
 import { ExtensionJsonEditor } from "@/components/settings/ExtensionJsonEditor";
+import { SUPPORTED_LOCALES, changeLocale, t } from "@/lib/i18n";
+
 
 function isThemeOnly(ext: Extension): boolean {
   if (ext.type === "theme") return true;
@@ -239,24 +241,33 @@ export function ExtensionsTab(): JSX.Element {
     await qc.invalidateQueries({ queryKey: ["extensions", "ui"] });
   };
 
-  // Persist the active extension language: list + UI contributions are
-  // re-fetched, so every extension name, label and help text switches at once.
+  // Persist the active language and switch the whole dashboard: the locale is
+  // stored server-side (extension strings resolve against it), then the UI
+  // reloads with the matching translation catalog.
   const handleLocaleChange = async (locale: string) => {
     setLocaleBusy(true);
     try {
       await setExtensionLocale(locale);
       await invalidateExtensionQueries();
+      await changeLocale(locale); // loads catalog + reloads the page
     } catch (err) {
       setResult({
         ok: false,
-        message: err instanceof Error ? err.message : "Failed to set the extension language",
+        message: err instanceof Error ? err.message : t("Failed to set the language"),
         added: [],
         kept: [],
       });
-    } finally {
       setLocaleBusy(false);
     }
   };
+
+  // Every locale the dashboard itself ships translations for, plus any locale
+  // offered by installed language packs / embedded extension i18n.
+  const localeOptions = useMemo(() => {
+    const codes = new Set<string>(SUPPORTED_LOCALES);
+    for (const code of localeInfo?.available ?? []) codes.add(code);
+    return [...codes];
+  }, [localeInfo?.available]);
 
   const fields = selected?.ui?.fields ?? [];
   const themeOnly = selected ? isThemeOnly(selected) : false;
@@ -766,9 +777,7 @@ export function ExtensionsTab(): JSX.Element {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">
-        Loading extensions...
-      </div>
+      <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">{t("Loading extensions...")}</div>
     );
   }
 
@@ -779,10 +788,7 @@ export function ExtensionsTab(): JSX.Element {
         role="alert"
       >
         <AlertTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" />
-        <span>
-          Extensions can change the dashboard UI, sidecar settings, and Session Hub rules.
-          Install only extensions you trust and use them at your own risk.
-        </span>
+        <span>{t("Extensions can change the dashboard UI, sidecar settings, and Session Hub rules. Install only extensions you trust and use them at your own risk.")}</span>
       </div>
 
       {/* Header + toolbar */}
@@ -793,17 +799,14 @@ export function ExtensionsTab(): JSX.Element {
               <PuzzleIcon className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h3 className="text-base font-semibold">Extensions</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                Install and apply extensions — sidecar presets, themes, session hub headers, and
-                UI contributions.
-              </p>
+              <h3 className="text-base font-semibold">{t("Extensions")}</h3>
+              <p className="text-sm text-muted-foreground mt-1">{t("Install and apply extensions — sidecar presets, themes, session hub headers, and UI contributions.")}</p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <label
               className="flex h-10 items-center gap-1.5 rounded-md border border-border/50 bg-background/60 pl-2.5 pr-1 sm:h-9"
-              title="Language for extension names, labels and help — apply language packs to add more"
+              title={t("Language of the whole dashboard and of extension strings — language packs add more")}
             >
               <LanguagesIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <select
@@ -811,10 +814,10 @@ export function ExtensionsTab(): JSX.Element {
                 value={localeInfo?.locale ?? ""}
                 disabled={localeBusy}
                 onChange={(e) => void handleLocaleChange(e.target.value)}
-                aria-label="Extension language"
+                aria-label={t("Interface language")}
               >
-                <option value="">Source language</option>
-                {(localeInfo?.available ?? []).map((code) => (
+                <option value="">{t("Source language (English)")}</option>
+                {localeOptions.map((code) => (
                   <option key={code} value={code}>
                     {localeLabel(code)}
                   </option>
@@ -822,9 +825,7 @@ export function ExtensionsTab(): JSX.Element {
               </select>
             </label>
             <Button variant="outline" size="sm" onClick={() => setImportOpen(true)} className="h-10 gap-1.5 sm:h-9">
-              <UploadIcon className="h-3.5 w-3.5" />
-              Import
-            </Button>
+              <UploadIcon className="h-3.5 w-3.5" />{t("Import")}</Button>
             {selected ? (
               <>
                 <Button
@@ -835,11 +836,9 @@ export function ExtensionsTab(): JSX.Element {
                     setJsonEditorOpen(true);
                   }}
                   className="h-10 gap-1.5 sm:h-9"
-                  title="Edit the raw extension JSON"
+                  title={t("Edit the raw extension JSON")}
                 >
-                  <FileJsonIcon className="h-3.5 w-3.5" />
-                  Edit JSON
-                </Button>
+                  <FileJsonIcon className="h-3.5 w-3.5" />{t("Edit JSON")}</Button>
                 {companionFiles.map((key) => (
                   <Button
                     key={key}
@@ -853,13 +852,11 @@ export function ExtensionsTab(): JSX.Element {
                     title={`Edit companion file ${key}`}
                   >
                     <FileCodeIcon className="h-3.5 w-3.5" />
-                    {key.endsWith(".go") ? "Edit .go file" : `Edit ${key.split("/").pop()}`}
+                    {key.endsWith(".go") ? t("Edit .go file") : `Edit ${key.split("/").pop()}`}
                   </Button>
                 ))}
                 <Button variant="outline" size="sm" onClick={() => handleExport(selected)} className="h-10 gap-1.5 sm:h-9">
-                  <DownloadIcon className="h-3.5 w-3.5" />
-                  Export
-                </Button>
+                  <DownloadIcon className="h-3.5 w-3.5" />{t("Export")}</Button>
                 <Button
                   variant="outline"
                   size="sm"
@@ -867,9 +864,7 @@ export function ExtensionsTab(): JSX.Element {
                   disabled={selected.builtin || busy}
                   className="h-10 gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 sm:h-9"
                 >
-                  <Trash2Icon className="h-3.5 w-3.5" />
-                  Delete
-                </Button>
+                  <Trash2Icon className="h-3.5 w-3.5" />{t("Delete")}</Button>
               </>
             ) : null}
           </div>
@@ -877,7 +872,7 @@ export function ExtensionsTab(): JSX.Element {
 
         {loadError ? (
           <p className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-            {loadError instanceof Error ? loadError.message : "Failed to load extensions"}
+            {loadError instanceof Error ? loadError.message : t("Failed to load extensions")}
           </p>
         ) : null}
 
@@ -912,7 +907,7 @@ export function ExtensionsTab(): JSX.Element {
                         : "bg-muted text-muted-foreground"
                     }`}
                   >
-                    {ext.applied ? "Active" : "Inactive"}
+                    {ext.applied ? t("Active") : t("Inactive")}
                   </span>
                 </span>
                 <span className="text-xs text-muted-foreground line-clamp-2">{ext.tagline}</span>
@@ -920,17 +915,13 @@ export function ExtensionsTab(): JSX.Element {
             );
           })}
           {extensions.length === 0 && !loadError ? (
-            <div className="col-span-full rounded-lg border border-dashed border-border/60 bg-surface/50 p-6 text-center text-sm text-muted-foreground">
-              No extensions installed. Import extension JSON or install from a store below.
-            </div>
+            <div className="col-span-full rounded-lg border border-dashed border-border/60 bg-surface/50 p-6 text-center text-sm text-muted-foreground">{t("No extensions installed. Import extension JSON or install from a store below.")}</div>
           ) : null}
         </div>
 
         {/* Store browse */}
         <div className="mt-3 rounded-lg border border-border/40 bg-background/40 p-3">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-            Browse store
-          </p>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Browse store")}</p>
           <div className="mt-2 flex flex-col gap-2 sm:flex-row">
             <Input
               value={storeURL}
@@ -949,9 +940,7 @@ export function ExtensionsTab(): JSX.Element {
                 <RefreshCwIcon className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <GlobeIcon className="h-3.5 w-3.5" />
-              )}
-              Browse
-            </Button>
+              )}{t("Browse")}</Button>
           </div>
           <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
             <Input
@@ -960,7 +949,7 @@ export function ExtensionsTab(): JSX.Element {
               onKeyDown={(e) => {
                 if (e.key === "Enter") void handleAddStore();
               }}
-              placeholder="Save a store URL…"
+              placeholder={t("Save a store URL…")}
               className="h-11 sm:h-9 font-mono text-sm flex-1"
             />
             <Button
@@ -969,9 +958,7 @@ export function ExtensionsTab(): JSX.Element {
               onClick={() => void handleAddStore()}
               disabled={storeBusy || !newStoreURL.trim()}
               className="h-11 gap-1.5 sm:h-9"
-            >
-              Save store
-            </Button>
+            >{t("Save store")}</Button>
           </div>
           {savedStores.length > 0 ? (
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -987,7 +974,7 @@ export function ExtensionsTab(): JSX.Element {
                       setStoreURL(url);
                       handleBrowseStore(url);
                     }}
-                    title="Browse this store"
+                    title={t("Browse this store")}
                   >
                     {url}
                   </button>
@@ -1025,9 +1012,7 @@ export function ExtensionsTab(): JSX.Element {
                     disabled={storeBusy}
                     className="h-9 gap-1.5 sm:h-8"
                   >
-                    <DownloadIcon className="h-3.5 w-3.5" />
-                    Install
-                  </Button>
+                    <DownloadIcon className="h-3.5 w-3.5" />{t("Install")}</Button>
                 </div>
               ))}
             </div>
@@ -1081,15 +1066,11 @@ export function ExtensionsTab(): JSX.Element {
                       }}
                       className="h-9 w-56 text-sm"
                       autoFocus
-                      aria-label="Extension name"
+                      aria-label={t("Extension name")}
                     />
                     <Button size="sm" onClick={() => void handleRename()} disabled={busy} className="h-8 gap-1">
-                      <CheckCircleIcon className="h-3.5 w-3.5" />
-                      Save
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setRenaming(false)} disabled={busy} className="h-8">
-                      Cancel
-                    </Button>
+                      <CheckCircleIcon className="h-3.5 w-3.5" />{t("Save")}</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setRenaming(false)} disabled={busy} className="h-8">{t("Cancel")}</Button>
                   </div>
                 ) : (
                   <div className="flex flex-wrap items-center gap-2">
@@ -1112,7 +1093,7 @@ export function ExtensionsTab(): JSX.Element {
                       size="icon"
                       onClick={() => void handleMove(-1)}
                       disabled={busy}
-                      aria-label="Move up"
+                      aria-label={t("Move up")}
                       className="h-7 w-7"
                     >
                       <ArrowUpIcon className="h-3.5 w-3.5" />
@@ -1122,7 +1103,7 @@ export function ExtensionsTab(): JSX.Element {
                       size="icon"
                       onClick={() => void handleMove(1)}
                       disabled={busy}
-                      aria-label="Move down"
+                      aria-label={t("Move down")}
                       className="h-7 w-7"
                     >
                       <ArrowDownIcon className="h-3.5 w-3.5" />
@@ -1134,7 +1115,7 @@ export function ExtensionsTab(): JSX.Element {
                           : "bg-muted text-muted-foreground"
                       }`}
                     >
-                      {selected.applied ? "Active" : "Inactive"}
+                      {selected.applied ? t("Active") : t("Inactive")}
                     </span>
                   </div>
                 )}
@@ -1149,16 +1130,16 @@ export function ExtensionsTab(): JSX.Element {
                   onClick={() => void handleUpdateFromSource()}
                   disabled={busy || updateBusy}
                   className="h-9 gap-1.5"
-                  title={selected.source || "source resolves from configured stores"}
+                  title={selected.source || t("source resolves from configured stores")}
                 >
                   <RefreshCwIcon className={`h-3.5 w-3.5 ${updateBusy ? "animate-spin" : ""}`} />
                   {updateInfo?.update_available
                     ? `Update available (v${updateInfo.remote_version || "?"})`
-                    : "Update from source"}
+                    : t("Update from source")}
                 </Button>
               ) : null}
               <span className="text-xs text-muted-foreground">
-                {selected.applied ? "Disable" : "Enable"}
+                {selected.applied ? t("Disable") : t("Enable")}
               </span>
               <Switch
                 checked={Boolean(selected.applied)}
@@ -1179,9 +1160,7 @@ export function ExtensionsTab(): JSX.Element {
           {/* Sync source: where updates come from */}
           <div className="mt-4 rounded-md border border-border/40 bg-background/40 p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                Sync source
-              </p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Sync source")}</p>
               {!editingSource ? (
                 <div className="flex items-center gap-2">
                   {updateInfo ? (
@@ -1194,7 +1173,7 @@ export function ExtensionsTab(): JSX.Element {
                     >
                       {updateInfo.update_available
                         ? `Update available (v${updateInfo.remote_version || "?"})`
-                        : "Up to date"}
+                        : t("Up to date")}
                     </span>
                   ) : null}
                   <Button
@@ -1202,8 +1181,8 @@ export function ExtensionsTab(): JSX.Element {
                     size="icon"
                     className="h-7 w-7"
                     disabled={busy}
-                    aria-label="Edit sync source"
-                    title="Edit sync source"
+                    aria-label={t("Edit sync source")}
+                    title={t("Edit sync source")}
                     onClick={() => {
                       setSourceValue(selected.source ?? "");
                       setEditingSource(true);
@@ -1226,42 +1205,31 @@ export function ExtensionsTab(): JSX.Element {
                   placeholder="https://store.example.com/extensions/id.extension.json"
                   className="h-9 flex-1 font-mono text-xs"
                   autoFocus
-                  aria-label="Sync source URL"
+                  aria-label={t("Sync source URL")}
                 />
                 <div className="flex items-center gap-2">
                   <Button size="sm" onClick={() => void handleSaveSource()} disabled={busy} className="h-8 gap-1">
-                    <CheckCircleIcon className="h-3.5 w-3.5" />
-                    Save
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setEditingSource(false)} disabled={busy} className="h-8">
-                    Cancel
-                  </Button>
+                    <CheckCircleIcon className="h-3.5 w-3.5" />{t("Save")}</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingSource(false)} disabled={busy} className="h-8">{t("Cancel")}</Button>
                 </div>
               </div>
             ) : (
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span className="min-w-0 break-all font-mono text-xs text-muted-foreground">
-                  {selected.source || "not set — resolves from configured stores"}
+                  {selected.source || t("not set — resolves from configured stores")}
                 </span>
                 {updateInfo ? (
-                  <span className="text-[11px] text-muted-foreground">
-                    installed v{updateInfo.current_version || selected.version || "?"} · remote v
-                    {updateInfo.remote_version || "?"}
+                  <span className="text-[11px] text-muted-foreground">{t("installed v")}{updateInfo.current_version || selected.version || "?"}{t(" · remote v")}{updateInfo.remote_version || "?"}
                   </span>
                 ) : null}
               </div>
             )}
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              Updates are fetched from this URL. Clear it to fall back to a store that carries
-              this extension id, or point it at another repo to track a fork.
-            </p>
+            <p className="mt-2 text-[11px] text-muted-foreground">{t("Updates are fetched from this URL. Clear it to fall back to a store that carries this extension id, or point it at another repo to track a fork.")}</p>
           </div>
 
           {(selected.requirements?.length ?? 0) > 0 ? (
             <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                Requirements
-              </p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">{t("Requirements")}</p>
               <ul className="mt-1 list-disc pl-4 text-xs text-muted-foreground">
                 {selected.requirements?.map((req) => (
                   <li key={req}>{req}</li>
@@ -1293,9 +1261,7 @@ export function ExtensionsTab(): JSX.Element {
           {/* Editable ui.fields */}
           {fields.length > 0 ? (
             <div className="mt-4 rounded-lg border border-border/40 bg-background/40 p-3">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                Extension settings
-              </p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Extension settings")}</p>
               <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {primaryFields.map(renderField)}
               </div>
@@ -1308,7 +1274,7 @@ export function ExtensionsTab(): JSX.Element {
                     aria-expanded={showAdvancedFields}
                   >
                     <span className={`transform transition-transform ${showAdvancedFields ? "rotate-90" : ""}`}>&#9654;</span>
-                    {showAdvancedFields ? "Hide" : "Show"} advanced settings ({advancedFields.length})
+                    {showAdvancedFields ? t("Hide") : t("Show")}{t(" advanced settings (")}{advancedFields.length})
                   </button>
                   {showAdvancedFields ? (
                     <div className="mt-2 grid grid-cols-1 gap-3 border-t border-border/30 pt-3 sm:grid-cols-2">
@@ -1325,11 +1291,9 @@ export function ExtensionsTab(): JSX.Element {
                     onClick={() => void handleResetConfig()}
                     disabled={busy}
                     className="h-10 gap-1.5 sm:h-9"
-                    title="Clear saved overrides and restore the extension defaults"
+                    title={t("Clear saved overrides and restore the extension defaults")}
                   >
-                    <RotateCcwIcon className="h-3.5 w-3.5" />
-                    Reset to defaults
-                  </Button>
+                    <RotateCcwIcon className="h-3.5 w-3.5" />{t("Reset to defaults")}</Button>
                 ) : (
                   <span />
                 )}
@@ -1343,9 +1307,7 @@ export function ExtensionsTab(): JSX.Element {
                     <RefreshCwIcon className="h-3.5 w-3.5 animate-spin" />
                   ) : (
                     <CheckCircleIcon className="h-3.5 w-3.5" />
-                  )}
-                  Save settings
-                </Button>
+                  )}{t("Save settings")}</Button>
               </div>
             </div>
           ) : null}
@@ -1354,25 +1316,19 @@ export function ExtensionsTab(): JSX.Element {
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end">
             {!themeOnly ? (
               <div className="flex flex-1 flex-col gap-1.5">
-                <label className="text-sm font-medium">Target pool or provider</label>
+                <label className="text-sm font-medium">{t("Target pool or provider")}</label>
                 <Input
                   value={target}
                   onChange={(e) => setTarget(e.target.value)}
                   className="h-11 font-mono text-sm sm:h-9 sm:max-w-xs"
                   placeholder="my-pool"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Session Hub rules install against this name (a pool applies to all members).
-                  Optional for themes.
-                </p>
+                <p className="text-xs text-muted-foreground">{t("Session Hub rules install against this name (a pool applies to all members). Optional for themes.")}</p>
               </div>
             ) : (
               <div className="flex flex-1 flex-col gap-1.5">
-                <label className="text-sm font-medium">Theme</label>
-                <p className="text-xs text-muted-foreground">
-                  This extension only contributes theme / UI. Apply to activate it — no Session Hub
-                  target required.
-                </p>
+                <label className="text-sm font-medium">{t("Theme")}</label>
+                <p className="text-xs text-muted-foreground">{t("This extension only contributes theme / UI. Apply to activate it — no Session Hub target required.")}</p>
               </div>
             )}
             <Button
@@ -1384,18 +1340,14 @@ export function ExtensionsTab(): JSX.Element {
                 <RefreshCwIcon className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <SparklesIcon className="h-3.5 w-3.5" />
-              )}
-              Apply
-            </Button>
+              )}{t("Apply")}</Button>
             <Button
               variant="outline"
               onClick={handleFullApply}
               disabled={busy}
               className="h-11 w-full gap-1.5 sm:h-9 sm:w-auto"
             >
-              <PlugZapIcon className="h-3.5 w-3.5" />
-              Apply everywhere
-            </Button>
+              <PlugZapIcon className="h-3.5 w-3.5" />{t("Apply everywhere")}</Button>
           </div>
 
           {result ? (
@@ -1408,8 +1360,7 @@ export function ExtensionsTab(): JSX.Element {
               <div className="text-muted-foreground">
                 <span className="font-medium text-foreground">{result.message}</span>
                 {result.added.length > 0 ? (
-                  <div className="mt-1">
-                    Added:{" "}
+                  <div className="mt-1">{t("Added:")}{" "}
                     {result.added.map((h) => (
                       <code key={h} className="mr-1 rounded bg-muted px-1 py-0.5 font-mono">
                         {h}
@@ -1418,8 +1369,7 @@ export function ExtensionsTab(): JSX.Element {
                   </div>
                 ) : null}
                 {result.kept.length > 0 ? (
-                  <div className="mt-1">
-                    Kept existing:{" "}
+                  <div className="mt-1">{t("Kept existing:")}{" "}
                     {result.kept.map((h) => (
                       <code key={h} className="mr-1 rounded bg-muted px-1 py-0.5 font-mono">
                         {h}
@@ -1434,10 +1384,7 @@ export function ExtensionsTab(): JSX.Element {
           {selected.headers?.length ? (
             <div className="mt-3 flex items-start gap-2 rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
               <AlertTriangleIcon className="h-4 w-4 shrink-0 mt-0.5" />
-              <span className="flex flex-wrap items-center gap-1">
-                Existing Session Hub rules are never overwritten — only missing headers are added
-                when a target is set.
-              </span>
+              <span className="flex flex-wrap items-center gap-1">{t("Existing Session Hub rules are never overwritten — only missing headers are added when a target is set.")}</span>
             </div>
           ) : null}
         </Surface>

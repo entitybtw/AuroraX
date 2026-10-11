@@ -2,6 +2,8 @@ import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { t } from "@/lib/i18n";
+
 
 export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
@@ -59,7 +61,7 @@ export const DialogContent = React.forwardRef<
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
               "touch-manipulation"
             )}
-            aria-label="Close dialog"
+            aria-label={t("Close dialog")}
           >
             <X className="h-5 w-5 md:h-4 md:w-4" aria-hidden />
           </DialogPrimitive.Close>

@@ -11,6 +11,8 @@ import {
 } from "recharts";
 import { formatTokens, formatCost } from "@/lib/format/numbers";
 import type { ModelUsage } from "@/lib/api/usage-types";
+import { t } from "@/lib/i18n";
+
 
 export interface ProviderSplitChartProps {
   models: ModelUsage[] | undefined;
@@ -56,9 +58,9 @@ export function ProviderSplitChart({ models, isLoading, mode }: ProviderSplitCha
   return (
     <div className="w-full p-4" style={{ height: 350 }}>
       {isLoading ? (
-        <div className="flex h-full items-center justify-center text-[13px] text-muted-foreground">Loading...</div>
+        <div className="flex h-full items-center justify-center text-[13px] text-muted-foreground">{t("Loading...")}</div>
       ) : data.length === 0 ? (
-        <div className="flex h-full items-center justify-center text-[13px] text-muted-foreground">No provider data available.</div>
+        <div className="flex h-full items-center justify-center text-[13px] text-muted-foreground">{t("No provider data available.")}</div>
       ) : (
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>

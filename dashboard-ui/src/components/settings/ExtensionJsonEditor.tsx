@@ -31,6 +31,8 @@ import {
   XIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { t } from "@/lib/i18n";
+
 
 const MATCH_CAP = 5000;
 
@@ -169,7 +171,7 @@ export function ExtensionJsonEditor({
     if (!fileMode) return validateJson(text);
     // Companion sources are arbitrary text; only .json files must parse.
     if (fileKey?.toLowerCase().endsWith(".json")) return validateJson(text);
-    if (text.trim() === "") return { ok: false, message: "File is empty." };
+    if (text.trim() === "") return { ok: false, message: t("File is empty.") };
     return { ok: true };
   }, [text, fileMode, fileKey]);
   const matchResult = React.useMemo(
@@ -408,13 +410,13 @@ export function ExtensionJsonEditor({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileJsonIcon className="h-5 w-5 text-primary" />
-            {fileMode ? `Edit ${fileKey}` : "Edit JSON"}
+            {fileMode ? `Edit ${fileKey}` : t("Edit JSON")}
             {extensionName ? ` — ${extensionName}` : ""}
           </DialogTitle>
           <DialogDescription>
             {fileMode
-              ? "Companion source file referenced by the extension manifest. Saving re-imports the manifest with the updated file — refs are kept so updates from source still work. Press Ctrl+S to save."
-              : "Raw extension document with find and replace. Saving re-imports it — applied state, operator settings and sync source are preserved. Press Ctrl+F to search, Ctrl+H for replace, Ctrl+S to save."}
+              ? t("Companion source file referenced by the extension manifest. Saving re-imports the manifest with the updated file — refs are kept so updates from source still work. Press Ctrl+S to save.")
+              : t("Raw extension document with find and replace. Saving re-imports it — applied state, operator settings and sync source are preserved. Press Ctrl+F to search, Ctrl+H for replace, Ctrl+S to save.")}
           </DialogDescription>
         </DialogHeader>
 
@@ -425,11 +427,9 @@ export function ExtensionJsonEditor({
             size="sm"
             onClick={() => openFind()}
             className="h-8 gap-1.5"
-            title="Find (Ctrl+F)"
+            title={t("Find (Ctrl+F)")}
           >
-            <SearchIcon className="h-3.5 w-3.5" />
-            Find &amp; Replace
-          </Button>
+            <SearchIcon className="h-3.5 w-3.5" />{t("Find & Replace")}</Button>
           {!fileMode ? (
             <Button
               variant="outline"
@@ -437,11 +437,9 @@ export function ExtensionJsonEditor({
               onClick={formatDocument}
               disabled={!validation.ok}
               className="h-8 gap-1.5"
-              title="Prettify the document"
+              title={t("Prettify the document")}
             >
-              <Wand2Icon className="h-3.5 w-3.5" />
-              Format
-            </Button>
+              <Wand2Icon className="h-3.5 w-3.5" />{t("Format")}</Button>
           ) : null}
           <span
             className={cn(
@@ -452,13 +450,11 @@ export function ExtensionJsonEditor({
             )}
           >
             {validation.ok
-              ? "Valid JSON"
+              ? t("Valid JSON")
               : `Invalid${validation.line ? ` · line ${validation.line}, col ${validation.column ?? "?"}` : ""}`}
           </span>
           {dirty ? (
-            <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-500">
-              Unsaved
-            </span>
+            <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-500">{t("Unsaved")}</span>
           ) : null}
         </div>
 
@@ -475,8 +471,8 @@ export function ExtensionJsonEditor({
                   setPendingSelect(e.target.value ? 0 : null);
                 }}
                 onKeyDown={onFindKeyDown}
-                placeholder="Find"
-                aria-label="Find"
+                placeholder={t("Find")}
+                aria-label={t("Find")}
                 className="h-8 w-full min-w-0 flex-1 font-mono text-xs sm:w-56"
               />
               <span className="min-w-14 font-mono text-xs text-muted-foreground" aria-live="polite">
@@ -488,8 +484,8 @@ export function ExtensionJsonEditor({
                 className="h-8 w-8"
                 onClick={() => gotoMatch(matchIndex - 1)}
                 disabled={ranges.length === 0}
-                aria-label="Previous match"
-                title="Previous match (Shift+Enter)"
+                aria-label={t("Previous match")}
+                title={t("Previous match (Shift+Enter)")}
               >
                 <ArrowUpIcon className="h-3.5 w-3.5" />
               </Button>
@@ -499,8 +495,8 @@ export function ExtensionJsonEditor({
                 className="h-8 w-8"
                 onClick={() => gotoMatch(matchIndex + 1)}
                 disabled={ranges.length === 0}
-                aria-label="Next match"
-                title="Next match (Enter)"
+                aria-label={t("Next match")}
+                title={t("Next match (Enter)")}
               >
                 <ArrowDownIcon className="h-3.5 w-3.5" />
               </Button>
@@ -512,11 +508,11 @@ export function ExtensionJsonEditor({
                   setCaseSensitive((v) => !v);
                   setMatchIndex(0);
                 }}
-                aria-label="Match case"
+                aria-label={t("Match case")}
                 aria-pressed={caseSensitive}
-                title="Match case"
+                title={t("Match case")}
               >
-                <span className="text-xs font-bold">Aa</span>
+                <span className="text-xs font-bold">{t("Aa")}</span>
               </Button>
               <Button
                 variant="ghost"
@@ -526,9 +522,9 @@ export function ExtensionJsonEditor({
                   setUseRegex((v) => !v);
                   setMatchIndex(0);
                 }}
-                aria-label="Regular expression"
+                aria-label={t("Regular expression")}
                 aria-pressed={useRegex}
-                title="Regular expression"
+                title={t("Regular expression")}
               >
                 <span className="text-xs font-bold">.*</span>
               </Button>
@@ -537,8 +533,8 @@ export function ExtensionJsonEditor({
                 size="icon"
                 className="h-8 w-8"
                 onClick={() => setFindOpen(false)}
-                aria-label="Close find bar"
-                title="Close (Esc)"
+                aria-label={t("Close find bar")}
+                title={t("Close (Esc)")}
               >
                 <XIcon className="h-3.5 w-3.5" />
               </Button>
@@ -557,8 +553,8 @@ export function ExtensionJsonEditor({
                     taRef.current?.focus();
                   }
                 }}
-                placeholder="Replace with"
-                aria-label="Replace with"
+                placeholder={t("Replace with")}
+                aria-label={t("Replace with")}
                 className="h-8 w-full min-w-0 flex-1 font-mono text-xs sm:w-56"
               />
               <Button
@@ -568,18 +564,14 @@ export function ExtensionJsonEditor({
                 onClick={replaceCurrent}
                 disabled={ranges.length === 0}
               >
-                <ReplaceIcon className="h-3.5 w-3.5" />
-                Replace
-              </Button>
+                <ReplaceIcon className="h-3.5 w-3.5" />{t("Replace")}</Button>
               <Button
                 variant="outline"
                 size="sm"
                 className="h-8 gap-1.5"
                 onClick={replaceAll}
                 disabled={ranges.length === 0}
-              >
-                Replace all
-              </Button>
+              >{t("Replace all")}</Button>
             </div>
             {matchResult.error ? (
               <p className="text-xs text-destructive">{matchResult.error}</p>
@@ -621,18 +613,16 @@ export function ExtensionJsonEditor({
             }}
             spellCheck={false}
             wrap="off"
-            aria-label={fileMode ? `File ${fileKey}` : "Extension JSON"}
-            placeholder={loading ? "Loading…" : "{}"}
+            aria-label={fileMode ? `File ${fileKey}` : t("Extension JSON")}
+            placeholder={loading ? t("Loading…") : "{}"}
             className="h-full min-w-0 flex-1 resize-none bg-transparent px-3 pt-2 font-mono text-xs leading-5 text-foreground caret-accent outline-none placeholder:text-muted-foreground/50"
           />
         </div>
 
         {/* Status bar */}
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 font-mono text-[11px] text-muted-foreground">
-          <span>
-            Ln {cursor.line}, Col {cursor.column} · {lineCount} lines · {text.length} chars
-          </span>
-          {find.trim() && !matchResult.error ? <span>{matchLabel} matches</span> : null}
+          <span>{t("Ln ")}{cursor.line}{t(", Col ")}{cursor.column} · {lineCount}{t(" lines · ")}{text.length}{t(" chars")}</span>
+          {find.trim() && !matchResult.error ? <span>{matchLabel}{t(" matches")}</span> : null}
         </div>
 
         {saveError ? (
@@ -647,9 +637,7 @@ export function ExtensionJsonEditor({
             onClick={() => handleOpenChange(false)}
             disabled={saving}
             className="w-full sm:w-auto"
-          >
-            Close
-          </Button>
+          >{t("Close")}</Button>
           <Button
             onClick={() => void handleSave()}
             disabled={!validation.ok || loading || saving || !dirty || Boolean(loadError)}
@@ -659,9 +647,7 @@ export function ExtensionJsonEditor({
               <RefreshCwIcon className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <SaveIcon className="h-3.5 w-3.5" />
-            )}
-            Save
-          </Button>
+            )}{t("Save")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

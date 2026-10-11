@@ -17,6 +17,8 @@ import type { UsageQueryFilters } from "@/lib/api/usage-types";
 import { TenantScopeSelect } from "@/components/tenant/TenantScopeSelect";
 import { useTenantScope } from "@/lib/tenant/tenant-scope";
 import { format } from "date-fns";
+import { t } from "@/lib/i18n";
+
 
 export function UsagePage(): JSX.Element {
   const range = useDateRange("30d");
@@ -82,8 +84,8 @@ export function UsagePage(): JSX.Element {
     <div className="flex flex-col gap-6">
       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 pt-4 border-b border-border/60">
         <div className="min-w-0 flex-1">
-          <h1 className="font-display text-[28px] md:text-[34px] font-normal leading-tight tracking-tight text-foreground">Usage Analytics</h1>
-          <p className="mt-1.5 text-sm md:text-[15px] text-muted-foreground">Track requests, tokens, and costs across your gateway.</p>
+          <h1 className="font-display text-[28px] md:text-[34px] font-normal leading-tight tracking-tight text-foreground">{t("Usage Analytics")}</h1>
+          <p className="mt-1.5 text-sm md:text-[15px] text-muted-foreground">{t("Track requests, tokens, and costs across your gateway.")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <TenantScopeSelect />
@@ -91,15 +93,11 @@ export function UsagePage(): JSX.Element {
             <button
               className={`rounded px-3 py-1 text-sm font-medium transition-colors ${usageMode === "tokens" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50"}`}
               onClick={() => setUsageMode("tokens")}
-            >
-              Tokens
-            </button>
+            >{t("Tokens")}</button>
             <button
               className={`rounded px-3 py-1 text-sm font-medium transition-colors ${usageMode === "costs" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50"}`}
               onClick={() => setUsageMode("costs")}
-            >
-              Costs
-            </button>
+            >{t("Costs")}</button>
           </div>
           <DateRangeSelect range={range} />
         </div>
@@ -107,7 +105,7 @@ export function UsagePage(): JSX.Element {
 
       <Surface className="grid grid-cols-1 gap-px bg-border sm:grid-cols-3">
         <div className="bg-surface p-6 hover:bg-surface-hover/50 transition-colors group relative overflow-hidden">
-          <p className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider group-hover:text-foreground/80 transition-colors relative z-10">Total Requests</p>
+          <p className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider group-hover:text-foreground/80 transition-colors relative z-10">{t("Total Requests")}</p>
           <p className="mt-4 flex items-baseline gap-x-2 relative z-10">
             <span className="text-[40px] leading-none font-bold tracking-tight text-foreground" style={{ fontFeatureSettings: '"tnum"' }}>
               {summaryLoading ? "..." : formatNumber(summary?.total_requests ?? 0)}
@@ -115,7 +113,7 @@ export function UsagePage(): JSX.Element {
           </p>
         </div>
         <div className="bg-surface p-6 hover:bg-surface-hover/50 transition-colors group relative overflow-hidden">
-          <p className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider group-hover:text-foreground/80 transition-colors relative z-10">Tokens Processed</p>
+          <p className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider group-hover:text-foreground/80 transition-colors relative z-10">{t("Tokens Processed")}</p>
           <p className="mt-4 flex items-baseline gap-x-2 relative z-10">
             <span className="text-[40px] leading-none font-bold tracking-tight text-foreground" style={{ fontFeatureSettings: '"tnum"' }}>
               {summaryLoading ? "..." : formatNumber(summary?.total_tokens ?? 0)}
@@ -123,7 +121,7 @@ export function UsagePage(): JSX.Element {
           </p>
         </div>
         <div className="bg-surface p-6 hover:bg-surface-hover/50 transition-colors group relative overflow-hidden">
-          <p className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider group-hover:text-foreground/80 transition-colors relative z-10">Estimated Cost</p>
+          <p className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider group-hover:text-foreground/80 transition-colors relative z-10">{t("Estimated Cost")}</p>
           <p className="mt-4 flex items-baseline gap-x-2 relative z-10">
             <span className="text-[40px] leading-none font-bold tracking-tight text-success" style={{ fontFeatureSettings: '"tnum"' }}>
               {summaryLoading ? "..." : formatCost(summary?.total_cost)}
@@ -141,20 +139,20 @@ export function UsagePage(): JSX.Element {
           <div className="border-b border-border/40 bg-surface-hover/30 p-5 flex items-center justify-between backdrop-blur-sm z-10 relative">
             <div className="flex items-center gap-3">
               <div className="h-6 w-1.5 bg-accent"></div>
-              <h3 className="font-semibold text-[17px] tracking-tight text-foreground">{usageMode === "tokens" ? "Tokens by Model" : "Cost by Model"}</h3>
+              <h3 className="font-semibold text-[17px] tracking-tight text-foreground">{usageMode === "tokens" ? t("Tokens by Model") : t("Cost by Model")}</h3>
             </div>
             <div className="flex items-center border border-border/40 bg-background/50 p-1">
               <button
                 className={`rounded px-2 py-1 text-[13px] transition-colors font-medium ${modelUsageView === "chart" ? "bg-accent/15 text-accent border border-accent/20" : "text-muted-foreground hover:bg-surface-hover/80"}`}
                 onClick={() => setModelUsageView("chart")}
-                title="Chart View"
+                title={t("Chart View")}
               >
                 <BarChart2Icon className="h-4 w-4" />
               </button>
               <button
                 className={`rounded px-2 py-1 text-[13px] transition-colors font-medium ${modelUsageView === "table" ? "bg-accent/15 text-accent border border-accent/20" : "text-muted-foreground hover:bg-surface-hover/80"}`}
                 onClick={() => setModelUsageView("table")}
-                title="Table View"
+                title={t("Table View")}
               >
                 <TableIcon className="h-4 w-4" />
               </button>
@@ -162,11 +160,11 @@ export function UsagePage(): JSX.Element {
           </div>
           <div className="flex-1 overflow-auto bg-background/30">
             {modelUsageLoading ? (
-              <div className="flex h-full items-center justify-center p-8 text-[13px] text-muted-foreground">Loading...</div>
+              <div className="flex h-full items-center justify-center p-8 text-[13px] text-muted-foreground">{t("Loading...")}</div>
             ) : modelUsageError ? (
-              <div className="flex h-full items-center justify-center p-8 text-[13px] text-destructive">API error: {modelUsageError.message}</div>
+              <div className="flex h-full items-center justify-center p-8 text-[13px] text-destructive">{t("API error: ")}{modelUsageError.message}</div>
             ) : modelUsage.length === 0 ? (
-              <div className="flex h-full items-center justify-center p-8 text-[13px] text-muted-foreground">No usage found for this period.</div>
+              <div className="flex h-full items-center justify-center p-8 text-[13px] text-muted-foreground">{t("No usage found for this period.")}</div>
             ) : modelUsageView === "chart" ? (
               usageMode === "tokens" ? (
                 <ModelSplitChart models={modelUsage} isLoading={modelUsageLoading} />
@@ -178,9 +176,9 @@ export function UsagePage(): JSX.Element {
                 <DataTable>
               <thead>
                 <tr className="bg-surface-hover/40 backdrop-blur-sm">
-                  <Th>Model</Th>
-                  <Th className="hidden sm:table-cell">Provider</Th>
-                  <Th className="text-right">Total {usageMode === "tokens" ? "Tokens" : "Cost"}</Th>
+                  <Th>{t("Model")}</Th>
+                  <Th className="hidden sm:table-cell">{t("Provider")}</Th>
+                  <Th className="text-right">{t("Total ")}{usageMode === "tokens" ? t("Tokens") : t("Cost")}</Th>
                 </tr>
               </thead>
               <tbody>
@@ -208,20 +206,20 @@ export function UsagePage(): JSX.Element {
           <div className="border-b border-border/40 bg-surface-hover/30 p-5 flex items-center justify-between backdrop-blur-sm z-10 relative">
             <div className="flex items-center gap-3">
               <div className="h-6 w-1.5 bg-accent"></div>
-              <h3 className="font-semibold text-[17px] tracking-tight text-foreground">{usageMode === "tokens" ? "Tokens by Provider" : "Cost by Provider"}</h3>
+              <h3 className="font-semibold text-[17px] tracking-tight text-foreground">{usageMode === "tokens" ? t("Tokens by Provider") : t("Cost by Provider")}</h3>
             </div>
             <div className="flex items-center border border-border/40 bg-background/50 p-1">
               <button
                 className={`rounded px-2 py-1 text-[13px] transition-colors font-medium ${providerUsageView === "chart" ? "bg-accent/15 text-accent border border-accent/20" : "text-muted-foreground hover:bg-surface-hover/80"}`}
                 onClick={() => setProviderUsageView("chart")}
-                title="Chart View"
+                title={t("Chart View")}
               >
                 <PieChartIcon className="h-4 w-4" />
               </button>
               <button
                 className={`rounded px-2 py-1 text-[13px] transition-colors font-medium ${providerUsageView === "table" ? "bg-accent/15 text-accent border border-accent/20" : "text-muted-foreground hover:bg-surface-hover/80"}`}
                 onClick={() => setProviderUsageView("table")}
-                title="Table View"
+                title={t("Table View")}
               >
                 <TableIcon className="h-4 w-4" />
               </button>
@@ -229,11 +227,11 @@ export function UsagePage(): JSX.Element {
           </div>
           <div className="flex-1 overflow-auto bg-background/30">
             {modelUsageLoading ? (
-              <div className="flex h-full items-center justify-center p-8 text-[13px] text-muted-foreground">Loading...</div>
+              <div className="flex h-full items-center justify-center p-8 text-[13px] text-muted-foreground">{t("Loading...")}</div>
             ) : modelUsageError ? (
-              <div className="flex h-full items-center justify-center p-8 text-[13px] text-destructive">API error: {modelUsageError.message}</div>
+              <div className="flex h-full items-center justify-center p-8 text-[13px] text-destructive">{t("API error: ")}{modelUsageError.message}</div>
             ) : modelUsage.length === 0 ? (
-              <div className="flex h-full items-center justify-center p-8 text-[13px] text-muted-foreground">No usage found for this period.</div>
+              <div className="flex h-full items-center justify-center p-8 text-[13px] text-muted-foreground">{t("No usage found for this period.")}</div>
             ) : providerUsageView === "chart" ? (
               <ProviderSplitChart models={modelUsage} isLoading={modelUsageLoading} mode={usageMode} />
             ) : (
@@ -241,8 +239,8 @@ export function UsagePage(): JSX.Element {
                 <DataTable>
                   <thead>
                     <tr className="bg-surface-hover/40 backdrop-blur-sm">
-                      <Th>Provider</Th>
-                      <Th className="text-right">Total {usageMode === "tokens" ? "Tokens" : "Cost"}</Th>
+                      <Th>{t("Provider")}</Th>
+                      <Th className="text-right">{t("Total ")}{usageMode === "tokens" ? t("Tokens") : t("Cost")}</Th>
                     </tr>
                   </thead>
                   <tbody>
@@ -281,20 +279,20 @@ export function UsagePage(): JSX.Element {
           <div className="border-b border-border/40 bg-surface-hover/30 p-5 flex items-center justify-between backdrop-blur-sm z-10 relative">
             <div className="flex items-center gap-3">
               <div className="h-6 w-1.5 bg-accent"></div>
-              <h3 className="font-semibold text-[17px] tracking-tight text-foreground">{usageMode === "tokens" ? "Usage by User Path" : "Cost by User Path"}</h3>
+              <h3 className="font-semibold text-[17px] tracking-tight text-foreground">{usageMode === "tokens" ? t("Usage by User Path") : t("Cost by User Path")}</h3>
             </div>
             <div className="flex items-center border border-border/40 bg-background/50 p-1">
               <button
                 className={`rounded px-2 py-1 text-[13px] transition-colors font-medium ${userPathUsageView === "chart" ? "bg-accent/15 text-accent border border-accent/20" : "text-muted-foreground hover:bg-surface-hover/80"}`}
                 onClick={() => setUserPathUsageView("chart")}
-                title="Chart View"
+                title={t("Chart View")}
               >
                 <BarChart2Icon className="h-4 w-4" />
               </button>
               <button
                 className={`rounded px-2 py-1 text-[13px] transition-colors font-medium ${userPathUsageView === "table" ? "bg-accent/15 text-accent border border-accent/20" : "text-muted-foreground hover:bg-surface-hover/80"}`}
                 onClick={() => setUserPathUsageView("table")}
-                title="Table View"
+                title={t("Table View")}
               >
                 <TableIcon className="h-4 w-4" />
               </button>
@@ -302,11 +300,11 @@ export function UsagePage(): JSX.Element {
           </div>
           <div className="flex-1 overflow-auto bg-background/30">
             {userPathUsageLoading ? (
-              <div className="flex h-full items-center justify-center p-8 text-[13px] text-muted-foreground">Loading...</div>
+              <div className="flex h-full items-center justify-center p-8 text-[13px] text-muted-foreground">{t("Loading...")}</div>
             ) : userPathUsageError ? (
-              <div className="flex h-full items-center justify-center p-8 text-[13px] text-destructive">API error: {userPathUsageError.message}</div>
+              <div className="flex h-full items-center justify-center p-8 text-[13px] text-destructive">{t("API error: ")}{userPathUsageError.message}</div>
             ) : userPathUsage.length === 0 ? (
-              <div className="flex h-full items-center justify-center p-8 text-[13px] text-muted-foreground">No user paths found for this period.</div>
+              <div className="flex h-full items-center justify-center p-8 text-[13px] text-muted-foreground">{t("No user paths found for this period.")}</div>
             ) : userPathUsageView === "chart" ? (
               <UserPathChart userPaths={userPathUsage} isLoading={userPathUsageLoading} mode={usageMode} />
             ) : (
@@ -314,8 +312,8 @@ export function UsagePage(): JSX.Element {
                 <DataTable>
                   <thead>
                     <tr className="bg-surface-hover/40 backdrop-blur-sm">
-                      <Th>User Path</Th>
-                      <Th className="text-right">Total {usageMode === "tokens" ? "Tokens" : "Cost"}</Th>
+                      <Th>{t("User Path")}</Th>
+                      <Th className="text-right">{t("Total ")}{usageMode === "tokens" ? t("Tokens") : t("Cost")}</Th>
                     </tr>
                   </thead>
                   <tbody>
@@ -343,30 +341,30 @@ export function UsagePage(): JSX.Element {
         <div className="border-b border-border/40 bg-surface-hover/30 p-5 flex flex-col gap-4 backdrop-blur-sm z-10 relative">
           <div className="flex items-center gap-3">
             <div className="h-6 w-1.5 bg-accent"></div>
-            <h3 className="font-semibold text-[17px] tracking-tight text-foreground">Request Log Stream</h3>
+            <h3 className="font-semibold text-[17px] tracking-tight text-foreground">{t("Request Log Stream")}</h3>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <SearchInput
-              placeholder="Search requests..."
+              placeholder={t("Search requests...")}
               value={logSearch}
               onChange={(e) => setLogSearch(e.target.value)}
               className="h-9"
               containerClassName="flex-1 min-w-[200px]"
             />
             <Input
-              placeholder="Model filter"
+              placeholder={t("Model filter")}
               value={logModel}
               onChange={(e) => setLogModel(e.target.value)}
               className="w-full sm:w-32 h-11 md:h-9"
             />
             <Input
-              placeholder="Provider filter"
+              placeholder={t("Provider filter")}
               value={logProvider}
               onChange={(e) => setLogProvider(e.target.value)}
               className="w-full sm:w-32 h-11 md:h-9"
             />
             <Input
-              placeholder="User path filter"
+              placeholder={t("User path filter")}
               value={logUserPath}
               onChange={(e) => setLogUserPath(e.target.value)}
               className="w-full sm:w-40 h-11 md:h-9"
@@ -375,22 +373,22 @@ export function UsagePage(): JSX.Element {
         </div>
         <div className="flex-1 overflow-auto bg-background/30">
           {logsLoading ? (
-            <div className="flex items-center justify-center p-12 text-[13px] text-muted-foreground">Loading request logs...</div>
+            <div className="flex items-center justify-center p-12 text-[13px] text-muted-foreground">{t("Loading request logs...")}</div>
           ) : logs.length === 0 ? (
-            <div className="flex items-center justify-center p-12 text-[13px] text-muted-foreground">No requests found matching your filters.</div>
+            <div className="flex items-center justify-center p-12 text-[13px] text-muted-foreground">{t("No requests found matching your filters.")}</div>
           ) : (
             <TableWrap className="border-0 rounded-none shadow-none">
               <DataTable>
                 <thead>
                   <tr className="bg-surface-hover/40 backdrop-blur-sm">
-                    <Th>Timestamp</Th>
-                    <Th>Model</Th>
-                    <Th className="hidden md:table-cell">Provider</Th>
-                    <Th className="hidden lg:table-cell">User Path</Th>
-                    <Th className="hidden sm:table-cell text-right">{usageMode === "costs" ? "Input Cost" : "Input"}</Th>
-                    <Th className="hidden sm:table-cell text-right">{usageMode === "costs" ? "Output Cost" : "Output"}</Th>
-                    <Th className="text-right">{usageMode === "costs" ? "Total Cost" : "Total"}</Th>
-                    {usageMode === "tokens" && <Th className="text-right">Cost</Th>}
+                    <Th>{t("Timestamp")}</Th>
+                    <Th>{t("Model")}</Th>
+                    <Th className="hidden md:table-cell">{t("Provider")}</Th>
+                    <Th className="hidden lg:table-cell">{t("User Path")}</Th>
+                    <Th className="hidden sm:table-cell text-right">{usageMode === "costs" ? t("Input Cost") : t("Input")}</Th>
+                    <Th className="hidden sm:table-cell text-right">{usageMode === "costs" ? t("Output Cost") : t("Output")}</Th>
+                    <Th className="text-right">{usageMode === "costs" ? t("Total Cost") : t("Total")}</Th>
+                    {usageMode === "tokens" && <Th className="text-right">{t("Cost")}</Th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -443,16 +441,14 @@ export function UsagePage(): JSX.Element {
         {logTotal > 0 && (
           <div className="flex items-center justify-between border-t border-border/40 bg-surface-hover/30 px-5 py-3">
             <span className="text-[12px] text-muted-foreground">
-              {logOffset + 1}–{Math.min(logOffset + logLimit, logTotal)} of {logTotal}
+              {logOffset + 1}–{Math.min(logOffset + logLimit, logTotal)}{t(" of ")}{logTotal}
             </span>
             <div className="flex items-center gap-2">
               <button
                 className="rounded border border-border/60 bg-background px-3 py-1.5 text-[12px] font-medium text-foreground hover:bg-surface-hover/50 disabled:opacity-40 disabled:cursor-not-allowed"
                 disabled={currentPage <= 1}
                 onClick={() => setLogOffset(0)}
-              >
-                First
-              </button>
+              >{t("First")}</button>
               <button
                 className="rounded border border-border/60 bg-background px-2 py-1.5 text-[12px] font-medium text-foreground hover:bg-surface-hover/50 disabled:opacity-40 disabled:cursor-not-allowed"
                 disabled={currentPage <= 1}
@@ -460,8 +456,7 @@ export function UsagePage(): JSX.Element {
               >
                 <ChevronLeftIcon className="h-4 w-4" />
               </button>
-              <span className="px-3 text-[12px] font-medium text-foreground">
-                Page {currentPage} of {totalPages}
+              <span className="px-3 text-[12px] font-medium text-foreground">{t("Page ")}{currentPage}{t(" of ")}{totalPages}
               </span>
               <button
                 className="rounded border border-border/60 bg-background px-2 py-1.5 text-[12px] font-medium text-foreground hover:bg-surface-hover/50 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -474,9 +469,7 @@ export function UsagePage(): JSX.Element {
                 className="rounded border border-border/60 bg-background px-3 py-1.5 text-[12px] font-medium text-foreground hover:bg-surface-hover/50 disabled:opacity-40 disabled:cursor-not-allowed"
                 disabled={currentPage >= totalPages}
                 onClick={() => setLogOffset((totalPages - 1) * logLimit)}
-              >
-                Last
-              </button>
+              >{t("Last")}</button>
             </div>
           </div>
         )}

@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { DataTable, TableWrap, Td, Th } from "@/components/ui/data-table";
 import { EmptyState, Pill, Surface } from "@/components/ui/surface";
 import { fetchConsoleRecent, type ConsoleEvent } from "@/lib/api/console";
+import { t } from "@/lib/i18n";
+
 
 const PAGE_SIZE = 50;
 
@@ -77,35 +79,35 @@ export function ConsolePage(): JSX.Element {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Live Console"
-        subtitle="Sanitized request and fallback events from the gateway. Bodies, headers, and secrets are intentionally omitted."
+        title={t("Live Console")}
+        subtitle={t("Sanitized request and fallback events from the gateway. Bodies, headers, and secrets are intentionally omitted.")}
         actions={
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => setPaused((v) => !v)}>{paused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}{paused ? "Resume" : "Pause"}</Button>
-            <Button variant="secondary" onClick={handleRefresh}><RefreshCw className="h-4 w-4" />Refresh</Button>
-            <Button variant="ghost" onClick={handleClear}><Trash2 className="h-4 w-4" />Clear</Button>
+            <Button variant="secondary" onClick={() => setPaused((v) => !v)}>{paused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}{paused ? t("Resume") : t("Pause")}</Button>
+            <Button variant="secondary" onClick={handleRefresh}><RefreshCw className="h-4 w-4" />{t("Refresh")}</Button>
+            <Button variant="ghost" onClick={handleClear}><Trash2 className="h-4 w-4" />{t("Clear")}</Button>
           </div>
         }
       />
       {error ? <Alert>{error}</Alert> : null}
       <Surface className="flex items-center justify-between p-4 text-sm text-muted-foreground">
-        <span>Ring buffer: {total} events in memory.</span>
+        <span>{t("Ring buffer: ")}{total}{t(" events in memory.")}</span>
         <div className="flex items-center gap-4">
-          <span className="text-xs">{from}–{to} of {total}</span>
+          <span className="text-xs">{from}–{to}{t(" of ")}{total}</span>
           <div className="flex gap-1">
-            <Button variant="secondary" size="sm" disabled={!hasNewer} onClick={handleNewer}><ChevronLeft className="h-4 w-4" />Newer</Button>
-            <Button variant="secondary" size="sm" disabled={!hasOlder} onClick={handleOlder}>Older<ChevronRight className="h-4 w-4" /></Button>
+            <Button variant="secondary" size="sm" disabled={!hasNewer} onClick={handleNewer}><ChevronLeft className="h-4 w-4" />{t("Newer")}</Button>
+            <Button variant="secondary" size="sm" disabled={!hasOlder} onClick={handleOlder}>{t("Older")}<ChevronRight className="h-4 w-4" /></Button>
           </div>
         </div>
       </Surface>
       {loading ? (
-        <Surface className="flex items-center gap-2 p-6 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading console...</Surface>
+        <Surface className="flex items-center gap-2 p-6 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />{t("Loading console...")}</Surface>
       ) : events.length === 0 ? (
-        <EmptyState title="No console events yet">Send traffic through the gateway to populate this view.</EmptyState>
+        <EmptyState title={t("No console events yet")}>{t("Send traffic through the gateway to populate this view.")}</EmptyState>
       ) : (
         <TableWrap>
           <DataTable>
-            <thead><tr><Th>Time</Th><Th>Level</Th><Th className="hidden sm:table-cell">Route</Th><Th>Status</Th><Th className="hidden md:table-cell">Model</Th><Th className="hidden lg:table-cell">Provider</Th><Th>Message</Th><Th className="hidden sm:table-cell text-right">Latency</Th></tr></thead>
+            <thead><tr><Th>{t("Time")}</Th><Th>{t("Level")}</Th><Th className="hidden sm:table-cell">{t("Route")}</Th><Th>{t("Status")}</Th><Th className="hidden md:table-cell">{t("Model")}</Th><Th className="hidden lg:table-cell">{t("Provider")}</Th><Th>{t("Message")}</Th><Th className="hidden sm:table-cell text-right">{t("Latency")}</Th></tr></thead>
             <tbody>
               {events.map((event) => (
                 <tr key={`${event.id}-${event.time}`}>

@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 import type { DateRangePreset, UseDateRangeResult } from "@/lib/date-picker/useDateRange";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { t } from "@/lib/i18n";
+
 
 export interface DateRangeSelectProps {
   range: UseDateRangeResult;
@@ -12,9 +14,9 @@ export interface DateRangeSelectProps {
 }
 
 const PRESETS: ReadonlyArray<{ value: Exclude<DateRangePreset, "custom">; label: string }> = [
-  { value: "7d", label: "7 days" },
-  { value: "30d", label: "30 days" },
-  { value: "90d", label: "90 days" },
+  { value: "7d", label: t("7 days") },
+  { value: "30d", label: t("30 days") },
+  { value: "90d", label: t("90 days") },
 ];
 
 export function DateRangeSelect({ range, onChange }: DateRangeSelectProps): JSX.Element {
@@ -58,7 +60,7 @@ export function DateRangeSelect({ range, onChange }: DateRangeSelectProps): JSX.
         >
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
-              <span className="px-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Presets</span>
+              <span className="px-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Presets")}</span>
               <div className="grid grid-cols-3 gap-1.5">
                 {PRESETS.map((opt) => {
                   const active = range.preset === opt.value;
@@ -87,11 +89,11 @@ export function DateRangeSelect({ range, onChange }: DateRangeSelectProps): JSX.
             <div className="my-0.5 h-px w-full bg-border/40" />
 
             <div className="flex flex-col gap-2">
-              <span className="px-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Custom Range</span>
+              <span className="px-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Custom Range")}</span>
               <div className="flex flex-col gap-3">
                 <div className="grid grid-cols-2 gap-2">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[11px] font-medium text-muted-foreground">Start Date</label>
+                    <label className="text-[11px] font-medium text-muted-foreground">{t("Start Date")}</label>
                     <Input
                       type="date"
                       value={customStart}
@@ -101,7 +103,7 @@ export function DateRangeSelect({ range, onChange }: DateRangeSelectProps): JSX.
                     />
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[11px] font-medium text-muted-foreground">End Date</label>
+                    <label className="text-[11px] font-medium text-muted-foreground">{t("End Date")}</label>
                     <Input
                       type="date"
                       value={customEnd}
@@ -115,9 +117,7 @@ export function DateRangeSelect({ range, onChange }: DateRangeSelectProps): JSX.
                   onClick={handleApplyCustom}
                   disabled={!customStart || !customEnd || customStart > customEnd}
                   className="w-full h-9 text-[13px] mt-1"
-                >
-                  Apply Custom Range
-                </Button>
+                >{t("Apply Custom Range")}</Button>
               </div>
             </div>
           </div>

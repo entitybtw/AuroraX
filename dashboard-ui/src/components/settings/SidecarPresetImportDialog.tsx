@@ -9,6 +9,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { FileJsonIcon, LinkIcon, UploadIcon, RefreshCwIcon, AlertTriangleIcon, FileCodeIcon } from "lucide-react";
+import { t } from "@/lib/i18n";
+
 
 interface SidecarPresetImportDialogProps {
   open: boolean;
@@ -63,13 +65,8 @@ export function SidecarPresetImportDialog({
       <DialogContent className="mx-4 max-h-[90vh] max-w-lg overflow-y-auto sm:mx-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <UploadIcon className="h-5 w-5 text-primary" />
-            Import extension
-          </DialogTitle>
-          <DialogDescription>
-            Paste an extension JSON document or load one from a URL. Imported extensions are stored
-            on the gateway and can be applied to any target.
-          </DialogDescription>
+            <UploadIcon className="h-5 w-5 text-primary" />{t("Import extension")}</DialogTitle>
+          <DialogDescription>{t("Paste an extension JSON document or load one from a URL. Imported extensions are stored on the gateway and can be applied to any target.")}</DialogDescription>
         </DialogHeader>
 
         <div className="flex gap-2">
@@ -82,9 +79,7 @@ export function SidecarPresetImportDialog({
                 : "border-border/40 text-muted-foreground hover:bg-surface-hover/30"
             }`}
           >
-            <FileJsonIcon className="h-4 w-4" />
-            Paste JSON
-          </button>
+            <FileJsonIcon className="h-4 w-4" />{t("Paste JSON")}</button>
           <button
             type="button"
             onClick={() => setMode("url")}
@@ -94,9 +89,7 @@ export function SidecarPresetImportDialog({
                 : "border-border/40 text-muted-foreground hover:bg-surface-hover/30"
             }`}
           >
-            <LinkIcon className="h-4 w-4" />
-            From URL
-          </button>
+            <LinkIcon className="h-4 w-4" />{t("From URL")}</button>
         </div>
 
         {mode === "json" ? (
@@ -115,31 +108,22 @@ export function SidecarPresetImportDialog({
               placeholder="https://example.test/my-preset.json"
               className="font-mono"
             />
-            <p className="text-xs text-muted-foreground">
-              The gateway fetches the URL server-side (http/https only, 1 MB limit).
-            </p>
+            <p className="text-xs text-muted-foreground">{t("The gateway fetches the URL server-side (http/https only, 1 MB limit).")}</p>
           </div>
         )}
 
         <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-muted-foreground">
           <AlertTriangleIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-          <span>
-            Only import extensions from sources you trust. Community extensions are unreviewed
-            modifications and may be harmful or conflict with a provider&apos;s rules.
-          </span>
+          <span>{t("Only import extensions from sources you trust. Community extensions are unreviewed modifications and may be harmful or conflict with a provider's rules.")}</span>
         </div>
 
         {needsFiles ? (
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
             <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-              <FileCodeIcon className="h-4 w-4 text-amber-500" />
-              This extension needs {missingFiles.length} companion file
-              {missingFiles.length > 1 ? "s" : ""}
+              <FileCodeIcon className="h-4 w-4 text-amber-500" />{t("This extension needs ")}{missingFiles.length}{t(" companion file")}{missingFiles.length > 1 ? "s" : ""}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              The JSON references source files that were not provided. Upload{" "}
-              {missingFiles.length > 1 ? "each file" : "the file"} to continue the import.
-            </p>
+            <p className="mt-1 text-xs text-muted-foreground">{t("The JSON references source files that were not provided. Upload")}{" "}
+              {missingFiles.length > 1 ? t("each file") : t("the file")}{t(" to continue the import.")}</p>
             <div className="mt-3 flex flex-col gap-2">
               {missingFiles.map((key) => (
                 <div
@@ -153,9 +137,7 @@ export function SidecarPresetImportDialog({
                     {uploadedFiles[key] ? (
                       <span className="text-xs text-emerald-500">uploaded</span>
                     ) : null}
-                    <label className="cursor-pointer rounded-md border border-border/50 px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-surface-hover">
-                      Choose file
-                      <input
+                    <label className="cursor-pointer rounded-md border border-border/50 px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-surface-hover">{t("Choose file")}<input
                         type="file"
                         className="hidden"
                         aria-label={`Upload ${key}`}
@@ -176,9 +158,7 @@ export function SidecarPresetImportDialog({
         ) : null}
 
         <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">
-            Cancel
-          </Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">{t("Cancel")}</Button>
           <Button
             onClick={onConfirm}
             disabled={
@@ -187,9 +167,7 @@ export function SidecarPresetImportDialog({
             }
             className="w-full gap-1.5 sm:w-auto"
           >
-            {pending ? <RefreshCwIcon className="h-3.5 w-3.5 animate-spin" /> : <UploadIcon className="h-3.5 w-3.5" />}
-            Import
-          </Button>
+            {pending ? <RefreshCwIcon className="h-3.5 w-3.5 animate-spin" /> : <UploadIcon className="h-3.5 w-3.5" />}{t("Import")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -58,6 +58,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import { SelectCheckbox, BulkActionsBar } from "@/components/ui/bulk-selection";
+import { t } from "@/lib/i18n";
+
 
 interface DisplayRow {
   key: string;
@@ -121,37 +123,37 @@ interface ScalarBadge {
 }
 
 const PRICING_FIELDS: Array<{ key: keyof ModelPricing; label: string; hint: string }> = [
-  { key: "input_per_mtok", label: "Input / MTok", hint: "Text input tokens" },
-  { key: "output_per_mtok", label: "Output / MTok", hint: "Text output tokens" },
-  { key: "cached_input_per_mtok", label: "Cached input / MTok", hint: "Prompt cache reads" },
-  { key: "cache_write_per_mtok", label: "Cache write / MTok", hint: "Prompt cache writes" },
-  { key: "reasoning_output_per_mtok", label: "Reasoning / MTok", hint: "Thinking/reasoning output" },
-  { key: "batch_input_per_mtok", label: "Batch input / MTok", hint: "Batch input tokens" },
-  { key: "batch_output_per_mtok", label: "Batch output / MTok", hint: "Batch output tokens" },
-  { key: "per_request", label: "Per request", hint: "Flat request fee" },
-  { key: "per_image", label: "Per image", hint: "Generated image fee" },
-  { key: "per_page", label: "Per page", hint: "Document page fee" },
-  { key: "per_second_input", label: "Input / second", hint: "Audio/video input" },
-  { key: "per_second_output", label: "Output / second", hint: "Audio/video output" },
-  { key: "per_character_input", label: "Input / character", hint: "Character-metered input" },
+  { key: "input_per_mtok", label: t("Input / MTok"), hint: t("Text input tokens") },
+  { key: "output_per_mtok", label: t("Output / MTok"), hint: t("Text output tokens") },
+  { key: "cached_input_per_mtok", label: t("Cached input / MTok"), hint: t("Prompt cache reads") },
+  { key: "cache_write_per_mtok", label: t("Cache write / MTok"), hint: t("Prompt cache writes") },
+  { key: "reasoning_output_per_mtok", label: t("Reasoning / MTok"), hint: t("Thinking/reasoning output") },
+  { key: "batch_input_per_mtok", label: t("Batch input / MTok"), hint: t("Batch input tokens") },
+  { key: "batch_output_per_mtok", label: t("Batch output / MTok"), hint: t("Batch output tokens") },
+  { key: "per_request", label: t("Per request"), hint: t("Flat request fee") },
+  { key: "per_image", label: t("Per image"), hint: t("Generated image fee") },
+  { key: "per_page", label: t("Per page"), hint: t("Document page fee") },
+  { key: "per_second_input", label: t("Input / second"), hint: t("Audio/video input") },
+  { key: "per_second_output", label: t("Output / second"), hint: t("Audio/video output") },
+  { key: "per_character_input", label: t("Input / character"), hint: t("Character-metered input") },
 ];
 
 const CAPABILITY_SPECS: CapabilitySpec[] = [
-  { key: "vision", Icon: Eye, label: "Vision / image input" },
-  { key: "function_calling", Icon: Wrench, label: "Function calling" },
-  { key: "tool_choice", Icon: Target, label: "Tool choice" },
-  { key: "parallel_function_calling", Icon: Zap, label: "Parallel function calls" },
-  { key: "reasoning", Icon: Brain, label: "Reasoning / thinking" },
-  { key: "response_schema", Icon: Braces, label: "Response schema" },
-  { key: "structured_output", Icon: FileJson, label: "Structured output" },
-  { key: "prompt_caching", Icon: Database, label: "Prompt caching" },
-  { key: "system_messages", Icon: MessageSquare, label: "System messages" },
-  { key: "pdf_input", Icon: FileText, label: "PDF input" },
-  { key: "web_search", Icon: Globe, label: "Web search" },
-  { key: "audio_input", Icon: Mic, label: "Audio input" },
-  { key: "audio_output", Icon: Volume2, label: "Audio output" },
-  { key: "video_input", Icon: Film, label: "Video input" },
-  { key: "computer_use", Icon: Monitor, label: "Computer use" },
+  { key: "vision", Icon: Eye, label: t("Vision / image input") },
+  { key: "function_calling", Icon: Wrench, label: t("Function calling") },
+  { key: "tool_choice", Icon: Target, label: t("Tool choice") },
+  { key: "parallel_function_calling", Icon: Zap, label: t("Parallel function calls") },
+  { key: "reasoning", Icon: Brain, label: t("Reasoning / thinking") },
+  { key: "response_schema", Icon: Braces, label: t("Response schema") },
+  { key: "structured_output", Icon: FileJson, label: t("Structured output") },
+  { key: "prompt_caching", Icon: Database, label: t("Prompt caching") },
+  { key: "system_messages", Icon: MessageSquare, label: t("System messages") },
+  { key: "pdf_input", Icon: FileText, label: t("PDF input") },
+  { key: "web_search", Icon: Globe, label: t("Web search") },
+  { key: "audio_input", Icon: Mic, label: t("Audio input") },
+  { key: "audio_output", Icon: Volume2, label: t("Audio output") },
+  { key: "video_input", Icon: Film, label: t("Video input") },
+  { key: "computer_use", Icon: Monitor, label: t("Computer use") },
 ];
 
 function metadata(item: ModelInventoryItem): Record<string, unknown> {
@@ -290,7 +292,7 @@ function scalarBadges(item: ModelInventoryItem): ScalarBadge[] {
     out.push({
       key: "vec",
       label: `${m.output_vector_size}-d`,
-      tooltip: "Embedding dimension",
+      tooltip: t("Embedding dimension"),
     });
   }
   return out;
@@ -300,7 +302,7 @@ function modalitySummary(item: ModelInventoryItem): string {
   const modalities = metadata(item).modalities;
   if (!modalities || typeof modalities !== "object") return "";
   const record = modalities as { input?: unknown[]; output?: unknown[] };
-  const glyph: Record<string, string> = { text: "T", image: "I", audio: "A", video: "V" };
+  const glyph: Record<string, string> = { text: t("T"), image: "I", audio: "A", video: "V" };
   const render = (arr: unknown[] | undefined) =>
     (arr ?? []).map((m) => glyph[String(m)] ?? String(m).slice(0, 1).toUpperCase()).filter(Boolean).join("+");
   const input = render(record.input);
@@ -806,16 +808,16 @@ export function ModelsPage(): JSX.Element {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Registered Models"
-        subtitle="View and manage registered AI models, their capabilities, and configuration overrides."
-        actions={<div className="border border-border px-3 py-1 text-sm text-muted-foreground">{countText} models</div>}
+        title={t("Registered Models")}
+        subtitle={t("View and manage registered AI models, their capabilities, and configuration overrides.")}
+        actions={<div className="border border-border px-3 py-1 text-sm text-muted-foreground">{countText}{t(" models")}</div>}
       />
 
-      {!aliasesAvailable ? <Alert tone="warning">Aliases feature is unavailable.</Alert> : null}
+      {!aliasesAvailable ? <Alert tone="warning">{t("Aliases feature is unavailable.")}</Alert> : null}
       {aliases.error && aliasesAvailable ? <Alert tone="warning">{aliases.error.message}</Alert> : null}
-      {!overridesAvailable ? <Alert tone="warning">Model overrides feature is unavailable.</Alert> : null}
+      {!overridesAvailable ? <Alert tone="warning">{t("Model overrides feature is unavailable.")}</Alert> : null}
       {overrides.error && overridesAvailable ? <Alert tone="warning">{overrides.error.message}</Alert> : null}
-      {!pricingAvailable ? <Alert tone="warning">Model pricing controls are unavailable.</Alert> : null}
+      {!pricingAvailable ? <Alert tone="warning">{t("Model pricing controls are unavailable.")}</Alert> : null}
       {modelPricing.error && pricingAvailable ? <Alert tone="warning">{modelPricing.error.message}</Alert> : null}
       {localError ? <Alert tone="warning">{localError}</Alert> : null}
       {notice ? <Alert tone="success">{notice}</Alert> : null}
@@ -849,54 +851,48 @@ export function ModelsPage(): JSX.Element {
             <input
               value={filter}
               onChange={(event) => setFilter(event.target.value)}
-              placeholder="Filter by provider, model, alias..."
+              placeholder={t("Filter by provider, model, alias...")}
               className="h-11 md:h-10 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm md:text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
             />
           </label>
           {aliasesAvailable ? (
             <Button onClick={openAliasCreate} className="w-full md:w-auto">
-              <Plus className="h-4 w-4" />
-              Create Alias
-            </Button>
+              <Plus className="h-4 w-4" />{t("Create Alias")}</Button>
           ) : null}
         </div>
       </Surface>
 
       {busy ? (
         <Surface className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading models...
-        </Surface>
+          <Loader2 className="h-4 w-4 animate-spin" />{t("Loading models...")}</Surface>
       ) : models.error ? (
         <Alert tone="warning">{models.error.message}</Alert>
       ) : groups.length === 0 ? (
-        <EmptyState title={filter ? "No models match your filter" : category === "all" ? "No models registered" : "No models in this category"}>
-          {filter ? "Clear the search field or try filtering by provider, owner, alias, or model ID." : "Configure providers and refresh runtime models to populate this inventory."}
+        <EmptyState title={filter ? t("No models match your filter") : category === "all" ? t("No models registered") : t("No models in this category")}>
+          {filter ? t("Clear the search field or try filtering by provider, owner, alias, or model ID.") : t("Configure providers and refresh runtime models to populate this inventory.")}
         </EmptyState>
       ) : (
         <>
         {bulk.selectedCount > 0 ? (
           <BulkActionsBar count={bulk.selectedCount} onClear={bulk.clear}>
             <Button size="sm" variant="outline" onClick={() => { const first = Array.from(bulk.selected)[0]; if (first) openAliasCreateForModel(first); }} className="text-[11px] h-7 shrink-0">
-              <Plus className="mr-1 h-3 w-3" /> Create Alias
-            </Button>
+              <Plus className="mr-1 h-3 w-3" />{t(" Create Alias")}</Button>
             <Button size="sm" variant="outline" onClick={() => void bulkDeleteAliases()} className="text-[11px] h-7 shrink-0 text-destructive hover:bg-destructive/10">
-              <Trash2 className="mr-1 h-3 w-3" /> Delete
-            </Button>
+              <Trash2 className="mr-1 h-3 w-3" />{t(" Delete")}</Button>
           </BulkActionsBar>
         ) : null}
         <TableWrap>
           <DataTable>
             <thead>
               <tr>
-                <Th className="w-10"><SelectCheckbox checked={bulk.allSelected(nonAliasIds)} indeterminate={bulk.someSelected(nonAliasIds)} onClick={(e: React.MouseEvent) => e.shiftKey ? null : bulk.toggleAll(allIds)} title="Select all" /></Th>
-                <Th>Model</Th>
-                <Th className="hidden md:table-cell">Modes</Th>
-                <Th className="hidden lg:table-cell">Input $/MTok</Th>
-                <Th className="hidden lg:table-cell">Output $/MTok</Th>
-                <Th className="hidden xl:table-cell">Cached $/MTok</Th>
-                <Th className="hidden md:table-cell">Availability</Th>
-                <Th className="text-right">Actions</Th>
+                <Th className="w-10"><SelectCheckbox checked={bulk.allSelected(nonAliasIds)} indeterminate={bulk.someSelected(nonAliasIds)} onClick={(e: React.MouseEvent) => e.shiftKey ? null : bulk.toggleAll(allIds)} title={t("Select all")} /></Th>
+                <Th>{t("Model")}</Th>
+                <Th className="hidden md:table-cell">{t("Modes")}</Th>
+                <Th className="hidden lg:table-cell">{t("Input $/MTok")}</Th>
+                <Th className="hidden lg:table-cell">{t("Output $/MTok")}</Th>
+                <Th className="hidden xl:table-cell">{t("Cached $/MTok")}</Th>
+                <Th className="hidden md:table-cell">{t("Availability")}</Th>
+                <Th className="text-right">{t("Actions")}</Th>
               </tr>
             </thead>
             {groups.map((group) => (
@@ -907,15 +903,13 @@ export function ModelsPage(): JSX.Element {
                       <div>
                         <div className="font-mono text-[14px] font-bold tracking-tight text-foreground">
                           {group.displayName} {group.typeLabel ? <span className="text-muted-foreground font-medium">({group.typeLabel})</span> : null}
-                          <span className="ml-3 text-[12px] font-medium uppercase tracking-wider text-muted-foreground">{group.rows.length} models</span>
+                          <span className="ml-3 text-[12px] font-medium uppercase tracking-wider text-muted-foreground">{group.rows.length}{t(" models")}</span>
                         </div>
-                        {group.access ? <div className="mt-1 text-[12px] text-muted-foreground">Override: {group.access.enabled === false ? "disabled" : "enabled"}</div> : null}
+                        {group.access ? <div className="mt-1 text-[12px] text-muted-foreground">{t("Override: ")}{group.access.enabled === false ? "disabled" : "enabled"}</div> : null}
                       </div>
                       {overridesAvailable && group.selector ? (
                         <Button variant="ghost" size="sm" onClick={() => openProviderOverride(group)}>
-                          <Edit3 className="h-4 w-4" />
-                          Provider access
-                        </Button>
+                          <Edit3 className="h-4 w-4" />{t("Provider access")}</Button>
                       ) : null}
                     </div>
                   </Td>
@@ -937,15 +931,15 @@ export function ModelsPage(): JSX.Element {
                   const tags = row.isAlias ? [] : Array.isArray(metadata(row.model).tags) ? (metadata(row.model).tags as string[]) : [];
                   return (
                     <tr key={row.key} className={cn("hover:bg-surface-hover/40", row.isAlias && "bg-accent/5")}>
-                      {!row.isAlias ? <Td><SelectCheckbox checked={bulk.isSelected(row.displayName)} onClick={(e: React.MouseEvent) => e.shiftKey ? bulk.rangeSelect(row.displayName, allIds) : bulk.toggle(row.displayName)} title={bulk.isSelected(row.displayName) ? "Deselect" : "Select"} /></Td> : <Td className="w-10" />}
+                      {!row.isAlias ? <Td><SelectCheckbox checked={bulk.isSelected(row.displayName)} onClick={(e: React.MouseEvent) => e.shiftKey ? bulk.rangeSelect(row.displayName, allIds) : bulk.toggle(row.displayName)} title={bulk.isSelected(row.displayName) ? t("Deselect") : t("Select")} /></Td> : <Td className="w-10" />}
                       <Td>
                         <div className="space-y-2">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="font-mono text-xs md:text-sm font-medium break-all">{row.displayName}</span>
-                            {row.isAlias ? <Pill tone="accent">Alias</Pill> : null}
-                            {row.alias && row.alias.enabled === false ? <Pill tone="danger">Disabled</Pill> : null}
-                            {row.alias && !row.alias.valid ? <Pill tone="warning">Invalid target</Pill> : null}
-                            {row.maskingAlias ? <Pill tone="warning">Masked by {row.maskingAlias.name}</Pill> : null}
+                            {row.isAlias ? <Pill tone="accent">{t("Alias")}</Pill> : null}
+                            {row.alias && row.alias.enabled === false ? <Pill tone="danger">{t("Disabled")}</Pill> : null}
+                            {row.alias && !row.alias.valid ? <Pill tone="warning">{t("Invalid target")}</Pill> : null}
+                            {row.maskingAlias ? <Pill tone="warning">{t("Masked by ")}{row.maskingAlias.name}</Pill> : null}
                             {!row.isAlias && pricingView ? <Pill tone={pricingSourceTone(pricingView.source)}>{pricingSourceLabel(pricingView.source)}</Pill> : null}
                           </div>
                           {/* Mobile: show modes inline */}
@@ -960,8 +954,8 @@ export function ModelsPage(): JSX.Element {
                           <div className="lg:hidden text-xs text-muted-foreground space-y-0.5">
                             {!row.isAlias && (
                               <>
-                                <div>Input: {anyInputPrice(p)}</div>
-                                <div>Output: {anyOutputPrice(p)}</div>
+                                <div>{t("Input: ")}{anyInputPrice(p)}</div>
+                                <div>{t("Output: ")}{anyOutputPrice(p)}</div>
                               </>
                             )}
                           </div>
@@ -988,7 +982,7 @@ export function ModelsPage(): JSX.Element {
                               ))}
                               {modalities ? (
                                 <span
-                                  title="Modalities: input -> output"
+                                  title={t("Modalities: input -> output")}
                                   className="rounded-md border border-accent/25 bg-accent/10 px-1.5 py-0.5 font-mono text-[10px] text-accent"
                                 >
                                   {modalities}
@@ -1006,15 +1000,15 @@ export function ModelsPage(): JSX.Element {
                             </div>
                           ) : null}
                           {row.isAlias ? (
-                            <div className="text-xs text-muted-foreground">Targets <span className="font-mono">{row.secondaryName}</span></div>
+                            <div className="text-xs text-muted-foreground">{t("Targets ")}<span className="font-mono">{row.secondaryName}</span></div>
                           ) : m.description ? (
                             <div className="line-clamp-2 max-w-xl text-xs leading-5 text-muted-foreground">{String(m.description)}</div>
                           ) : null}
                           {!row.isAlias && (display || owner || family || sourceURL || aliases.length > 0 || priceDetails.length > 0) ? (
                             <div className="flex max-w-4xl flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
                               {display ? <span>{display}</span> : null}
-                              {owner ? <span>Owner: <strong className="text-foreground">{owner}</strong></span> : null}
-                              {family ? <span>Family: <strong className="text-foreground">{family}</strong></span> : null}
+                              {owner ? <span>{t("Owner: ")}<strong className="text-foreground">{owner}</strong></span> : null}
+                              {family ? <span>{t("Family: ")}<strong className="text-foreground">{family}</strong></span> : null}
                               {priceDetails.slice(0, 4).map((detail) => (
                                 <span key={detail} className="rounded border border-border bg-background/35 px-1.5 py-0.5 font-mono">
                                   {detail}
@@ -1025,15 +1019,14 @@ export function ModelsPage(): JSX.Element {
                                   {alias}
                                 </span>
                               ))}
-                              {aliases.length > 3 ? <span>+ {aliases.length - 3} aliases</span> : null}
+                              {aliases.length > 3 ? <span>+ {aliases.length - 3}{t(" aliases")}</span> : null}
                               {sourceURL ? (
                                 <a
                                   href={sourceURL}
                                   target="_blank"
                                   rel="noreferrer"
                                   className="inline-flex items-center gap-1 text-accent hover:text-accent-hover"
-                                >
-                                  Docs <ExternalLink className="h-3 w-3" />
+                                >{t("Docs ")}<ExternalLink className="h-3 w-3" />
                                 </a>
                               ) : null}
                             </div>
@@ -1056,7 +1049,7 @@ export function ModelsPage(): JSX.Element {
                           {row.alias ? (
                             <>
                               <Button variant="secondary" size="sm" disabled={saveAlias.isPending} onClick={() => void toggleAlias(row.alias!)}>
-                                {row.alias.enabled === false ? "Enable" : "Disable"}
+                                {row.alias.enabled === false ? t("Enable") : t("Disable")}
                               </Button>
                               <Button variant="ghost" size="icon" aria-label={`Edit alias ${row.alias.name}`} onClick={() => openAliasEdit(row.alias!)}>
                                 <Edit3 className="h-4 w-4" />
@@ -1069,18 +1062,18 @@ export function ModelsPage(): JSX.Element {
                             <>
                               <Button variant="ghost" size="sm" onClick={() => openAliasCreateForModel(row.displayName)}>
                                 <Plus className="h-4 w-4" />
-                                <span className="hidden md:inline">Alias</span>
+                                <span className="hidden md:inline">{t("Alias")}</span>
                               </Button>
                               {pricingAvailable ? (
                                 <Button variant="ghost" size="sm" onClick={() => openPricing(row)}>
                                   <LineChartIcon className="h-4 w-4" />
-                                  <span className="hidden md:inline">Pricing</span>
+                                  <span className="hidden md:inline">{t("Pricing")}</span>
                                 </Button>
                               ) : null}
                               {overridesAvailable ? (
                                 <Button variant="ghost" size="sm" onClick={() => openOverride(row)}>
                                   <Edit3 className="h-4 w-4" />
-                                  <span className="hidden md:inline">Access</span>
+                                  <span className="hidden md:inline">{t("Access")}</span>
                                 </Button>
                               ) : null}
                             </>
@@ -1165,40 +1158,40 @@ function AliasDialog({
         {form ? (
           <>
             <DialogHeader>
-              <DialogTitle>{form.mode === "edit" ? "Edit alias" : "Create alias"}</DialogTitle>
-              <DialogDescription>Aliases are not supported on pass-through endpoints.</DialogDescription>
+              <DialogTitle>{form.mode === "edit" ? t("Edit alias") : t("Create alias")}</DialogTitle>
+              <DialogDescription>{t("Aliases are not supported on pass-through endpoints.")}</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Alias name">
+              <Field label={t("Alias name")}>
                 <input className="field-input font-mono" value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })} />
               </Field>
-              <Field label="Target model">
+              <Field label={t("Target model")}>
                 <input className="field-input font-mono" list="model-options" value={form.target_model} onChange={(e) => onChange({ ...form, target_model: e.target.value })} />
                 <datalist id="model-options">
                   {modelOptions.map((model) => <option key={model} value={model} />)}
                 </datalist>
               </Field>
-              <Field label="Target provider (optional)">
-                <input className="field-input font-mono" placeholder="e.g. openai" value={form.target_provider} onChange={(e) => onChange({ ...form, target_provider: e.target.value })} />
+              <Field label={t("Target provider (optional)")}>
+                <input className="field-input font-mono" placeholder={t("e.g. openai")} value={form.target_provider} onChange={(e) => onChange({ ...form, target_provider: e.target.value })} />
               </Field>
             </div>
-            <Field label="Description">
+            <Field label={t("Description")}>
               <textarea className="field-input min-h-24" value={form.description} onChange={(e) => onChange({ ...form, description: e.target.value })} />
             </Field>
             <ToggleField
               size="sm"
-              label="Alias is enabled"
+              label={t("Alias is enabled")}
               checked={form.enabled}
               onCheckedChange={(checked) => onChange({ ...form, enabled: checked })}
-              aria-label="Alias enabled"
+              aria-label={t("Alias enabled")}
             />
-            {form.mode === "edit" ? <p className="text-xs text-muted-foreground">Renaming an alias creates the new name first, then removes the old one.</p> : null}
+            {form.mode === "edit" ? <p className="text-xs text-muted-foreground">{t("Renaming an alias creates the new name first, then removes the old one.")}</p> : null}
             {error ? <p className="text-sm text-warning">{error}</p> : null}
             <DialogFooter>
-              <Button variant="secondary" onClick={onClose}>Cancel</Button>
+              <Button variant="secondary" onClick={onClose}>{t("Cancel")}</Button>
               <Button onClick={onSubmit} disabled={pending}>
                 {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : form.mode === "edit" ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                {pending ? "Saving..." : form.mode === "edit" ? "Save Alias" : "Create Alias"}
+                {pending ? t("Saving...") : form.mode === "edit" ? t("Save Alias") : t("Create Alias")}
               </Button>
             </DialogFooter>
           </>
@@ -1232,36 +1225,35 @@ function OverrideDialog({
           <>
             <DialogHeader>
               <DialogTitle>{form.title}</DialogTitle>
-              <DialogDescription>
-                Default enabled: {form.defaultEnabled ? "yes" : "no"} • Effective now: {form.effectiveEnabled ? "yes" : "no"}
+              <DialogDescription>{t("Default enabled: ")}{form.defaultEnabled ? "yes" : "no"}{t(" • Effective now: ")}{form.effectiveEnabled ? "yes" : "no"}
               </DialogDescription>
             </DialogHeader>
-            <Field label="Selector">
+            <Field label={t("Selector")}>
               <input className="field-input font-mono" value={form.selector} disabled />
             </Field>
             <ToggleField
               size="sm"
-              label={form.enabled ? "Enabled for matching user paths" : "Disabled for every user path"}
+              label={form.enabled ? t("Enabled for matching user paths") : t("Disabled for every user path")}
               checked={form.enabled}
               onCheckedChange={(checked) => onChange({ ...form, enabled: checked })}
-              aria-label="Override enabled"
+              aria-label={t("Override enabled")}
               className="rounded-lg border border-border bg-background/35 px-3 py-3"
             />
-            <Field label="User Paths">
+            <Field label={t("User Paths")}>
               <textarea
                 className="field-input min-h-28 font-mono"
                 value={form.user_paths}
                 disabled={!form.enabled}
                 onChange={(e) => onChange({ ...form, user_paths: e.target.value })}
-                placeholder="/\n/team/alpha"
+                placeholder={t("/\\n/team/alpha")}
               />
             </Field>
-            <p className="text-xs leading-5 text-muted-foreground">Turn off Enabled to disable this selector. Keep Enabled on and use / to allow every user path, or enter team paths to restrict access.</p>
+            <p className="text-xs leading-5 text-muted-foreground">{t("Turn off Enabled to disable this selector. Keep Enabled on and use / to allow every user path, or enter team paths to restrict access.")}</p>
             {error ? <p className="text-sm text-warning">{error}</p> : null}
             <DialogFooter>
-              <Button variant="secondary" onClick={onClose}>Cancel</Button>
-              {form.hasExisting ? <Button variant="outline" onClick={onDelete} disabled={pending}><X className="h-4 w-4" />Remove Override</Button> : null}
-              <Button onClick={onSubmit} disabled={pending}>{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Save Availability</Button>
+              <Button variant="secondary" onClick={onClose}>{t("Cancel")}</Button>
+              {form.hasExisting ? <Button variant="outline" onClick={onDelete} disabled={pending}><X className="h-4 w-4" />{t("Remove Override")}</Button> : null}
+              <Button onClick={onSubmit} disabled={pending}>{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}{t("Save Availability")}</Button>
             </DialogFooter>
           </>
         ) : null}
@@ -1296,29 +1288,26 @@ function PricingDialog({
         {form ? (
           <>
             <DialogHeader>
-              <DialogTitle>Pricing for {form.title}</DialogTitle>
-              <DialogDescription>
-                Effective source: {pricingSourceLabel(form.view.source)} • Override key: {form.view.override_selector || form.selector}
+              <DialogTitle>{t("Pricing for ")}{form.title}</DialogTitle>
+              <DialogDescription>{t("Effective source: ")}{pricingSourceLabel(form.view.source)}{t(" • Override key: ")}{form.view.override_selector || form.selector}
               </DialogDescription>
             </DialogHeader>
 
             <div className="grid gap-3 md:grid-cols-3">
-              <PricingSummary title="Base" pricing={base} />
-              <PricingSummary title="Override" pricing={override} empty="No local override" />
-              <PricingSummary title="Effective" pricing={effective} />
+              <PricingSummary title={t("Base")} pricing={base} />
+              <PricingSummary title={t("Override")} pricing={override} empty={t("No local override")} />
+              <PricingSummary title={t("Effective")} pricing={effective} />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Currency">
+              <Field label={t("Currency")}>
                 <input
                   className="field-input font-mono"
-                  value={form.pricing.currency ?? "USD"}
+                  value={form.pricing.currency ?? t("USD")}
                   onChange={(e) => onChange({ ...form, pricing: { ...form.pricing, currency: e.target.value } })}
                 />
               </Field>
-              <div className="rounded-lg border border-border bg-background/35 p-3 text-xs leading-5 text-muted-foreground">
-                Blank numeric fields inherit from registry/base pricing. Saved values override registry pricing until removed.
-              </div>
+              <div className="rounded-lg border border-border bg-background/35 p-3 text-xs leading-5 text-muted-foreground">{t("Blank numeric fields inherit from registry/base pricing. Saved values override registry pricing until removed.")}</div>
             </div>
 
             <div className="grid max-h-[45vh] gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
@@ -1339,27 +1328,24 @@ function PricingDialog({
                       variant="ghost"
                       size="sm"
                       onClick={() => onChange({ ...form, pricing: setPricingField(form.pricing, field.key, "") })}
-                    >
-                      Inherit
-                    </Button>
+                    >{t("Inherit")}</Button>
                   </div>
                   <div className="text-[11px] text-muted-foreground">
-                    {field.hint} • base {priceFine(base?.[field.key])} • effective {priceFine(effective?.[field.key])}
+                    {field.hint}{t(" • base ")}{priceFine(base?.[field.key])}{t(" • effective ")}{priceFine(effective?.[field.key])}
                   </div>
                 </Field>
               ))}
             </div>
 
             {form.view.overridden_fields.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5 text-xs text-muted-foreground">
-                Overrides: {form.view.overridden_fields.map((field) => <Pill key={field} tone="accent">{field}</Pill>)}
+              <div className="flex flex-wrap gap-1.5 text-xs text-muted-foreground">{t("Overrides: ")}{form.view.overridden_fields.map((field) => <Pill key={field} tone="accent">{field}</Pill>)}
               </div>
             ) : null}
             {error ? <p className="text-sm text-warning">{error}</p> : null}
             <DialogFooter>
-              <Button variant="secondary" onClick={onClose}>Close</Button>
-              {form.view.has_override ? <Button variant="outline" onClick={onDelete} disabled={pending}><X className="h-4 w-4" />Remove Override</Button> : null}
-              <Button onClick={onSubmit} disabled={pending}>{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Save Pricing</Button>
+              <Button variant="secondary" onClick={onClose}>{t("Close")}</Button>
+              {form.view.has_override ? <Button variant="outline" onClick={onDelete} disabled={pending}><X className="h-4 w-4" />{t("Remove Override")}</Button> : null}
+              <Button onClick={onSubmit} disabled={pending}>{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}{t("Save Pricing")}</Button>
             </DialogFooter>
           </>
         ) : null}
@@ -1374,13 +1360,13 @@ function PricingSummary({ title, pricing, empty }: { title: string; pricing: Mod
       <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{title}</div>
       {pricing ? (
         <div className="mt-2 space-y-1 font-mono text-xs text-foreground">
-          <div>in: {priceFine(pricing.input_per_mtok)}</div>
-          <div>out: {priceFine(pricing.output_per_mtok)}</div>
-          <div>cached: {priceFine(pricing.cached_input_per_mtok)}</div>
-          <div>currency: {pricing.currency || "USD"}</div>
+          <div>{t("in: ")}{priceFine(pricing.input_per_mtok)}</div>
+          <div>{t("out: ")}{priceFine(pricing.output_per_mtok)}</div>
+          <div>{t("cached: ")}{priceFine(pricing.cached_input_per_mtok)}</div>
+          <div>{t("currency: ")}{pricing.currency || t("USD")}</div>
         </div>
       ) : (
-        <div className="mt-2 text-xs text-muted-foreground">{empty ?? "No pricing found"}</div>
+        <div className="mt-2 text-xs text-muted-foreground">{empty ?? t("No pricing found")}</div>
       )}
     </div>
   );

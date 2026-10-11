@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { t } from "@/lib/i18n";
+
 
 interface EditionChipProps {
   children: ReactNode;
@@ -17,7 +19,7 @@ export function EditionChip({ children, tone = "default" }: EditionChipProps): J
 }
 
 export function EditionStatusChip(): JSX.Element {
-  return <EditionChip>OSS</EditionChip>;
+  return <EditionChip>{t("OSS")}</EditionChip>;
 }
 
 export function AdvancedFeatureNotice(): JSX.Element | null {

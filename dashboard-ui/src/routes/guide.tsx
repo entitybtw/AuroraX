@@ -46,6 +46,8 @@ import type { PoolSnapshot } from "@/lib/api/pools-types";
 import { buildCLIPreviewRequest } from "@/lib/cli-tools/model-fields";
 import { isRedactedKey, snippetForCopy } from "@/lib/cli-tools/snippet-copy";
 import { modelDisplayName, type ModelInventoryItem } from "@/lib/api/models-types";
+import { t as i18nT } from "@/lib/i18n";
+
 
 const DEFAULT_CURL_BODY = buildPlaygroundRequestBody({
   model: "gpt-4o-mini",
@@ -280,7 +282,7 @@ function PoolCallExamples({ pool, exampleModelId }: PoolCallExampleProps): JSX.E
 
   const [prefixedDoc, providerHintDoc] = POOL_CALL_STYLE_DOCS;
   if (!prefixedDoc || !providerHintDoc) {
-    return <p className="text-sm text-muted-foreground">Pool usage docs are unavailable.</p>;
+    return <p className="text-sm text-muted-foreground">{i18nT("Pool usage docs are unavailable.")}</p>;
   }
 
   const examples: Array<{
@@ -321,7 +323,7 @@ function PoolCallExamples({ pool, exampleModelId }: PoolCallExampleProps): JSX.E
           <div>
             <Button variant="secondary" onClick={() => example.copy.copy(example.curl)}>
               <Copy className="h-4 w-4" />
-              {example.copy.copied ? "Copied" : "Copy cURL"}
+              {example.copy.copied ? i18nT("Copied") : i18nT("Copy cURL")}
             </Button>
           </div>
         </div>
@@ -347,17 +349,12 @@ function PoolCard({ pool, exampleModelId }: PoolCardProps): JSX.Element {
           {pool.strategy}
         </Pill>
         <span className="text-xs text-muted-foreground">
-          {healthyMembers}/{pool.members.length} healthy members
-        </span>
+          {healthyMembers}/{pool.members.length}{i18nT(" healthy members")}</span>
       </div>
       {exampleIsPlaceholder ? (
-        <p className="text-xs leading-5 text-muted-foreground">
-          No model id from this pool was auto-detected. Replace <code className="font-mono">{POOL_MODEL_PLACEHOLDER}</code> in the examples below with a model id that the pool&apos;s members serve — check the Models page or the provider&apos;s documentation for available model ids.
-        </p>
+        <p className="text-xs leading-5 text-muted-foreground">{i18nT("No model id from this pool was auto-detected. Replace ")}<code className="font-mono">{POOL_MODEL_PLACEHOLDER}</code>{i18nT(" in the examples below with a model id that the pool's members serve — check the Models page or the provider's documentation for available model ids.")}</p>
       ) : (
-        <p className="text-xs leading-5 text-muted-foreground">
-          Examples use <code className="font-mono">{exampleModelId}</code>, which is served by this pool. Swap it for any model id that the pool&apos;s members serve.
-        </p>
+        <p className="text-xs leading-5 text-muted-foreground">{i18nT("Examples use ")}<code className="font-mono">{exampleModelId}</code>{i18nT(", which is served by this pool. Swap it for any model id that the pool's members serve.")}</p>
       )}
       <PoolCallExamples pool={pool} exampleModelId={exampleModelId} />
     </div>
@@ -566,32 +563,26 @@ function CLIToolsGuideSection(): JSX.Element {
   return (
     <Surface className="min-w-0 overflow-hidden p-5 xl:col-span-2">
       <SectionHeader
-        title="CLI tools configurator"
-        subtitle="Generate and optionally apply AuroraX Gateway configuration for developer CLI clients."
+        title={i18nT("CLI tools configurator")}
+        subtitle={i18nT("Generate and optionally apply AuroraX Gateway configuration for developer CLI clients.")}
         className="mb-4"
       />
       <div className="mb-4 flex justify-end">
         <Button variant="secondary" onClick={() => void load()} disabled={loading}>
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          Refresh
-        </Button>
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}{i18nT("Refresh")}</Button>
       </div>
       {error ? <CLIAlert tone="warning">{error}</CLIAlert> : null}
       {notice ? <CLIAlert tone="success">{notice}</CLIAlert> : null}
       {loading ? (
         <div className="flex items-center gap-2 rounded-lg border border-border bg-background/25 p-4 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading CLI tools...
-        </div>
+          <Loader2 className="h-4 w-4 animate-spin" />{i18nT("Loading CLI tools...")}</div>
       ) : tools.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border bg-background/20 p-4 text-sm text-muted-foreground">
-          No CLI tools are available. Enable CLI tools in gateway config.
-        </div>
+        <div className="rounded-lg border border-dashed border-border bg-background/20 p-4 text-sm text-muted-foreground">{i18nT("No CLI tools are available. Enable CLI tools in gateway config.")}</div>
       ) : (
         <div className="flex min-w-0 flex-col gap-5">
           {presets.length > 0 ? (
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Presets</span>
+              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{i18nT("Presets")}</span>
               {presets.map((preset) => (
                 <button
                   key={preset.id}
@@ -626,14 +617,14 @@ function CLIToolsGuideSection(): JSX.Element {
                           {tool.config_type ? <span className="mt-1 block text-xs uppercase tracking-wide text-muted-foreground">{tool.config_type}</span> : null}
                         </span>
                       </span>
-                      {tool.can_apply ? <Pill tone="accent">Apply</Pill> : <Pill tone="muted">Preview</Pill>}
+                      {tool.can_apply ? <Pill tone="accent">{i18nT("Apply")}</Pill> : <Pill tone="muted">{i18nT("Preview")}</Pill>}
                     </span>
                     <span className="break-words text-xs leading-5 text-muted-foreground">{tool.description}</span>
                   </span>
                   <span className="mt-4 flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    {tool.model_fields?.length ? <Pill tone="accent">{tool.model_fields.length} model fields</Pill> : <Pill tone="muted">Fallback model</Pill>}
+                    {tool.model_fields?.length ? <Pill tone="accent">{tool.model_fields.length}{i18nT(" model fields")}</Pill> : <Pill tone="muted">{i18nT("Fallback model")}</Pill>}
                     {tool.default_command ? <Pill tone="muted">{tool.default_command}</Pill> : null}
-                    <span className="ml-auto text-accent">{isSelected ? "Selected" : "Configure"}</span>
+                    <span className="ml-auto text-accent">{isSelected ? i18nT("Selected") : i18nT("Configure")}</span>
                   </span>
                 </button>
               );
@@ -650,43 +641,39 @@ function CLIToolsGuideSection(): JSX.Element {
                         <ToolMark tool={current} />
                       </span>
                       <div className="min-w-0 space-y-2">
-                        <DialogTitle className="break-words">Configure {current.name}</DialogTitle>
+                        <DialogTitle className="break-words">{i18nT("Configure ")}{current.name}</DialogTitle>
                         <DialogDescription className="break-words">{current.description}</DialogDescription>
                         <div className="flex min-w-0 flex-wrap items-center gap-2">
                           {current.config_type ? <Pill tone="muted">{current.config_type}</Pill> : null}
                           {current.default_command ? <Pill tone="accent">{current.default_command}</Pill> : null}
-                          {current.can_apply ? <Pill tone="accent">Host apply available</Pill> : <Pill tone="muted">Preview only</Pill>}
+                          {current.can_apply ? <Pill tone="accent">{i18nT("Host apply available")}</Pill> : <Pill tone="muted">{i18nT("Preview only")}</Pill>}
                           {current.docs_url ? (
-                            <a className="inline-flex min-h-[32px] items-center gap-1 text-xs text-accent hover:underline" href={current.docs_url} target="_blank" rel="noreferrer">
-                              Docs
-                              <ExternalLink className="h-3 w-3" />
+                            <a className="inline-flex min-h-[32px] items-center gap-1 text-xs text-accent hover:underline" href={current.docs_url} target="_blank" rel="noreferrer">{i18nT("Docs")}<ExternalLink className="h-3 w-3" />
                             </a>
                           ) : null}
                         </div>
-                        {current.config_path ? <p className="min-w-0 break-words text-xs text-muted-foreground">Apply path: <code className="break-all font-mono text-foreground">{current.config_path}</code></p> : null}
+                        {current.config_path ? <p className="min-w-0 break-words text-xs text-muted-foreground">{i18nT("Apply path: ")}<code className="break-all font-mono text-foreground">{current.config_path}</code></p> : null}
                       </div>
                     </div>
                   </DialogHeader>
 
                   <div className="grid min-w-0 gap-4 rounded-xl border border-border bg-background/25 p-3 sm:p-4 md:grid-cols-3">
-                    <CLIField label="Gateway base URL">
+                    <CLIField label={i18nT("Gateway base URL")}>
                       <input className="field-input min-w-0 font-mono" value={form.base_url} onChange={(e) => updateForm({ base_url: e.target.value })} />
                     </CLIField>
-                    <CLIField label="API key">
+                    <CLIField label={i18nT("API key")}>
                       <div className="flex min-w-0 flex-col gap-2">
                         <select
                           className="field-input min-w-0 max-w-full truncate font-mono"
                           value={keyMode}
                           onChange={(e) => updateKeyMode(e.target.value === "placeholder" ? "placeholder" : "paste")}
-                          aria-label="API key mode"
+                          aria-label={i18nT("API key mode")}
                         >
-                          <option value="placeholder">Placeholder (&lt;AURORA_API_KEY&gt;)</option>
-                          <option value="paste">Paste key</option>
+                          <option value="placeholder">{i18nT("Placeholder (<AURORA_API_KEY>)")}</option>
+                          <option value="paste">{i18nT("Paste key")}</option>
                         </select>
                         {keyMode === "placeholder" ? (
-                          <p className="text-xs leading-5 text-muted-foreground">
-                            Previews and copied snippets use <code className="font-mono text-foreground">&lt;AURORA_API_KEY&gt;</code> so shared configs never embed a secret. Apply on host still requires a pasted key.
-                          </p>
+                          <p className="text-xs leading-5 text-muted-foreground">{i18nT("Previews and copied snippets use ")}<code className="font-mono text-foreground">&lt;AURORA_API_KEY&gt;</code>{i18nT(" so shared configs never embed a secret. Apply on host still requires a pasted key.")}</p>
                         ) : (
                           <div className="flex min-w-0 flex-col gap-2">
                             {authKeys.length > 0 ? (
@@ -699,12 +686,12 @@ function CLIToolsGuideSection(): JSX.Element {
                                   const picked = authKeys.find((key) => key.id === id);
                                   updateForm({ api_key: picked?.redacted_value || "" });
                                 }}
-                                aria-label="Existing auth keys"
+                                aria-label={i18nT("Existing auth keys")}
                               >
-                                <option value="">Existing auth keys</option>
+                                <option value="">{i18nT("Existing auth keys")}</option>
                                 {authKeys.map((key) => (
                                   <option key={key.id} value={key.id}>
-                                    {key.name} ({key.redacted_value || "no value"})
+                                    {key.name} ({key.redacted_value || i18nT("no value")})
                                   </option>
                                 ))}
                               </select>
@@ -715,19 +702,16 @@ function CLIToolsGuideSection(): JSX.Element {
                               className="field-input min-w-0 font-mono"
                               value={form.api_key}
                               onChange={(e) => updateForm({ api_key: e.target.value })}
-                              placeholder="Paste full API key"
+                              placeholder={i18nT("Paste full API key")}
                             />
-                            <p className="text-xs leading-5 text-muted-foreground">
-                              Auth keys only expose redacted values — paste the full key below to apply, or use placeholder mode for shared configs.{" "}
-                              <Link className="text-accent hover:underline" to="/admin/dashboard/auth-keys">
-                                Create new key
-                              </Link>
+                            <p className="text-xs leading-5 text-muted-foreground">{i18nT("Auth keys only expose redacted values — paste the full key below to apply, or use placeholder mode for shared configs.")}{" "}
+                              <Link className="text-accent hover:underline" to="/admin/dashboard/auth-keys">{i18nT("Create new key")}</Link>
                             </p>
                           </div>
                         )}
                       </div>
                     </CLIField>
-                    <CLIField label={current.model_fields?.length ? "Fallback model" : "Model or combo"}>
+                    <CLIField label={current.model_fields?.length ? i18nT("Fallback model") : i18nT("Model or combo")}>
                       <select className="field-input min-w-0 max-w-full truncate font-mono" value={form.model} onChange={(e) => updateForm({ model: e.target.value })}>
                         <option value={form.model}>{form.model}</option>
                         {modelOptions.filter((model) => model !== form.model).map((model) => <option key={model} value={model}>{model}</option>)}
@@ -753,12 +737,10 @@ function CLIToolsGuideSection(): JSX.Element {
                     ) : null}
                     <div className="sticky bottom-0 z-10 -mx-3 -mb-3 flex min-w-0 flex-wrap items-center gap-2 border-t border-border/40 bg-surface/95 px-3 py-3 backdrop-blur md:col-span-3 md:-mx-4 md:-mb-4 md:px-4">
                       <Button onClick={() => void runPreview()} disabled={busy || !current} className="min-h-[40px]">
-                        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                        Preview
-                      </Button>
-                      <Button variant="secondary" onClick={() => void runApply()} disabled={busy || !canApply} className="min-h-[40px]">Apply on host</Button>
+                        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}{i18nT("Preview")}</Button>
+                      <Button variant="secondary" onClick={() => void runApply()} disabled={busy || !canApply} className="min-h-[40px]">{i18nT("Apply on host")}</Button>
                       {current.can_apply ? (
-                        <Button variant="ghost" onClick={() => void runReset()} disabled={busy} className="min-h-[40px]">Restore backup</Button>
+                        <Button variant="ghost" onClick={() => void runReset()} disabled={busy} className="min-h-[40px]">{i18nT("Restore backup")}</Button>
                       ) : null}
                       {!canApply && applyDisabledReason ? <span className="min-w-0 flex-1 break-words text-xs leading-5 text-muted-foreground">{applyDisabledReason}</span> : null}
                     </div>
@@ -778,9 +760,7 @@ function CLIToolsGuideSection(): JSX.Element {
                               onClick={() => void copySnippet(value)}
                               className="shrink-0 min-h-[36px]"
                             >
-                              <Copy className="h-4 w-4" />
-                              Copy
-                            </Button>
+                              <Copy className="h-4 w-4" />{i18nT("Copy")}</Button>
                           </div>
                           <SnippetCode value={value} kind={kind} />
                         </div>
@@ -813,18 +793,15 @@ function PoolUsageSection(): JSX.Element {
 
   let body: JSX.Element;
   if (pools.isLoading) {
-    body = <p className="text-sm text-muted-foreground">Loading configured pools…</p>;
+    body = <p className="text-sm text-muted-foreground">{i18nT("Loading configured pools…")}</p>;
   } else if (pools.error) {
     body = (
-      <p className="text-sm text-destructive">
-        Failed to load pools: {pools.error.message}
+      <p className="text-sm text-destructive">{i18nT("Failed to load pools: ")}{pools.error.message}
       </p>
     );
   } else if (poolsList.length === 0) {
     body = (
-      <div className="rounded-lg border border-dashed border-border bg-background/20 p-4 text-sm text-muted-foreground">
-        No provider pools are configured on this gateway. Pools group two or more configured providers that share an upstream and can serve the same models — define them under <code className="font-mono">pools</code> in the gateway config to enable load balancing and automatic failover. See the docs for examples.
-      </div>
+      <div className="rounded-lg border border-dashed border-border bg-background/20 p-4 text-sm text-muted-foreground">{i18nT("No provider pools are configured on this gateway. Pools group two or more configured providers that share an upstream and can serve the same models — define them under ")}<code className="font-mono">pools</code>{i18nT(" in the gateway config to enable load balancing and automatic failover. See the docs for examples.")}</div>
     );
   } else {
     body = (
@@ -844,8 +821,8 @@ function PoolUsageSection(): JSX.Element {
   return (
     <Surface className="p-5 xl:col-span-2">
       <SectionHeader
-        title="Provider pools"
-        subtitle="Load-balanced groups of providers. Address them via a pool-prefixed model or a separate provider field."
+        title={i18nT("Provider pools")}
+        subtitle={i18nT("Load-balanced groups of providers. Address them via a pool-prefixed model or a separate provider field.")}
         className="mb-4"
       />
       {body}
@@ -862,42 +839,40 @@ export function GuidePage(): JSX.Element {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Gateway Guide"
-        subtitle="Configured URLs and request patterns for this running gateway."
+        title={i18nT("Gateway Guide")}
+        subtitle={i18nT("Configured URLs and request patterns for this running gateway.")}
       />
 
       <Surface className="relative overflow-hidden p-6" variant="elevated">
         <div className="absolute inset-y-0 right-0 w-1/2 bg-gradient-to-l from-accent/10 to-transparent" />
         <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0 space-y-2">
-            <Kicker>Configured base URL</Kicker>
+            <Kicker>{i18nT("Configured base URL")}</Kicker>
             <h3 className="break-all font-mono text-2xl font-semibold tracking-tight text-foreground">
               {baseUrl}
             </h3>
-            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-              Use this as the OpenAI- and Anthropic-compatible base URL in SDKs and tools. The endpoint reflects the current host and dashboard base path.
-            </p>
+            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{i18nT("Use this as the OpenAI- and Anthropic-compatible base URL in SDKs and tools. The endpoint reflects the current host and dashboard base path.")}</p>
           </div>
           <Button onClick={() => baseCopy.copy(baseUrl)} className="shrink-0">
             <Copy className="h-4 w-4" />
-            {baseCopy.copied ? "Copied" : "Copy base URL"}
+            {baseCopy.copied ? i18nT("Copied") : i18nT("Copy base URL")}
           </Button>
         </div>
       </Surface>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Surface className="p-5 xl:col-span-2">
-          <SectionHeader title="Endpoints" subtitle="Routes exposed by the gateway from this deployment." className="mb-4" />
+          <SectionHeader title={i18nT("Endpoints")} subtitle={i18nT("Routes exposed by the gateway from this deployment.")} className="mb-4" />
           <div className="mb-6">
-            <h4 className="mb-3 text-sm font-bold uppercase tracking-wider text-accent">OpenAI-compatible</h4>
+            <h4 className="mb-3 text-sm font-bold uppercase tracking-wider text-accent">{i18nT("OpenAI-compatible")}</h4>
             <TableWrap>
               <DataTable>
                 <thead>
                   <tr>
-                    <Th>Method</Th>
-                    <Th>Endpoint</Th>
-                    <Th>Feature</Th>
-                    <Th>Description</Th>
+                    <Th>{i18nT("Method")}</Th>
+                    <Th>{i18nT("Endpoint")}</Th>
+                    <Th>{i18nT("Feature")}</Th>
+                    <Th>{i18nT("Description")}</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -921,25 +896,19 @@ export function GuidePage(): JSX.Element {
           </div>
 
           <div className="mb-6">
-            <h4 className="mb-3 text-sm font-bold uppercase tracking-wider text-accent">Anthropic-compatible</h4>
-            <p className="mb-2 text-xs leading-5 text-muted-foreground">
-              The <code className="font-mono">/v1/messages</code> endpoint accepts native Anthropic-format request bodies, translates them to the gateway&apos;s internal format, dispatches to <strong>any configured provider</strong> (OpenAI, Groq, etc.), and converts the response back to Anthropic format. This allows Anthropic SDKs and Claude Code to route through the gateway to any upstream provider.
-            </p>
-            <p className="mb-2 text-xs leading-5 text-muted-foreground">
-              Authentication accepts either <code className="font-mono">Authorization: Bearer &lt;key&gt;</code> or <code className="font-mono">x-api-key: &lt;key&gt;</code>. Set the <code className="font-mono">anthropic-version: 2023-06-01</code> header as required by the Anthropic API spec.
-            </p>
-            <p className="mb-3 text-xs leading-5 text-muted-foreground">
-              Enable by setting <code className="font-mono">ENABLE_ANTHROPIC_INGRESS=true</code> in your <code className="font-mono">.env</code> or <code className="font-mono">enable_anthropic_ingress: true</code> in your config YAML.
-            </p>
+            <h4 className="mb-3 text-sm font-bold uppercase tracking-wider text-accent">{i18nT("Anthropic-compatible")}</h4>
+            <p className="mb-2 text-xs leading-5 text-muted-foreground">{i18nT("The ")}<code className="font-mono">/v1/messages</code>{i18nT(" endpoint accepts native Anthropic-format request bodies, translates them to the gateway's internal format, dispatches to ")}<strong>{i18nT("any configured provider")}</strong>{i18nT(" (OpenAI, Groq, etc.), and converts the response back to Anthropic format. This allows Anthropic SDKs and Claude Code to route through the gateway to any upstream provider.")}</p>
+            <p className="mb-2 text-xs leading-5 text-muted-foreground">{i18nT("Authentication accepts either ")}<code className="font-mono">Authorization: Bearer &lt;key&gt;</code>{i18nT(" or ")}<code className="font-mono">x-api-key: &lt;key&gt;</code>{i18nT(". Set the ")}<code className="font-mono">anthropic-version: 2023-06-01</code>{i18nT(" header as required by the Anthropic API spec.")}</p>
+            <p className="mb-3 text-xs leading-5 text-muted-foreground">{i18nT("Enable by setting ")}<code className="font-mono">ENABLE_ANTHROPIC_INGRESS=true</code>{i18nT(" in your ")}<code className="font-mono">.env</code>{i18nT(" or ")}<code className="font-mono">enable_anthropic_ingress: true</code>{i18nT(" in your config YAML.")}</p>
 
             <TableWrap>
               <DataTable>
                 <thead>
                   <tr>
-                    <Th>Method</Th>
-                    <Th>Endpoint</Th>
-                    <Th>Feature</Th>
-                    <Th>Description</Th>
+                    <Th>{i18nT("Method")}</Th>
+                    <Th>{i18nT("Endpoint")}</Th>
+                    <Th>{i18nT("Feature")}</Th>
+                    <Th>{i18nT("Description")}</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -963,18 +932,16 @@ export function GuidePage(): JSX.Element {
           </div>
 
           <div>
-            <h4 className="mb-3 text-sm font-bold uppercase tracking-wider text-accent">Infrastructure &amp; shared</h4>
-            <p className="mb-2 text-xs leading-5 text-muted-foreground">
-              Endpoints shared across SDK types. <code className="font-mono">/v1/models</code> serves both OpenAI-format and Anthropic-format model lists depending on the client.
-            </p>
+            <h4 className="mb-3 text-sm font-bold uppercase tracking-wider text-accent">{i18nT("Infrastructure & shared")}</h4>
+            <p className="mb-2 text-xs leading-5 text-muted-foreground">{i18nT("Endpoints shared across SDK types. ")}<code className="font-mono">/v1/models</code>{i18nT(" serves both OpenAI-format and Anthropic-format model lists depending on the client.")}</p>
             <TableWrap>
               <DataTable>
                 <thead>
                   <tr>
-                    <Th>Method</Th>
-                    <Th>Endpoint</Th>
-                    <Th>Feature</Th>
-                    <Th>Description</Th>
+                    <Th>{i18nT("Method")}</Th>
+                    <Th>{i18nT("Endpoint")}</Th>
+                    <Th>{i18nT("Feature")}</Th>
+                    <Th>{i18nT("Description")}</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1000,8 +967,8 @@ export function GuidePage(): JSX.Element {
 
         <Surface className="p-5">
           <SectionHeader
-            title="OpenAI SDK setup"
-            subtitle="Point SDKs at the gateway and keep using familiar model calls."
+            title={i18nT("OpenAI SDK setup")}
+            subtitle={i18nT("Point SDKs at the gateway and keep using familiar model calls.")}
             className="mb-4"
           />
           <CodeBlock>{`baseURL: ${baseUrl}\napiKey: master key or managed API key`}</CodeBlock>
@@ -1009,8 +976,8 @@ export function GuidePage(): JSX.Element {
 
         <Surface className="p-5">
           <SectionHeader
-            title="Request features"
-            subtitle="Headers and dashboard-managed features that affect requests."
+            title={i18nT("Request features")}
+            subtitle={i18nT("Headers and dashboard-managed features that affect requests.")}
             className="mb-4"
           />
           <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
@@ -1027,20 +994,18 @@ export function GuidePage(): JSX.Element {
 
         <Surface className="p-5 xl:col-span-2">
           <SectionHeader
-            title="Chat completion example"
-            subtitle="This example uses the same request shape as the Playground."
+            title={i18nT("Chat completion example")}
+            subtitle={i18nT("This example uses the same request shape as the Playground.")}
             className="mb-4"
           />
           <CodeBlock className="mb-4">{curl}</CodeBlock>
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" onClick={() => curlCopy.copy(curl)}>
               <Copy className="h-4 w-4" />
-              {curlCopy.copied ? "Copied" : "Copy cURL"}
+              {curlCopy.copied ? i18nT("Copied") : i18nT("Copy cURL")}
             </Button>
             <Button asChild>
-              <Link to="/admin/dashboard/playground">
-                Open Playground
-                <ExternalLink className="h-4 w-4" />
+              <Link to="/admin/dashboard/playground">{i18nT("Open Playground")}<ExternalLink className="h-4 w-4" />
               </Link>
             </Button>
           </div>

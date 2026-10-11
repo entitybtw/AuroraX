@@ -11,6 +11,8 @@ import {
 } from "recharts";
 import { formatTokens } from "@/lib/format/numbers";
 import type { ModelUsage } from "@/lib/api/usage-types";
+import { t } from "@/lib/i18n";
+
 
 export interface ModelSplitChartProps {
   models: ModelUsage[] | undefined;
@@ -41,9 +43,9 @@ export function ModelSplitChart({ models, isLoading }: ModelSplitChartProps): JS
   return (
     <div className="w-full p-4" style={{ height: 350 }}>
       {isLoading ? (
-        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading...</div>
+        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{t("Loading...")}</div>
       ) : data.length === 0 ? (
-        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">No model data available.</div>
+        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{t("No model data available.")}</div>
       ) : (
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>

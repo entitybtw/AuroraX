@@ -1,4 +1,6 @@
 import type { ExitStatus, ProviderEgressStatus } from "@/lib/api/egress-types";
+import { t } from "@/lib/i18n";
+
 
 /** The palette an exit state maps onto: muted / success / warning / danger. */
 export type ExitTone = "muted" | "success" | "warning" | "danger";
@@ -24,10 +26,10 @@ export function exitDestination(exit: ExitStatus): string {
 /** The one-line state of an exit, worst condition first. */
 export function exitState(exit: ExitStatus): { label: string; tone: ExitTone } {
   if (exit.disabled) return { label: "off", tone: "muted" };
-  if (exit.cooldown_until) return { label: "cooling down", tone: "warning" };
-  if (exit.tier_limited) return { label: "rate limited", tone: "warning" };
+  if (exit.cooldown_until) return { label: t("cooling down"), tone: "warning" };
+  if (exit.tier_limited) return { label: t("rate limited"), tone: "warning" };
   if (!exit.available) return { label: "unavailable", tone: "danger" };
-  return { label: "in use", tone: "success" };
+  return { label: t("in use"), tone: "success" };
 }
 
 /** Success rate as a whole percentage, or null while nothing has been tried. */
@@ -98,7 +100,7 @@ function rowSeverity(row: IpInventoryRow): number {
 /** The worst state among the providers using an address: one address shared
  *  by several providers is only as healthy as its sickest user. */
 export function inventoryState(row: IpInventoryRow): { label: string; tone: ExitTone } {
-  let worst: { label: string; tone: ExitTone } = { label: "in use", tone: "success" };
+  let worst: { label: string; tone: ExitTone } = { label: t("in use"), tone: "success" };
   for (const use of row.used) {
     const state = exitState(use.exit);
     if (severityOf(state.tone) > severityOf(worst.tone)) worst = state;
@@ -106,7 +108,7 @@ export function inventoryState(row: IpInventoryRow): { label: string; tone: Exit
   // "off" only when every user paused it; otherwise the address is still
   // sending traffic for somebody and "off" would be a lie.
   if (worst.tone === "muted" && row.used.some((use) => !use.exit.disabled)) {
-    return { label: "partly off", tone: "muted" };
+    return { label: t("partly off"), tone: "muted" };
   }
   return worst;
 }

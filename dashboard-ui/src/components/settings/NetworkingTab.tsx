@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { ToggleField } from "@/components/ui/toggle-field";
 import { RuntimeStatusBadge, useSettings } from "./SettingsContext";
 import { ActivityIcon, GaugeIcon, SaveIcon } from "lucide-react";
+import { t } from "@/lib/i18n";
+
 
 export function NetworkingTab(): JSX.Element {
   const { dashboardSettings, setDashboardSettings, handleDashboardSettingsSave, mutations } = useSettings();
@@ -18,8 +20,8 @@ export function NetworkingTab(): JSX.Element {
                 <ActivityIcon className="h-4 w-4 text-accent" />
               </div>
               <SectionHeader
-                title="Server Surface"
-                subtitle="Inbound listener and debug endpoints exposed by this gateway runtime. Some values require restart when changed in config."
+                title={t("Server Surface")}
+                subtitle={t("Inbound listener and debug endpoints exposed by this gateway runtime. Some values require restart when changed in config.")}
               />
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -28,20 +30,20 @@ export function NetworkingTab(): JSX.Element {
           </div>
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
             <div className="border border-border/40 bg-surface p-4 transition-colors hover:bg-surface-hover/30">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Port</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Port")}</div>
               <div className="mt-2 font-mono text-[14px] font-medium text-foreground">{dashboardSettings.client.port || "8080"}</div>
             </div>
             <div className="border border-border/40 bg-surface p-4 transition-colors hover:bg-surface-hover/30">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Base path</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Base path")}</div>
               <div className="mt-2 font-mono text-[14px] font-medium text-foreground">{dashboardSettings.client.base_path || "/"}</div>
             </div>
             <div className="border border-border/40 bg-surface p-4 transition-colors hover:bg-surface-hover/30">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Swagger UI</div>
-              <div className="mt-2 text-[14px] font-medium text-foreground">{dashboardSettings.client.swagger_enabled ? "Enabled" : "Disabled"}</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Swagger UI")}</div>
+              <div className="mt-2 text-[14px] font-medium text-foreground">{dashboardSettings.client.swagger_enabled ? t("Enabled") : t("Disabled")}</div>
             </div>
             <div className="border border-border/40 bg-surface p-4 transition-colors hover:bg-surface-hover/30">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">PProf</div>
-              <div className="mt-2 text-[14px] font-medium text-foreground">{dashboardSettings.client.pprof_enabled ? "Enabled" : "Disabled"}</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("PProf")}</div>
+              <div className="mt-2 text-[14px] font-medium text-foreground">{dashboardSettings.client.pprof_enabled ? t("Enabled") : t("Disabled")}</div>
             </div>
           </div>
         </div>
@@ -55,8 +57,8 @@ export function NetworkingTab(): JSX.Element {
                 <ActivityIcon className="h-4 w-4 text-accent" />
               </div>
               <SectionHeader
-                title="Proxy"
-                subtitle="Global outbound proxy configuration for the gateway."
+                title={t("Proxy")}
+                subtitle={t("Global outbound proxy configuration for the gateway.")}
               />
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -66,7 +68,7 @@ export function NetworkingTab(): JSX.Element {
           </div>
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">HTTP proxy</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("HTTP proxy")}</div>
               <Input
                 type="text"
                 className="w-full mt-1"
@@ -76,7 +78,7 @@ export function NetworkingTab(): JSX.Element {
               />
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">HTTPS proxy</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("HTTPS proxy")}</div>
               <Input
                 type="text"
                 className="w-full mt-1"
@@ -86,42 +88,42 @@ export function NetworkingTab(): JSX.Element {
               />
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">No proxy</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("No proxy")}</div>
               <Input
                 type="text"
                 className="w-full mt-1"
-                placeholder="localhost, 127.0.0.1, .local"
+                placeholder={t("localhost, 127.0.0.1, .local")}
                 value={dashboardSettings.proxy.no_proxy}
                 onChange={e => setDashboardSettings({ ...dashboardSettings, proxy: { ...dashboardSettings.proxy, no_proxy: e.target.value } })}
               />
-              <div className="mt-1 text-[12px] text-muted-foreground">Comma-separated hosts to skip the proxy.</div>
+              <div className="mt-1 text-[12px] text-muted-foreground">{t("Comma-separated hosts to skip the proxy.")}</div>
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
               <ToggleField
-                label="Proxy auth required"
-                description="Toggle if your proxy requires username/password authentication."
+                label={t("Proxy auth required")}
+                description={t("Toggle if your proxy requires username/password authentication.")}
                 checked={dashboardSettings.proxy.proxy_auth_enabled}
                 onCheckedChange={(checked) => setDashboardSettings({ ...dashboardSettings, proxy: { ...dashboardSettings.proxy, proxy_auth_enabled: checked } })}
-                aria-label="Enable proxy auth"
+                aria-label={t("Enable proxy auth")}
               />
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30 xl:col-span-2">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">CA certificate (PEM)</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("CA certificate (PEM)")}</div>
               <textarea
                 className="field-input w-full mt-1 font-mono text-[12px] leading-relaxed min-h-[100px] resize-y"
-                placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----"
+                placeholder={t("-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----")}
                 value={dashboardSettings.proxy.ca_cert_pem}
                 onChange={e => setDashboardSettings({ ...dashboardSettings, proxy: { ...dashboardSettings.proxy, ca_cert_pem: e.target.value } })}
               />
-              <div className="mt-1 text-[12px] text-muted-foreground">Custom CA certificate for proxy TLS interception. Leave empty to use system trust store.</div>
+              <div className="mt-1 text-[12px] text-muted-foreground">{t("Custom CA certificate for proxy TLS interception. Leave empty to use system trust store.")}</div>
             </div>
           </div>
           <div className="flex items-center gap-3 mt-2 border-t border-border/50 pt-4">
             <Button onClick={handleDashboardSettingsSave} disabled={mutations.saveDashboardSettingsMutation.isPending}>
               <SaveIcon className="mr-2 h-4 w-4" />
-              {mutations.saveDashboardSettingsMutation.isPending ? "Saving..." : "Save Proxy Settings"}
+              {mutations.saveDashboardSettingsMutation.isPending ? t("Saving...") : t("Save Proxy Settings")}
             </Button>
-            {mutations.saveDashboardSettingsMutation.isSuccess && <span className="text-[13px] font-medium text-success">Saved</span>}
+            {mutations.saveDashboardSettingsMutation.isSuccess && <span className="text-[13px] font-medium text-success">{t("Saved")}</span>}
             {mutations.saveDashboardSettingsMutation.isError && <span className="text-[13px] font-medium text-destructive">{mutations.saveDashboardSettingsMutation?.error?.message}</span>}
           </div>
         </div>
@@ -135,8 +137,8 @@ export function NetworkingTab(): JSX.Element {
                 <GaugeIcon className="h-4 w-4 text-accent" />
               </div>
               <SectionHeader
-                title="Performance"
-                subtitle="Timeout, retry, and circuit breaker settings for HTTP requests."
+                title={t("Performance")}
+                subtitle={t("Timeout, retry, and circuit breaker settings for HTTP requests.")}
               />
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -145,7 +147,7 @@ export function NetworkingTab(): JSX.Element {
           </div>
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">HTTP timeout</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("HTTP timeout")}</div>
               <Input
                 type="number"
                 min={0}
@@ -153,10 +155,10 @@ export function NetworkingTab(): JSX.Element {
                 value={dashboardSettings.performance.http_timeout_seconds}
                 onChange={e => setDashboardSettings({ ...dashboardSettings, performance: { ...dashboardSettings.performance, http_timeout_seconds: parseInt(e.target.value) || 0 } })}
               />
-              <div className="mt-1 text-[12px] text-muted-foreground">Seconds</div>
+              <div className="mt-1 text-[12px] text-muted-foreground">{t("Seconds")}</div>
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Response header timeout</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Response header timeout")}</div>
               <Input
                 type="number"
                 min={0}
@@ -164,10 +166,10 @@ export function NetworkingTab(): JSX.Element {
                 value={dashboardSettings.performance.http_response_header_timeout_seconds}
                 onChange={e => setDashboardSettings({ ...dashboardSettings, performance: { ...dashboardSettings.performance, http_response_header_timeout_seconds: parseInt(e.target.value) || 0 } })}
               />
-              <div className="mt-1 text-[12px] text-muted-foreground">Seconds</div>
+              <div className="mt-1 text-[12px] text-muted-foreground">{t("Seconds")}</div>
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Workflow refresh interval</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Workflow refresh interval")}</div>
               <Input
                 type="number"
                 min={0}
@@ -175,26 +177,26 @@ export function NetworkingTab(): JSX.Element {
                 value={dashboardSettings.performance.workflow_refresh_interval_seconds}
                 onChange={e => setDashboardSettings({ ...dashboardSettings, performance: { ...dashboardSettings.performance, workflow_refresh_interval_seconds: parseInt(e.target.value) || 0 } })}
               />
-              <div className="mt-1 text-[12px] text-muted-foreground">Seconds</div>
+              <div className="mt-1 text-[12px] text-muted-foreground">{t("Seconds")}</div>
             </div>
             <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Body size limit</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Body size limit")}</div>
               <Input
                 type="text"
                 className="w-full mt-1"
-                placeholder="10M"
+                placeholder={t("10M")}
                 value={dashboardSettings.client.body_size_limit}
                 onChange={e => setDashboardSettings({ ...dashboardSettings, client: { ...dashboardSettings.client, body_size_limit: e.target.value } })}
               />
-              <div className="mt-1 text-[12px] text-muted-foreground">Max request/response body size (e.g. 10M, 50M)</div>
+              <div className="mt-1 text-[12px] text-muted-foreground">{t("Max request/response body size (e.g. 10M, 50M)")}</div>
             </div>
           </div>
 
           <div className="border-t border-border/50 pt-4">
-            <h4 className="font-semibold text-[15px] tracking-tight text-foreground mb-3">Resilience</h4>
+            <h4 className="font-semibold text-[15px] tracking-tight text-foreground mb-3">{t("Resilience")}</h4>
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Max retries</div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Max retries")}</div>
                 <Input
                   type="number"
                   min={0}
@@ -204,7 +206,7 @@ export function NetworkingTab(): JSX.Element {
                 />
               </div>
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Initial backoff</div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Initial backoff")}</div>
                 <Input
                   type="number"
                   min={0}
@@ -212,10 +214,10 @@ export function NetworkingTab(): JSX.Element {
                   value={dashboardSettings.performance.retry_initial_backoff_milliseconds}
                   onChange={e => setDashboardSettings({ ...dashboardSettings, performance: { ...dashboardSettings.performance, retry_initial_backoff_milliseconds: parseInt(e.target.value) || 0 } })}
                 />
-                <div className="mt-1 text-[12px] text-muted-foreground">Milliseconds</div>
+                <div className="mt-1 text-[12px] text-muted-foreground">{t("Milliseconds")}</div>
               </div>
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Max backoff</div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Max backoff")}</div>
                 <Input
                   type="number"
                   min={0}
@@ -223,10 +225,10 @@ export function NetworkingTab(): JSX.Element {
                   value={dashboardSettings.performance.retry_max_backoff_milliseconds}
                   onChange={e => setDashboardSettings({ ...dashboardSettings, performance: { ...dashboardSettings.performance, retry_max_backoff_milliseconds: parseInt(e.target.value) || 0 } })}
                 />
-                <div className="mt-1 text-[12px] text-muted-foreground">Milliseconds</div>
+                <div className="mt-1 text-[12px] text-muted-foreground">{t("Milliseconds")}</div>
               </div>
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Backoff factor</div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Backoff factor")}</div>
                 <Input
                   type="number"
                   step={0.1}
@@ -237,7 +239,7 @@ export function NetworkingTab(): JSX.Element {
                 />
               </div>
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Jitter factor</div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Jitter factor")}</div>
                 <Input
                   type="number"
                   step={0.01}
@@ -252,10 +254,10 @@ export function NetworkingTab(): JSX.Element {
           </div>
 
           <div className="border-t border-border/50 pt-4">
-            <h4 className="font-semibold text-[15px] tracking-tight text-foreground mb-3">Circuit Breaker</h4>
+            <h4 className="font-semibold text-[15px] tracking-tight text-foreground mb-3">{t("Circuit Breaker")}</h4>
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Failure threshold</div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Failure threshold")}</div>
                 <Input
                   type="number"
                   min={0}
@@ -265,7 +267,7 @@ export function NetworkingTab(): JSX.Element {
                 />
               </div>
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Success threshold</div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Success threshold")}</div>
                 <Input
                   type="number"
                   min={0}
@@ -275,7 +277,7 @@ export function NetworkingTab(): JSX.Element {
                 />
               </div>
               <div className="border border-border/40 bg-surface p-4 flex flex-col gap-2 transition-colors hover:bg-surface-hover/30">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Timeout</div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Timeout")}</div>
                 <Input
                   type="number"
                   min={0}
@@ -283,7 +285,7 @@ export function NetworkingTab(): JSX.Element {
                   value={dashboardSettings.performance.circuit_breaker_timeout_milliseconds}
                   onChange={e => setDashboardSettings({ ...dashboardSettings, performance: { ...dashboardSettings.performance, circuit_breaker_timeout_milliseconds: parseInt(e.target.value) || 0 } })}
                 />
-                <div className="mt-1 text-[12px] text-muted-foreground">Milliseconds</div>
+                <div className="mt-1 text-[12px] text-muted-foreground">{t("Milliseconds")}</div>
               </div>
             </div>
           </div>
@@ -291,9 +293,9 @@ export function NetworkingTab(): JSX.Element {
           <div className="flex items-center gap-3 mt-2 border-t border-border/50 pt-4">
             <Button onClick={handleDashboardSettingsSave} disabled={mutations.saveDashboardSettingsMutation.isPending}>
               <SaveIcon className="mr-2 h-4 w-4" />
-              {mutations.saveDashboardSettingsMutation.isPending ? "Saving..." : "Save Performance Settings"}
+              {mutations.saveDashboardSettingsMutation.isPending ? t("Saving...") : t("Save Performance Settings")}
             </Button>
-            {mutations.saveDashboardSettingsMutation.isSuccess && <span className="text-[13px] font-medium text-success">Saved</span>}
+            {mutations.saveDashboardSettingsMutation.isSuccess && <span className="text-[13px] font-medium text-success">{t("Saved")}</span>}
             {mutations.saveDashboardSettingsMutation.isError && <span className="text-[13px] font-medium text-destructive">{mutations.saveDashboardSettingsMutation?.error?.message}</span>}
           </div>
         </div>

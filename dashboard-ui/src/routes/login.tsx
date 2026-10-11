@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiFetch, ApiError } from "@/lib/api/client";
 import { markApiKeyVerified, setApiKey } from "@/lib/auth/storage";
+import { ensureLocaleSynced, t } from "@/lib/i18n";
 import { setSessionFromLogin, type LoginResponse } from "@/lib/auth/session";
+
 
 interface OIDCProviderInfo {
   name: string;
@@ -100,6 +102,8 @@ export function LoginPage(): JSX.Element {
       setSessionFromLogin(resp);
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       setSessionDone(true);
+      // Pick up the persisted UI language now that the session exists.
+      void ensureLocaleSynced();
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -125,6 +129,8 @@ export function LoginPage(): JSX.Element {
       await apiFetch("/admin/api/v1/dashboard/config");
       markApiKeyVerified();
       await navigate({ to: "/admin/dashboard/overview" });
+      // Pick up the persisted UI language now that the key is stored.
+      void ensureLocaleSynced();
     } catch (err) {
       setApiKey("");
       if (err instanceof ApiError && err.status === 401) {
@@ -172,10 +178,8 @@ export function LoginPage(): JSX.Element {
           <div className="mx-auto grid h-16 w-16 sm:h-14 sm:w-14 place-items-center rounded-2xl bg-accent text-accent-foreground shadow-xl shadow-accent/30">
             <ShieldCheck className="h-8 w-8 sm:h-6 sm:w-6" />
           </div>
-          <h1 className="font-display text-3xl sm:text-[34px] font-normal leading-tight tracking-tight text-foreground">AuroraX Gateway</h1>
-          <p className="text-base sm:text-sm text-muted-foreground">
-            Sign in to access the admin dashboard
-          </p>
+          <h1 className="font-display text-3xl sm:text-[34px] font-normal leading-tight tracking-tight text-foreground">{t("AuroraX Gateway")}</h1>
+          <p className="text-base sm:text-sm text-muted-foreground">{t("Sign in to access the admin dashboard")}</p>
         </div>
 
         {identityEnabled && (
@@ -187,9 +191,7 @@ export function LoginPage(): JSX.Element {
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
                 }`}
-            >
-              SSO / Email
-            </button>
+            >{t("SSO / Email")}</button>
             <button
               type="button"
               onClick={() => { setTab("master"); setError(""); }}
@@ -197,9 +199,7 @@ export function LoginPage(): JSX.Element {
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
                 }`}
-            >
-              Master Key
-            </button>
+            >{t("Master Key")}</button>
           </div>
         )}
 
@@ -212,8 +212,8 @@ export function LoginPage(): JSX.Element {
                   type="email"
                   autoComplete="email"
                   autoFocus
-                  placeholder="Email"
-                  aria-label="Email"
+                  placeholder={t("Email")}
+                  aria-label={t("Email")}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-10 min-h-[52px] text-base rounded-xl"
@@ -224,8 +224,8 @@ export function LoginPage(): JSX.Element {
                 <Input
                   type="password"
                   autoComplete="current-password"
-                  placeholder="Password"
-                  aria-label="Password"
+                  placeholder={t("Password")}
+                  aria-label={t("Password")}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10 min-h-[52px] text-base rounded-xl"
@@ -239,7 +239,7 @@ export function LoginPage(): JSX.Element {
 
             <Button type="submit" disabled={submitting} className="w-full min-h-[52px] text-base rounded-xl active:scale-[0.98]">
               <LogIn className="h-5 w-5" />
-              <span>{submitting ? "Signing in…" : "Sign in"}</span>
+              <span>{submitting ? t("Signing in…") : t("Sign in")}</span>
             </Button>
 
             {oidcEnabled && oidcProviders.length > 0 && (
@@ -249,9 +249,7 @@ export function LoginPage(): JSX.Element {
                     <span className="w-full border-t border-border/40" />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">
-                      Or continue with SSO
-                    </span>
+                    <span className="bg-background px-2 text-muted-foreground">{t("Or continue with SSO")}</span>
                   </div>
                 </div>
                 {oidcProviders
@@ -279,8 +277,8 @@ export function LoginPage(): JSX.Element {
                 type="password"
                 autoComplete="current-password"
                 autoFocus
-                placeholder="Master key or bearer token"
-                aria-label="API key"
+                placeholder={t("Master key or bearer token")}
+                aria-label={t("API key")}
                 value={masterKey}
                 onChange={(e) => setMasterKey(e.target.value)}
                 className="pl-10 min-h-[52px] text-base rounded-xl"
@@ -293,7 +291,7 @@ export function LoginPage(): JSX.Element {
 
             <Button type="submit" disabled={submitting} className="w-full min-h-[52px] text-base rounded-xl active:scale-[0.98]">
               <LogIn className="h-5 w-5" />
-              <span>{submitting ? "Checking…" : "Unlock dashboard"}</span>
+              <span>{submitting ? t("Checking…") : t("Unlock dashboard")}</span>
             </Button>
           </form>
         )}

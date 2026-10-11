@@ -16,6 +16,8 @@ import { apiFetch, ApiError } from "@/lib/api/client";
 import { markApiKeyVerified, setApiKey } from "@/lib/auth/storage";
 import { useApiKey } from "@/lib/auth/useApiKey";
 import { useSession } from "@/lib/auth/useSession";
+import { t } from "@/lib/i18n";
+
 
 /**
  * API key entry dialog. Opens when:
@@ -87,9 +89,7 @@ export function AuthDialog({
       <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-md p-5 sm:p-6">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>
-            Requires a master key or operator API key stored in this browser.
-          </DialogDescription>
+          <DialogDescription>{t("Requires a master key or operator API key stored in this browser.")}</DialogDescription>
         </DialogHeader>
 
         {identityEnabled && !loggedIn && (
@@ -103,7 +103,7 @@ export function AuthDialog({
             }}
           >
             <LogIn className="h-5 w-5" />
-            <span>Sign in with SSO</span>
+            <span>{t("Sign in with SSO")}</span>
           </Button>
         )}
 
@@ -112,9 +112,7 @@ export function AuthDialog({
             <span className="w-full border-t border-border/40" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">
-              Or use a key
-            </span>
+            <span className="bg-background px-2 text-muted-foreground">{t("Or use a key")}</span>
           </div>
         </div>
 
@@ -128,8 +126,8 @@ export function AuthDialog({
               type="password"
               autoComplete="current-password"
               autoFocus
-              placeholder="Master key or bearer token"
-              aria-label="API key"
+              placeholder={t("Master key or bearer token")}
+              aria-label={t("API key")}
               value={value}
               onChange={(event) => setValue(event.target.value)}
               className="pl-10 min-h-[48px] text-base"
@@ -143,7 +141,7 @@ export function AuthDialog({
           <DialogFooter>
             <Button type="submit" disabled={submitting} className="w-full min-h-[48px] text-base active:scale-[0.98]">
               <Check className="h-5 w-5" aria-hidden />
-              <span>{submitting ? "Checking…" : cta}</span>
+              <span>{submitting ? t("Checking…") : cta}</span>
             </Button>
           </DialogFooter>
         </form>

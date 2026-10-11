@@ -1,6 +1,8 @@
 import { RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRuntimeRefresh } from "@/lib/api/useProviders";
+import { t } from "@/lib/i18n";
+
 
 export interface RuntimeRefreshButtonProps {
   className?: string;
@@ -32,7 +34,7 @@ export function RuntimeRefreshButton({ className }: RuntimeRefreshButtonProps): 
         )}
       >
         <RefreshCw className={cn("h-3.5 w-3.5", isPending && "animate-spin")} />
-        {isPending ? "Refreshing…" : "Refresh runtime"}
+        {isPending ? t("Refreshing…") : t("Refresh runtime")}
       </button>
       {hint ? (
         <span

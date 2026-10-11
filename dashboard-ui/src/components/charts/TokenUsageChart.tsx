@@ -11,6 +11,8 @@ import {
 } from "recharts";
 import { formatTokens } from "@/lib/format/numbers";
 import type { CacheOverviewDaily, DailyUsage } from "@/lib/api/usage-types";
+import { t } from "@/lib/i18n";
+
 
 export interface TokenUsageChartProps {
   daily: DailyUsage[] | undefined;
@@ -89,11 +91,11 @@ export function TokenUsageChart({
     <div className="border border-border bg-surface p-4">
       <div className="mb-3 flex items-center justify-between">
         <div>
-          <h2 className="font-display text-xl font-normal tracking-tight text-foreground">Token usage</h2>
-          <p className="mt-1 text-xs text-muted-foreground">Input, output, and locally served cache tokens.</p>
+          <h2 className="font-display text-xl font-normal tracking-tight text-foreground">{t("Token usage")}</h2>
+          <p className="mt-1 text-xs text-muted-foreground">{t("Input, output, and locally served cache tokens.")}</p>
         </div>
         {isLoading ? (
-          <span className="text-xs text-muted-foreground">Loading…</span>
+          <span className="text-xs text-muted-foreground">{t("Loading…")}</span>
         ) : null}
       </div>
       <div className="h-64 w-full">

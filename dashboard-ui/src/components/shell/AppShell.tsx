@@ -15,6 +15,8 @@ import { TenantScopeProvider } from "@/lib/tenant/tenant-scope";
 import { ExtensionUIProvider, useExtensionUIContext } from "@/lib/extensions/ui-context";
 import { ExtensionBanners } from "@/components/extensions/ExtensionBanners";
 import { cn } from "@/lib/utils";
+import { t } from "@/lib/i18n";
+
 
 function MobileBrand(): JSX.Element {
   const { logoText, logoURL } = useExtensionUIContext();
@@ -28,7 +30,7 @@ function MobileBrand(): JSX.Element {
 
             </svg>
       )}
-      <span className="font-display text-lg font-bold text-foreground">{logoText || "AuroraX"}</span>
+      <span className="font-display text-lg font-bold text-foreground">{logoText || t("AuroraX")}</span>
     </>
   );
 }
@@ -204,7 +206,7 @@ export function AppShell(): JSX.Element {
               type="button"
               onClick={() => setMobileOpen((prev) => !prev)}
               className="relative w-11 h-11 flex items-center justify-center rounded-lg bg-background border border-border text-foreground active:scale-95 transition-all overflow-hidden shrink-0"
-              aria-label="Toggle sidebar"
+              aria-label={t("Toggle sidebar")}
               aria-expanded={mobileOpen}
             >
               <span className={cn("absolute h-[2px] w-5 bg-current transition-all duration-300 ease-[var(--ease-ios)]", mobileOpen ? "rotate-45 translate-y-0" : "-translate-y-[7px]")} />

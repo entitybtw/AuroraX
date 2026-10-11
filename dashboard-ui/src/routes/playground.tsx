@@ -12,6 +12,8 @@ import { getApiKey } from "@/lib/auth/storage";
 import { getAccessToken } from "@/lib/auth/session";
 import { buildPlaygroundRequestBody, buildEmbeddingRequestBody, buildRerankRequestBody, gatewayEndpoint, gatewayCurlExample, embeddingCurlExample, rerankCurlExample } from "@/lib/gateway/guide";
 import { formatTokens } from "@/lib/format/numbers";
+import { t } from "@/lib/i18n";
+
 
 type PlaygroundMode = "chat" | "embeddings" | "rerank";
 
@@ -657,8 +659,8 @@ export function PlaygroundPage(): JSX.Element {
     <div className="flex flex-col gap-6 xl:h-[calc(100vh-2rem)]">
       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 pt-4 border-b border-border/60 shrink-0">
         <div className="min-w-0 flex-1">
-          <h1 className="font-display text-[28px] md:text-[34px] font-normal leading-tight tracking-tight text-foreground">Playground</h1>
-          <p className="mt-1.5 text-sm md:text-[15px] text-muted-foreground">Test chat, embeddings, and rerank models through the gateway. Select a model and the playground adapts to its capability.</p>
+          <h1 className="font-display text-[28px] md:text-[34px] font-normal leading-tight tracking-tight text-foreground">{t("Playground")}</h1>
+          <p className="mt-1.5 text-sm md:text-[15px] text-muted-foreground">{t("Test chat, embeddings, and rerank models through the gateway. Select a model and the playground adapts to its capability.")}</p>
         </div>
       </header>
 
@@ -675,27 +677,25 @@ export function PlaygroundPage(): JSX.Element {
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
                   <div className="h-6 w-1  bg-accent"></div>
-                  <h3 className="font-semibold text-lg tracking-tight">Prompt</h3>
+                  <h3 className="font-semibold text-lg tracking-tight">{t("Prompt")}</h3>
                 </div>
-                <p className="text-sm text-muted-foreground ml-3">Select a model to start testing.</p>
+                <p className="text-sm text-muted-foreground ml-3">{t("Select a model to start testing.")}</p>
               </div>
               <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider bg-background px-3 py-1.5  border">
-                <Settings2 className="w-3.5 h-3.5" />
-                Settings
-              </div>
+                <Settings2 className="w-3.5 h-3.5" />{t("Settings")}</div>
             </div>
 
             <div className="p-5 flex-1 space-y-5 overflow-y-auto">
               {/* Model + Temperature row */}
               <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-4 items-end">
                 <label className="block space-y-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Model</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Model")}</span>
                   <select
                     value={model}
                     onChange={(event) => handleModelChange(event.target.value)}
                     className="h-11 md:h-10 w-full rounded-md border border-border bg-background px-3 text-sm font-semibold text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all"
                   >
-                    <option value="">{options[0] ? `Auto: ${options[0].label}` : "No models loaded"}</option>
+                    <option value="">{options[0] ? `Auto: ${options[0].label}` : t("No models loaded")}</option>
                     {(["chat", "embeddings", "rerank"] as PlaygroundMode[]).map((cat) => {
                       const catOptions = options.filter((o) => o.category === cat);
                       if (catOptions.length === 0) return null;
@@ -711,12 +711,12 @@ export function PlaygroundPage(): JSX.Element {
                     })}
                   </select>
                   {options.length === 0 ? (
-                    <span className="text-[11px] text-destructive block mt-2">No models loaded yet. Check provider configuration or refresh runtime models.</span>
+                    <span className="text-[11px] text-destructive block mt-2">{t("No models loaded yet. Check provider configuration or refresh runtime models.")}</span>
                   ) : null}
                 </label>
                 {mode === "chat" && (
                   <label className="block space-y-2 w-full sm:w-[80px]">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Temp</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Temp")}</span>
                     <input
                       type="number"
                       min="0"
@@ -734,7 +734,7 @@ export function PlaygroundPage(): JSX.Element {
               {mode === "chat" && (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
                   <label className="block space-y-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Max tokens</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Max tokens")}</span>
                     <input
                       type="number" min="1" max="131072" step="1"
                       value={maxTokens}
@@ -743,7 +743,7 @@ export function PlaygroundPage(): JSX.Element {
                     />
                   </label>
                   <label className="block space-y-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Top P</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Top P")}</span>
                     <input
                       type="number" min="0" max="1" step="0.05"
                       value={topP}
@@ -752,7 +752,7 @@ export function PlaygroundPage(): JSX.Element {
                     />
                   </label>
                   <label className="block space-y-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Freq penalty</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Freq penalty")}</span>
                     <input
                       type="number" min="-2" max="2" step="0.1"
                       value={frequencyPenalty}
@@ -761,7 +761,7 @@ export function PlaygroundPage(): JSX.Element {
                     />
                   </label>
                   <label className="block space-y-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Pres penalty</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Pres penalty")}</span>
                     <input
                       type="number" min="-2" max="2" step="0.1"
                       value={presencePenalty}
@@ -770,7 +770,7 @@ export function PlaygroundPage(): JSX.Element {
                     />
                   </label>
                   <label className="block space-y-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Seed</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Seed")}</span>
                     <input
                       type="number" min="0" max="999999" step="1"
                       value={seed ?? ""}
@@ -784,7 +784,7 @@ export function PlaygroundPage(): JSX.Element {
 
               {/* Capability mode indicator */}
               <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider">
-                <span className="text-muted-foreground">Mode:</span>
+                <span className="text-muted-foreground">{t("Mode:")}</span>
                 <span className={`inline-flex items-center gap-1.5  border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${mode === "chat" ? "border-accent/30 bg-accent/10 text-accent" :
                     mode === "embeddings" ? "border-indigo-400/30 bg-indigo-500/10 text-indigo-400" :
                       "border-amber-400/30 bg-amber-500/10 text-amber-400"
@@ -798,7 +798,7 @@ export function PlaygroundPage(): JSX.Element {
               {mode === "chat" && (
                 <>
                   <label className="block space-y-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">System message</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("System message")}</span>
                     <textarea
                       rows={4}
                       value={systemPrompt}
@@ -808,7 +808,7 @@ export function PlaygroundPage(): JSX.Element {
                   </label>
 
                   <label className="flex flex-col space-y-2 flex-1 min-h-[250px]">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">User message</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("User message")}</span>
                     <textarea
                       value={prompt}
                       onChange={(event) => setPrompt(event.target.value)}
@@ -822,24 +822,24 @@ export function PlaygroundPage(): JSX.Element {
               {mode === "embeddings" && (
                 <>
                   <label className="block space-y-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Search query</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Search query")}</span>
                     <input
                       value={embQuery}
                       onChange={(event) => setEmbQuery(event.target.value)}
-                      placeholder="Deep learning frameworks"
+                      placeholder={t("Deep learning frameworks")}
                       className="w-full rounded-md border border-border bg-background px-4 py-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all shadow-inner font-mono text-[13px]"
                     />
                   </label>
                   <label className="flex flex-col space-y-2 flex-1 min-h-[250px]">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Candidate texts <span className="font-normal normal-case tracking-normal text-muted-foreground/70">(one per line)</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Candidate texts ")}<span className="font-normal normal-case tracking-normal text-muted-foreground/70">{t("(one per line)")}</span>
                       {embExpectedLine != null && (
-                        <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5  bg-amber-500/10 text-amber-500 border border-amber-500/30">Expected nearest neighbor: Line {embExpectedLine}</span>
+                        <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5  bg-amber-500/10 text-amber-500 border border-amber-500/30">{t("Expected nearest neighbor: Line ")}{embExpectedLine}</span>
                       )}
                     </span>
                     <textarea
                       value={embInputs}
                       onChange={(event) => setEmbInputs(event.target.value)}
-                      placeholder="TensorFlow architecture and graph computation"
+                      placeholder={t("TensorFlow architecture and graph computation")}
                       className="w-full flex-1 resize-y rounded-md border border-border bg-background px-4 py-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all shadow-inner font-mono text-[13px]"
                     />
                   </label>
@@ -850,31 +850,31 @@ export function PlaygroundPage(): JSX.Element {
               {mode === "rerank" && (
                 <>
                   <label className="block space-y-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Search query</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Search query")}</span>
                     <input
                       value={rerankQuery || prompt}
                       onChange={(event) => setRerankQuery(event.target.value)}
-                      placeholder="What is the capital of France?"
+                      placeholder={t("What is the capital of France?")}
                       className="w-full rounded-md border border-border bg-background px-4 py-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all shadow-inner font-mono text-[13px]"
                     />
                   </label>
 
                   <label className="flex flex-col space-y-2 flex-1 min-h-[250px]">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Documents <span className="font-normal normal-case tracking-normal text-muted-foreground/70">(one per line)</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Documents ")}<span className="font-normal normal-case tracking-normal text-muted-foreground/70">{t("(one per line)")}</span>
                       {rerankExpectedLine != null && (
-                        <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5  bg-amber-500/10 text-amber-500 border border-amber-500/30">Expected best match: Line {rerankExpectedLine}</span>
+                        <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5  bg-amber-500/10 text-amber-500 border border-amber-500/30">{t("Expected best match: Line ")}{rerankExpectedLine}</span>
                       )}
                     </span>
                     <textarea
                       value={rerankDocs}
                       onChange={(event) => setRerankDocs(event.target.value)}
-                      placeholder="Paris is the capital of France."
+                      placeholder={t("Paris is the capital of France.")}
                       className="w-full flex-1 resize-y rounded-md border border-border bg-background px-4 py-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all shadow-inner font-mono text-[13px] leading-relaxed"
                     />
                   </label>
 
                   <label className="block space-y-2 w-32">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Top N</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Top N")}</span>
                     <input
                       type="number"
                       min="1"
@@ -890,7 +890,7 @@ export function PlaygroundPage(): JSX.Element {
               {/* API curl example */}
               <details className="group mt-4 border rounded-md shrink-0">
                 <summary className="cursor-pointer px-4 py-2 font-semibold text-[11px] bg-muted/20 hover:bg-muted/30 transition-colors list-none flex justify-between items-center outline-none uppercase tracking-wider text-muted-foreground">
-                  <span className="flex items-center gap-2"><Code className="w-3.5 h-3.5" /> View API Request Code</span>
+                  <span className="flex items-center gap-2"><Code className="w-3.5 h-3.5" />{t(" View API Request Code")}</span>
                   <span className="text-muted-foreground transition-transform duration-200 group-open:rotate-180">▼</span>
                 </summary>
                 <div className="p-0 border-t bg-black/90 relative group/copy">
@@ -904,7 +904,7 @@ export function PlaygroundPage(): JSX.Element {
                       e.preventDefault();
                       navigator.clipboard.writeText(generatedCurl);
                     }}
-                    title="Copy to clipboard"
+                    title={t("Copy to clipboard")}
                   >
                     <Terminal className="w-3.5 h-3.5" />
                   </button>
@@ -918,7 +918,7 @@ export function PlaygroundPage(): JSX.Element {
               </span>
               <Button type="submit" disabled={!canSubmit} className="min-w-[140px]">
                 {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                {loading ? "Sending..." : submitLabel}
+                {loading ? t("Sending...") : submitLabel}
               </Button>
             </div>
           </form>
@@ -929,9 +929,9 @@ export function PlaygroundPage(): JSX.Element {
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
                 <div className="h-6 w-1  bg-success"></div>
-                <h3 className="font-semibold text-lg tracking-tight">Response</h3>
+                <h3 className="font-semibold text-lg tracking-tight">{t("Response")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground ml-3">Inspect output payload and compute latency.</p>
+              <p className="text-sm text-muted-foreground ml-3">{t("Inspect output payload and compute latency.")}</p>
             </div>
             {selectedModel && <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground bg-background border px-3 py-1.5 ">{selectedModel}</span>}
           </div>
@@ -942,31 +942,29 @@ export function PlaygroundPage(): JSX.Element {
               <div className="rounded-lg border border-border bg-background/35 p-4 flex flex-col gap-1 shadow-inner">
                 <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
                   <Code className="w-3.5 h-3.5" />
-                  {mode === "rerank" ? "Prompt tokens" : "Tokens"}
+                  {mode === "rerank" ? t("Prompt tokens") : t("Tokens")}
                 </div>
                 <div className="mt-1 text-sm font-semibold text-foreground font-mono">
                   {stats
                     ? <span className="flex items-center justify-between">
-                      <span title="Prompt">{formatTokens(stats.promptTokens)} <span className="text-muted-foreground font-sans text-xs font-normal">in</span></span>
+                      <span title={t("Prompt")}>{formatTokens(stats.promptTokens)} <span className="text-muted-foreground font-sans text-xs font-normal">in</span></span>
                       {mode === "chat" && (
                         <>
                           <span className="text-muted-foreground/30">/</span>
-                          <span title="Completion">{formatTokens(stats.completionTokens)} <span className="text-muted-foreground font-sans text-xs font-normal">out</span></span>
+                          <span title={t("Completion")}>{formatTokens(stats.completionTokens)} <span className="text-muted-foreground font-sans text-xs font-normal">out</span></span>
                         </>
                       )}
                       <span className="text-muted-foreground/30">/</span>
-                      <span className="text-accent" title="Total">{formatTokens(stats.totalTokens)} <span className="text-muted-foreground font-sans text-xs font-normal">tot</span></span>
+                      <span className="text-accent" title={t("Total")}>{formatTokens(stats.totalTokens)} <span className="text-muted-foreground font-sans text-xs font-normal">tot</span></span>
                     </span>
                     : <span className="text-muted-foreground/50">
-                      {loading && mode === "chat" ? <>Streaming<span className="ml-1 inline-flex"><span className="animate-pulse">.</span><span className="animate-pulse delay-100">.</span><span className="animate-pulse delay-200">.</span></span></> : "No usage recorded"}
+                      {loading && mode === "chat" ? <>{t("Streaming")}<span className="ml-1 inline-flex"><span className="animate-pulse">.</span><span className="animate-pulse delay-100">.</span><span className="animate-pulse delay-200">.</span></span></> : t("No usage recorded")}
                     </span>}
                 </div>
               </div>
               <div className="rounded-lg border border-border bg-background/35 p-4 flex flex-col gap-1 shadow-inner">
                 <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
-                  <Activity className="w-3.5 h-3.5" />
-                  Throughput
-                </div>
+                  <Activity className="w-3.5 h-3.5" />{t("Throughput")}</div>
                 <div className="mt-1 text-sm font-semibold text-foreground font-mono">
                   {stats
                     ? <span className="flex items-center justify-between">
@@ -974,11 +972,11 @@ export function PlaygroundPage(): JSX.Element {
                       {stats.tokensPerSecond > 0 && (
                         <>
                           <span className="text-muted-foreground/30">|</span>
-                          <span className="text-accent">{stats.tokensPerSecond.toFixed(1)} <span className="text-muted-foreground font-sans text-[10px] font-normal">tok/s</span></span>
+                          <span className="text-accent">{stats.tokensPerSecond.toFixed(1)} <span className="text-muted-foreground font-sans text-[10px] font-normal">{t("tok/s")}</span></span>
                         </>
                       )}
                     </span>
-                    : <span className="text-muted-foreground/50">Awaiting benchmark</span>}
+                    : <span className="text-muted-foreground/50">{t("Awaiting benchmark")}</span>}
                 </div>
               </div>
             </div>
@@ -987,7 +985,7 @@ export function PlaygroundPage(): JSX.Element {
             {loading && !(responseText || reasoningText) ? (
               <div className="flex-1 flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-muted/5 p-8 text-sm text-muted-foreground min-h-[300px]">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                {mode === "chat" ? "Waiting for model response..." : mode === "embeddings" ? "Generating embeddings..." : "Reranking documents..."}
+                {mode === "chat" ? t("Waiting for model response...") : mode === "embeddings" ? t("Generating embeddings...") : t("Reranking documents...")}
               </div>
             ) : null}
 
@@ -1000,16 +998,12 @@ export function PlaygroundPage(): JSX.Element {
                       type="button"
                       onClick={() => setResponseView("preview")}
                       className={`px-3 py-1 text-[11px] font-semibold tracking-wider uppercase rounded-md transition-colors ${responseView === "preview" ? "bg-accent/15 text-accent" : "text-muted-foreground hover:bg-surface-hover/80 hover:text-foreground"}`}
-                    >
-                      Preview
-                    </button>
+                    >{t("Preview")}</button>
                     <button
                       type="button"
                       onClick={() => setResponseView("raw")}
                       className={`px-3 py-1 text-[11px] font-semibold tracking-wider uppercase rounded-md transition-colors ${responseView === "raw" ? "bg-accent/15 text-accent" : "text-muted-foreground hover:bg-surface-hover/80 hover:text-foreground"}`}
-                    >
-                      Raw
-                    </button>
+                    >{t("Raw")}</button>
                   </div>
                 </div>
 
@@ -1017,7 +1011,7 @@ export function PlaygroundPage(): JSX.Element {
                   {reasoningText && (
                     <details open={loading} className="group mb-4 rounded-md border border-border/40 bg-muted/10">
                       <summary className="cursor-pointer px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors list-none flex items-center justify-between select-none">
-                        <span className="flex items-center gap-2"><span className="w-1.5 h-1.5  bg-amber-500" /> Reasoning{loading ? " (streaming...)" : ""}</span>
+                        <span className="flex items-center gap-2"><span className="w-1.5 h-1.5  bg-amber-500" />{t(" Reasoning")}{loading ? t(" (streaming...)") : ""}</span>
                         <span className="text-muted-foreground/60 transition-transform duration-200 group-open:rotate-180">▼</span>
                       </summary>
                       <div className="px-3 pb-3 text-[13px] text-muted-foreground/90 border-t border-border/30 pt-2 italic whitespace-pre-wrap">
@@ -1040,7 +1034,7 @@ export function PlaygroundPage(): JSX.Element {
                   type="button"
                   className="absolute top-3 right-3 p-1.5 bg-background/80 hover:bg-background border text-foreground opacity-0 group-hover/resp:opacity-100 transition-opacity backdrop-blur-sm z-10"
                   onClick={() => navigator.clipboard.writeText(reasoningText ? `Reasoning:\n${reasoningText}\n\nResponse:\n${responseText}` : responseText)}
-                  title="Copy response"
+                  title={t("Copy response")}
                 >
                   <Terminal className="w-3.5 h-3.5" />
                 </button>
@@ -1052,15 +1046,13 @@ export function PlaygroundPage(): JSX.Element {
               <div className="flex-1 flex flex-col min-h-[300px] gap-3">
                 <div className="flex items-center gap-2 text-[12px] font-semibold text-muted-foreground">
                   <FileText className="h-4 w-4" />
-                  {embResult.data?.length ?? 0} vector{(embResult.data?.length ?? 0) !== 1 ? "s" : ""} generated
-                  {embResult.data?.[0]?.embedding && (
+                  {embResult.data?.length ?? 0}{t(" vector")}{(embResult.data?.length ?? 0) !== 1 ? "s" : ""}{t(" generated")}{embResult.data?.[0]?.embedding && (
                     <span className="text-muted-foreground/60">
-                      · {embResult.data[0].embedding.length} dimensions
-                    </span>
+                      · {embResult.data[0].embedding.length}{t(" dimensions")}</span>
                   )}
                   {embExpectedLine != null && embSimilarities?.[0] != null && (
                     <span className={`ml-auto text-[10px] font-bold px-1.5 py-0.5  border ${embSimilarities[0].line === embExpectedLine ? "bg-success/10 text-success border-success/30" : "bg-destructive/10 text-destructive border-destructive/30"}`}>
-                      {embSimilarities[0].line === embExpectedLine ? "✓ Correct" : `✗ Expected Line ${embExpectedLine}`}
+                      {embSimilarities[0].line === embExpectedLine ? t("✓ Correct") : `✗ Expected Line ${embExpectedLine}`}
                     </span>
                   )}
                 </div>
@@ -1074,8 +1066,8 @@ export function PlaygroundPage(): JSX.Element {
                         <div key={idx} className={`border p-3 ${isTop ? "border-accent/40 bg-accent/[0.04]" : "border-border/40 bg-background/40"}`}>
                           <div className="flex items-center justify-between mb-2">
                             <span className="flex items-center gap-2">
-                              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{isTop ? "Best match" : `Line ${item.line}`}</span>
-                              {isTop && <span className="text-[10px] font-bold px-1.5 py-0.5  bg-accent/10 text-accent border border-accent/30">Top</span>}
+                              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{isTop ? t("Best match") : `Line ${item.line}`}</span>
+                              {isTop && <span className="text-[10px] font-bold px-1.5 py-0.5  bg-accent/10 text-accent border border-accent/30">{t("Top")}</span>}
                             </span>
                             <span className="font-mono text-[13px] font-bold text-foreground">{scorePct}%</span>
                           </div>
@@ -1105,10 +1097,9 @@ export function PlaygroundPage(): JSX.Element {
               <div className="flex-1 flex flex-col min-h-[300px] gap-3">
                 <div className="flex items-center gap-2 text-[12px] font-semibold text-muted-foreground">
                   <ListOrdered className="h-4 w-4" />
-                  {rerankResult.results?.length ?? 0} result{(rerankResult.results?.length ?? 0) !== 1 ? "s" : ""} ranked
-                  {rerankExpectedLine != null && rerankResult.results?.[0] != null && (
+                  {rerankResult.results?.length ?? 0}{t(" result")}{(rerankResult.results?.length ?? 0) !== 1 ? "s" : ""}{t(" ranked")}{rerankExpectedLine != null && rerankResult.results?.[0] != null && (
                     <span className={`ml-auto text-[10px] font-bold px-1.5 py-0.5  border ${rerankResult.results[0].index + 1 === rerankExpectedLine ? "bg-success/10 text-success border-success/30" : "bg-destructive/10 text-destructive border-destructive/30"}`}>
-                      {rerankResult.results[0].index + 1 === rerankExpectedLine ? "✓ Correct" : `✗ Expected Line ${rerankExpectedLine}`}
+                      {rerankResult.results[0].index + 1 === rerankExpectedLine ? t("✓ Correct") : `✗ Expected Line ${rerankExpectedLine}`}
                     </span>
                   )}
                 </div>
@@ -1122,8 +1113,8 @@ export function PlaygroundPage(): JSX.Element {
                       <div key={idx} className={`border p-3 ${isTop ? "border-accent/40 bg-accent/[0.04]" : "border-border/40 bg-background/40"}`}>
                         <div className="flex items-center justify-between mb-2">
                           <span className="flex items-center gap-2">
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{isTop ? "Best match" : `Line ${result.index + 1}`}</span>
-                            {isTop && <span className="text-[10px] font-bold px-1.5 py-0.5  bg-accent/10 text-accent border border-accent/30">Top</span>}
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{isTop ? t("Best match") : `Line ${result.index + 1}`}</span>
+                            {isTop && <span className="text-[10px] font-bold px-1.5 py-0.5  bg-accent/10 text-accent border border-accent/30">{t("Top")}</span>}
                           </span>
                           <span className="font-mono text-[13px] font-bold text-foreground">{scorePct}%</span>
                         </div>
@@ -1148,10 +1139,10 @@ export function PlaygroundPage(): JSX.Element {
               <div className="flex-1 flex items-center justify-center rounded-lg border border-dashed border-border bg-muted/5 p-8 min-h-[300px]">
                 <EmptyState title={`Ready to test ${mode === "chat" ? "a chat" : mode === "embeddings" ? "an embeddings" : "a rerank"} model`}>
                   {mode === "chat"
-                    ? "Select a chat model, write a prompt, and send to see the response with token usage, latency, and throughput."
+                    ? t("Select a chat model, write a prompt, and send to see the response with token usage, latency, and throughput.")
                     : mode === "embeddings"
-                      ? "Select an embedding model, provide a query and candidate texts, and see which candidate has the most similar embedding."
-                      : "Select a rerank model, provide a query and documents, and see relevance scores."}
+                      ? t("Select an embedding model, provide a query and candidate texts, and see which candidate has the most similar embedding.")
+                      : t("Select a rerank model, provide a query and documents, and see relevance scores.")}
                 </EmptyState>
               </div>
             ) : null}

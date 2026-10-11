@@ -6,11 +6,13 @@ import { flagOn, type DashboardConfigResponse } from "@/lib/api/dashboard-config
 import { apiFetch } from "@/lib/api/client";
 import { normalizeHiddenFeatures } from "@/lib/features/features";
 import type { DashboardSettingsFormState, DashboardSettingsSaveResponse, RuntimeRefreshResponse } from "./types";
+import { t } from "@/lib/i18n";
+
 
 export function StatusChip({ enabled }: { enabled: boolean }): JSX.Element {
   return (
     <span className={`inline-flex items-center border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest ${enabled ? "border-success/30 bg-success/10 text-success" : "border-border/60 bg-background/70 text-muted-foreground"}`}>
-      {enabled ? "Active" : "Off"}
+      {enabled ? t("Active") : t("Off")}
     </span>
   );
 }

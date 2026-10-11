@@ -13,6 +13,8 @@ import { SelectCheckbox, BulkActionsBar } from "@/components/ui/bulk-selection";
 import { useDashboardConfig } from "@/lib/api/useDashboardConfig";
 import { flagOn } from "@/lib/api/dashboard-config";
 import type { UpsertGuardrailInput, Guardrail, GuardrailTypeField } from "@/lib/api/guardrails-types";
+import { t as i18nT } from "@/lib/i18n";
+
 
 export function GuardrailsPage(): JSX.Element {
   const { data: config } = useDashboardConfig();
@@ -123,33 +125,29 @@ export function GuardrailsPage(): JSX.Element {
     <div className="flex flex-col gap-6">
       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 pt-4 border-b border-border/60">
         <div className="min-w-0 flex-1">
-          <h1 className="font-display text-[28px] md:text-[34px] font-normal leading-tight tracking-tight text-foreground">Guardrails</h1>
-          <p className="mt-1.5 text-sm md:text-[15px] text-muted-foreground">Reusable policy objects stored in the database and kept hot in memory for workflow execution.</p>
+          <h1 className="font-display text-[28px] md:text-[34px] font-normal leading-tight tracking-tight text-foreground">{i18nT("Guardrails")}</h1>
+          <p className="mt-1.5 text-sm md:text-[15px] text-muted-foreground">{i18nT("Reusable policy objects stored in the database and kept hot in memory for workflow execution.")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Button onClick={() => handleOpenForm()} disabled={typesLoading}>
-            <PlusIcon className="mr-2 h-4 w-4" />
-            Create Guardrail
-          </Button>
+            <PlusIcon className="mr-2 h-4 w-4" />{i18nT("Create Guardrail")}</Button>
         </div>
       </header>
 
       <Surface className="p-6 border-border/40 relative overflow-hidden group">
         <div className="flex flex-col md:flex-row gap-6 justify-between items-start relative z-10">
           <div className="flex flex-col gap-2 max-w-2xl">
-            <p className="text-[12px] font-bold uppercase tracking-wider text-muted-foreground">Reusable Policy Objects</p>
-            <h3 className="font-display text-xl font-normal tracking-tight text-foreground">Guardrail Library</h3>
-            <p className="text-[15px] text-muted-foreground leading-relaxed">
-              Store input, output, or bidirectional guardrails in the database, keep them hot in memory, and attach them to workflows by reference.
-            </p>
+            <p className="text-[12px] font-bold uppercase tracking-wider text-muted-foreground">{i18nT("Reusable Policy Objects")}</p>
+            <h3 className="font-display text-xl font-normal tracking-tight text-foreground">{i18nT("Guardrail Library")}</h3>
+            <p className="text-[15px] text-muted-foreground leading-relaxed">{i18nT("Store input, output, or bidirectional guardrails in the database, keep them hot in memory, and attach them to workflows by reference.")}</p>
           </div>
           <div className="flex gap-8">
             <div className="flex flex-col gap-1.5">
-              <span className="text-[13px] font-medium text-muted-foreground uppercase tracking-wider">Instances</span>
+              <span className="text-[13px] font-medium text-muted-foreground uppercase tracking-wider">{i18nT("Instances")}</span>
               <strong className="text-[40px] leading-none font-bold tracking-tight text-foreground" style={{ fontFeatureSettings: '"tnum"' }}>{guardrails.length}</strong>
             </div>
             <div className="flex flex-col gap-1.5">
-              <span className="text-[13px] font-medium text-muted-foreground uppercase tracking-wider">Types</span>
+              <span className="text-[13px] font-medium text-muted-foreground uppercase tracking-wider">{i18nT("Types")}</span>
               <strong className="text-[40px] leading-none font-bold tracking-tight text-foreground" style={{ fontFeatureSettings: '"tnum"' }}>{types.length}</strong>
             </div>
           </div>
@@ -159,113 +157,111 @@ export function GuardrailsPage(): JSX.Element {
       <Surface className="p-0 overflow-hidden border-muted">
         <details className="group">
           <summary className="cursor-pointer p-4 font-semibold text-sm bg-muted/20 hover:bg-muted/30 transition-colors list-none flex justify-between items-center outline-none">
-            <span>How to use guardrails</span>
+            <span>{i18nT("How to use guardrails")}</span>
             <span className="text-muted-foreground transition-transform duration-200 group-open:rotate-180">▼</span>
           </summary>
           <div className="p-5 flex flex-col gap-6 text-sm bg-background border-t">
-            <p className="text-muted-foreground leading-relaxed">
-              Guardrails are reusable policy objects. You define them once and attach them to workflows by name. The runtime executes them in the order configured by the workflow before the request is dispatched to the upstream provider.
-            </p>
+            <p className="text-muted-foreground leading-relaxed">{i18nT("Guardrails are reusable policy objects. You define them once and attach them to workflows by name. The runtime executes them in the order configured by the workflow before the request is dispatched to the upstream provider.")}</p>
 
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
-                <h4 className="font-semibold text-foreground">1. Lifecycle</h4>
+                <h4 className="font-semibold text-foreground">{i18nT("1. Lifecycle")}</h4>
                 <ol className="list-decimal pl-5 space-y-1.5 text-muted-foreground">
-                  <li><strong className="text-foreground font-medium">Define</strong> a guardrail here (or in <code className="text-xs bg-muted px-1.5 py-0.5 rounded">config.yaml</code> under <code className="text-xs bg-muted px-1.5 py-0.5 rounded">guardrails.rules</code>).</li>
-                  <li><strong className="text-foreground font-medium">Attach</strong> it to a workflow on the Workflows page (or it auto-attaches to <code className="text-xs bg-muted px-1.5 py-0.5 rounded">default-global</code> when seeded from <code className="text-xs bg-muted px-1.5 py-0.5 rounded">config.yaml</code>).</li>
-                  <li><strong className="text-foreground font-medium">Runtime</strong> applies input guardrails before provider dispatch and output guardrails to non-streaming provider responses before clients receive them.</li>
+                  <li><strong className="text-foreground font-medium">{i18nT("Define")}</strong>{i18nT(" a guardrail here (or in ")}<code className="text-xs bg-muted px-1.5 py-0.5 rounded">config.yaml</code>{i18nT(" under ")}<code className="text-xs bg-muted px-1.5 py-0.5 rounded">guardrails.rules</code>).</li>
+                  <li><strong className="text-foreground font-medium">{i18nT("Attach")}</strong>{i18nT(" it to a workflow on the Workflows page (or it auto-attaches to ")}<code className="text-xs bg-muted px-1.5 py-0.5 rounded">default-global</code>{i18nT(" when seeded from ")}<code className="text-xs bg-muted px-1.5 py-0.5 rounded">config.yaml</code>).</li>
+                  <li><strong className="text-foreground font-medium">{i18nT("Runtime")}</strong>{i18nT(" applies input guardrails before provider dispatch and output guardrails to non-streaming provider responses before clients receive them.")}</li>
                 </ol>
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <h4 className="font-semibold text-foreground">2. Step ordering</h4>
-                <p className="text-muted-foreground leading-relaxed">Guardrails attached at the same numeric <code className="text-xs bg-muted px-1.5 py-0.5 rounded">step</code> run <strong className="text-foreground font-medium">in parallel</strong>. Different steps run <strong className="text-foreground font-medium">sequentially</strong>, lowest first. Use steps to express dependencies (e.g. PII redact at step 0, then a system-prompt decorator at step 10).</p>
+                <h4 className="font-semibold text-foreground">{i18nT("2. Step ordering")}</h4>
+                <p className="text-muted-foreground leading-relaxed">{i18nT("Guardrails attached at the same numeric ")}<code className="text-xs bg-muted px-1.5 py-0.5 rounded">step</code>{i18nT(" run ")}<strong className="text-foreground font-medium">{i18nT("in parallel")}</strong>{i18nT(". Different steps run ")}<strong className="text-foreground font-medium">sequentially</strong>{i18nT(", lowest first. Use steps to express dependencies (e.g. PII redact at step 0, then a system-prompt decorator at step 10).")}</p>
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <h4 className="font-semibold text-foreground">3. Available guardrail types</h4>
+                <h4 className="font-semibold text-foreground">{i18nT("3. Available guardrail types")}</h4>
                 <ul className="list-disc pl-5 space-y-1.5 text-muted-foreground">
-                  <li><strong className="text-foreground font-medium">system_prompt</strong> — inject, override, or decorate the system message. Use for compliance disclaimers, safety prompts, persona injection.</li>
-                  <li><strong className="text-foreground font-medium">regex_block</strong> — match patterns in user/system messages and either <em>block</em> the request with a 400 or <em>sanitize</em> by replacing matches with a placeholder. Use for keyword bans, secret detection.</li>
-                  <li><strong className="text-foreground font-medium">pii_redact</strong> — deterministic regex redaction for emails, phone numbers, US SSN, and credit-card-like numbers. Replaces matches with role-aware placeholders.</li>
-                  <li><strong className="text-foreground font-medium">length_limit</strong> — hard cap on combined message size in characters or estimated tokens. Rejects oversized requests early to protect upstream rate limits.</li>
+                  <li><strong className="text-foreground font-medium">system_prompt</strong>{i18nT(" — inject, override, or decorate the system message. Use for compliance disclaimers, safety prompts, persona injection.")}</li>
+                  <li><strong className="text-foreground font-medium">regex_block</strong>{i18nT(" — match patterns in user/system messages and either ")}<em>block</em>{i18nT(" the request with a 400 or ")}<em>sanitize</em>{i18nT(" by replacing matches with a placeholder. Use for keyword bans, secret detection.")}</li>
+                  <li><strong className="text-foreground font-medium">pii_redact</strong>{i18nT(" — deterministic regex redaction for emails, phone numbers, US SSN, and credit-card-like numbers. Replaces matches with role-aware placeholders.")}</li>
+                  <li><strong className="text-foreground font-medium">length_limit</strong>{i18nT(" — hard cap on combined message size in characters or estimated tokens. Rejects oversized requests early to protect upstream rate limits.")}</li>
                 </ul>
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <h4 className="font-semibold text-foreground">4. Fail policy</h4>
-                <p className="text-muted-foreground leading-relaxed">Each guardrail has an <code className="text-xs bg-muted px-1.5 py-0.5 rounded">on_error</code> field: <code className="text-xs bg-muted px-1.5 py-0.5 rounded">block</code> (default for blocking guardrails — request is rejected if the guardrail itself errors out) or <code className="text-xs bg-muted px-1.5 py-0.5 rounded">allow</code> (fail-open — request continues if the guardrail crashes). Sanitizing guardrails default to <code className="text-xs bg-muted px-1.5 py-0.5 rounded">allow</code> so a guardrail bug never breaks your traffic.</p>
+                <h4 className="font-semibold text-foreground">{i18nT("4. Fail policy")}</h4>
+                <p className="text-muted-foreground leading-relaxed">{i18nT("Each guardrail has an ")}<code className="text-xs bg-muted px-1.5 py-0.5 rounded">on_error</code>{i18nT(" field: ")}<code className="text-xs bg-muted px-1.5 py-0.5 rounded">block</code>{i18nT(" (default for blocking guardrails — request is rejected if the guardrail itself errors out) or ")}<code className="text-xs bg-muted px-1.5 py-0.5 rounded">allow</code>{i18nT(" (fail-open — request continues if the guardrail crashes). Sanitizing guardrails default to ")}<code className="text-xs bg-muted px-1.5 py-0.5 rounded">allow</code>{i18nT(" so a guardrail bug never breaks your traffic.")}</p>
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <h4 className="font-semibold text-foreground">5. Quick recipes</h4>
+                <h4 className="font-semibold text-foreground">{i18nT("5. Quick recipes")}</h4>
                 <ul className="list-disc pl-5 space-y-1.5 text-muted-foreground">
-                  <li><strong className="text-foreground font-medium">Enforce safety prompt globally</strong>: create a <code className="text-xs bg-muted px-1.5 py-0.5 rounded">system_prompt</code> guardrail with mode <code className="text-xs bg-muted px-1.5 py-0.5 rounded">decorator</code>, attach to the global workflow.</li>
-                  <li><strong className="text-foreground font-medium">Block secrets</strong>: create a <code className="text-xs bg-muted px-1.5 py-0.5 rounded">regex_block</code> with <code className="text-xs bg-muted px-1.5 py-0.5 rounded">action: block</code> and patterns like <code className="text-xs bg-muted px-1.5 py-0.5 rounded">(?i)api[_-]?key\s*[:=]</code>.</li>
-                  <li><strong className="text-foreground font-medium">Anonymize PII before sending to OpenAI</strong>: attach <code className="text-xs bg-muted px-1.5 py-0.5 rounded">pii_redact</code> at step 0; let user paths that opt-in route through this workflow.</li>
-                  <li><strong className="text-foreground font-medium">Cap input size</strong>: <code className="text-xs bg-muted px-1.5 py-0.5 rounded">length_limit</code> with <code className="text-xs bg-muted px-1.5 py-0.5 rounded">max_chars: 50000</code> stops 1MB blob uploads from reaching the upstream.</li>
+                  <li><strong className="text-foreground font-medium">{i18nT("Enforce safety prompt globally")}</strong>{i18nT(": create a ")}<code className="text-xs bg-muted px-1.5 py-0.5 rounded">system_prompt</code>{i18nT(" guardrail with mode ")}<code className="text-xs bg-muted px-1.5 py-0.5 rounded">decorator</code>{i18nT(", attach to the global workflow.")}</li>
+                  <li><strong className="text-foreground font-medium">{i18nT("Block secrets")}</strong>{i18nT(": create a ")}<code className="text-xs bg-muted px-1.5 py-0.5 rounded">regex_block</code>{i18nT(" with ")}<code className="text-xs bg-muted px-1.5 py-0.5 rounded">action: block</code>{i18nT(" and patterns like ")}<code className="text-xs bg-muted px-1.5 py-0.5 rounded">(?i)api[_-]?key\s*[:=]</code>.</li>
+                  <li><strong className="text-foreground font-medium">{i18nT("Anonymize PII before sending to OpenAI")}</strong>{i18nT(": attach ")}<code className="text-xs bg-muted px-1.5 py-0.5 rounded">pii_redact</code>{i18nT(" at step 0; let user paths that opt-in route through this workflow.")}</li>
+                  <li><strong className="text-foreground font-medium">{i18nT("Cap input size")}</strong>: <code className="text-xs bg-muted px-1.5 py-0.5 rounded">length_limit</code>{i18nT(" with ")}<code className="text-xs bg-muted px-1.5 py-0.5 rounded">max_chars: 50000</code>{i18nT(" stops 1MB blob uploads from reaching the upstream.")}</li>
                 </ul>
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <h4 className="font-semibold text-foreground">6. Regex reference for <code className="text-xs bg-muted px-1.5 py-0.5 rounded">regex_block</code></h4>
-                <p className="text-muted-foreground leading-relaxed">Go regex syntax (RE2). Each line is a separate pattern — at least one match triggers the action.</p>
+                <h4 className="font-semibold text-foreground">{i18nT("6. Regex reference for ")}<code className="text-xs bg-muted px-1.5 py-0.5 rounded">regex_block</code></h4>
+                <p className="text-muted-foreground leading-relaxed">{i18nT("Go regex syntax (RE2). Each line is a separate pattern — at least one match triggers the action.")}</p>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs border-collapse">
                     <thead>
                       <tr className="border-b border-border">
-                        <th className="text-left py-1.5 pr-3 font-medium text-foreground">Goal</th>
-                        <th className="text-left py-1.5 pr-3 font-medium text-foreground">Pattern</th>
-                        <th className="text-left py-1.5 font-medium text-foreground">Blocks "My api_key=secret"</th>
+                        <th className="text-left py-1.5 pr-3 font-medium text-foreground">{i18nT("Goal")}</th>
+                        <th className="text-left py-1.5 pr-3 font-medium text-foreground">{i18nT("Pattern")}</th>
+                        <th className="text-left py-1.5 font-medium text-foreground">{i18nT("Blocks \"My api_key=secret\"")}</th>
                       </tr>
                     </thead>
                     <tbody className="text-muted-foreground">
                       <tr className="border-b border-border/50">
-                        <td className="py-1.5 pr-3">API key / password (case-insensitive)</td>
-                        <td className="py-1.5 pr-3 font-mono">(?i)api[_-]?key\s*[:=]</td>
-                        <td className="py-1.5 font-mono">Yes</td>
+                        <td className="py-1.5 pr-3">{i18nT("API key / password (case-insensitive)")}</td>
+                        <td className="py-1.5 pr-3 font-mono">{i18nT("(?i)api[_-]?key\\s*[:=]")}</td>
+                        <td className="py-1.5 font-mono">{i18nT("Yes")}</td>
                       </tr>
                       <tr className="border-b border-border/50">
-                        <td className="py-1.5 pr-3">Password assignment (case-insensitive)</td>
-                        <td className="py-1.5 pr-3 font-mono">(?i)password\s*[:=]</td>
-                        <td className="py-1.5 font-mono">Yes</td>
+                        <td className="py-1.5 pr-3">{i18nT("Password assignment (case-insensitive)")}</td>
+                        <td className="py-1.5 pr-3 font-mono">{i18nT("(?i)password\\s*[:=]")}</td>
+                        <td className="py-1.5 font-mono">{i18nT("Yes")}</td>
                       </tr>
                       <tr className="border-b border-border/50">
-                        <td className="py-1.5 pr-3">Bearer / token patterns</td>
+                        <td className="py-1.5 pr-3">{i18nT("Bearer / token patterns")}</td>
                         <td className="py-1.5 pr-3 font-mono">{String.raw`(?i)bearer\s+[A-Za-z0-9\-_]{20,}`}</td>
-                        <td className="py-1.5 font-mono">Yes</td>
+                        <td className="py-1.5 font-mono">{i18nT("Yes")}</td>
                       </tr>
                       <tr className="border-b border-border/50">
-                        <td className="py-1.5 pr-3">Slack / Discord webhooks</td>
-                        <td className="py-1.5 pr-3 font-mono">https?://hooks\.slack\.com/.*</td>
-                        <td className="py-1.5 font-mono">No</td>
+                        <td className="py-1.5 pr-3">{i18nT("Slack / Discord webhooks")}</td>
+                        <td className="py-1.5 pr-3 font-mono">{i18nT("https?://hooks\\.slack\\.com/.*")}</td>
+                        <td className="py-1.5 font-mono">{i18nT("No")}</td>
                       </tr>
                       <tr className="border-b border-border/50">
-                        <td className="py-1.5 pr-3">SSN (###-##-####)</td>
+                        <td className="py-1.5 pr-3">{i18nT("SSN (###-##-####)")}</td>
                         <td className="py-1.5 pr-3 font-mono">{String.raw`\b\d{3}-\d{2}-\d{4}\b`}</td>
-                        <td className="py-1.5 font-mono">No</td>
+                        <td className="py-1.5 font-mono">{i18nT("No")}</td>
                       </tr>
                       <tr className="border-b border-border/50">
-                        <td className="py-1.5 pr-3">Email addresses</td>
+                        <td className="py-1.5 pr-3">{i18nT("Email addresses")}</td>
                         <td className="py-1.5 pr-3 font-mono">{String.raw`\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b`}</td>
-                        <td className="py-1.5 font-mono">No</td>
+                        <td className="py-1.5 font-mono">{i18nT("No")}</td>
                       </tr>
                       <tr>
-                        <td className="py-1.5 pr-3">IP address (v4)</td>
+                        <td className="py-1.5 pr-3">{i18nT("IP address (v4)")}</td>
                         <td className="py-1.5 pr-3 font-mono">{String.raw`\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b`}</td>
-                        <td className="py-1.5 font-mono">No</td>
+                        <td className="py-1.5 font-mono">{i18nT("No")}</td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
                 <div className="flex flex-col gap-2 mt-2">
-                  <p className="text-muted-foreground leading-relaxed"><strong className="text-foreground font-medium">Tips:</strong></p>
+                  <p className="text-muted-foreground leading-relaxed"><strong className="text-foreground font-medium">{i18nT("Tips:")}</strong></p>
                   <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-                    <li>Use <code className="text-xs bg-muted px-1.5 py-0.5 rounded">(?i)</code> at the start of a pattern for case-insensitive matching.</li>
-                    <li>Escape special chars: <code className="text-xs bg-muted px-1.5 py-0.5 rounded">\.</code> for literal dot, <code className="text-xs bg-muted px-1.5 py-0.5 rounded">\\</code> for literal backslash.</li>
-                    <li>Use <code className="text-xs bg-muted px-1.5 py-0.5 rounded">\s*</code> for flexible whitespace between key <code className="text-xs bg-muted px-1.5 py-0.5 rounded">:</code> or <code className="text-xs bg-muted px-1.5 py-0.5 rounded">=</code>.</li>
-                    <li>Patterns use Go RE2 syntax — no backreferences or lookahead/lookbehind.</li>
-                    <li>Use <strong>Block</strong> action to reject the request, or <strong>Sanitize</strong> to replace matches with placeholder text.</li>
+                    <li>{i18nT("Use ")}<code className="text-xs bg-muted px-1.5 py-0.5 rounded">(?i)</code>{i18nT(" at the start of a pattern for case-insensitive matching.")}</li>
+                    <li>{i18nT("Escape special chars: ")}<code className="text-xs bg-muted px-1.5 py-0.5 rounded">\.</code>{i18nT(" for literal dot, ")}<code className="text-xs bg-muted px-1.5 py-0.5 rounded">\\</code>{i18nT(" for literal backslash.")}</li>
+                    <li>{i18nT("Use ")}<code className="text-xs bg-muted px-1.5 py-0.5 rounded">\s*</code>{i18nT(" for flexible whitespace between key ")}<code className="text-xs bg-muted px-1.5 py-0.5 rounded">:</code>{i18nT(" or ")}<code className="text-xs bg-muted px-1.5 py-0.5 rounded">=</code>.</li>
+                    <li>{i18nT("Patterns use Go RE2 syntax — no backreferences or lookahead/lookbehind.")}</li>
+                    <li>{i18nT("Use ")}<strong>{i18nT("Block")}</strong>{i18nT(" action to reject the request, or ")}<strong>{i18nT("Sanitize")}</strong>{i18nT(" to replace matches with placeholder text.")}</li>
                   </ul>
                 </div>
               </div>
@@ -276,16 +272,14 @@ export function GuardrailsPage(): JSX.Element {
 
       {!flagOn(config?.GUARDRAILS_ENABLED) && (
         <div className="border border-info/30 bg-info/10 p-4">
-          <h3 className="text-sm font-medium text-info">Runtime guardrail execution is off</h3>
-          <p className="mt-1 text-sm text-info/80">
-            GUARDRAILS_ENABLED is disabled. You can manage definitions here, but they won't execute.
-          </p>
+          <h3 className="text-sm font-medium text-info">{i18nT("Runtime guardrail execution is off")}</h3>
+          <p className="mt-1 text-sm text-info/80">{i18nT("GUARDRAILS_ENABLED is disabled. You can manage definitions here, but they won't execute.")}</p>
         </div>
       )}
 
       {(guardrails.length > 0 || filter) && (
         <SearchInput
-          placeholder="Filter by name, type, summary..."
+          placeholder={i18nT("Filter by name, type, summary...")}
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           className="max-w-md"
@@ -295,21 +289,19 @@ export function GuardrailsPage(): JSX.Element {
       {isLoading ? (
         <Surface variant="subtle" className="py-12">
           <EmptyState
-            title="Loading guardrails..."
-            description="Fetching your policy definitions."
+            title={i18nT("Loading guardrails...")}
+            description={i18nT("Fetching your policy definitions.")}
           />
         </Surface>
       ) : filteredGuardrails.length === 0 ? (
         <Surface variant="subtle" className="py-12">
           <EmptyState
-            title={filter ? "No guardrails match your filter" : "No guardrails defined yet"}
-            description={filter ? "Clear the search field to see all guardrails." : "Create a guardrail to inspect or block requests before they reach a provider."}
+            title={filter ? i18nT("No guardrails match your filter") : i18nT("No guardrails defined yet")}
+            description={filter ? i18nT("Clear the search field to see all guardrails.") : i18nT("Create a guardrail to inspect or block requests before they reach a provider.")}
             action={
               !filter && (
                 <Button onClick={() => handleOpenForm()}>
-                  <PlusIcon className="mr-2 h-4 w-4" />
-                  Create Guardrail
-                </Button>
+                  <PlusIcon className="mr-2 h-4 w-4" />{i18nT("Create Guardrail")}</Button>
               )
             }
           />
@@ -318,9 +310,7 @@ export function GuardrailsPage(): JSX.Element {
         <Surface>
           <BulkActionsBar count={bulk.selectedCount} onClear={bulk.clear}>
             <Button variant="destructive" size="sm" onClick={bulkDelete} disabled={deleteMutation.isPending}>
-              <Trash2Icon className="mr-1.5 h-3.5 w-3.5" />
-              Delete
-            </Button>
+              <Trash2Icon className="mr-1.5 h-3.5 w-3.5" />{i18nT("Delete")}</Button>
           </BulkActionsBar>
           <TableWrap>
             <DataTable>
@@ -333,12 +323,12 @@ export function GuardrailsPage(): JSX.Element {
                       onClick={(e: React.MouseEvent) => e.shiftKey ? null : bulk.toggleAll(allIds)}
                     />
                   </Th>
-                  <Th>Name</Th>
-                  <Th className="hidden sm:table-cell">Type</Th>
-                  <Th className="hidden md:table-cell">Direction</Th>
-                  <Th className="hidden lg:table-cell">User Path</Th>
-                  <Th className="hidden md:table-cell">Summary</Th>
-                  <Th className="text-right">Actions</Th>
+                  <Th>{i18nT("Name")}</Th>
+                  <Th className="hidden sm:table-cell">{i18nT("Type")}</Th>
+                  <Th className="hidden md:table-cell">{i18nT("Direction")}</Th>
+                  <Th className="hidden lg:table-cell">{i18nT("User Path")}</Th>
+                  <Th className="hidden md:table-cell">{i18nT("Summary")}</Th>
+                  <Th className="text-right">{i18nT("Actions")}</Th>
                 </tr>
               </thead>
               <tbody>
@@ -362,15 +352,15 @@ export function GuardrailsPage(): JSX.Element {
                       <Td className="hidden lg:table-cell"><code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">{g.user_path || "—"}</code></Td>
                       <Td className="hidden md:table-cell">
                         <div className="flex flex-col">
-                          <span className="text-sm font-medium">{g.summary || g.description || "No summary yet."}</span>
+                          <span className="text-sm font-medium">{g.summary || g.description || i18nT("No summary yet.")}</span>
                           {g.description && g.summary && <span className="text-xs text-muted-foreground">{g.description}</span>}
                         </div>
                       </Td>
                       <Td className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => handleOpenForm(g)} title="Edit Guardrail">
+                        <Button variant="ghost" size="icon" onClick={() => handleOpenForm(g)} title={i18nT("Edit Guardrail")}>
                           <PencilIcon className="h-4 w-4 text-muted-foreground" />
                         </Button>
-                        <Button variant="ghost" size="icon" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate(g.name)} title="Delete Guardrail">
+                        <Button variant="ghost" size="icon" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate(g.name)} title={i18nT("Delete Guardrail")}>
                           <Trash2Icon className="h-4 w-4 text-destructive" />
                         </Button>
                       </Td>
@@ -387,18 +377,16 @@ export function GuardrailsPage(): JSX.Element {
         <DialogContent className="w-full sm:max-w-4xl max-h-[85vh] overflow-y-auto">
           <form onSubmit={handleSubmit}>
             <DialogHeader>
-              <DialogTitle>{formMode === "edit" ? "Edit Guardrail" : "Create Guardrail"}</DialogTitle>
-              <DialogDescription>
-                Workflows reference these names directly, so renames are intentionally avoided after creation.
-              </DialogDescription>
+              <DialogTitle>{formMode === "edit" ? i18nT("Edit Guardrail") : i18nT("Create Guardrail")}</DialogTitle>
+              <DialogDescription>{i18nT("Workflows reference these names directly, so renames are intentionally avoided after creation.")}</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4 md:grid-cols-2">
               <div className="flex flex-col gap-2">
-                <label htmlFor="name" className="text-sm font-medium">Name</label>
+                <label htmlFor="name" className="text-sm font-medium">{i18nT("Name")}</label>
                 <Input
                   id="name"
                   required
-                  placeholder="e.g. safety-system-prompt"
+                  placeholder={i18nT("e.g. safety-system-prompt")}
                   value={formData.name}
                   disabled={formMode === "edit"}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -406,7 +394,7 @@ export function GuardrailsPage(): JSX.Element {
               </div>
 
               <div className="flex flex-col gap-2">
-                <label htmlFor="type" className="text-sm font-medium">Type</label>
+                <label htmlFor="type" className="text-sm font-medium">{i18nT("Type")}</label>
                 <select
                   id="type"
                   className="field-input"
@@ -422,17 +410,17 @@ export function GuardrailsPage(): JSX.Element {
               </div>
 
               <div className="flex flex-col gap-2 md:col-span-2">
-                <label htmlFor="description" className="text-sm font-medium">Description</label>
+                <label htmlFor="description" className="text-sm font-medium">{i18nT("Description")}</label>
                 <Input
                   id="description"
-                  placeholder="What this guardrail is meant to do"
+                  placeholder={i18nT("What this guardrail is meant to do")}
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 />
               </div>
 
               <div className="flex flex-col gap-2">
-                <label htmlFor="direction" className="text-sm font-medium">Direction</label>
+                <label htmlFor="direction" className="text-sm font-medium">{i18nT("Direction")}</label>
                 <select
                   id="direction"
                   className="field-input"
@@ -440,20 +428,18 @@ export function GuardrailsPage(): JSX.Element {
                   value={formData.direction || "input"}
                   onChange={(e) => setFormData({ ...formData, direction: e.target.value as "input" | "output" | "both" })}
                 >
-                  <option value="input">Input only</option>
-                  <option value="output">Output only</option>
-                  <option value="both">Input and output</option>
+                  <option value="input">{i18nT("Input only")}</option>
+                  <option value="output">{i18nT("Output only")}</option>
+                  <option value="both">{i18nT("Input and output")}</option>
                 </select>
-                <p className="text-xs text-muted-foreground">
-                  Output guardrails run for non-streaming chat and responses results. Streaming output guardrails require a buffered stream mode and are not applied to partial SSE chunks yet.
-                </p>
+                <p className="text-xs text-muted-foreground">{i18nT("Output guardrails run for non-streaming chat and responses results. Streaming output guardrails require a buffered stream mode and are not applied to partial SSE chunks yet.")}</p>
               </div>
 
               <div className="flex flex-col gap-2">
-                <label htmlFor="user_path" className="text-sm font-medium">User Path <span className="text-muted-foreground font-normal text-xs">(optional, for aux rewrites)</span></label>
+                <label htmlFor="user_path" className="text-sm font-medium">{i18nT("User Path ")}<span className="text-muted-foreground font-normal text-xs">{i18nT("(optional, for aux rewrites)")}</span></label>
                 <Input
                   id="user_path"
-                  placeholder="/team/alpha"
+                  placeholder={i18nT("/team/alpha")}
                   value={formData.user_path}
                   onChange={(e) => setFormData({ ...formData, user_path: e.target.value })}
                 />
@@ -548,9 +534,9 @@ export function GuardrailsPage(): JSX.Element {
               )}
             </div>
             <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
-              <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>{i18nT("Cancel")}</Button>
               <Button type="submit" disabled={upsertMutation.isPending}>
-                {upsertMutation.isPending ? "Saving..." : "Save Guardrail"}
+                {upsertMutation.isPending ? i18nT("Saving...") : i18nT("Save Guardrail")}
               </Button>
             </div>
           </form>

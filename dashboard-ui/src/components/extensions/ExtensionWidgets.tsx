@@ -3,6 +3,8 @@ import { cn } from "@/lib/utils";
 import type { ExtensionUIBlock, ExtensionNavLink, ExtensionWidget } from "@/lib/api/extensions";
 import { useExtensionWidgets } from "@/lib/extensions/ui-context";
 import { useExtensionData } from "@/lib/extensions/useExtensionData";
+import { t } from "@/lib/i18n";
+
 
 function safeHref(href: string): boolean {
   // Allow in-app paths and http(s).
@@ -99,7 +101,7 @@ function WidgetCard({ widget }: { widget: ExtensionWidget & { extensionId?: stri
         )}
         {!liveStats && !liveBody && !liveLinks && widget.kind !== "stats" && (
           <p className="text-sm text-muted-foreground">
-            {live.isError ? "Live data unavailable." : "Loading…"}
+            {live.isError ? t("Live data unavailable.") : t("Loading…")}
           </p>
         )}
         {!liveStats && !liveBody && !liveLinks && widget.kind === "stats" && (
@@ -197,15 +199,13 @@ function LiveBlock({
   const live = useExtensionData(extensionId, source, refresh);
   if (live.isError) {
     return (
-      <div className="border border-border/40 bg-surface/35 p-4 text-sm text-muted-foreground">
-        Live data unavailable{block.text ? ` — ${block.text}` : ""}.
+      <div className="border border-border/40 bg-surface/35 p-4 text-sm text-muted-foreground">{t("Live data unavailable")}{block.text ? ` — ${block.text}` : ""}.
       </div>
     );
   }
   if (live.data === undefined) {
     return (
-      <div className="border border-border/40 bg-surface/35 p-4 text-sm text-muted-foreground">
-        Loading{block.text ? ` — ${block.text}` : ""}…
+      <div className="border border-border/40 bg-surface/35 p-4 text-sm text-muted-foreground">{t("Loading")}{block.text ? ` — ${block.text}` : ""}…
       </div>
     );
   }

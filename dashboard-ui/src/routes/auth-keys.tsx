@@ -23,6 +23,8 @@ import { useModels } from "@/lib/api/useModels";
 import { usePools } from "@/lib/api/usePools";
 import { useProviderStatus } from "@/lib/api/useProviders";
 import { format } from "date-fns";
+import { t } from "@/lib/i18n";
+
 
 interface AuthKeyFormState extends Omit<CreateAuthKeyInput, "provider_pool_id"> {
   provider_pool_id: string;
@@ -154,45 +156,41 @@ export function AuthKeysPage(): JSX.Element {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="API Keys"
-        subtitle="Issue scoped API keys for services, teams, or deployments that need gateway access."
+        title={t("API Keys")}
+        subtitle={t("Issue scoped API keys for services, teams, or deployments that need gateway access.")}
         actions={
           <Button onClick={handleOpenForm}>
-            <PlusIcon className="mr-2 h-4 w-4" />
-            Create API Key
-          </Button>
+            <PlusIcon className="mr-2 h-4 w-4" />{t("Create API Key")}</Button>
         }
       />
 
       <DocsCollapsible
-        title="How API keys work"
-        manual="API keys let your backend programmatically issue gateway credentials for each customer. When a user signs up on your platform, call POST /admin/api/v1/auth-keys to create a key scoped to their user path. Revoke it with the deactivate endpoint when they leave. Keys can also be managed manually through this dashboard for testing and debugging."
-        authNote='All endpoints require an Authorization: Bearer &lt;master-key&gt; header. The master key is set via the MASTER_KEY environment variable.'
+        title={t("How API keys work")}
+        manual={t("API keys let your backend programmatically issue gateway credentials for each customer. When a user signs up on your platform, call POST /admin/api/v1/auth-keys to create a key scoped to their user path. Revoke it with the deactivate endpoint when they leave. Keys can also be managed manually through this dashboard for testing and debugging.")}
+        authNote={t("All endpoints require an Authorization: Bearer <master-key> header. The master key is set via the MASTER_KEY environment variable.")}
         endpoints={[
-          { method: "POST", path: "/admin/api/v1/auth-keys", description: "Issue a scoped key — call this when a new user signs up to grant them gateway access" },
-          { method: "POST", path: "/admin/api/v1/auth-keys/:id/deactivate", description: "Revoke a key — call this when a user is removed or leaves your platform" },
-          { method: "GET", path: "/admin/api/v1/auth-keys", description: "List all keys to find a specific key's ID or review active keys" },
-          { method: "GET", path: "/admin/api/v1/auth-keys/:id/stats", description: "Check usage stats (requests, tokens) for a specific key" },
+          { method: "POST", path: "/admin/api/v1/auth-keys", description: t("Issue a scoped key — call this when a new user signs up to grant them gateway access") },
+          { method: "POST", path: "/admin/api/v1/auth-keys/:id/deactivate", description: t("Revoke a key — call this when a user is removed or leaves your platform") },
+          { method: "GET", path: "/admin/api/v1/auth-keys", description: t("List all keys to find a specific key's ID or review active keys") },
+          { method: "GET", path: "/admin/api/v1/auth-keys/:id/stats", description: t("Check usage stats (requests, tokens) for a specific key") },
         ]}
       />
 
       {isLoading ? (
         <Surface variant="subtle" className="py-12">
           <EmptyState
-            title="Loading API keys..."
-            description="Fetching your access keys."
+            title={t("Loading API keys...")}
+            description={t("Fetching your access keys.")}
           />
         </Surface>
       ) : keys.length === 0 ? (
         <Surface variant="subtle" className="py-12">
           <EmptyState
-            title="No API keys yet"
-            description="Create a managed key for a service, team, or deployment that needs gateway access."
+            title={t("No API keys yet")}
+            description={t("Create a managed key for a service, team, or deployment that needs gateway access.")}
             action={
               <Button onClick={handleOpenForm}>
-                <PlusIcon className="mr-2 h-4 w-4" />
-                Create API Key
-              </Button>
+                <PlusIcon className="mr-2 h-4 w-4" />{t("Create API Key")}</Button>
             }
           />
         </Surface>
@@ -209,14 +207,14 @@ export function AuthKeysPage(): JSX.Element {
                       onClick={(e: React.MouseEvent) => e.shiftKey ? null : bulk.toggleAll(allIds)}
                     />
                   </Th>
-                  <Th>Name & Description</Th>
-                  <Th>User Path</Th>
-				  <Th>Routing</Th>
-                  <Th className="text-right">Rate Limits</Th>
-                  <Th>Token</Th>
-                  <Th>Status</Th>
-                  <Th>Expires</Th>
-                  <Th className="text-right">Actions</Th>
+                  <Th>{t("Name & Description")}</Th>
+                  <Th>{t("User Path")}</Th>
+				  <Th>{t("Routing")}</Th>
+                  <Th className="text-right">{t("Rate Limits")}</Th>
+                  <Th>{t("Token")}</Th>
+                  <Th>{t("Status")}</Th>
+                  <Th>{t("Expires")}</Th>
+                  <Th className="text-right">{t("Actions")}</Th>
                 </tr>
               </thead>
               <tbody>
@@ -253,7 +251,7 @@ export function AuthKeysPage(): JSX.Element {
                         <div className="flex flex-wrap justify-end gap-1.5 max-w-[220px] ml-auto">
                           {limits.length > 0 ? limits.map((limit) => (
                             <span key={limit} className="inline-flex items-center rounded bg-muted/30 border border-border/40 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">{limit}</span>
-                          )) : <span className="text-muted-foreground text-[12px] font-medium">Unlimited</span>}
+                          )) : <span className="text-muted-foreground text-[12px] font-medium">{t("Unlimited")}</span>}
                         </div>
                       </Td>
                       <Td><code className="border border-border/40 bg-surface/50 px-2.5 py-1 font-mono text-[12px] tracking-widest">{key.redacted_value}</code></Td>
@@ -264,7 +262,7 @@ export function AuthKeysPage(): JSX.Element {
                               : "border-border/60 bg-surface/60 text-muted-foreground"
                             }`}
                         >
-                          {key.active ? "Active" : "Inactive"}
+                          {key.active ? t("Active") : t("Inactive")}
                         </span>
                       </Td>
                       <Td className="whitespace-nowrap text-muted-foreground text-[12px] font-medium">
@@ -277,9 +275,7 @@ export function AuthKeysPage(): JSX.Element {
                             size="sm"
                             onClick={() => setStatsKey(key)}
                           >
-                            <BarChart3Icon className="mr-1.5 h-3.5 w-3.5" />
-                            View
-                          </Button>
+                            <BarChart3Icon className="mr-1.5 h-3.5 w-3.5" />{t("View")}</Button>
                           {key.active && (
                             <Button
                               variant="outline"
@@ -287,9 +283,7 @@ export function AuthKeysPage(): JSX.Element {
                               className="text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/20"
                               disabled={deactivateMutation.isPending}
                               onClick={() => setDeactivateId(key.id)}
-                            >
-                              Deactivate
-                            </Button>
+                            >{t("Deactivate")}</Button>
                           )}
                         </div>
                       </Td>
@@ -304,13 +298,12 @@ export function AuthKeysPage(): JSX.Element {
             onClear={bulk.clear}
           >
             <Button size="sm" variant="outline" onClick={bulkDeactivate} disabled={deactivateMutation.isPending} className="text-[11px] h-7 shrink-0 text-destructive hover:bg-destructive/10">
-              <Trash2Icon className="mr-1 h-3 w-3" /> Deactivate
-            </Button>
+              <Trash2Icon className="mr-1 h-3 w-3" />{t(" Deactivate")}</Button>
           </BulkActionsBar>
           {totalPages > 1 && (
             <div className="flex items-center justify-between border-t border-border/40 px-4 py-3">
               <span className="text-[12px] text-muted-foreground">
-                {keys.length} key{keys.length !== 1 ? "s" : ""}
+                {keys.length}{t(" key")}{keys.length !== 1 ? "s" : ""}
               </span>
               <div className="flex items-center gap-2">
                 <Button
@@ -342,17 +335,12 @@ export function AuthKeysPage(): JSX.Element {
         <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
-              <ShieldAlertIcon className="h-5 w-5" />
-              Deactivate API Key
-            </DialogTitle>
-            <DialogDescription className="text-[14px] leading-relaxed pt-3">
-              Are you sure you want to deactivate this key?
-              <br /><br />
-              <strong className="text-foreground">This is a one-time permanent action.</strong> The key will immediately stop authenticating gateway requests. If you or your services need access again, you must create a brand new API Key and rotate it.
-            </DialogDescription>
+              <ShieldAlertIcon className="h-5 w-5" />{t("Deactivate API Key")}</DialogTitle>
+            <DialogDescription className="text-[14px] leading-relaxed pt-3">{t("Are you sure you want to deactivate this key?")}<br /><br />
+              <strong className="text-foreground">{t("This is a one-time permanent action.")}</strong>{t(" The key will immediately stop authenticating gateway requests. If you or your services need access again, you must create a brand new API Key and rotate it.")}</DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-3 pt-4 border-t border-border/40 mt-2">
-            <Button variant="outline" onClick={() => setDeactivateId(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setDeactivateId(null)}>{t("Cancel")}</Button>
             <Button
               variant="destructive"
               disabled={deactivateMutation.isPending}
@@ -364,7 +352,7 @@ export function AuthKeysPage(): JSX.Element {
                 }
               }}
             >
-              {deactivateMutation.isPending ? "Deactivating..." : "Yes, permanently deactivate"}
+              {deactivateMutation.isPending ? t("Deactivating...") : t("Yes, permanently deactivate")}
             </Button>
           </div>
         </DialogContent>
@@ -391,10 +379,8 @@ export function AuthKeysPage(): JSX.Element {
           {issuedKey ? (
             <>
               <DialogHeader>
-                <DialogTitle>API Key Created</DialogTitle>
-                <DialogDescription className="text-warning font-medium">
-                  Store this key securely — it won't be shown again.
-                </DialogDescription>
+                <DialogTitle>{t("API Key Created")}</DialogTitle>
+                <DialogDescription className="text-warning font-medium">{t("Store this key securely — it won't be shown again.")}</DialogDescription>
               </DialogHeader>
               <div className="flex flex-col gap-4 py-4">
                 <div className="flex items-center gap-2 rounded-md border bg-muted p-3">
@@ -402,82 +388,78 @@ export function AuthKeysPage(): JSX.Element {
                     {revealIssuedKey ? issuedKey.value : issuedKey.redacted_value || "••••••••••••••••"}
                   </code>
                   <Button type="button" variant="outline" onClick={() => setRevealIssuedKey((value) => !value)}>
-                    {revealIssuedKey ? "Hide" : "Reveal"}
+                    {revealIssuedKey ? t("Hide") : t("Reveal")}
                   </Button>
-                  <Button size="icon" variant="ghost" onClick={handleCopy} aria-label="Copy API key">
+                  <Button size="icon" variant="ghost" onClick={handleCopy} aria-label={t("Copy API key")}>
                     {copied ? <CheckIcon className="h-4 w-4 text-success" /> : <CopyIcon className="h-4 w-4" />}
                   </Button>
                 </div>
                 {copyError && <p className="text-sm text-destructive">{copyError}</p>}
               </div>
               <div className="flex justify-end">
-                <Button onClick={() => setFormOpen(false)}>Done</Button>
+                <Button onClick={() => setFormOpen(false)}>{t("Done")}</Button>
               </div>
             </>
           ) : (
             <form onSubmit={handleSubmit}>
               <DialogHeader>
-                <DialogTitle>Create API Key</DialogTitle>
-                <DialogDescription>
-                  Generate a new access token for the gateway.
-                </DialogDescription>
+                <DialogTitle>{t("Create API Key")}</DialogTitle>
+                <DialogDescription>{t("Generate a new access token for the gateway.")}</DialogDescription>
               </DialogHeader>
               <div className="flex flex-col gap-4 py-4">
                 <div className="flex flex-col gap-2">
-                  <label htmlFor="name" className="text-sm font-medium">Name <span className="text-muted-foreground text-xs font-normal">(required)</span></label>
+                  <label htmlFor="name" className="text-sm font-medium">{t("Name ")}<span className="text-muted-foreground text-xs font-normal">{t("(required)")}</span></label>
                   <Input
                     id="name"
                     required
-                    placeholder="e.g. ci-deploy"
+                    placeholder={t("e.g. ci-deploy")}
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label htmlFor="user_path" className="text-sm font-medium">User Path <span className="text-muted-foreground text-xs font-normal">(optional)</span></label>
+                  <label htmlFor="user_path" className="text-sm font-medium">{t("User Path ")}<span className="text-muted-foreground text-xs font-normal">{t("(optional)")}</span></label>
                   <Input
                     id="user_path"
-                    placeholder="e.g. /department1/team-a"
+                    placeholder={t("e.g. /department1/team-a")}
                     value={formData.user_path}
                     onChange={(e) => setFormData({ ...formData, user_path: e.target.value })}
                   />
-                  <p className="text-xs text-muted-foreground">Overrides X-aurora-User-Path for downstream routing and audit logging.</p>
+                  <p className="text-xs text-muted-foreground">{t("Overrides X-aurora-User-Path for downstream routing and audit logging.")}</p>
                 </div>
                 <input type="hidden" name="tenant_id" value="default" />
                 <div className="flex flex-col gap-2">
-                  <label htmlFor="description" className="text-sm font-medium">Description <span className="text-muted-foreground text-xs font-normal">(optional)</span></label>
+                  <label htmlFor="description" className="text-sm font-medium">{t("Description ")}<span className="text-muted-foreground text-xs font-normal">{t("(optional)")}</span></label>
                   <Input
                     id="description"
-                    placeholder="What is this key used for?"
+                    placeholder={t("What is this key used for?")}
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   />
                 </div>
                 <div className=" border border-border/60 bg-muted/15 p-4">
                   <div className="mb-3">
-                    <h3 className="text-sm font-semibold text-foreground">Routing Restrictions</h3>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Optional Bifrost-style virtual-key controls. Select from configured providers, pools, and discovered models. Leave blank to allow all.
-                    </p>
+                    <h3 className="text-sm font-semibold text-foreground">{t("Routing Restrictions")}</h3>
+                    <p className="mt-1 text-xs text-muted-foreground">{t("Optional Bifrost-style virtual-key controls. Select from configured providers, pools, and discovered models. Leave blank to allow all.")}</p>
                   </div>
                   <div className="grid gap-4 lg:grid-cols-3">
                     <div className="flex flex-col gap-1.5 lg:col-span-3">
-                      <label htmlFor="provider_pool_id" className="text-xs font-medium text-muted-foreground">Default provider pool</label>
+                      <label htmlFor="provider_pool_id" className="text-xs font-medium text-muted-foreground">{t("Default provider pool")}</label>
                       <select
                         id="provider_pool_id"
                         className="field-input"
                         value={formData.provider_pool_id || ""}
                         onChange={(e) => setFormData({ ...formData, provider_pool_id: e.target.value })}
                       >
-                        <option value="">No default pool</option>
+                        <option value="">{t("No default pool")}</option>
                         {poolOptions.map((pool) => (
                           <option key={pool} value={pool}>{pool}</option>
                         ))}
                       </select>
-                      {poolOptions.length === 0 && <p className="text-[11px] text-muted-foreground">No pools are configured.</p>}
+                      {poolOptions.length === 0 && <p className="text-[11px] text-muted-foreground">{t("No pools are configured.")}</p>}
                     </div>
                     <div className="flex flex-col gap-2">
-                      <span className="text-xs font-medium text-muted-foreground">Allowed providers and pools</span>
+                      <span className="text-xs font-medium text-muted-foreground">{t("Allowed providers and pools")}</span>
                       <div className="max-h-60 overflow-y-auto rounded-lg border border-border/60 bg-background/45 p-2">
                         {providerOptions.length > 0 ? providerOptions.map((provider) => (
                           <label key={provider} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/40">
@@ -489,21 +471,21 @@ export function AuthKeysPage(): JSX.Element {
                             />
                             <span className="font-mono">{provider}</span>
                           </label>
-                        )) : <p className="px-2 py-1.5 text-xs text-muted-foreground">No providers loaded.</p>}
+                        )) : <p className="px-2 py-1.5 text-xs text-muted-foreground">{t("No providers loaded.")}</p>}
                       </div>
                     </div>
                     <div className="flex flex-col gap-2">
-                      <span className="text-xs font-medium text-muted-foreground">Allowed models</span>
+                      <span className="text-xs font-medium text-muted-foreground">{t("Allowed models")}</span>
                       <div className="max-h-60 overflow-y-auto rounded-lg border border-border/60 bg-background/45 p-2">
                         <label className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/40">
                           <Switch
                             checked={formData.allowed_models?.includes("*") || false}
                             size="sm"
                             onCheckedChange={() => setFormData({ ...formData, allowed_models: toggleSelection(formData.allowed_models || [], "*") })}
-                            aria-label="Allow all models"
+                            aria-label={t("Allow all models")}
                           />
                           <span className="font-mono">*</span>
-                          <span className="text-muted-foreground">all models</span>
+                          <span className="text-muted-foreground">{t("all models")}</span>
                         </label>
                         <div className="max-h-52 overflow-y-auto">
                           {modelOptions.map((model) => (
@@ -521,7 +503,7 @@ export function AuthKeysPage(): JSX.Element {
                       </div>
                     </div>
                     <div className="flex flex-col gap-2">
-                      <span className="text-xs font-medium text-muted-foreground">Denied models</span>
+                      <span className="text-xs font-medium text-muted-foreground">{t("Denied models")}</span>
                       <div className="max-h-60 overflow-y-auto rounded-lg border border-border/60 bg-background/45 p-2">
                         {modelOptions.length > 0 ? modelOptions.map((model) => (
                           <label key={model} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/40">
@@ -533,40 +515,36 @@ export function AuthKeysPage(): JSX.Element {
                             />
                             <span className="font-mono break-all">{model}</span>
                           </label>
-                        )) : <p className="px-2 py-1.5 text-xs text-muted-foreground">No models loaded.</p>}
+                        )) : <p className="px-2 py-1.5 text-xs text-muted-foreground">{t("No models loaded.")}</p>}
                       </div>
                     </div>
                   </div>
-                  <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-                    Denied models win over allowed models. Use <code className="rounded bg-background/60 px-1 py-0.5">*</code> to explicitly allow all in an allowlist.
-                  </p>
+                  <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">{t("Denied models win over allowed models. Use ")}<code className="rounded bg-background/60 px-1 py-0.5">*</code>{t(" to explicitly allow all in an allowlist.")}</p>
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium">Rate Limits <span className="text-muted-foreground text-xs font-normal">(optional)</span></label>
+                  <label className="text-sm font-medium">{t("Rate Limits ")}<span className="text-muted-foreground text-xs font-normal">{t("(optional)")}</span></label>
                   <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                     <div className="flex flex-col gap-1">
-                      <span className="text-xs text-muted-foreground">Requests / min</span>
-                      <Input type="number" min="0" placeholder="Unlimited" value={formData.requests_per_minute || ""} onChange={e => setFormData({ ...formData, requests_per_minute: parseInt(e.target.value) || undefined })} />
+                      <span className="text-xs text-muted-foreground">{t("Requests / min")}</span>
+                      <Input type="number" min="0" placeholder={t("Unlimited")} value={formData.requests_per_minute || ""} onChange={e => setFormData({ ...formData, requests_per_minute: parseInt(e.target.value) || undefined })} />
                     </div>
                     <div className="flex flex-col gap-1">
-                      <span className="text-xs text-muted-foreground">Requests / day</span>
-                      <Input type="number" min="0" placeholder="Unlimited" value={formData.requests_per_day || ""} onChange={e => setFormData({ ...formData, requests_per_day: parseInt(e.target.value) || undefined })} />
+                      <span className="text-xs text-muted-foreground">{t("Requests / day")}</span>
+                      <Input type="number" min="0" placeholder={t("Unlimited")} value={formData.requests_per_day || ""} onChange={e => setFormData({ ...formData, requests_per_day: parseInt(e.target.value) || undefined })} />
                     </div>
                     <div className="flex flex-col gap-1">
-                      <span className="text-xs text-muted-foreground">Tokens / min</span>
-                      <Input type="number" min="0" placeholder="Unlimited" value={formData.tokens_per_minute || ""} onChange={e => setFormData({ ...formData, tokens_per_minute: parseInt(e.target.value) || undefined })} />
+                      <span className="text-xs text-muted-foreground">{t("Tokens / min")}</span>
+                      <Input type="number" min="0" placeholder={t("Unlimited")} value={formData.tokens_per_minute || ""} onChange={e => setFormData({ ...formData, tokens_per_minute: parseInt(e.target.value) || undefined })} />
                     </div>
                     <div className="flex flex-col gap-1">
-                      <span className="text-xs text-muted-foreground">Tokens / day</span>
-                      <Input type="number" min="0" placeholder="Unlimited" value={formData.tokens_per_day || ""} onChange={e => setFormData({ ...formData, tokens_per_day: parseInt(e.target.value) || undefined })} />
+                      <span className="text-xs text-muted-foreground">{t("Tokens / day")}</span>
+                      <Input type="number" min="0" placeholder={t("Unlimited")} value={formData.tokens_per_day || ""} onChange={e => setFormData({ ...formData, tokens_per_day: parseInt(e.target.value) || undefined })} />
                     </div>
                   </div>
-                  <p className="text-[11px] leading-relaxed text-muted-foreground">
-                    Rate limits are enforced in-memory by default. Configure Redis (<code className="rounded bg-background/60 px-1 py-0.5">REDIS_URL</code>) to share counters across replicas for distributed rate limiting.
-                  </p>
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">{t("Rate limits are enforced in-memory by default. Configure Redis (")}<code className="rounded bg-background/60 px-1 py-0.5">REDIS_URL</code>{t(") to share counters across replicas for distributed rate limiting.")}</p>
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label htmlFor="expires_at" className="text-sm font-medium">Expires At <span className="text-muted-foreground text-xs font-normal">(optional)</span></label>
+                  <label htmlFor="expires_at" className="text-sm font-medium">{t("Expires At ")}<span className="text-muted-foreground text-xs font-normal">{t("(optional)")}</span></label>
                   <Input
                     id="expires_at"
                     type="date"
@@ -579,9 +557,9 @@ export function AuthKeysPage(): JSX.Element {
                 )}
               </div>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>Cancel</Button>
+                <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>{t("Cancel")}</Button>
                 <Button type="submit" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? "Creating..." : "Create API Key"}
+                  {createMutation.isPending ? t("Creating...") : t("Create API Key")}
                 </Button>
               </div>
             </form>
@@ -614,11 +592,8 @@ function AuthKeyStatsDrawer({ keyEntry, onClose }: AuthKeyStatsDrawerProps): JSX
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BarChart3Icon className="h-5 w-5" />
-            {keyEntry?.name ?? "API Key"} — Stats
-          </DialogTitle>
-          <DialogDescription>
-            Live rate-limit consumption and recent activity for this key.
-          </DialogDescription>
+            {keyEntry?.name ?? t("API Key")}{t(" — Stats")}</DialogTitle>
+          <DialogDescription>{t("Live rate-limit consumption and recent activity for this key.")}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-3 py-3 border-b border-border/40 lg:flex-row lg:items-center lg:justify-between">
@@ -628,13 +603,13 @@ function AuthKeyStatsDrawer({ keyEntry, onClose }: AuthKeyStatsDrawerProps): JSX
                 {keyEntry.redacted_value}
               </code>
             )}
-            <span className="font-mono">path={keyEntry?.user_path || "global"}</span>
+            <span className="font-mono">{t("path=")}{keyEntry?.user_path || "global"}</span>
             {data?.window && (
               <span>
                 {data.window.start_date} → {data.window.end_date} ({data.window.timezone})
               </span>
             )}
-            {data?.last_used_at && <span>last used {formatDateTime(data.last_used_at)}</span>}
+            {data?.last_used_at && <span>{t("last used ")}{formatDateTime(data.last_used_at)}</span>}
           </div>
           <div className="flex items-center gap-1 rounded-md border border-border/60 bg-background/40 p-0.5 self-start lg:self-auto">
             {STATS_WINDOW_OPTIONS.map((option) => (
@@ -655,14 +630,14 @@ function AuthKeyStatsDrawer({ keyEntry, onClose }: AuthKeyStatsDrawerProps): JSX
 
         {isLoading && (
           <div className="py-12">
-            <EmptyState title="Loading stats…" description="Fetching current consumption and recent traffic." />
+            <EmptyState title={t("Loading stats…")} description={t("Fetching current consumption and recent traffic.")} />
           </div>
         )}
         {isError && (
           <div className="py-8">
             <EmptyState
-              title="Couldn't load stats"
-              description={error?.message ?? "An unknown error occurred."}
+              title={t("Couldn't load stats")}
+              description={error?.message ?? t("An unknown error occurred.")}
             />
           </div>
         )}
@@ -674,9 +649,9 @@ function AuthKeyStatsDrawer({ keyEntry, onClose }: AuthKeyStatsDrawerProps): JSX
             <RequestBreakdown stats={data} />
             <UsageSection stats={data} />
             <div className="grid gap-4 lg:grid-cols-3">
-              <BucketList title="Top models" buckets={data.top_models} />
-              <BucketList title="Top providers" buckets={data.top_providers} />
-              <BucketList title="Top errors" buckets={data.top_errors} emptyHint="No errors in window" />
+              <BucketList title={t("Top models")} buckets={data.top_models} />
+              <BucketList title={t("Top providers")} buckets={data.top_providers} />
+              <BucketList title={t("Top errors")} buckets={data.top_errors} emptyHint={t("No errors in window")} />
             </div>
             <DailySeries series={data.daily} />
           </div>
@@ -692,17 +667,17 @@ interface RateLimitSectionProps {
 
 function RateLimitSection({ snapshot }: RateLimitSectionProps): JSX.Element {
   const windows: Array<{ key: string; label: string; window: AuthKeyRateLimitWindow }> = [];
-  if (snapshot?.requests_per_minute) windows.push({ key: "rpm", label: "Requests / min", window: snapshot.requests_per_minute });
-  if (snapshot?.requests_per_day) windows.push({ key: "rpd", label: "Requests / day", window: snapshot.requests_per_day });
-  if (snapshot?.tokens_per_minute) windows.push({ key: "tpm", label: "Tokens / min", window: snapshot.tokens_per_minute });
-  if (snapshot?.tokens_per_day) windows.push({ key: "tpd", label: "Tokens / day", window: snapshot.tokens_per_day });
+  if (snapshot?.requests_per_minute) windows.push({ key: "rpm", label: t("Requests / min"), window: snapshot.requests_per_minute });
+  if (snapshot?.requests_per_day) windows.push({ key: "rpd", label: t("Requests / day"), window: snapshot.requests_per_day });
+  if (snapshot?.tokens_per_minute) windows.push({ key: "tpm", label: t("Tokens / min"), window: snapshot.tokens_per_minute });
+  if (snapshot?.tokens_per_day) windows.push({ key: "tpd", label: t("Tokens / day"), window: snapshot.tokens_per_day });
 
   return (
     <section>
-      <h3 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Rate Limits</h3>
+      <h3 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">{t("Rate Limits")}</h3>
       {windows.length === 0 ? (
         <Surface variant="subtle" className="py-4">
-          <p className="text-center text-[12px] text-muted-foreground">No rate limits configured for this key.</p>
+          <p className="text-center text-[12px] text-muted-foreground">{t("No rate limits configured for this key.")}</p>
         </Surface>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
@@ -739,8 +714,8 @@ function RateLimitBar({ label, window }: { label: string; window: AuthKeyRateLim
         <div className={`h-full ${tone} transition-all`} style={{ width: `${pct}%` }} />
       </div>
       <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
-        <span>{window.remaining.toLocaleString()} remaining</span>
-        <span>resets {resetAt}</span>
+        <span>{window.remaining.toLocaleString()}{t(" remaining")}</span>
+        <span>{t("resets ")}{resetAt}</span>
       </div>
     </div>
   );
@@ -756,15 +731,15 @@ interface SummaryGridProps {
 
 function SummaryGrid({ stats }: SummaryGridProps): JSX.Element {
   const cards = [
-    { label: "Requests", value: stats.requests.total.toLocaleString(), hint: `${stats.requests.stream_count.toLocaleString()} streamed` },
-    { label: "Success rate", value: formatPct(stats.requests.success_rate), hint: `${formatPct(stats.requests.error_rate)} errors` },
-    { label: "Cache hit rate", value: formatPct(stats.cache.hit_rate), hint: `${stats.cache.total_hits.toLocaleString()} hits / ${stats.cache.misses.toLocaleString()} misses` },
-    { label: "Avg latency", value: formatDurationNs(stats.latency.avg_ns), hint: `max ${formatDurationNs(stats.latency.max_ns)}` },
+    { label: t("Requests"), value: stats.requests.total.toLocaleString(), hint: `${stats.requests.stream_count.toLocaleString()} streamed` },
+    { label: t("Success rate"), value: formatPct(stats.requests.success_rate), hint: `${formatPct(stats.requests.error_rate)} errors` },
+    { label: t("Cache hit rate"), value: formatPct(stats.cache.hit_rate), hint: `${stats.cache.total_hits.toLocaleString()} hits / ${stats.cache.misses.toLocaleString()} misses` },
+    { label: t("Avg latency"), value: formatDurationNs(stats.latency.avg_ns), hint: `max ${formatDurationNs(stats.latency.max_ns)}` },
   ];
 
   return (
     <section>
-      <h3 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Activity</h3>
+      <h3 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">{t("Activity")}</h3>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((card) => (
           <Surface key={card.label} variant="subtle" className="px-3 py-2.5">
@@ -798,9 +773,9 @@ function RequestBreakdown({ stats }: { stats: AuthKeyStats }): JSX.Element {
 
   return (
     <section className="grid gap-4 lg:grid-cols-3">
-      <BreakdownCard title="Status breakdown" rows={requestRows} />
-      <BreakdownCard title="Cache breakdown" rows={cacheRows} />
-      <BreakdownCard title="Latency" rows={latencyRows} />
+      <BreakdownCard title={t("Status breakdown")} rows={requestRows} />
+      <BreakdownCard title={t("Cache breakdown")} rows={cacheRows} />
+      <BreakdownCard title={t("Latency")} rows={latencyRows} />
     </section>
   );
 }
@@ -831,17 +806,15 @@ function UsageSection({ stats }: UsageSectionProps): JSX.Element {
   const { usage } = stats;
   return (
     <section>
-      <h3 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Usage</h3>
+      <h3 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">{t("Usage")}</h3>
       <Surface variant="subtle" className="px-4 py-3">
         <div className="grid gap-4 sm:grid-cols-3">
-          <UsageMetric label="Input tokens" value={usage.input_tokens.toLocaleString()} cost={usage.input_cost} />
-          <UsageMetric label="Output tokens" value={usage.output_tokens.toLocaleString()} cost={usage.output_cost} />
-          <UsageMetric label="Total tokens" value={usage.total_tokens.toLocaleString()} cost={usage.total_cost} bold />
+          <UsageMetric label={t("Input tokens")} value={usage.input_tokens.toLocaleString()} cost={usage.input_cost} />
+          <UsageMetric label={t("Output tokens")} value={usage.output_tokens.toLocaleString()} cost={usage.output_cost} />
+          <UsageMetric label={t("Total tokens")} value={usage.total_tokens.toLocaleString()} cost={usage.total_cost} bold />
         </div>
         {usage.note_user_path_tie && (
-          <p className="mt-3 border border-info/30 bg-info/10 px-3 py-2 text-[11px] text-info">
-            Token and cost figures are aggregated by user_path, so they may include other keys using the same path.
-          </p>
+          <p className="mt-3 border border-info/30 bg-info/10 px-3 py-2 text-[11px] text-info">{t("Token and cost figures are aggregated by user_path, so they may include other keys using the same path.")}</p>
         )}
       </Surface>
     </section>
@@ -867,7 +840,7 @@ function BucketList({ title, buckets, emptyHint }: { title: string; buckets: Aut
       <h3 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">{title}</h3>
       <Surface variant="subtle" className="px-3 py-2">
         {buckets.length === 0 ? (
-          <p className="py-3 text-center text-[12px] text-muted-foreground">{emptyHint ?? "No data"}</p>
+          <p className="py-3 text-center text-[12px] text-muted-foreground">{emptyHint ?? t("No data")}</p>
         ) : (
           <ul className="flex flex-col gap-1.5">
             {buckets.map((bucket) => {
@@ -900,9 +873,9 @@ function DailySeries({ series }: DailySeriesProps): JSX.Element {
   if (series.length === 0 || totalRequests === 0) {
     return (
       <section>
-        <h3 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Daily activity</h3>
+        <h3 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">{t("Daily activity")}</h3>
         <Surface variant="subtle" className="py-6">
-          <p className="text-center text-[12px] text-muted-foreground">No requests in window.</p>
+          <p className="text-center text-[12px] text-muted-foreground">{t("No requests in window.")}</p>
         </Surface>
       </section>
     );
@@ -914,10 +887,9 @@ function DailySeries({ series }: DailySeriesProps): JSX.Element {
   return (
     <section>
       <div className="mb-2 flex items-center justify-between gap-3">
-        <h3 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">Daily activity</h3>
+        <h3 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">{t("Daily activity")}</h3>
         <span className="text-[11px] text-muted-foreground">
-          {totalRequests.toLocaleString()} requests · {totalErrors.toLocaleString()} errors · {totalCacheHits.toLocaleString()} cache hits
-        </span>
+          {totalRequests.toLocaleString()}{t(" requests · ")}{totalErrors.toLocaleString()}{t(" errors · ")}{totalCacheHits.toLocaleString()}{t(" cache hits")}</span>
       </div>
       <Surface variant="subtle" className="px-4 py-3">
         <div className="flex items-end gap-1 h-32">

@@ -1,5 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { SquareIcon, CheckSquareIcon, MinusIcon } from "lucide-react";
+import { t } from "@/lib/i18n";
+
 
 export function SelectCheckbox({ checked, indeterminate, onClick, title }: {
   checked: boolean;
@@ -29,9 +31,9 @@ export function BulkActionsBar({ count, onClear, children }: {
   return (
     <div className="border border-accent/30 bg-accent/5 px-3 sm:px-4 py-2.5">
       <div className="flex items-center gap-3 mb-2">
-        <span className="text-[12px] font-medium text-accent">{count} selected</span>
+        <span className="text-[12px] font-medium text-accent">{count}{t(" selected")}</span>
         <div className="ml-auto">
-          <Button size="sm" variant="ghost" onClick={onClear} className="text-[11px] h-7">Clear</Button>
+          <Button size="sm" variant="ghost" onClick={onClear} className="text-[11px] h-7">{t("Clear")}</Button>
         </div>
       </div>
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mb-1">

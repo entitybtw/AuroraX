@@ -2,15 +2,17 @@ import * as React from "react";
 import { TerminalIcon, UserIcon, BotIcon, AlertTriangleIcon, HammerIcon, BracesIcon, BrainCircuitIcon, ChevronDownIcon, SparklesIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ConvMessage, ConvSummary, ConvToolCall } from "@/lib/api/conversation-builder";
+import { t } from "@/lib/i18n";
+
 
 const ROLE_CONFIG: Record<string, { Icon: React.ComponentType<{ className?: string }>; color: string; label: string }> = {
-  system: { Icon: TerminalIcon, color: "border-purple-500/40 bg-purple-500/10 text-purple-500", label: "System" },
-  user: { Icon: UserIcon, color: "border-blue-500/40 bg-blue-500/10 text-blue-500", label: "User" },
-  assistant: { Icon: BotIcon, color: "border-emerald-500/40 bg-emerald-500/10 text-emerald-500", label: "Assistant" },
-  tool: { Icon: HammerIcon, color: "border-amber-500/40 bg-amber-500/10 text-amber-500", label: "Tool" },
-  function_call: { Icon: BracesIcon, color: "border-orange-500/40 bg-orange-500/10 text-orange-500", label: "Function" },
-  function_result: { Icon: BracesIcon, color: "border-cyan-500/40 bg-cyan-500/10 text-cyan-500", label: "Result" },
-  error: { Icon: AlertTriangleIcon, color: "border-destructive/40 bg-destructive/10 text-destructive", label: "Error" },
+  system: { Icon: TerminalIcon, color: "border-purple-500/40 bg-purple-500/10 text-purple-500", label: t("System") },
+  user: { Icon: UserIcon, color: "border-blue-500/40 bg-blue-500/10 text-blue-500", label: t("User") },
+  assistant: { Icon: BotIcon, color: "border-emerald-500/40 bg-emerald-500/10 text-emerald-500", label: t("Assistant") },
+  tool: { Icon: HammerIcon, color: "border-amber-500/40 bg-amber-500/10 text-amber-500", label: t("Tool") },
+  function_call: { Icon: BracesIcon, color: "border-orange-500/40 bg-orange-500/10 text-orange-500", label: t("Function") },
+  function_result: { Icon: BracesIcon, color: "border-cyan-500/40 bg-cyan-500/10 text-cyan-500", label: t("Result") },
+  error: { Icon: AlertTriangleIcon, color: "border-destructive/40 bg-destructive/10 text-destructive", label: t("Error") },
 };
 
 interface ConversationTimelineProps {
@@ -28,10 +30,8 @@ function ReasoningBlock({ text }: { text: string }) {
         className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left outline-none transition-colors hover:bg-amber-500/5"
       >
         <BrainCircuitIcon className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-          Reasoning
-        </span>
-        <span className="text-[10px] font-mono text-muted-foreground">{lines} lines</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">{t("Reasoning")}</span>
+        <span className="text-[10px] font-mono text-muted-foreground">{lines}{t(" lines")}</span>
         <ChevronDownIcon className={cn(
           "ml-auto h-3.5 w-3.5 text-muted-foreground transition-transform duration-200",
           open && "rotate-180",
@@ -68,13 +68,13 @@ function ToolCallBlock({ call }: { call: ConvToolCall }) {
       <div className="border-t border-border/30 space-y-3 px-3.5 py-3">
         {call.argsPretty && (
           <div>
-            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Arguments</div>
+            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t("Arguments")}</div>
             <pre className="max-h-48 overflow-auto border border-border/30 bg-background/60 p-3 font-mono text-[10px] leading-relaxed whitespace-pre-wrap text-foreground">{call.argsPretty}</pre>
           </div>
         )}
         {call.result && (
           <div>
-            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Result</div>
+            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t("Result")}</div>
             <pre className="max-h-48 overflow-auto border border-border/30 bg-background/60 p-3 font-mono text-[10px] leading-relaxed whitespace-pre-wrap text-muted-foreground">{call.result}</pre>
           </div>
         )}
@@ -113,9 +113,7 @@ function MessageRow({ message }: { message: ConvMessage }) {
           )}
           {message.isAnchor && (
             <span className="inline-flex items-center gap-1  border border-accent/25 bg-accent/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-accent">
-              <SparklesIcon className="h-2.5 w-2.5" />
-              Selected
-            </span>
+              <SparklesIcon className="h-2.5 w-2.5" />{t("Selected")}</span>
           )}
           {message.toolName && (
             <span className=" border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[9px] font-mono font-semibold text-amber-600 dark:text-amber-400">
@@ -144,7 +142,7 @@ function MessageRow({ message }: { message: ConvMessage }) {
             {message.agentMeta.model && (
               <span className="text-muted-foreground">{message.agentMeta.model}</span>
             )}
-            <span className="text-muted-foreground/70">{message.agentMeta.inputTokens} in / {message.agentMeta.outputTokens} out</span>
+            <span className="text-muted-foreground/70">{message.agentMeta.inputTokens}{t(" in / ")}{message.agentMeta.outputTokens}{t(" out")}</span>
             <span className="text-muted-foreground/70">{message.agentMeta.durationLabel}</span>
             {message.agentMeta.cost !== null && (
               <span className="font-semibold text-success">${message.agentMeta.cost.toFixed(6)}</span>
@@ -182,7 +180,7 @@ export function ConversationTimeline({ messages, summary }: ConversationTimeline
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-16">
         <BotIcon className="h-8 w-8 text-muted-foreground/30" />
-        <p className="text-sm text-muted-foreground/60">No conversation messages available for this entry.</p>
+        <p className="text-sm text-muted-foreground/60">{t("No conversation messages available for this entry.")}</p>
       </div>
     );
   }
@@ -190,14 +188,14 @@ export function ConversationTimeline({ messages, summary }: ConversationTimeline
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <SummaryCard label="Calls" value={String(summary.callCount)} />
-        <SummaryCard label="Total Tokens" value={summary.totalTokens.toLocaleString()} />
-        <SummaryCard label="Duration" value={summary.totalDurationLabel} />
-        <SummaryCard label="Cost" value={summary.cost !== null ? `$${summary.cost.toFixed(6)}` : "—"} highlight={summary.cost !== null} />
-        <SummaryCard label="Providers" value={summary.providers || "—"} />
-        <SummaryCard label="Models" value={summary.models || "—"} />
-        <SummaryCard label="Cache Hits" value={String(summary.cacheHits)} />
-        <SummaryCard label="Errors" value={String(summary.errors)} danger={summary.errors > 0} />
+        <SummaryCard label={t("Calls")} value={String(summary.callCount)} />
+        <SummaryCard label={t("Total Tokens")} value={summary.totalTokens.toLocaleString()} />
+        <SummaryCard label={t("Duration")} value={summary.totalDurationLabel} />
+        <SummaryCard label={t("Cost")} value={summary.cost !== null ? `$${summary.cost.toFixed(6)}` : "—"} highlight={summary.cost !== null} />
+        <SummaryCard label={t("Providers")} value={summary.providers || "—"} />
+        <SummaryCard label={t("Models")} value={summary.models || "—"} />
+        <SummaryCard label={t("Cache Hits")} value={String(summary.cacheHits)} />
+        <SummaryCard label={t("Errors")} value={String(summary.errors)} danger={summary.errors > 0} />
       </div>
 
       <div className="divide-y divide-border/20">

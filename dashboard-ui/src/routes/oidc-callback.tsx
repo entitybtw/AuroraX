@@ -3,6 +3,8 @@ import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { ShieldCheck } from "lucide-react";
 import { apiFetch, ApiError } from "@/lib/api/client";
 import { setSessionFromLogin, type LoginResponse } from "@/lib/auth/session";
+import { ensureLocaleSynced, t } from "@/lib/i18n";
+
 
 export function OIDCCallbackPage(): JSX.Element {
   const navigate = useNavigate();
@@ -33,6 +35,8 @@ export function OIDCCallbackPage(): JSX.Element {
 
         setSessionFromLogin(resp);
         await navigate({ to: "/admin/dashboard/overview" });
+        // Pick up the persisted UI language now that the session exists.
+        void ensureLocaleSynced();
       } catch (err) {
         if (err instanceof ApiError) {
           setError(err.message);
@@ -53,20 +57,18 @@ export function OIDCCallbackPage(): JSX.Element {
         </div>
         {error ? (
           <>
-            <h1 className="text-lg font-semibold">Sign in failed</h1>
+            <h1 className="text-lg font-semibold">{t("Sign in failed")}</h1>
             <p className="text-sm text-destructive">{error}</p>
             <button
               type="button"
               onClick={() => navigate({ to: "/admin/dashboard/login" })}
               className="text-sm text-accent hover:underline"
-            >
-              Back to login
-            </button>
+            >{t("Back to login")}</button>
           </>
         ) : (
           <>
-            <h1 className="text-lg font-semibold">Completing sign in</h1>
-            <p className="text-sm text-muted-foreground">Redirecting to dashboard…</p>
+            <h1 className="text-lg font-semibold">{t("Completing sign in")}</h1>
+            <p className="text-sm text-muted-foreground">{t("Redirecting to dashboard…")}</p>
           </>
         )}
       </div>

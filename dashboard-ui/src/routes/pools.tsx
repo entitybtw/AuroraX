@@ -51,6 +51,8 @@ import { cn } from "@/lib/utils";
 import { formatRequests } from "@/lib/format/numbers";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import { SelectCheckbox, BulkActionsBar } from "@/components/ui/bulk-selection";
+import { t } from "@/lib/i18n";
+
 
 interface MemberForm {
   name: string;
@@ -262,13 +264,11 @@ export function PoolsPage(): JSX.Element {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
-        title="Provider Pools"
-        subtitle="Load-balanced groups of providers. Address a pool like a model — changes apply without a restart."
+        title={t("Provider Pools")}
+        subtitle={t("Load-balanced groups of providers. Address a pool like a model — changes apply without a restart.")}
         actions={
           <Button onClick={openCreate}>
-            <Plus className="h-4 w-4" />
-            Create Pool
-          </Button>
+            <Plus className="h-4 w-4" />{t("Create Pool")}</Button>
         }
       />
 
@@ -276,10 +276,7 @@ export function PoolsPage(): JSX.Element {
       {notice ? <Alert tone="success">{notice}</Alert> : null}
 
       {poolList.length === 0 ? (
-        <EmptyState title="No provider pools configured">
-          Group two or more provider instances (e.g. multiple accounts / IPs of the
-          same upstream) into a pool to balance load and fail over automatically.
-        </EmptyState>
+        <EmptyState title={t("No provider pools configured")}>{t("Group two or more provider instances (e.g. multiple accounts / IPs of the same upstream) into a pool to balance load and fail over automatically.")}</EmptyState>
       ) : (
         <>
           <PoolSelector
@@ -290,54 +287,40 @@ export function PoolsPage(): JSX.Element {
             bulk={bulk}
           />
           <BulkActionsBar count={bulk.selectedCount} onClear={bulk.clear}>
-            <Button size="sm" variant="outline" onClick={() => { setBulkEditField("strategy"); setBulkEditValue("round_robin"); }} className="text-[11px] h-7 shrink-0">
-              Set Strategy
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => { setBulkEditField("health_aware"); setBulkEditValue("true"); }} className="text-[11px] h-7 shrink-0">
-              Health-aware On
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => { setBulkEditField("health_aware"); setBulkEditValue("false"); }} className="text-[11px] h-7 shrink-0">
-              Health-aware Off
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => { setBulkEditField("auto_fetch_models"); setBulkEditValue("true"); }} className="text-[11px] h-7 shrink-0">
-              Auto-fetch On
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => { setBulkEditField("auto_fetch_models"); setBulkEditValue("false"); }} className="text-[11px] h-7 shrink-0">
-              Auto-fetch Off
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => { setBulkEditField("user_agent"); setBulkEditValue(""); }} className="text-[11px] h-7 shrink-0">
-              Set User Agent
-            </Button>
+            <Button size="sm" variant="outline" onClick={() => { setBulkEditField("strategy"); setBulkEditValue("round_robin"); }} className="text-[11px] h-7 shrink-0">{t("Set Strategy")}</Button>
+            <Button size="sm" variant="outline" onClick={() => { setBulkEditField("health_aware"); setBulkEditValue("true"); }} className="text-[11px] h-7 shrink-0">{t("Health-aware On")}</Button>
+            <Button size="sm" variant="outline" onClick={() => { setBulkEditField("health_aware"); setBulkEditValue("false"); }} className="text-[11px] h-7 shrink-0">{t("Health-aware Off")}</Button>
+            <Button size="sm" variant="outline" onClick={() => { setBulkEditField("auto_fetch_models"); setBulkEditValue("true"); }} className="text-[11px] h-7 shrink-0">{t("Auto-fetch On")}</Button>
+            <Button size="sm" variant="outline" onClick={() => { setBulkEditField("auto_fetch_models"); setBulkEditValue("false"); }} className="text-[11px] h-7 shrink-0">{t("Auto-fetch Off")}</Button>
+            <Button size="sm" variant="outline" onClick={() => { setBulkEditField("user_agent"); setBulkEditValue(""); }} className="text-[11px] h-7 shrink-0">{t("Set User Agent")}</Button>
             <Button size="sm" variant="destructive" onClick={() => void bulkDelete()} className="text-[11px] h-7 shrink-0">
-              <Trash2 className="mr-1 h-3 w-3" /> Delete
-            </Button>
+              <Trash2 className="mr-1 h-3 w-3" />{t(" Delete")}</Button>
           </BulkActionsBar>
 
           {bulkEditField && (
             <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setBulkEditField(null)}>
               <div className="w-full sm:max-w-md border border-border/60 bg-surface p-4 sm:p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
                 <h3 className="font-semibold text-[15px] tracking-tight text-foreground mb-1">
-                  {bulkEditField === "strategy" && "Set Strategy"}
-                  {bulkEditField === "health_aware" && (bulkEditValue === "true" ? "Enable Health-aware" : "Disable Health-aware")}
-                  {bulkEditField === "user_agent" && "Set User Agent"}
-                  {bulkEditField === "auto_fetch_models" && (bulkEditValue === "true" ? "Enable Auto-fetch" : "Disable Auto-fetch")}
+                  {bulkEditField === "strategy" && t("Set Strategy")}
+                  {bulkEditField === "health_aware" && (bulkEditValue === "true" ? t("Enable Health-aware") : t("Disable Health-aware"))}
+                  {bulkEditField === "user_agent" && t("Set User Agent")}
+                  {bulkEditField === "auto_fetch_models" && (bulkEditValue === "true" ? t("Enable Auto-fetch") : t("Disable Auto-fetch"))}
                 </h3>
-                <p className="text-[12px] text-muted-foreground mb-4">
-                  Applied to <strong>{bulk.selectedCount}</strong> selected pool{bulk.selectedCount !== 1 ? "s" : ""}.
+                <p className="text-[12px] text-muted-foreground mb-4">{t("Applied to ")}<strong>{bulk.selectedCount}</strong>{t(" selected pool")}{bulk.selectedCount !== 1 ? "s" : ""}.
                 </p>
                 {bulkEditField === "strategy" ? (
                   <select className="field-input w-full" value={bulkEditValue} onChange={(e) => setBulkEditValue(e.target.value)}>
-                    <option value="round_robin">Round Robin</option>
-                    <option value="weighted">Weighted</option>
+                    <option value="round_robin">{t("Round Robin")}</option>
+                    <option value="weighted">{t("Weighted")}</option>
                   </select>
                 ) : bulkEditField !== "health_aware" && bulkEditField !== "auto_fetch_models" ? (
-                  <Input type="text" placeholder={bulkEditField === "user_agent" ? "my-app/1.0" : ""} value={bulkEditValue} onChange={(e) => setBulkEditValue(e.target.value)} autoFocus />
+                  <Input type="text" placeholder={bulkEditField === "user_agent" ? t("my-app/1.0") : ""} value={bulkEditValue} onChange={(e) => setBulkEditValue(e.target.value)} autoFocus />
                 ) : null}
                 <div className="flex items-center gap-3 mt-4">
                   <Button onClick={handleBulkEdit} disabled={bulkEditSaving}>
-                    {bulkEditSaving ? "Applying..." : "Apply to All"}
+                    {bulkEditSaving ? t("Applying...") : t("Apply to All")}
                   </Button>
-                  <Button variant="outline" onClick={() => setBulkEditField(null)}>Cancel</Button>
+                  <Button variant="outline" onClick={() => setBulkEditField(null)}>{t("Cancel")}</Button>
                 </div>
               </div>
             </div>
@@ -349,12 +332,12 @@ export function PoolsPage(): JSX.Element {
             <div className="flex flex-wrap items-center gap-3">
               <SummaryBadge
                 icon={Orbit}
-                label="Total pools"
+                label={t("Total pools")}
                 value={String(pools.data.summary.total)}
               />
               <SummaryBadge
                 icon={HeartPulse}
-                label="Members online"
+                label={t("Members online")}
                 value={`${pools.data.summary.healthy_members} / ${pools.data.summary.total_members}`}
                 highlight={
                   pools.data.summary.healthy_members ===
@@ -404,7 +387,7 @@ function PoolSelector({
           checked={bulk.allSelected(poolNames)}
           indeterminate={bulk.someSelected(poolNames)}
           onClick={(e: React.MouseEvent) => e.shiftKey ? null : bulk.toggleAll(allIds)}
-          title="Select all pools"
+          title={t("Select all pools")}
         />
       {pools.map((pool, i) => {
         const isActive = selectedIdx === i;
@@ -441,12 +424,12 @@ function PoolSelector({
               {pool.members.length}
             </span>
             {pool.user_agent && (
-              <span className="rounded bg-accent/10 px-1.5 py-0.5 text-[9px] tabular-nums text-accent" title="Custom User-Agent">
+              <span className="rounded bg-accent/10 px-1.5 py-0.5 text-[9px] tabular-nums text-accent" title={t("Custom User-Agent")}>
                 <Globe className="h-2.5 w-2.5 inline" />
               </span>
             )}
             {pool.auto_fetch_models === false && (
-              <span className="rounded bg-muted/10 px-1.5 py-0.5 text-[9px] tabular-nums text-muted-foreground" title="Auto-fetch disabled">
+              <span className="rounded bg-muted/10 px-1.5 py-0.5 text-[9px] tabular-nums text-muted-foreground" title={t("Auto-fetch disabled")}>
                 <Database className="h-2.5 w-2.5 inline opacity-50" />
               </span>
             )}
@@ -458,9 +441,7 @@ function PoolSelector({
         onClick={onCreate}
         className="flex shrink-0 items-center gap-1.5 px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:text-accent"
       >
-        <Plus className="h-3.5 w-3.5" />
-        New
-      </button>
+        <Plus className="h-3.5 w-3.5" />{t("New")}</button>
     </div>
     </div>
   );
@@ -487,10 +468,10 @@ function PoolView({
 
   const health =
     pool.members.every((m) => m.healthy)
-      ? { label: "All healthy", className: "text-success", dot: "bg-success" }
+      ? { label: t("All healthy"), className: "text-success", dot: "bg-success" }
       : pool.members.some((m) => m.healthy)
-        ? { label: "Degraded", className: "text-warning", dot: "bg-warning" }
-        : { label: "Unhealthy", className: "text-destructive", dot: "bg-destructive" };
+        ? { label: t("Degraded"), className: "text-warning", dot: "bg-warning" }
+        : { label: t("Unhealthy"), className: "text-destructive", dot: "bg-destructive" };
 
   return (
     <div className="flex flex-col gap-4">
@@ -498,38 +479,34 @@ function PoolView({
         <div className="flex items-center gap-2">
           <h2 className="font-mono text-lg font-semibold">{pool.name}</h2>
           <Pill tone={pool.source === "ui" ? "accent" : "muted"}>
-            {pool.source === "ui" ? "UI-managed" : "config"}
+            {pool.source === "ui" ? t("UI-managed") : "config"}
           </Pill>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" size="sm" onClick={onSync} disabled={syncing} title="Fetch model lists from every member right now">
+          <Button variant="secondary" size="sm" onClick={onSync} disabled={syncing} title={t("Fetch model lists from every member right now")}>
             <RefreshCw className={cn("h-3.5 w-3.5", syncing && "animate-spin")} />
-            {syncing ? "Syncing…" : "Sync models"}
+            {syncing ? t("Syncing…") : t("Sync models")}
           </Button>
           <Button variant="secondary" size="sm" onClick={() => onEdit(pool)}>
-            <Pencil className="h-3.5 w-3.5" />
-            Edit
-          </Button>
+            <Pencil className="h-3.5 w-3.5" />{t("Edit")}</Button>
           <Button variant="ghost" size="sm" onClick={() => void onDelete(pool)}>
-            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-            Delete
-          </Button>
+            <Trash2 className="h-3.5 w-3.5 text-destructive" />{t("Delete")}</Button>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <StatCard icon={Shuffle} label="Strategy" value={pool.strategy.replace(/_/g, " ")} sub="Load-balancing" />
-        <StatCard icon={Users} label="Members" value={String(pool.members.length)} sub="Providers" />
-        <StatCard icon={Activity} label="Active" value={String(totalActive)} sub="In-flight" accent />
+        <StatCard icon={Shuffle} label={t("Strategy")} value={pool.strategy.replace(/_/g, " ")} sub={t("Load-balancing")} />
+        <StatCard icon={Users} label={t("Members")} value={String(pool.members.length)} sub={t("Providers")} />
+        <StatCard icon={Activity} label={t("Active")} value={String(totalActive)} sub={t("In-flight")} accent />
         <StatCard
           icon={ShieldCheck}
-          label="Health-aware"
-          value={pool.health_aware ? "On" : "Off"}
-          sub="Skip unhealthy"
+          label={t("Health-aware")}
+          value={pool.health_aware ? t("On") : t("Off")}
+          sub={t("Skip unhealthy")}
         />
         <StatCard
           icon={HeartPulse}
-          label="Health"
+          label={t("Health")}
           value={health.label}
           valueClass={health.className}
           dot={health.dot}
@@ -537,21 +514,21 @@ function PoolView({
         />
         <StatCard
           icon={Weight}
-          label="Weighted"
-          value={pool.strategy === "weighted" ? "Yes" : "No"}
-          sub="Per-member weights"
+          label={t("Weighted")}
+          value={pool.strategy === "weighted" ? t("Yes") : t("No")}
+          sub={t("Per-member weights")}
         />
         <StatCard
           icon={Globe}
-          label="User Agent"
+          label={t("User Agent")}
           value={pool.user_agent || "default"}
-          sub="Override for pool"
+          sub={t("Override for pool")}
         />
         <StatCard
           icon={Database}
-          label="Auto-fetch models"
-          value={pool.auto_fetch_models !== false ? "On" : "Off"}
-          sub="Discover via /models"
+          label={t("Auto-fetch models")}
+          value={pool.auto_fetch_models !== false ? t("On") : t("Off")}
+          sub={t("Discover via /models")}
         />
       </div>
 
@@ -561,13 +538,8 @@ function PoolView({
 
       <Surface className="p-4">
         <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          <Server className="h-3.5 w-3.5" />
-          Call the pool as a model
-        </div>
-        <p className="mb-3 text-xs text-muted-foreground">
-          Address the pool by prefixing any model its members serve with the pool
-          name. Requests are balanced across healthy members.
-        </p>
+          <Server className="h-3.5 w-3.5" />{t("Call the pool as a model")}</div>
+        <p className="mb-3 text-xs text-muted-foreground">{t("Address the pool by prefixing any model its members serve with the pool name. Requests are balanced across healthy members.")}</p>
         <pre className="overflow-x-auto rounded bg-background/60 p-3 font-mono text-xs text-foreground">
           {`curl \${BASE_PATH}/v1/chat/completions \\\n  -H "Authorization: Bearer $KEY" \\\n  -d '{"model":"${pool.name}/<model-id>","messages":[{"role":"user","content":"hi"}]}'`}
         </pre>
@@ -655,26 +627,22 @@ function BoundExitsPanel({
   return (
     <Surface className="p-4">
       <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        <Globe className="h-3.5 w-3.5" />
-        Bound exits
-      </div>
+        <Globe className="h-3.5 w-3.5" />{t("Bound exits")}</div>
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Source IPs</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Source IPs")}</span>
             <Pill tone="muted">{bind.length}</Pill>
           </div>
           {bind.length > 0 ? (
             <ChipList items={bind} tone="muted" />
           ) : (
-            <p className="text-[11px] text-muted-foreground">
-              None. Set source IPs on a member provider to send from a fixed address.
-            </p>
+            <p className="text-[11px] text-muted-foreground">{t("None. Set source IPs on a member provider to send from a fixed address.")}</p>
           )}
         </div>
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Extension endpoints</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Extension endpoints")}</span>
             <Pill tone={hasEndpoints ? "accent" : "muted"}>
               {endpoints.length > 0 ? endpoints.length : rotation.length}
             </Pill>
@@ -708,15 +676,13 @@ function BoundExitsPanel({
                 {total > endpoints.length ? `${endpoints.length} of ${total} endpoints kept · ` : ""}
                 {inRotation
                   ? `in the ${mode} rotation.`
-                  : "report-only — no tunnel core is configured, so these servers are listed but traffic is not routed through them."}
+                  : t("report-only — no tunnel core is configured, so these servers are listed but traffic is not routed through them.")}
               </p>
             </>
           ) : rotation.length > 0 ? (
             <ChipList items={rotation} tone="accent" />
           ) : (
-            <p className="text-[11px] text-muted-foreground">
-              None. Bind a VPN subscription to this pool to add endpoints.
-            </p>
+            <p className="text-[11px] text-muted-foreground">{t("None. Bind a VPN subscription to this pool to add endpoints.")}</p>
           )}
         </div>
         {egress.error ? (
@@ -768,7 +734,7 @@ function MemberExitChips({
         </span>
       ))}
       {bind.length > shownBind.length ? (
-        <span className="text-[9px] text-muted-foreground">+{bind.length - shownBind.length} ip</span>
+        <span className="text-[9px] text-muted-foreground">+{bind.length - shownBind.length}{t(" ip")}</span>
       ) : null}
       {endpoints.map((endpoint) => (
         <span
@@ -784,7 +750,7 @@ function MemberExitChips({
         </span>
       ))}
       {endpointTotal > endpoints.length ? (
-        <span className="text-[9px] text-accent">+{endpointTotal - endpoints.length} more</span>
+        <span className="text-[9px] text-accent">+{endpointTotal - endpoints.length}{t(" more")}</span>
       ) : null}
     </div>
   );
@@ -821,24 +787,22 @@ function MemberTable({
   return (
     <div className="overflow-hidden border border-border/40 bg-surface">
       <div className="flex items-center justify-between border-b border-border/40 px-4 py-2.5">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Member breakdown
-        </h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("Member breakdown")}</h3>
         <span className="text-[10px] text-muted-foreground">
-          {members.length} member{members.length !== 1 ? "s" : ""}
+          {members.length}{t(" member")}{members.length !== 1 ? "s" : ""}
         </span>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-border/30 bg-background/30 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              <th className="px-4 py-2.5">Provider</th>
-              <th className="px-4 py-2.5">Status</th>
-              <th className="px-4 py-2.5 text-right">Active</th>
-              <th className="hidden sm:table-cell px-4 py-2.5 text-right">Total</th>
-              <th className="hidden md:table-cell px-4 py-2.5 text-right">Errors</th>
-              <th className="px-4 py-2.5 text-right">Latency</th>
-              {strategy === "weighted" && <th className="hidden sm:table-cell px-4 py-2.5 text-right">Weight</th>}
+              <th className="px-4 py-2.5">{t("Provider")}</th>
+              <th className="px-4 py-2.5">{t("Status")}</th>
+              <th className="px-4 py-2.5 text-right">{t("Active")}</th>
+              <th className="hidden sm:table-cell px-4 py-2.5 text-right">{t("Total")}</th>
+              <th className="hidden md:table-cell px-4 py-2.5 text-right">{t("Errors")}</th>
+              <th className="px-4 py-2.5 text-right">{t("Latency")}</th>
+              {strategy === "weighted" && <th className="hidden sm:table-cell px-4 py-2.5 text-right">{t("Weight")}</th>}
             </tr>
           </thead>
           <tbody>
@@ -856,7 +820,7 @@ function MemberTable({
                     onClick={() => toggleMember(m.provider_name)}
                     className="flex items-center gap-2 w-full text-left"
                     aria-expanded={expanded}
-                    title={expanded ? "Hide egress status" : "Show egress status"}
+                    title={expanded ? t("Hide egress status") : t("Show egress status")}
                   >
                     <span className={cn("h-1.5 w-1.5 shrink-0", m.healthy ? "bg-success" : "bg-destructive")} />
                     <span className="font-mono font-medium text-foreground">{m.provider_name}</span>
@@ -874,7 +838,7 @@ function MemberTable({
                       m.healthy ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive",
                     )}
                   >
-                    {m.healthy ? "Healthy" : "Unhealthy"}
+                    {m.healthy ? t("Healthy") : t("Unhealthy")}
                   </span>
                 </td>
                 <td className="px-4 py-2.5 text-right font-mono tabular-nums text-foreground">{m.active_requests}</td>
@@ -958,29 +922,26 @@ function PoolDialog({
     <Dialog open={Boolean(form)} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-2xl w-full max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{form.mode === "edit" ? "Edit pool" : "Create pool"}</DialogTitle>
-          <DialogDescription>
-            Group provider instances that share an upstream and serve the same models.
-            Changes apply live — no restart required.
-          </DialogDescription>
+          <DialogTitle>{form.mode === "edit" ? t("Edit pool") : t("Create pool")}</DialogTitle>
+          <DialogDescription>{t("Group provider instances that share an upstream and serve the same models. Changes apply live — no restart required.")}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <Field label="Pool name">
+          <Field label={t("Pool name")}>
             <input
               className="field-input font-mono"
               value={form.name}
               disabled={form.mode === "edit"}
-              placeholder="e.g. openai-multi-account"
+              placeholder={t("e.g. openai-multi-account")}
               onChange={(e) => onChange({ ...form, name: e.target.value })}
             />
             {form.mode === "edit" && (
-              <p className="text-[11px] text-muted-foreground">Pool name cannot be changed after creation.</p>
+              <p className="text-[11px] text-muted-foreground">{t("Pool name cannot be changed after creation.")}</p>
             )}
           </Field>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Strategy">
+            <Field label={t("Strategy")}>
               <select
                 className="field-input font-mono"
                 value={form.strategy}
@@ -993,45 +954,42 @@ function PoolDialog({
             <div className="flex items-end">
               <ToggleField
                 size="sm"
-                label="Health-aware routing"
+                label={t("Health-aware routing")}
                 checked={form.healthAware}
                 onCheckedChange={(checked) => onChange({ ...form, healthAware: checked })}
-                aria-label="Health-aware routing"
+                aria-label={t("Health-aware routing")}
               />
             </div>
-            <Field label="User Agent">
+            <Field label={t("User Agent")}>
               <input
                 className="field-input font-mono"
                 value={form.userAgent}
-                placeholder="my-app/1.0"
+                placeholder={t("my-app/1.0")}
                 onChange={(e) => onChange({ ...form, userAgent: e.target.value })}
               />
-              <p className="text-[11px] text-muted-foreground">Override User-Agent header for all members of this pool</p>
+              <p className="text-[11px] text-muted-foreground">{t("Override User-Agent header for all members of this pool")}</p>
             </Field>
             <div className="flex items-end">
               <ToggleField
                 size="sm"
-                label="Auto-fetch models"
+                label={t("Auto-fetch models")}
                 checked={form.autoFetchModels}
                 onCheckedChange={(checked) => onChange({ ...form, autoFetchModels: checked })}
-                aria-label="Auto-fetch models"
+                aria-label={t("Auto-fetch models")}
               />
-              <p className="text-[11px] ml-2 text-muted-foreground">Automatically discover models via /models endpoint for pool members</p>
+              <p className="text-[11px] ml-2 text-muted-foreground">{t("Automatically discover models via /models endpoint for pool members")}</p>
             </div>
           </div>
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">Members</span>
+              <span className="text-xs font-medium text-muted-foreground">{t("Members")}</span>
               <span className="text-[10px] text-muted-foreground">
-                {form.members.length} selected
-              </span>
+                {form.members.length}{t(" selected")}</span>
             </div>
 
             {form.members.length === 0 ? (
-              <div className="border border-border bg-background/35 p-3 text-sm text-muted-foreground">
-                No members yet. Add a provider below.
-              </div>
+              <div className="border border-border bg-background/35 p-3 text-sm text-muted-foreground">{t("No members yet. Add a provider below.")}</div>
             ) : (
               <div className="space-y-2">
                 {form.members.map((m) => (
@@ -1067,7 +1025,7 @@ function PoolDialog({
                 value={selectedAdd}
                 onChange={(e) => setSelectedAdd(e.target.value)}
               >
-                <option value="">Select a provider…</option>
+                <option value="">{t("Select a provider…")}</option>
                 {candidates.map((c) => (
                   <option key={c.name} value={c.name}>
                     {c.name} ({c.type})
@@ -1075,14 +1033,10 @@ function PoolDialog({
                 ))}
               </select>
               <Button type="button" variant="secondary" onClick={addMember} disabled={candidates.length === 0}>
-                <Plus className="h-3.5 w-3.5" />
-                Add
-              </Button>
+                <Plus className="h-3.5 w-3.5" />{t("Add")}</Button>
             </div>
             {candidates.length === 0 && form.members.length > 0 && (
-              <p className="text-[11px] text-muted-foreground">
-                All providers of type <span className="font-mono">{lockedType}</span> are already members.
-              </p>
+              <p className="text-[11px] text-muted-foreground">{t("All providers of type ")}<span className="font-mono">{lockedType}</span>{t(" are already members.")}</p>
             )}
           </div>
 
@@ -1091,11 +1045,9 @@ function PoolDialog({
 
         <DialogFooter>
           <Button variant="secondary" onClick={onClose}>
-            <X className="h-4 w-4" />
-            Cancel
-          </Button>
+            <X className="h-4 w-4" />{t("Cancel")}</Button>
           <Button onClick={onSubmit}>
-            {form.mode === "edit" ? "Save changes" : "Create pool"}
+            {form.mode === "edit" ? t("Save changes") : t("Create pool")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1181,10 +1133,10 @@ function Alert({ children, tone }: { children: string; tone: "warning" | "succes
 function LoadingState() {
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Provider Pools" subtitle="Load-balanced groups of providers." />
+      <PageHeader title={t("Provider Pools")} subtitle={t("Load-balanced groups of providers.")} />
       <div className="flex flex-col items-center justify-center gap-4 py-20 text-sm text-muted-foreground">
         <Loader2 className="h-6 w-6 animate-spin text-accent" />
-        <span>Loading pools…</span>
+        <span>{t("Loading pools…")}</span>
       </div>
     </div>
   );
@@ -1193,9 +1145,8 @@ function LoadingState() {
 function ErrorState({ message }: { message: string }) {
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Provider Pools" subtitle="Load-balanced groups of providers." />
-      <div className="rounded-lg border border-destructive/25 bg-destructive/10 px-4 py-6 text-sm text-destructive">
-        Failed to load pools: {message}
+      <PageHeader title={t("Provider Pools")} subtitle={t("Load-balanced groups of providers.")} />
+      <div className="rounded-lg border border-destructive/25 bg-destructive/10 px-4 py-6 text-sm text-destructive">{t("Failed to load pools: ")}{message}
       </div>
     </div>
   );

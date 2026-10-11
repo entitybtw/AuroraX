@@ -8,6 +8,8 @@ import { buildConversationMessages, buildConversationSummary } from "@/lib/api/c
 import type { AuditEntry } from "@/lib/api/audit-types";
 import type { ConvMessage, ConvSummary } from "@/lib/api/conversation-builder";
 import { cn } from "@/lib/utils";
+import { t } from "@/lib/i18n";
+
 
 type TabId = "details" | "interactions";
 
@@ -147,8 +149,8 @@ export function LogDetailSheet({ entry, open, onOpenChange, onNavigate, hasPrev,
         </div>
 
         <div className="flex items-center gap-1 border-b border-border/30 bg-background/20 px-4 py-0">
-          <TabButton active={tab === "details"} onClick={() => setTab("details")} Icon={InfoIcon} label="Details" />
-          <TabButton active={tab === "interactions"} onClick={() => setTab("interactions")} Icon={MessageSquareIcon} label="Interactions" />
+          <TabButton active={tab === "details"} onClick={() => setTab("details")} Icon={InfoIcon} label={t("Details")} />
+          <TabButton active={tab === "interactions"} onClick={() => setTab("interactions")} Icon={MessageSquareIcon} label={t("Interactions")} />
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -159,66 +161,66 @@ export function LogDetailSheet({ entry, open, onOpenChange, onNavigate, hasPrev,
               </div>
 
               <div className="grid grid-cols-1 gap-3 p-5 lg:grid-cols-2">
-                <MetaCard title="Request" className="lg:col-span-2">
+                <MetaCard title={t("Request")} className="lg:col-span-2">
                   <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
-                    <MetaField icon={GlobeIcon} label="Path" value={displayValue(entry.path)} />
-                    <MetaField icon={GlobeIcon} label="Method" value={displayValue(entry.method)} />
-                    <MetaField icon={DollarSignIcon} label="Model" value={displayValue(entry.requested_model || entry.model)} />
-                    <MetaField icon={NetworkIcon} label="Provider" value={displayValue(entry.provider_name || entry.provider)} />
-                    <MetaField icon={KeyRoundIcon} label="API Key" value={displayValue(entry.auth_key_id)} />
-                    <MetaField icon={FingerprintIcon} label="Auth Method" value={displayValue(entry.auth_method)} />
-                    <MetaField icon={ContainerIcon} label="User Path" value={displayValue(entry.user_path)} />
-                    <MetaField icon={NetworkIcon} label="Client IP" value={displayValue(entry.client_ip)} />
+                    <MetaField icon={GlobeIcon} label={t("Path")} value={displayValue(entry.path)} />
+                    <MetaField icon={GlobeIcon} label={t("Method")} value={displayValue(entry.method)} />
+                    <MetaField icon={DollarSignIcon} label={t("Model")} value={displayValue(entry.requested_model || entry.model)} />
+                    <MetaField icon={NetworkIcon} label={t("Provider")} value={displayValue(entry.provider_name || entry.provider)} />
+                    <MetaField icon={KeyRoundIcon} label={t("API Key")} value={displayValue(entry.auth_key_id)} />
+                    <MetaField icon={FingerprintIcon} label={t("Auth Method")} value={displayValue(entry.auth_method)} />
+                    <MetaField icon={ContainerIcon} label={t("User Path")} value={displayValue(entry.user_path)} />
+                    <MetaField icon={NetworkIcon} label={t("Client IP")} value={displayValue(entry.client_ip)} />
                   </div>
                 </MetaCard>
 
-                <MetaCard title="Response">
+                <MetaCard title={t("Response")}>
                   <div className="grid grid-cols-2 gap-2.5">
-                    <MetaField icon={GlobeIcon} label="Status" value={displayValue(entry.status_code?.toString())} />
-                    <MetaField icon={ClockIcon} label="Duration" value={formatDuration(entry.duration_ns)} />
-                    <MetaField icon={DatabaseIcon} label="Total Tokens" value={usage?.total_tokens?.toLocaleString() ?? entry.total_tokens?.toLocaleString() ?? "—"} />
-                    <MetaField icon={DollarSignIcon} label="Cost" value={formatCost(usage?.total_cost ?? entry.total_cost)} highlight />
+                    <MetaField icon={GlobeIcon} label={t("Status")} value={displayValue(entry.status_code?.toString())} />
+                    <MetaField icon={ClockIcon} label={t("Duration")} value={formatDuration(entry.duration_ns)} />
+                    <MetaField icon={DatabaseIcon} label={t("Total Tokens")} value={usage?.total_tokens?.toLocaleString() ?? entry.total_tokens?.toLocaleString() ?? "—"} />
+                    <MetaField icon={DollarSignIcon} label={t("Cost")} value={formatCost(usage?.total_cost ?? entry.total_cost)} highlight />
                   </div>
                 </MetaCard>
 
-                <MetaCard title="Metadata">
+                <MetaCard title={t("Metadata")}>
                   <div className="grid grid-cols-2 gap-2.5">
-                    <MetaField icon={DatabaseIcon} label="Request ID" value={displayValue(entry.request_id)} />
-                    <MetaField icon={NetworkIcon} label="Resolved Model" value={displayValue(entry.resolved_model)} />
-                    <MetaField icon={ContainerIcon} label="Workflow" value={displayValue(entry.workflow_version_id)} />
-                    <MetaField icon={ClockIcon} label="Mode" value={entry.stream ? "Streaming" : "Non-streaming"} />
+                    <MetaField icon={DatabaseIcon} label={t("Request ID")} value={displayValue(entry.request_id)} />
+                    <MetaField icon={NetworkIcon} label={t("Resolved Model")} value={displayValue(entry.resolved_model)} />
+                    <MetaField icon={ContainerIcon} label={t("Workflow")} value={displayValue(entry.workflow_version_id)} />
+                    <MetaField icon={ClockIcon} label={t("Mode")} value={entry.stream ? t("Streaming") : t("Non-streaming")} />
                   </div>
                 </MetaCard>
 
                 {(entry.cache_hit || entry.cache_type || entry.cache_mode || entry.failover_target) && (
-                  <MetaCard title="Cache & Failover">
+                  <MetaCard title={t("Cache & Failover")}>
                     <div className="grid grid-cols-2 gap-2.5">
-                      {entry.cache_hit !== undefined && <MetaField icon={DatabaseIcon} label="Cache Hit" value={entry.cache_hit ? "Yes" : "No"} />}
-                      {entry.cache_type && <MetaField icon={DatabaseIcon} label="Cache Type" value={entry.cache_type} />}
-                      {entry.cache_mode && <MetaField icon={DatabaseIcon} label="Cache Mode" value={entry.cache_mode} />}
-                      {entry.failover_target && <MetaField icon={NetworkIcon} label="Failover Target" value={entry.failover_target} />}
+                      {entry.cache_hit !== undefined && <MetaField icon={DatabaseIcon} label={t("Cache Hit")} value={entry.cache_hit ? t("Yes") : t("No")} />}
+                      {entry.cache_type && <MetaField icon={DatabaseIcon} label={t("Cache Type")} value={entry.cache_type} />}
+                      {entry.cache_mode && <MetaField icon={DatabaseIcon} label={t("Cache Mode")} value={entry.cache_mode} />}
+                      {entry.failover_target && <MetaField icon={NetworkIcon} label={t("Failover Target")} value={entry.failover_target} />}
                     </div>
                   </MetaCard>
                 )}
 
                 {usage && (
-                  <MetaCard title="Usage Breakdown" className="lg:col-span-2">
+                  <MetaCard title={t("Usage Breakdown")} className="lg:col-span-2">
                     <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                      <MetaField icon={DatabaseIcon} label="Input Tokens" value={usage.input_tokens?.toLocaleString() ?? "—"} />
-                      <MetaField icon={DatabaseIcon} label="Output Tokens" value={usage.output_tokens?.toLocaleString() ?? "—"} />
-                      <MetaField icon={DollarSignIcon} label="Input Cost" value={formatCost(usage.input_cost as number | null | undefined)} />
-                      <MetaField icon={DollarSignIcon} label="Output Cost" value={formatCost(usage.output_cost as number | null | undefined)} />
+                      <MetaField icon={DatabaseIcon} label={t("Input Tokens")} value={usage.input_tokens?.toLocaleString() ?? "—"} />
+                      <MetaField icon={DatabaseIcon} label={t("Output Tokens")} value={usage.output_tokens?.toLocaleString() ?? "—"} />
+                      <MetaField icon={DollarSignIcon} label={t("Input Cost")} value={formatCost(usage.input_cost as number | null | undefined)} />
+                      <MetaField icon={DollarSignIcon} label={t("Output Cost")} value={formatCost(usage.output_cost as number | null | undefined)} />
                       {usage.prompt_cache_read_tokens !== undefined && (
-                        <MetaField icon={DatabaseIcon} label="Cache Read Tokens" value={usage.prompt_cache_read_tokens?.toLocaleString() ?? "—"} />
+                        <MetaField icon={DatabaseIcon} label={t("Cache Read Tokens")} value={usage.prompt_cache_read_tokens?.toLocaleString() ?? "—"} />
                       )}
                       {usage.prompt_cache_write_tokens !== undefined && (
-                        <MetaField icon={DatabaseIcon} label="Cache Write Tokens" value={usage.prompt_cache_write_tokens?.toLocaleString() ?? "—"} />
+                        <MetaField icon={DatabaseIcon} label={t("Cache Write Tokens")} value={usage.prompt_cache_write_tokens?.toLocaleString() ?? "—"} />
                       )}
                       {entry.input_tokens !== undefined && (
-                        <MetaField icon={DatabaseIcon} label="Legacy Input Tokens" value={entry.input_tokens?.toLocaleString() ?? "—"} />
+                        <MetaField icon={DatabaseIcon} label={t("Legacy Input Tokens")} value={entry.input_tokens?.toLocaleString() ?? "—"} />
                       )}
                       {entry.output_tokens !== undefined && (
-                        <MetaField icon={DatabaseIcon} label="Legacy Output Tokens" value={entry.output_tokens?.toLocaleString() ?? "—"} />
+                        <MetaField icon={DatabaseIcon} label={t("Legacy Output Tokens")} value={entry.output_tokens?.toLocaleString() ?? "—"} />
                       )}
                     </div>
                   </MetaCard>
@@ -230,7 +232,7 @@ export function LogDetailSheet({ entry, open, onOpenChange, onNavigate, hasPrev,
                   <div className="overflow-hidden border border-destructive/20 bg-destructive/[0.03]">
                     <div className="flex items-center gap-2 border-b border-destructive/10 px-4 py-2.5">
                       <AlertCircleIcon className="h-4 w-4 text-destructive" />
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-destructive">Error</span>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-destructive">{t("Error")}</span>
                     </div>
                     <pre className="max-h-48 overflow-auto p-4 font-mono text-[12px] leading-relaxed whitespace-pre-wrap text-destructive/90">{errorMessage}</pre>
                   </div>
@@ -240,11 +242,11 @@ export function LogDetailSheet({ entry, open, onOpenChange, onNavigate, hasPrev,
                   <div className="overflow-hidden border border-border/40">
                     <div className="flex items-center gap-2 border-b border-border/20 bg-background/20 px-4 py-2.5">
                       <ContainerIcon className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Request Body</span>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Request Body")}</span>
                     </div>
                     {hasPayload(reqHeaders) && (
                       <details>
-                        <summary className="cursor-pointer px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground outline-none hover:bg-background/20">Headers</summary>
+                        <summary className="cursor-pointer px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground outline-none hover:bg-background/20">{t("Headers")}</summary>
                         <pre className="max-h-48 overflow-auto border-t border-border/20 bg-background/30 p-4 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-foreground">{tryPretty(reqHeaders)}</pre>
                       </details>
                     )}
@@ -258,11 +260,11 @@ export function LogDetailSheet({ entry, open, onOpenChange, onNavigate, hasPrev,
                   <div className="overflow-hidden border border-border/40">
                     <div className="flex items-center gap-2 border-b border-border/20 bg-background/20 px-4 py-2.5">
                       <ContainerIcon className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Response Body</span>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("Response Body")}</span>
                     </div>
                     {hasPayload(resHeaders) && (
                       <details>
-                        <summary className="cursor-pointer px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground outline-none hover:bg-background/20">Headers</summary>
+                        <summary className="cursor-pointer px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground outline-none hover:bg-background/20">{t("Headers")}</summary>
                         <pre className="max-h-48 overflow-auto border-t border-border/20 bg-background/30 p-4 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-foreground">{tryPretty(resHeaders)}</pre>
                       </details>
                     )}
@@ -280,14 +282,14 @@ export function LogDetailSheet({ entry, open, onOpenChange, onNavigate, hasPrev,
               {convLoading ? (
                 <div className="flex flex-col items-center justify-center gap-2 py-16">
                   <div className="h-5 w-5 animate-spin  border-2 border-muted-foreground/30 border-t-accent" />
-                  <p className="text-sm text-muted-foreground/60">Loading conversation\u2026</p>
+                  <p className="text-sm text-muted-foreground/60">{t("Loading conversation\\u2026")}</p>
                 </div>
               ) : convState ? (
                 <ConversationTimeline messages={convState.messages} summary={convState.summary} />
               ) : (
                 <div className="flex flex-col items-center justify-center gap-2 py-16">
                   <MessageSquareIcon className="h-8 w-8 text-muted-foreground/30" />
-                  <p className="text-sm text-muted-foreground/60">Unable to load conversation data.</p>
+                  <p className="text-sm text-muted-foreground/60">{t("Unable to load conversation data.")}</p>
                 </div>
               )}
             </div>

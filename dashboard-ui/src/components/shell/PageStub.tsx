@@ -1,4 +1,6 @@
 import { Construction } from "lucide-react";
+import { t } from "@/lib/i18n";
+
 
 /**
  * Reusable "Page in migration" placeholder. Each route file uses this until
@@ -19,19 +21,14 @@ export function PageStub({ title, phase, source }: PageStubProps): JSX.Element {
         </span>
         <div>
           <h2 className="font-display text-[28px] md:text-[34px] font-normal leading-tight tracking-tight text-foreground">{title}</h2>
-          <p className="text-xs text-muted-foreground">React port pending</p>
+          <p className="text-xs text-muted-foreground">{t("React port pending")}</p>
         </div>
       </div>
-      <p className="text-sm text-muted-foreground">
-        This page lands in <span className="font-mono text-foreground">{phase}</span>{" "}
-        of the React migration. Until then, switch{" "}
+      <p className="text-sm text-muted-foreground">{t("This page lands in ")}<span className="font-mono text-foreground">{phase}</span>{" "}{t("of the React migration. Until then, switch")}{" "}
         <code className="rounded bg-surface-hover px-1.5 py-0.5 font-mono text-xs">
           previous dashboard
-        </code>{" "}
-        for the original.
-      </p>
-      <p className="text-xs text-muted-foreground">
-        Source for this page in the legacy dashboard:{" "}
+        </code>{" "}{t("for the original.")}</p>
+      <p className="text-xs text-muted-foreground">{t("Source for this page in the legacy dashboard:")}{" "}
         <span className="font-mono text-foreground">{source}</span>
       </p>
     </section>

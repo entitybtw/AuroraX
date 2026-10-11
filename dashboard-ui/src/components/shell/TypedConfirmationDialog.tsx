@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { t } from "@/lib/i18n";
+
 
 /**
  * Typed-confirmation dialog ("Type RESET to continue").
@@ -77,13 +79,10 @@ export function TypedConfirmationDialog({
           }}
           className="space-y-3"
         >
-          <p className="text-xs text-muted-foreground">
-            Type{" "}
+          <p className="text-xs text-muted-foreground">{t("Type")}{" "}
             <code className="rounded bg-surface-hover px-1.5 py-0.5 font-mono text-foreground">
               {requiredText}
-            </code>{" "}
-            to confirm.
-          </p>
+            </code>{" "}{t("to confirm.")}</p>
           <Input
             value={value}
             onChange={(e) => setValue(e.target.value)}
@@ -102,15 +101,13 @@ export function TypedConfirmationDialog({
               variant="ghost"
               onClick={() => onOpenChange(false)}
               disabled={loading}
-            >
-              Cancel
-            </Button>
+            >{t("Cancel")}</Button>
             <Button
               type="submit"
               variant="destructive"
               disabled={!matches || loading}
             >
-              {loading ? "Working…" : confirmLabel}
+              {loading ? t("Working…") : confirmLabel}
             </Button>
           </DialogFooter>
         </form>

@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AuditEntry, AuditWorkflowFeatures, AuditFailoverSnapshot } from "@/lib/api/audit-types";
+import { t } from "@/lib/i18n";
+
 
 /**
  * Visual representation of a single audit entry's request pipeline.
@@ -293,60 +295,59 @@ export function WorkflowChart({ entry, className }: WorkflowChartProps): JSX.Ele
     >
       {entry.workflow_version_id && (
         <div className="mb-3 inline-flex max-w-full flex-wrap items-center gap-2  border border-border/70 bg-background/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
-          <span>workflow id</span>
+          <span>{t("workflow id")}</span>
           <span className="break-all text-foreground">{entry.workflow_version_id}</span>
         </div>
       )}
 
       <div className="flex w-full items-center justify-center overflow-x-auto pb-1">
         <div className="flex items-center min-w-max">
-          <Node Icon={Globe} label="Origin" state={{ tone: "default" }} />
+          <Node Icon={Globe} label={t("Origin")} state={{ tone: "default" }} />
           <Conn tone={auth.tone === "danger" ? "danger" : "default"} />
-          <Node Icon={KeyRound} label="Access" state={auth} />
+          <Node Icon={KeyRound} label={t("Access")} state={auth} />
           {showCache && (
             <>
               <Conn tone={linkTone(auth, cacheState)} />
-              <Node Icon={Database} label="Cache" state={cacheState} />
+              <Node Icon={Database} label={t("Cache")} state={cacheState} />
             </>
           )}
           {showBudget && (
             <>
               <Conn tone={linkTone(showCache ? cacheState : auth, budgetState)} />
-              <Node Icon={CreditCard} label="Limit" state={budgetState} />
+              <Node Icon={CreditCard} label={t("Limit")} state={budgetState} />
             </>
           )}
           {showGuardrails && (
             <>
               <Conn tone={linkTone(showBudget ? budgetState : showCache ? cacheState : auth, guardrailState)} />
-              <Node Icon={Gavel} label="Policy" state={guardrailState} />
+              <Node Icon={Gavel} label={t("Policy")} state={guardrailState} />
             </>
           )}
           <Conn tone={linkTone(lastBeforeAIState, aiState)} />
-          <Node Icon={Cpu} label="Engine" state={aiState} />
+          <Node Icon={Cpu} label={t("Engine")} state={aiState} />
           {showFailover && (
             <>
               <Conn tone={linkTone(aiState, failoverState)} />
-              <Node Icon={RefreshCcw} label="Backup" state={failoverState} />
+              <Node Icon={RefreshCcw} label={t("Backup")} state={failoverState} />
             </>
           )}
           <Conn tone={linkTone(showFailover ? failoverState : aiState, responseState)} />
-          <Node Icon={ArrowRightCircle} label="Reply" state={responseState} />
+          <Node Icon={ArrowRightCircle} label={t("Reply")} state={responseState} />
           {showAsync && (
             <>
-              <LabeledConn tone={asyncLinkTone} label="Deferred" />
+              <LabeledConn tone={asyncLinkTone} label={t("Deferred")} />
               {showUsage && (
-                <Node Icon={BarChart3} label="Metrics" state={usageState} />
+                <Node Icon={BarChart3} label={t("Metrics")} state={usageState} />
               )}
               {showAudit && (
                 <>
                   {showUsage && <Conn tone={linkTone(usageState, auditState)} />}
-                  <Node Icon={BookOpen} label="Journal" state={auditState} />
+                  <Node Icon={BookOpen} label={t("Journal")} state={auditState} />
                 </>
               )}
               {!showUsage && !showAudit && (
                 <span className="shrink-0 text-xs text-muted-foreground ml-2">
-                  <Network className="mr-1 inline h-3 w-3" /> No async pipeline
-                </span>
+                  <Network className="mr-1 inline h-3 w-3" />{t(" No async pipeline")}</span>
               )}
             </>
           )}

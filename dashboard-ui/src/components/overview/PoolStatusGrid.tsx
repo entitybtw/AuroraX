@@ -3,6 +3,8 @@ import { cn } from "@/lib/utils";
 import type { PoolsResponse, PoolSnapshot } from "@/lib/api/pools-types";
 import { formatRequests } from "@/lib/format/numbers";
 import { Link } from "@tanstack/react-router";
+import { t } from "@/lib/i18n";
+
 
 export interface PoolStatusGridProps {
   data: PoolsResponse | undefined;
@@ -46,35 +48,30 @@ export function PoolStatusGrid({
 
   return (
     <section
-      aria-label="Provider pools"
+      aria-label={t("Provider pools")}
       className="border border-border/40 bg-surface"
     >
       <header className="p-6 flex flex-wrap items-start justify-between gap-3 border-b border-border/40">
         <div>
-          <div className="text-[10px] font-bold tracking-widest uppercase text-accent mb-2">[ Pools ]</div>
-          <h2 className="font-display text-xl font-normal text-foreground">Provider Pools</h2>
-          <p className="mt-1 text-xs text-muted-foreground">Load balancing, latency scoring, and active requests.</p>
+          <div className="text-[10px] font-bold tracking-widest uppercase text-accent mb-2">{t("[ Pools ]")}</div>
+          <h2 className="font-display text-xl font-normal text-foreground">{t("Provider Pools")}</h2>
+          <p className="mt-1 text-xs text-muted-foreground">{t("Load balancing, latency scoring, and active requests.")}</p>
         </div>
         {data ? (
           <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5 font-semibold"><span className="h-1.5 w-1.5 bg-success" />{data.summary.healthy_members} / {data.summary.total_members} healthy</span>
+            <span className="inline-flex items-center gap-1.5 font-semibold"><span className="h-1.5 w-1.5 bg-success" />{data.summary.healthy_members} / {data.summary.total_members}{t(" healthy")}</span>
           </div>
         ) : null}
       </header>
 
       {isLoading && !data ? (
         <div className="flex items-center gap-2 p-6 text-xs text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading pools...
-        </div>
+          <Loader2 className="h-4 w-4 animate-spin" />{t("Loading pools...")}</div>
       ) : error ? (
-        <div className="border border-destructive/25 bg-destructive/10 m-6 px-3 py-6 text-xs text-destructive">
-          Failed to load pools: {error.message}
+        <div className="border border-destructive/25 bg-destructive/10 m-6 px-3 py-6 text-xs text-destructive">{t("Failed to load pools: ")}{error.message}
         </div>
       ) : empty ? (
-        <div className="p-6 text-xs text-muted-foreground">
-          No pools configured.
-        </div>
+        <div className="p-6 text-xs text-muted-foreground">{t("No pools configured.")}</div>
       ) : (
         <div className="divide-y divide-border/40">
           {data.pools.map((pool) => {
@@ -91,7 +88,7 @@ export function PoolStatusGrid({
                       <Link
                         to="/admin/dashboard/pools"
                         className="inline-flex items-center gap-0.5 border border-border/40 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-muted-foreground hover:text-accent hover:border-accent/30 transition-colors"
-                        title="View pool details"
+                        title={t("View pool details")}
                       >
                         <ExternalLink className="h-2.5 w-2.5" />
                       </Link>
@@ -107,11 +104,11 @@ export function PoolStatusGrid({
 
                 <div className="flex gap-8 px-6 py-4 border-t border-border/40 bg-surface-hover/20">
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Members</span>
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">{t("Members")}</span>
                     <span className="font-mono text-lg font-bold">{pool.members.length}</span>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Active Requests</span>
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">{t("Active Requests")}</span>
                     <span className="font-mono text-lg font-bold text-accent">{activeRequests}</span>
                   </div>
                 </div>
@@ -124,10 +121,10 @@ export function PoolStatusGrid({
                         <span className="font-mono font-semibold">{member.provider_name}</span>
                       </div>
                       <div className="flex gap-4 font-mono text-muted-foreground text-[10px] sm:text-xs">
-                        <span title="Active requests"><span className="text-foreground">act:</span> {member.active_requests}</span>
-                        <span title="Total requests"><span className="text-foreground">tot:</span> {formatRequests(member.total_requests)}</span>
-                        <span title="Total errors" className={member.total_errors > 0 ? "text-destructive" : ""}><span className={member.total_errors > 0 ? "text-destructive" : "text-foreground"}>err:</span> {formatRequests(member.total_errors)}</span>
-                        <span title="Latency EWMA"><span className="text-foreground">lat:</span> {formatLatency(member.latency_ewma_us)}</span>
+                        <span title={t("Active requests")}><span className="text-foreground">{t("act:")}</span> {member.active_requests}</span>
+                        <span title={t("Total requests")}><span className="text-foreground">{t("tot:")}</span> {formatRequests(member.total_requests)}</span>
+                        <span title={t("Total errors")} className={member.total_errors > 0 ? "text-destructive" : ""}><span className={member.total_errors > 0 ? "text-destructive" : "text-foreground"}>{t("err:")}</span> {formatRequests(member.total_errors)}</span>
+                        <span title={t("Latency EWMA")}><span className="text-foreground">{t("lat:")}</span> {formatLatency(member.latency_ewma_us)}</span>
                       </div>
                     </div>
                   ))}

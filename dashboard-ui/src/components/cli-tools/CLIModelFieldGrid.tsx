@@ -3,6 +3,8 @@ import { Search, Check } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import type { CLIModelField } from "@/lib/api/cli-tools";
 import { modelDisplayName, type ModelInventoryItem } from "@/lib/api/models-types";
+import { t } from "@/lib/i18n";
+
 
 interface CLIModelFieldGridProps {
   modelFields: CLIModelField[];
@@ -84,7 +86,7 @@ function MultiModelSelect({
           className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search models..."
+          placeholder={t("Search models...")}
         />
         {selectedModels.length > 0 ? (
           <span className="shrink-0 rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-medium text-accent">
@@ -106,27 +108,20 @@ function MultiModelSelect({
           onClick={invertVisible}
           disabled={empty}
           className="min-h-[36px] rounded-full border border-border bg-background/40 px-3 py-1.5 text-xs text-foreground transition hover:border-accent/50 hover:bg-surface-hover disabled:opacity-40 touch-manipulation"
-        >
-          Invert shown
-        </button>
+        >{t("Invert shown")}</button>
         <button
           type="button"
           onClick={clearAll}
           disabled={selectedModels.length === 0}
           className="min-h-[36px] rounded-full border border-border bg-background/40 px-3 py-1.5 text-xs text-muted-foreground transition hover:border-danger/50 hover:text-danger disabled:opacity-40 touch-manipulation"
-        >
-          Clear
-        </button>
+        >{t("Clear")}</button>
         {normalizedQuery ? (
           <span className="ml-auto text-[11px] text-muted-foreground">
-            {shownSelected}/{available.length} shown selected
-          </span>
+            {shownSelected}/{available.length}{t(" shown selected")}</span>
         ) : null}
       </div>
       {empty ? (
-        <p className="rounded-lg border border-dashed border-border bg-background/20 p-3 text-xs text-muted-foreground">
-          No models found. Select a fallback model above.
-        </p>
+        <p className="rounded-lg border border-dashed border-border bg-background/20 p-3 text-xs text-muted-foreground">{t("No models found. Select a fallback model above.")}</p>
       ) : (
         <div className="max-h-56 min-w-0 overflow-y-auto overscroll-contain rounded-lg border border-border bg-background/20">
           {available.map((model) => {
@@ -148,17 +143,13 @@ function MultiModelSelect({
             );
           })}
           {available.length === 0 ? (
-            <p className="p-3 text-xs text-muted-foreground">
-              No models match &quot;{query}&quot;. Try a different search term.
-            </p>
+            <p className="p-3 text-xs text-muted-foreground">{t("No models match \"")}{query}{t("\". Try a different search term.")}</p>
           ) : null}
         </div>
       )}
       <div className="min-w-0">
         {selectedModels.length === 0 ? (
-          <p className="text-xs leading-4 text-muted-foreground">
-            No models selected. The fallback model &quot;{fallbackModel}&quot; will be used.
-          </p>
+          <p className="text-xs leading-4 text-muted-foreground">{t("No models selected. The fallback model \"")}{fallbackModel}{t("\" will be used.")}</p>
         ) : (
           <div className="flex min-w-0 flex-wrap gap-1.5">
             {selectedModels.slice(0, 24).map((m) => (
@@ -174,8 +165,7 @@ function MultiModelSelect({
             ))}
             {selectedModels.length > 24 ? (
               <span className="px-1 py-1 text-[11px] text-muted-foreground">
-                +{selectedModels.length - 24} more
-              </span>
+                +{selectedModels.length - 24}{t(" more")}</span>
             ) : null}
           </div>
         )}
@@ -193,8 +183,7 @@ export function CLIModelFieldGrid({ modelFields, modelOverrides, fallbackModel, 
 
   return (
     <div className="min-w-0 space-y-3 md:col-span-3">
-      <div className="min-w-0 break-words rounded-lg border border-border bg-background/20 p-3 text-xs leading-5 text-muted-foreground">
-        Configure tool-specific model defaults. Empty values use the fallback model <code className="break-all font-mono text-foreground">{fallbackModel || "auto"}</code>.
+      <div className="min-w-0 break-words rounded-lg border border-border bg-background/20 p-3 text-xs leading-5 text-muted-foreground">{t("Configure tool-specific model defaults. Empty values use the fallback model ")}<code className="break-all font-mono text-foreground">{fallbackModel || "auto"}</code>.
       </div>
       <div className="grid min-w-0 gap-3 lg:grid-cols-3">
         {modelFields.map((field) => {
@@ -224,7 +213,7 @@ export function CLIModelFieldGrid({ modelFields, modelOverrides, fallbackModel, 
                 value={value}
                 onChange={(event) => onChange(field.key, event.target.value)}
               >
-                <option value="">{field.default_model || fallbackModel || "Use fallback model"}</option>
+                <option value="">{field.default_model || fallbackModel || t("Use fallback model")}</option>
                 {value && !modelOptions.includes(value) ? <option value={value}>{value}</option> : null}
                 {modelOptions.map((model) => <option key={`${field.key}:${model}`} value={model}>{model}</option>)}
               </select>
