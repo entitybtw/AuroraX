@@ -397,6 +397,12 @@ type Extension struct {
 	// Catalog maps target extension id → translation for that extension.
 	// Only read when Type == "localization" (a language pack).
 	Catalog map[string]ExtensionTranslation `json:"catalog,omitempty"`
+	// Dashboard maps English dashboard-UI source strings → translations.
+	// Only read when Type == "localization": the pack ships the whole
+	// dashboard chrome translation, served to the SPA via
+	// GET /sidecar/extensions/locale/catalog instead of being bundled into
+	// the build. Missing keys fall back to the English source string.
+	Dashboard map[string]string `json:"dashboard,omitempty"`
 }
 
 // ExtensionStore holds imported extensions, persisting them to disk so they
@@ -1223,6 +1229,12 @@ func (h *Handler) ImportExtension(c *echo.Context) error {
 	}
 	activated := h.extensions.Import(ext)
 	saved, _ := h.extensions.Get(ext.ID)
+	// Language packs are install/uninstall only: importing one activates it
+	// immediately (no separate apply step, no toggle).
+	if strings.EqualFold(saved.Type, "localization") && !saved.Applied {
+		saved.Applied = true
+		h.extensions.Upsert(saved)
+	}
 	return c.JSON(http.StatusOK, map[string]any{
 		"status":                   "ok",
 		"extension":                saved,
@@ -1330,6 +1342,13 @@ func (h *Handler) UnapplyExtension(c *echo.Context) error {
 	ext, ok := h.extensions.Get(c.Param("id"))
 	if !ok {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "extension not found"})
+	}
+	// Language packs are install/uninstall only: there is no "disable" step.
+	// Deleting the extension removes its translations.
+	if strings.EqualFold(ext.Type, "localization") {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "language packs are active while installed — delete the extension instead",
+		})
 	}
 	ext.Applied = false
 	h.extensions.Upsert(ext)

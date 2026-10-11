@@ -53,12 +53,18 @@ import {
 } from "@/lib/api/extensions";
 import { SidecarPresetImportDialog } from "@/components/settings/SidecarPresetImportDialog";
 import { ExtensionJsonEditor } from "@/components/settings/ExtensionJsonEditor";
-import { SUPPORTED_LOCALES, changeLocale, t } from "@/lib/i18n";
+import { changeLocale, t } from "@/lib/i18n";
 
 
 function isThemeOnly(ext: Extension): boolean {
   if (ext.type === "theme") return true;
   return Boolean(ext.ui?.theme && Object.keys(ext.ui.theme).length > 0);
+}
+
+/** Language packs are active while installed — the applied flag doesn't apply. */
+function extActive(ext: Extension): boolean {
+  if (ext.type === "localization") return true;
+  return Boolean(ext.applied);
 }
 
 function compareExtensions(a: Extension, b: Extension): number {
@@ -261,12 +267,14 @@ export function ExtensionsTab(): JSX.Element {
     }
   };
 
-  // Every locale the dashboard itself ships translations for, plus any locale
-  // offered by installed language packs / embedded extension i18n.
+  // The dashboard ships no built-in translations: languages come from the
+  // gateway — installed language packs and embedded extension i18n. English
+  // stays reachable via the "Source language" (empty) option.
   const localeOptions = useMemo(() => {
-    const codes = new Set<string>(SUPPORTED_LOCALES);
+    const codes = new Set<string>();
     for (const code of localeInfo?.available ?? []) codes.add(code);
-    return [...codes];
+    codes.delete("");
+    return [...codes].sort((a, b) => a.localeCompare(b));
   }, [localeInfo?.available]);
 
   const fields = selected?.ui?.fields ?? [];
@@ -893,7 +901,7 @@ export function ExtensionsTab(): JSX.Element {
               >
                 <span className="flex items-start justify-between gap-2">
                   <span className="flex min-w-0 items-center gap-2">
-                    {ext.applied && ext.ui?.accent ? (
+                    {extActive(ext) && ext.ui?.accent ? (
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: ext.ui.accent }} />
                     ) : (
                       <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${active ? "bg-primary" : "bg-muted-foreground/30"}`} />
@@ -902,12 +910,12 @@ export function ExtensionsTab(): JSX.Element {
                   </span>
                   <span
                     className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                      ext.applied
+                      extActive(ext)
                         ? "bg-emerald-500/10 text-emerald-500"
                         : "bg-muted text-muted-foreground"
                     }`}
                   >
-                    {ext.applied ? t("Active") : t("Inactive")}
+                    {extActive(ext) ? t("Active") : t("Inactive")}
                   </span>
                 </span>
                 <span className="text-xs text-muted-foreground line-clamp-2">{ext.tagline}</span>
@@ -1110,12 +1118,12 @@ export function ExtensionsTab(): JSX.Element {
                     </Button>
                     <span
                       className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                        selected.applied
+                        extActive(selected)
                           ? "bg-emerald-500/10 text-emerald-500"
                           : "bg-muted text-muted-foreground"
                       }`}
                     >
-                      {selected.applied ? t("Active") : t("Inactive")}
+                      {extActive(selected) ? t("Active") : t("Inactive")}
                     </span>
                   </div>
                 )}
@@ -1138,15 +1146,24 @@ export function ExtensionsTab(): JSX.Element {
                     : t("Update from source")}
                 </Button>
               ) : null}
-              <span className="text-xs text-muted-foreground">
-                {selected.applied ? t("Disable") : t("Enable")}
-              </span>
-              <Switch
-                checked={Boolean(selected.applied)}
-                onCheckedChange={(v) => void handleToggle(v)}
-                disabled={busy}
-                aria-label={`Toggle ${selected.name}`}
-              />
+              {selected.type === "localization" ? (
+                // Language packs are install/delete only — no apply toggle.
+                <span className="text-xs text-muted-foreground">
+                  {t("Installed — delete to remove")}
+                </span>
+              ) : (
+                <>
+                  <span className="text-xs text-muted-foreground">
+                    {selected.applied ? t("Disable") : t("Enable")}
+                  </span>
+                  <Switch
+                    checked={Boolean(selected.applied)}
+                    onCheckedChange={(v) => void handleToggle(v)}
+                    disabled={busy}
+                    aria-label={`Toggle ${selected.name}`}
+                  />
+                </>
+              )}
             </div>
           </div>
 
@@ -1312,43 +1329,46 @@ export function ExtensionsTab(): JSX.Element {
             </div>
           ) : null}
 
-          {/* Target + apply */}
-          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end">
-            {!themeOnly ? (
-              <div className="flex flex-1 flex-col gap-1.5">
-                <label className="text-sm font-medium">{t("Target pool or provider")}</label>
-                <Input
-                  value={target}
-                  onChange={(e) => setTarget(e.target.value)}
-                  className="h-11 font-mono text-sm sm:h-9 sm:max-w-xs"
-                  placeholder="my-pool"
-                />
-                <p className="text-xs text-muted-foreground">{t("Session Hub rules install against this name (a pool applies to all members). Optional for themes.")}</p>
-              </div>
-            ) : (
-              <div className="flex flex-1 flex-col gap-1.5">
-                <label className="text-sm font-medium">{t("Theme")}</label>
-                <p className="text-xs text-muted-foreground">{t("This extension only contributes theme / UI. Apply to activate it — no Session Hub target required.")}</p>
-              </div>
-            )}
-            <Button
-              onClick={handleApply}
-              disabled={busy}
-              className="h-11 w-full gap-1.5 sm:h-9 sm:w-auto"
-            >
-              {busy ? (
-                <RefreshCwIcon className="h-3.5 w-3.5 animate-spin" />
+          {/* Target + apply — language packs have nothing to apply: they are
+              active the moment they are installed. */}
+          {selected.type !== "localization" ? (
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end">
+              {!themeOnly ? (
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <label className="text-sm font-medium">{t("Target pool or provider")}</label>
+                  <Input
+                    value={target}
+                    onChange={(e) => setTarget(e.target.value)}
+                    className="h-11 font-mono text-sm sm:h-9 sm:max-w-xs"
+                    placeholder="my-pool"
+                  />
+                  <p className="text-xs text-muted-foreground">{t("Session Hub rules install against this name (a pool applies to all members). Optional for themes.")}</p>
+                </div>
               ) : (
-                <SparklesIcon className="h-3.5 w-3.5" />
-              )}{t("Apply")}</Button>
-            <Button
-              variant="outline"
-              onClick={handleFullApply}
-              disabled={busy}
-              className="h-11 w-full gap-1.5 sm:h-9 sm:w-auto"
-            >
-              <PlugZapIcon className="h-3.5 w-3.5" />{t("Apply everywhere")}</Button>
-          </div>
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <label className="text-sm font-medium">{t("Theme")}</label>
+                  <p className="text-xs text-muted-foreground">{t("This extension only contributes theme / UI. Apply to activate it — no Session Hub target required.")}</p>
+                </div>
+              )}
+              <Button
+                onClick={handleApply}
+                disabled={busy}
+                className="h-11 w-full gap-1.5 sm:h-9 sm:w-auto"
+              >
+                {busy ? (
+                  <RefreshCwIcon className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <SparklesIcon className="h-3.5 w-3.5" />
+                )}{t("Apply")}</Button>
+              <Button
+                variant="outline"
+                onClick={handleFullApply}
+                disabled={busy}
+                className="h-11 w-full gap-1.5 sm:h-9 sm:w-auto"
+              >
+                <PlugZapIcon className="h-3.5 w-3.5" />{t("Apply everywhere")}</Button>
+            </div>
+          ) : null}
 
           {result ? (
             <div className="mt-3 flex items-start gap-2 rounded-md border border-border/40 bg-muted/30 p-3 text-xs">

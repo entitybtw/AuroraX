@@ -380,17 +380,20 @@ func TestApplyLocalizationPack_LeavesSidecarAlone(t *testing.T) {
 		t.Fatalf("sidecar settings mutated by language pack: before=%+v after=%+v", before, after)
 	}
 
-	// Unapply removes it from the localizer again.
+	// Unapply is rejected for language packs: they are install/delete only.
 	req2 := httptest.NewRequest(http.MethodPost, "/sidecar/extensions/locale-ru/unapply", nil)
 	rec2 := httptest.NewRecorder()
 	c2 := e.NewContext(req2, rec2)
 	c2.SetPathValues(echo.PathValues{{Name: "id", Value: "locale-ru"}})
-	if err := h.UnapplyExtension(c2); err != nil || rec2.Code != http.StatusOK {
-		t.Fatalf("unapply = %d %v", rec2.Code, err)
+	if err := h.UnapplyExtension(c2); err != nil {
+		t.Fatalf("UnapplyExtension: %v", err)
+	}
+	if rec2.Code != http.StatusBadRequest {
+		t.Fatalf("unapply status = %d body=%s, want 400", rec2.Code, rec2.Body.String())
 	}
 	pack, _ = store.Get("locale-ru")
-	if pack.Applied {
-		t.Fatal("language pack still applied after unapply")
+	if !pack.Applied {
+		t.Fatal("language pack lost its applied state on rejected unapply")
 	}
 }
 
@@ -496,8 +499,27 @@ func TestValidate_LocalePackAndI18n(t *testing.T) {
 	noCatalog := good
 	noCatalog.Catalog = nil
 	err = noCatalog.Validate()
-	if err == nil || !strings.Contains(err.Error(), "catalog: required") {
+	if err == nil || !strings.Contains(err.Error(), "catalog or dashboard: required") {
 		t.Fatalf("missing catalog error = %v", err)
+	}
+
+	// A dashboard-only pack (no extension catalog) is valid.
+	dashOnly := Extension{
+		ID:        "locale-dash",
+		Name:      "Dash pack",
+		Type:      "localization",
+		Locale:    "xx",
+		Dashboard: map[string]string{"Save": "Save (xx)"},
+	}
+	if err := dashOnly.Validate(); err != nil {
+		t.Fatalf("dashboard-only pack rejected: %v", err)
+	}
+
+	badDash := good
+	badDash.Dashboard = map[string]string{"Save": "  "}
+	err = badDash.Validate()
+	if err == nil || !strings.Contains(err.Error(), `dashboard["Save"]: empty translation`) {
+		t.Fatalf("empty dashboard entry error = %v", err)
 	}
 
 	emptyEntry := good
@@ -580,5 +602,117 @@ func TestLocalizationPackJSONRoundTrip(t *testing.T) {
 	}
 	if again.Locale != "de" || again.Catalog["timestamped"].UI.Help != tr.UI.Help {
 		t.Fatalf("round trip lost content: %s", out)
+	}
+}
+
+// TestExtensionLocaleCatalog_DashboardPacks: GET /sidecar/extensions/locale/catalog
+// merges dashboard catalogs from installed language packs (Order asc, later
+// wins), resolves the locale via pickLocale, and ignores packs without a
+// dashboard map.
+func TestExtensionLocaleCatalog_DashboardPacks(t *testing.T) {
+	base := ruLanguagePack()
+	base.Dashboard = map[string]string{"Save": "Сохранить", "Delete": "Удалить"}
+	over := Extension{
+		ID:        "locale-ru-2",
+		Name:      "RU override",
+		Type:      "localization",
+		Locale:    "ru",
+		Order:     50,
+		Catalog:   map[string]ExtensionTranslation{"demo-ext": {Name: "Из второго пакета"}},
+		Dashboard: map[string]string{"Delete": "Удалять"},
+	}
+	// A pack with no dashboard map must not break anything.
+	noDash := Extension{
+		ID:      "locale-pt",
+		Name:    "PT pack",
+		Type:    "localization",
+		Locale:  "pt-br",
+		Catalog: map[string]ExtensionTranslation{"demo-ext": {Name: "Demo (pt)"}},
+	}
+	h, _ := newI18nTestHandler(t, base, over, noDash)
+
+	get := func(query string) (string, map[string]string) {
+		t.Helper()
+		e := echo.New()
+		path := "/sidecar/extensions/locale/catalog"
+		if query != "" {
+			path += "?" + query
+		}
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		rec := httptest.NewRecorder()
+		if err := h.GetExtensionLocaleCatalog(e.NewContext(req, rec)); err != nil {
+			t.Fatalf("GetExtensionLocaleCatalog: %v", err)
+		}
+		if rec.Code != http.StatusOK {
+			t.Fatalf("catalog status = %d body=%s", rec.Code, rec.Body.String())
+		}
+		var resp struct {
+			Locale  string            `json:"locale"`
+			Catalog map[string]string `json:"catalog"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		return resp.Locale, resp.Catalog
+	}
+
+	// Explicit locale: merged catalog, later pack (Order 50) wins on "Delete".
+	locale, cat := get("locale=ru")
+	if locale != "ru" {
+		t.Fatalf("locale = %q, want ru", locale)
+	}
+	if cat["Save"] != "Сохранить" || cat["Delete"] != "Удалять" {
+		t.Fatalf("merged catalog = %v", cat)
+	}
+
+	// Fallback resolution: "ru-RU" resolves to the installed "ru" packs.
+	locale, _ = get("locale=ru-RU")
+	if locale != "ru" {
+		t.Fatalf("fallback locale = %q, want ru", locale)
+	}
+
+	// Unknown locale yields empty catalog and empty resolution.
+	locale, cat = get("locale=de")
+	if locale != "" || len(cat) != 0 {
+		t.Fatalf("unknown locale = %q catalog=%v", locale, cat)
+	}
+}
+
+// TestImportLocalizationPack_AppliesImmediately: importing a language pack
+// activates it right away — packs are install/delete only, no apply step.
+func TestImportLocalizationPack_AppliesImmediately(t *testing.T) {
+	h, store := newI18nTestHandler(t)
+	pack := ruLanguagePack()
+	pack.Applied = false
+	body, _ := json.Marshal(pack)
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/sidecar/extensions/import", strings.NewReader(string(body)))
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	if err := h.ImportExtension(c); err != nil {
+		t.Fatalf("ImportExtension: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	saved, ok := store.Get("locale-ru")
+	if !ok {
+		t.Fatal("pack not stored after import")
+	}
+	if !saved.Applied {
+		t.Fatal("imported language pack must be applied immediately")
+	}
+
+	// A non-localization extension must not be auto-applied on import.
+	plain := Extension{ID: "plain-ext", Name: "Plain", BaseURL: "http://localhost"}
+	body2, _ := json.Marshal(plain)
+	req2 := httptest.NewRequest(http.MethodPost, "/sidecar/extensions/import", strings.NewReader(string(body2)))
+	rec2 := httptest.NewRecorder()
+	if err := h.ImportExtension(e.NewContext(req2, rec2)); err != nil {
+		t.Fatalf("import plain: %v", err)
+	}
+	saved, _ = store.Get("plain-ext")
+	if saved.Applied {
+		t.Fatal("non-localization extension must not be auto-applied")
 	}
 }

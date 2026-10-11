@@ -279,11 +279,14 @@ const ExtensionSchema = z.object({
   order: z.number().optional(),
   source: z.string().optional(),
   // Localization: embedded per-locale translations, the locale code a
-  // language pack is written in, and the pack's catalog (target id →
-  // translation). Only type "localization" reads locale/catalog.
+  // language pack is written in, the pack's catalog (target id →
+  // translation), and the pack's dashboard-UI catalog (English source →
+  // translation, served by GET /sidecar/extensions/locale/catalog).
+  // Only type "localization" reads locale/catalog/dashboard.
   i18n: ExtensionI18nSchema.optional(),
   locale: z.string().optional(),
   catalog: z.record(ExtensionTranslationSchema).optional(),
+  dashboard: z.record(z.string()).optional(),
 });
 
 export type Extension = z.infer<typeof ExtensionSchema>;
@@ -326,6 +329,29 @@ export async function setExtensionLocale(locale: string): Promise<{
   });
   const parsed = ExtensionLocaleResponseSchema.parse(res);
   return { locale: parsed.locale, available: parsed.available ?? [] };
+}
+
+const ExtensionLocaleCatalogResponseSchema = z.object({
+  locale: z.string(),
+  catalog: z.record(z.string()),
+});
+
+/**
+ * Fetch the merged dashboard-UI catalog for a locale from the gateway.
+ *
+ * The catalog ships inside installed language packs (type "localization",
+ * `dashboard` map) — the dashboard bundle itself carries no translations.
+ * `locale` defaults to the persisted operator selection; unknown locales
+ * resolve to an empty catalog server-side.
+ */
+export async function fetchExtensionLocaleCatalog(locale?: string): Promise<{
+  locale: string;
+  catalog: Record<string, string>;
+}> {
+  const qs = locale ? `?locale=${encodeURIComponent(locale)}` : "";
+  const res = await apiFetch<unknown>(`/admin/api/v1/sidecar/extensions/locale/catalog${qs}`);
+  const parsed = ExtensionLocaleCatalogResponseSchema.parse(res);
+  return { locale: parsed.locale, catalog: parsed.catalog ?? {} };
 }
 
 /** @deprecated Prefer Extension aliases kept for older imports. */

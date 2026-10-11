@@ -68,8 +68,9 @@ lower-precedence translation) stays.
 
 ## Language packs (`type: "localization"`)
 
-A language pack translates *other* extensions. It pins one locale and carries
-a catalog keyed by target extension id:
+A language pack translates *other* extensions and (optionally) the whole
+dashboard UI. It pins one locale and carries a catalog keyed by target
+extension id, a `dashboard` catalog of dashboard chrome strings, or both:
 
 ```json
 {
@@ -88,23 +89,28 @@ a catalog keyed by target extension id:
       }
     },
     "vpn-support": { "ui": { "fields": { "mode": { "label": "Режим" } } } }
+  },
+  "dashboard": {
+    "Save": "Сохранить",
+    "Delete": "Удалить"
   }
 }
 ```
 
-Validation requires `locale` and a non-empty `catalog`; every catalog entry
-must carry at least one non-empty string or a `ui` object.
+Validation requires `locale` and at least one of `catalog` / `dashboard`;
+every catalog entry must carry at least one non-empty string or a `ui`
+object, and every `dashboard` entry a non-empty translation.
 
-**Applying a pack** works like any other extension (Import → Apply), with two
-differences:
+**Language packs are install/uninstall only — there is no apply toggle:**
 
+- Importing (or installing from a store) a pack **activates it immediately**.
+- **Unapply is rejected** (400): delete the extension to remove its
+  translations.
 - A localization pack **never touches sidecar settings**, Session Hub headers,
-  auth wiring or client profiles — apply only flips `applied`.
-- **Several packs may be applied at once** (unlike themes, which are
-  one-at-a-time). When several applied packs translate the same string, the
-  one with the higher `order` wins (ties broken by id).
-
-Unapply/remove a pack to drop its translations immediately.
+  auth wiring or client profiles.
+- **Several packs may be installed at once** (unlike themes, which are
+  one-at-a-time). When several packs translate the same string, the one with
+  the higher `order` wins (ties broken by id).
 
 ## Choosing the language
 
@@ -129,7 +135,7 @@ only; an unknown locale simply keeps the source text).
 ### Resolution rules
 
 For each extension, the locale code is picked from what that extension
-actually has (embedded locales ∪ applied pack locales for it):
+actually has (embedded locales ∪ installed pack locales for it):
 
 1. exact code (`pt-BR` → `pt-BR`),
 2. bare base language (`pt-BR` → `pt`),
@@ -139,7 +145,7 @@ actually has (embedded locales ∪ applied pack locales for it):
 5. otherwise the **source text** (no guessing between competing variants
    such as `sr-cyrl` vs `sr-latn`).
 
-Then embedded translations are layered first and applied packs on top
+Then embedded translations are layered first and installed packs on top
 (pack wins where both translate the same key).
 
 ### Editor safety
@@ -151,10 +157,10 @@ see is never corrupted by the active language.
 
 ## Dashboard UI localization
 
-The built-in dashboard UI localizes itself from the **same persisted locale**
-(there is one language switch for the whole product). English source strings
-double as translation keys, so any string missing from a catalog simply falls
-back to English:
+The dashboard UI localizes itself from the **same persisted locale** (there is
+one language switch for the whole product). English source strings double as
+translation keys, so any string missing from a catalog simply falls back to
+English:
 
 ```ts
 import { t } from "@/lib/i18n";
@@ -163,24 +169,39 @@ t("Save")                     // "Сохранить" for locale=ru, "Save" othe
 t("Delete {count} items", { count: 3 })
 ```
 
-Catalogs live at `dashboard-ui/src/lib/i18n/locales/<code>.json` (one JSON
-object per locale, key → translation) and are **code-split**: only the active
-locale is fetched, each is ~45 KB gzipped.
+**Catalogs are not bundled into the SPA.** They ship inside installed
+language packs (the pack's `dashboard` map) and are served by the gateway:
 
-- `initI18n()` runs before the app bundle loads (`src/main.tsx`), so the first
-  paint is already in the operator's language.
+```http
+GET /admin/api/v1/sidecar/extensions/locale/catalog[?locale=<code>]
+     → { "locale": "ru", "catalog": { "Save": "Сохранить", … } }
+```
+
+All installed packs whose locale resolves to the requested code contribute;
+packs are merged in `order` asc (ties by id, later wins). Installing a
+language pack therefore translates the entire dashboard chrome; deleting it
+returns the UI to English (or to the next installed pack's locale).
+
+- `initI18n()` runs before the app bundle loads (`src/main.tsx`): it fetches
+  the persisted locale, then the catalog, so the first paint is already in
+  the operator's language. The last successful catalog is cached in
+  `localStorage`, so a signed-out boot (login page) still renders in the
+  previously chosen language.
 - Changing **Settings → Extensions → Interface language** saves the shared
   locale (same `PUT /sidecar/extensions/locale`) and reloads the page.
 - RTL locales (`ar`, `he`) set `document.documentElement.dir = "rtl"`.
 - After login/SSO the client re-syncs (`ensureLocaleSynced()`) and reloads if
   the persisted locale differs from the one the bundle started with.
+- The language selector lists exactly what the gateway offers (installed
+  packs + embedded extension i18n); English stays reachable via the
+  "Source language" option.
 
-Regenerating catalogs after UI changes:
+Regenerating the pack `dashboard` catalogs after UI changes:
 
 ```bash
 node scripts/i18n-extract-keys.cjs      # rebuild scripts/i18n-keys.json
 # translators update scripts/i18n-translations/<code>.json (ordered arrays)
-python3 scripts/i18n-merge-catalogs.py  # rebuild src/lib/i18n/locales/*.json
+python3 scripts/i18n-merge-catalogs.py  # inject "dashboard" into the store packs
 ```
 
 ## See also

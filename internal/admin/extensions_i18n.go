@@ -374,7 +374,9 @@ func (h *Handler) newLocalizer(locale string) *extensionLocalizer {
 	}
 	for _, e := range list {
 		l.byID[e.ID] = e
-		if e.Applied && e.Type == "localization" && len(e.Catalog) > 0 {
+		// Language packs are install/uninstall only: an installed pack is
+		// always active (no Applied toggle for type "localization").
+		if e.Type == "localization" && len(e.Catalog) > 0 {
 			l.packs = append(l.packs, localizationPack{
 				id:      e.ID,
 				order:   e.Order,
@@ -619,7 +621,7 @@ func (h *Handler) availableExtensionLocales(active string) []string {
 					}
 				}
 			}
-			if e.Applied && e.Type == "localization" && e.Locale != "" {
+			if e.Type == "localization" && e.Locale != "" {
 				if norm := normalizeLocale(e.Locale); validLocaleCode(norm) {
 					seen[norm] = true
 				}
@@ -668,14 +670,74 @@ func (h *Handler) SetExtensionLocale(c *echo.Context) error {
 	})
 }
 
+// GetExtensionLocaleCatalog returns the merged dashboard-UI catalog for the
+// request locale (or ?locale= override), gathered from every installed
+// language pack that carries a non-empty dashboard map. The dashboard SPA
+// fetches this instead of shipping translation catalogs in its own bundle:
+// installing a language pack translates the whole dashboard chrome.
+//
+// Overlay order mirrors the extension localizer: pack Order asc, then id
+// asc — the last pack wins on duplicate source strings. An unknown locale
+// resolves against the packs' locales via pickLocale (exact code, then base
+// language); no match yields an empty catalog.
+func (h *Handler) GetExtensionLocaleCatalog(c *echo.Context) error {
+	want := h.requestedLocale(c)
+	out := map[string]string{}
+	resolved := ""
+	if h.extensions != nil {
+		type dashPack struct {
+			id        string
+			order     int
+			locale    string
+			dashboard map[string]string
+		}
+		packs := make([]dashPack, 0, 8)
+		avail := make(map[string]bool)
+		for _, e := range h.extensions.List() {
+			if e.Type != "localization" || len(e.Dashboard) == 0 {
+				continue
+			}
+			locale := normalizeLocale(e.Locale)
+			if locale == "" {
+				continue
+			}
+			avail[locale] = true
+			packs = append(packs, dashPack{id: e.ID, order: e.Order, locale: locale, dashboard: e.Dashboard})
+		}
+		resolved = pickLocale(want, avail)
+		if resolved != "" {
+			sort.SliceStable(packs, func(i, j int) bool {
+				if packs[i].order != packs[j].order {
+					return packs[i].order < packs[j].order
+				}
+				return packs[i].id < packs[j].id
+			})
+			for _, p := range packs {
+				if p.locale != resolved {
+					continue
+				}
+				for k, v := range p.dashboard {
+					out[k] = v
+				}
+			}
+		}
+	}
+	return c.JSON(http.StatusOK, map[string]any{
+		"locale":  resolved,
+		"catalog": out,
+	})
+}
+
 // validateLocalization checks a type="localization" manifest: it must pin a
-// locale and carry a non-empty catalog of target-extension translations.
+// locale and carry a non-empty catalog of target-extension translations
+// and/or a dashboard-UI catalog (either one is enough — a pack may translate
+// only the extensions, only the dashboard chrome, or both).
 func (p *Extension) validateLocalization(add func(format string, args ...any)) {
 	if !validLocaleCode(normalizeLocale(p.Locale)) {
 		add("locale: required for type %q (the code its catalog is written in, e.g. \"ru\" or \"pt-BR\")", p.Type)
 	}
-	if len(p.Catalog) == 0 {
-		add("catalog: required for type %q (map of target extension id → translation)", p.Type)
+	if len(p.Catalog) == 0 && len(p.Dashboard) == 0 {
+		add("catalog or dashboard: required for type %q (map of target extension id → translation, and/or the dashboard UI catalog)", p.Type)
 	}
 	for id, tr := range p.Catalog {
 		if strings.TrimSpace(id) == "" {
@@ -684,6 +746,15 @@ func (p *Extension) validateLocalization(add func(format string, args ...any)) {
 		}
 		if tr.Name == "" && tr.Tagline == "" && tr.Description == "" && tr.UI == nil {
 			add("catalog[%q]: empty translation (set name/tagline/description or ui)", id)
+		}
+	}
+	for k, v := range p.Dashboard {
+		if strings.TrimSpace(k) == "" {
+			add("dashboard: empty source string")
+			continue
+		}
+		if strings.TrimSpace(v) == "" {
+			add("dashboard[%q]: empty translation", k)
 		}
 	}
 }
