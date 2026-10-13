@@ -161,6 +161,9 @@ function useSessionHubMutations() {
 function looksLikeIdentityGenerate(hr: HeaderRule): boolean {
   if (hr.mode !== "generate" && hr.mode !== "map" && hr.mode !== "map_or_generate") return true;
   const charset = (hr.charset || "alphanumeric").toLowerCase();
+  // timestamped ids are time-locked by design: 12 hex characters encoding the
+  // clock followed by base62. Nothing to warn about when it is shaped right.
+  if (charset === "timestamped") return hr.length === 26;
   return (
     hr.length === 26 &&
     charset === "hex" &&

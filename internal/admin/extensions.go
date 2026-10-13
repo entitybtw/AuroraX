@@ -756,7 +756,9 @@ func (p *Extension) Validate() error {
 		"generate": true, "map": true, "map_or_generate": true,
 		"passthrough": true, "static": true, "random_from_list": true, "remove": true,
 	}
-	validCharsets := map[string]bool{"": true, "alphanumeric": true, "hex": true, "digits": true}
+	validCharsets := map[string]bool{
+		"": true, "alphanumeric": true, "hex": true, "digits": true, "timestamped": true,
+	}
 	for i, h := range p.Headers {
 		field := fmt.Sprintf("headers[%d]", i)
 		name := strings.TrimSpace(h.Name)
@@ -769,7 +771,7 @@ func (p *Extension) Validate() error {
 			add("%s.mode: %q is unknown (use generate, map, map_or_generate, passthrough, static, random_from_list or remove)", field, h.Mode)
 		}
 		if !validCharsets[h.Charset] {
-			add("%s.charset: %q is unknown (alphanumeric, hex or digits)", field, h.Charset)
+			add("%s.charset: %q is unknown (alphanumeric, hex, digits or timestamped)", field, h.Charset)
 		}
 		switch h.Mode {
 		case "static":

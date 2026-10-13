@@ -69,7 +69,7 @@ ENTRYPOINT ["/aurora"]
 FROM alpine:3.23 AS bun
 
 ARG TARGETARCH
-ARG BUN_VERSION=1.3.14
+ARG BUN_VERSION=1.4.2
 RUN apk add --no-cache curl unzip ca-certificates && \
 	case "${TARGETARCH}" in \
 		amd64) ARCH=x64 ;; \

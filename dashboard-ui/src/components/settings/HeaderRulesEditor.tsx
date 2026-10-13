@@ -17,6 +17,7 @@ const CHARSETS = [
   { value: "hex", label: t("hex (0-9 a-f)") },
   { value: "alphanumeric", label: t("alphanumeric (A-Z a-z 0-9)") },
   { value: "digits", label: t("digits (0-9)") },
+  { value: "timestamped", label: t("timestamped (time-locked 12 hex + base62)") },
 ];
 
 function charsetLabel(charset?: string): string {
@@ -25,6 +26,8 @@ function charsetLabel(charset?: string): string {
       return "hex";
     case "digits":
       return "digits";
+    case "timestamped":
+      return "timestamped";
     default:
       return "alphanumeric";
   }

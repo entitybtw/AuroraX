@@ -60,6 +60,12 @@ const (
 	CharsetAlphanumeric = "alphanumeric"
 	CharsetHex          = "hex"
 	CharsetDigits       = "digits"
+	// CharsetTimestamped is not just an alphabet: it selects timestamped's own id
+	// factory (see sessionid.go). Those ids embed the current time in their
+	// first 12 hex characters, and upstreams that gate free-tier access on
+	// "am I talking to a real timestamped client" decode that head and reject
+	// ids whose head does not resolve to a recent timestamp.
+	CharsetTimestamped = "timestamped"
 )
 
 // NormalizeCharset returns a known charset name, defaulting to alphanumeric.
@@ -69,6 +75,8 @@ func NormalizeCharset(charset string) string {
 		return CharsetHex
 	case CharsetDigits:
 		return CharsetDigits
+	case CharsetTimestamped:
+		return CharsetTimestamped
 	default:
 		return CharsetAlphanumeric
 	}
@@ -80,6 +88,8 @@ func charsetAlphabet(charset string) string {
 		return "0123456789abcdef"
 	case CharsetDigits:
 		return "0123456789"
+	case CharsetTimestamped:
+		return timestampedAlphabet
 	default:
 		return "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	}
@@ -216,6 +226,9 @@ func GenerateID(length int, charset string) string {
 func GenerateValue(prefix string, length int, charset string) string {
 	if length <= 0 {
 		length = 28
+	}
+	if NormalizeCharset(charset) == CharsetTimestamped {
+		return prefix + GenerateTimestampedID(length)
 	}
 	return prefix + GenerateID(length, charset)
 }

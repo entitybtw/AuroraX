@@ -28,7 +28,14 @@ Generated values (`generate`, `map`, `map_or_generate`) support three options:
 
 - **prefix** — prepended to the random part (e.g. `ses_`).
 - **length** — number of random characters.
-- **charset** — `alphanumeric` (default), `hex` (0-9 a-f), or `digits` (0-9).
+- **charset** — `alphanumeric` (default), `hex` (0-9 a-f), `digits` (0-9), or `timestamped`.
+- **`timestamped`** is not an alphabet but a full id factory: it reproduces the id
+  generator embedded in the ExampleClient client — `ses_` + 12 hex characters that
+  encode the current time (the top 48 bits of the complement of `ms<<12`, so the
+  head *decreases* as the clock advances) + 14 base62 characters. The upstream
+  free tier decodes that head back to a timestamp and rejects ids that do not
+  resolve to a recent time, so a plain random hex prefix fails with
+  `FreeTierError` even though it matches the expected shape.
 
 > **Upstream requirements matter.** Some upstreams validate the exact shape of identity headers (prefix, length, alphabet). Use `charset`/`length`/`prefix` to match the upstream's rules. Non-conforming rules can be flagged in the dashboard and auto-corrected by the sidecar at request time when the extension defines a expected shape.
 
