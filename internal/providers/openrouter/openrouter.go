@@ -40,6 +40,7 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 	}
 	p.CompatibleProvider = openai.NewCompatibleProvider(cfg.APIKey, opts, openai.CompatibleProviderConfig{
 		ProviderName:       "openrouter",
+		EgressProviderName: opts.ProviderName,
 		BaseURL:            baseURL,
 		SetHeaders:         setHeaders,
 		ModelNameTransform: func(model string) string { return model }, // Pass-through: preserve full model name (e.g., "openai/gpt-4o")

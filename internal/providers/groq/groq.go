@@ -39,12 +39,13 @@ func New(providerCfg providers.ProviderConfig, opts providers.ProviderOptions) c
 	customUA := strings.TrimSpace(opts.UserAgent)
 	p := &Provider{apiKey: providerCfg.APIKey, customUA: customUA}
 	clientCfg := llmclient.Config{
-		ProviderName:   "groq",
-		BaseURL:        providers.ResolveBaseURL(providerCfg.BaseURL, defaultBaseURL),
-		Retry:          opts.Resilience.Retry,
-		Hooks:          opts.Hooks,
-		CircuitBreaker: opts.Resilience.CircuitBreaker,
-		BindIP:         opts.BindIP,
+		ProviderName:       "groq",
+		EgressProviderName: opts.ProviderName,
+		BaseURL:            providers.ResolveBaseURL(providerCfg.BaseURL, defaultBaseURL),
+		Retry:              opts.Resilience.Retry,
+		Hooks:              opts.Hooks,
+		CircuitBreaker:     opts.Resilience.CircuitBreaker,
+		BindIP:             opts.BindIP,
 	}
 	p.client = llmclient.New(clientCfg, p.setHeaders)
 	return p

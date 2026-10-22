@@ -37,9 +37,10 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 	baseURL := providers.ResolveBaseURL(cfg.BaseURL, defaultBaseURL)
 	return &Provider{
 		compatible: openai.NewCompatibleProvider(cfg.APIKey, opts, openai.CompatibleProviderConfig{
-			ProviderName: "minimax",
-			BaseURL:      baseURL,
-			SetHeaders:   setHeaders,
+			ProviderName:       "minimax",
+			EgressProviderName: opts.ProviderName,
+			BaseURL:            baseURL,
+			SetHeaders:         setHeaders,
 		}),
 	}
 }

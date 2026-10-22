@@ -56,21 +56,23 @@ func New(providerCfg providers.ProviderConfig, opts providers.ProviderOptions) c
 		customUA:   customUA,
 		modelsURL:  defaultModelsBaseURL,
 		modelsClientConf: llmclient.Config{
-			ProviderName:   "gemini",
-			BaseURL:        defaultModelsBaseURL,
-			Retry:          opts.Resilience.Retry,
-			Hooks:          opts.Hooks,
-			CircuitBreaker: opts.Resilience.CircuitBreaker,
-			BindIP:         opts.BindIP,
+			ProviderName:       "gemini",
+			EgressProviderName: opts.ProviderName,
+			BaseURL:            defaultModelsBaseURL,
+			Retry:              opts.Resilience.Retry,
+			Hooks:              opts.Hooks,
+			CircuitBreaker:     opts.Resilience.CircuitBreaker,
+			BindIP:             opts.BindIP,
 		},
 	}
 	clientCfg := llmclient.Config{
-		ProviderName:   "gemini",
-		BaseURL:        baseURL,
-		Retry:          opts.Resilience.Retry,
-		Hooks:          opts.Hooks,
-		CircuitBreaker: opts.Resilience.CircuitBreaker,
-		BindIP:         opts.BindIP,
+		ProviderName:       "gemini",
+		EgressProviderName: opts.ProviderName,
+		BaseURL:            baseURL,
+		Retry:              opts.Resilience.Retry,
+		Hooks:              opts.Hooks,
+		CircuitBreaker:     opts.Resilience.CircuitBreaker,
+		BindIP:             opts.BindIP,
 	}
 	p.client = llmclient.New(clientCfg, p.setHeaders)
 	return p

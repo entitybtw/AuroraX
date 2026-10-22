@@ -44,22 +44,24 @@ func New(providerCfg providers.ProviderConfig, opts providers.ProviderOptions) c
 	customUA := strings.TrimSpace(opts.UserAgent)
 	p := &Provider{apiKey: providerCfg.APIKey, customUA: customUA}
 	clientCfg := llmclient.Config{
-		ProviderName:   "ollama",
-		BaseURL:        defaultBaseURL,
-		Retry:          opts.Resilience.Retry,
-		Hooks:          opts.Hooks,
-		CircuitBreaker: opts.Resilience.CircuitBreaker,
-		BindIP:         opts.BindIP,
+		ProviderName:       "ollama",
+		EgressProviderName: opts.ProviderName,
+		BaseURL:            defaultBaseURL,
+		Retry:              opts.Resilience.Retry,
+		Hooks:              opts.Hooks,
+		CircuitBreaker:     opts.Resilience.CircuitBreaker,
+		BindIP:             opts.BindIP,
 	}
 	p.client = llmclient.New(clientCfg, p.setHeaders)
 
 	nativeCfg := llmclient.Config{
-		ProviderName:   "ollama",
-		BaseURL:        defaultNativeBaseURL,
-		Retry:          opts.Resilience.Retry,
-		Hooks:          opts.Hooks,
-		CircuitBreaker: opts.Resilience.CircuitBreaker,
-		BindIP:         opts.BindIP,
+		ProviderName:       "ollama",
+		EgressProviderName: opts.ProviderName,
+		BaseURL:            defaultNativeBaseURL,
+		Retry:              opts.Resilience.Retry,
+		Hooks:              opts.Hooks,
+		CircuitBreaker:     opts.Resilience.CircuitBreaker,
+		BindIP:             opts.BindIP,
 	}
 	p.nativeClient = llmclient.New(nativeCfg, p.setHeaders)
 	p.SetBaseURL(providers.ResolveBaseURL(providerCfg.BaseURL, defaultBaseURL))

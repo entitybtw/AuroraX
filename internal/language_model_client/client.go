@@ -62,6 +62,14 @@ type Hooks struct {
 type Config struct {
 	// ProviderName is the identifier used in logs and metrics (e.g., "openai", "anthropic").
 	ProviderName string
+	// EgressProviderName is the name the exit registry knows this provider
+	// by. It is the configured provider name ("opencode-zen"), not the
+	// provider *type* ("vllm"): the registry is filled per provider, so a
+	// client that looked itself up by type would never find its exits and
+	// would silently fall back to a single fixed client. Empty means
+	// ProviderName, which is right for the built-in providers whose type and
+	// name coincide.
+	EgressProviderName string
 	// BaseURL is the base URL for the provider's API (e.g., "https://api.openai.com/v1").
 	BaseURL string
 	// Retry specifies retry behaviour for failed requests, including backoff and jitter settings.
@@ -79,20 +87,43 @@ type Config struct {
 	// (source addresses and extension-supplied proxies) instead of using a
 	// single fixed one. Nil keeps the classic one-client-per-provider model.
 	Egress *egress.Registry
+	// ExitHeaderSetter is called with the exit picked for the current attempt
+	// before the request is sent. It is how a provider whose upstream
+	// connection is opened elsewhere (a local sidecar) learns which exit to
+	// use: the gateway's own transport only reaches the sidecar, so the exit
+	// has to be handed over rather than applied to the local hop.
+	ExitHeaderSetter func(req *http.Request, cand egress.Candidate)
+	// EgressViaSidecar marks a provider whose upstream connection is opened
+	// by a local sidecar rather than by this client. The picked exit is then
+	// only reported to the sidecar and never applied to the local hop: a
+	// proxy exit in particular would send the local hop through the tunnel
+	// without changing the address the upstream sees.
+	EgressViaSidecar bool
 }
 
 // DefaultConfig returns default client configuration
 func DefaultConfig(providerName, baseURL string) Config {
 	return Config{
-		ProviderName:   providerName,
-		BaseURL:        baseURL,
-		Retry:          config.DefaultRetryConfig(),
-		CircuitBreaker: config.DefaultCircuitBreakerConfig(),
+		ProviderName:       providerName,
+		EgressProviderName: providerName,
+		BaseURL:            baseURL,
+		Retry:              config.DefaultRetryConfig(),
+		CircuitBreaker:     config.DefaultCircuitBreakerConfig(),
 	}
 }
 
 // HeaderSetter is a function that sets headers on an HTTP request
 type HeaderSetter func(req *http.Request)
+
+// egressProviderName is the name the exit registry knows this client by.
+// It prefers the explicitly configured name and falls back to the provider
+// name, which is what the built-in providers use.
+func (c *Client) egressProviderName() string {
+	if name := strings.TrimSpace(c.config.EgressProviderName); name != "" {
+		return name
+	}
+	return c.config.ProviderName
+}
 
 // responseBufferPool pools *bytes.Buffer for reading HTTP response bodies,
 // reducing allocation pressure under high-throughput proxy workloads.
@@ -681,6 +712,12 @@ func (c *Client) doHTTPRequest(ctx context.Context, req Request) (*http.Response
 	// Pick an exit for this attempt. With no registry wired this is the
 	// provider's single client, exactly as before.
 	client, cand, used := c.selectEgress(httpReq.Context())
+	if used && c.config.ExitHeaderSetter != nil {
+		// The exit is only known after the request was built, so it is
+		// handed over here — a sidecar-routed provider learns which exit to
+		// use from this call, not from its header setter.
+		c.config.ExitHeaderSetter(httpReq, cand)
+	}
 	resp, err := client.Do(httpReq)
 	if used {
 		c.reportEgress(cand, egressOutcome(err, resp), egressDetail(err, resp))

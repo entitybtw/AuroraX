@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"aurora/internal/core"
+	"aurora/internal/egress"
 	"aurora/internal/language_model_client"
 	"aurora/internal/providers"
 )
@@ -29,7 +30,18 @@ func isNotFoundError(err error) bool {
 type RequestMutator func(*llmclient.Request)
 
 type CompatibleProviderConfig struct {
-	ProviderName       string
+	ProviderName string
+	// EgressProviderName is the name the exit registry knows this provider
+	// by. Empty means ProviderName.
+	EgressProviderName string
+	// EgressViaSidecar marks a provider whose upstream connection is opened
+	// by a local sidecar. The gateway's own transport then only reaches the
+	// sidecar, so the picked exit is handed to the sidecar instead of being
+	// applied to the local hop.
+	EgressViaSidecar bool
+	// ExitHeaderSetter hands the exit picked for the current attempt to the
+	// request, so a sidecar-routed provider can apply it upstream.
+	ExitHeaderSetter   func(req *http.Request, cand egress.Candidate)
 	BaseURL            string
 	SetHeaders         func(*http.Request, string)
 	RequestMutator     RequestMutator
@@ -52,13 +64,16 @@ func NewCompatibleProvider(apiKey string, opts providers.ProviderOptions, cfg Co
 		modelNameTransform: cfg.ModelNameTransform,
 	}
 	clientCfg := llmclient.Config{
-		ProviderName:   cfg.ProviderName,
-		BaseURL:        cfg.BaseURL,
-		Retry:          opts.Resilience.Retry,
-		Hooks:          opts.Hooks,
-		CircuitBreaker: opts.Resilience.CircuitBreaker,
-		BindIP:         opts.BindIP,
-		UseUTLS:        opts.UseUTLS,
+		ProviderName:       cfg.ProviderName,
+		EgressProviderName: cfg.EgressProviderName,
+		EgressViaSidecar:   cfg.EgressViaSidecar,
+		ExitHeaderSetter:   cfg.ExitHeaderSetter,
+		BaseURL:            cfg.BaseURL,
+		Retry:              opts.Resilience.Retry,
+		Hooks:              opts.Hooks,
+		CircuitBreaker:     opts.Resilience.CircuitBreaker,
+		BindIP:             opts.BindIP,
+		UseUTLS:            opts.UseUTLS,
 	}
 	customUA := strings.TrimSpace(opts.UserAgent)
 	p.client = llmclient.New(clientCfg, providers.WrapHeaderSetterWithSessionHub(func(req *http.Request) {

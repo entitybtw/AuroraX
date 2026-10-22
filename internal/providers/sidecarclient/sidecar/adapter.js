@@ -379,9 +379,15 @@ Bun.serve({
     // With a single address configured the list holds one entry, so the
     // preference is still honoured.
     const proxies = bindProxies();
+    // The gateway picks the exit for this attempt and hands it over in
+    // x-aurora-exit-proxy. A proxy exit is a local HTTP CONNECT bridge in
+    // front of the tunnel (Bun speaks HTTP proxies, not SOCKS5), and it
+    // replaces the source-address rotation for this request: the upstream
+    // sees the tunnel's address, not one of the local ones.
+    const exitProxy = (req.headers.get("x-aurora-exit-proxy") || "").trim();
     const requested = bindIP ? proxies.get(bindIP) || "" : "";
-    const proxy = requested;
-    const proxyList = Array.from(proxies.values());
+    const proxy = exitProxy || requested;
+    const proxyList = exitProxy ? [exitProxy] : Array.from(proxies.values());
 
     const injectTools =
       overrides.injectTools !== null

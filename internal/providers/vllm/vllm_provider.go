@@ -10,7 +10,9 @@ import (
 	"os"
 	"strings"
 
+	"aurora/internal/bindproxy"
 	"aurora/internal/core"
+	"aurora/internal/egress"
 	"aurora/internal/externalauth"
 	"aurora/internal/language_model_client"
 	"aurora/internal/providers"
@@ -85,20 +87,44 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 	}
 	headerSetter := makeSetHeaders(opts.ExternalAuth, opts.AuthMethod, opts.ProviderName, opts.DisableAPIKey, opts.BindIP, providerType, viaSidecar)
 
+	// A sidecar-routed provider opens its upstream connection in the sidecar,
+	// so the gateway cannot apply the exit to its own hop: the exit is
+	// handed over instead and the sidecar applies it upstream.
+	//
+	// A provider that talks to the upstream directly needs no handover: its
+	// own transport already leaves from the picked address, and an
+	// X-Aurora-* header would only reach the upstream as noise.
+	var exitSetter func(req *http.Request, cand egress.Candidate)
+	if viaSidecar {
+		exitSetter = func(req *http.Request, cand egress.Candidate) {
+			setExitProxyHeader(req, cand)
+		}
+	}
+
 	return &Provider{
 		compatible: openai.NewCompatibleProvider(cfg.APIKey, opts, openai.CompatibleProviderConfig{
 			ProviderName: "vllm",
-			BaseURL:      baseURL,
-			SetHeaders:   headerSetter,
+			// The exit registry is keyed by the configured provider name, so
+			// a named vLLM provider ("opencode-zen") must look itself up
+			// under that name — otherwise its source addresses and the
+			// exits an extension contributes are never picked.
+			EgressProviderName: opts.ProviderName,
+			EgressViaSidecar:   viaSidecar,
+			ExitHeaderSetter:   exitSetter,
+			BaseURL:            baseURL,
+			SetHeaders:         headerSetter,
 		}),
 		rootClient: llmclient.New(llmclient.Config{
-			ProviderName:   "vllm",
-			BaseURL:        rootBaseURL,
-			Retry:          opts.Resilience.Retry,
-			Hooks:          opts.Hooks,
-			CircuitBreaker: opts.Resilience.CircuitBreaker,
-			BindIP:         opts.BindIP,
-			UseUTLS:        opts.UseUTLS,
+			ProviderName:       "vllm",
+			EgressProviderName: opts.ProviderName,
+			EgressViaSidecar:   viaSidecar,
+			ExitHeaderSetter:   exitSetter,
+			BaseURL:            rootBaseURL,
+			Retry:              opts.Resilience.Retry,
+			Hooks:              opts.Hooks,
+			CircuitBreaker:     opts.Resilience.CircuitBreaker,
+			BindIP:             opts.BindIP,
+			UseUTLS:            opts.UseUTLS,
 		}, func(req *http.Request) {
 			headerSetter(req, cfg.APIKey)
 		}),
@@ -131,6 +157,29 @@ func (p *Provider) SetBaseURL(url string) {
 
 func setHeaders(req *http.Request, apiKey string) {
 	makeSetHeaders(nil, "", "", false, "", "vllm", false)(req, apiKey)
+}
+
+// setExitProxyHeader hands the exit picked for this attempt to the sidecar.
+//
+// A source-address exit is expressed as X-Aurora-Bind-Ip: the sidecar then
+// leaves from that address through the local CONNECT proxy it already knows.
+// A proxy exit (a VPN tunnel) cannot be used that way, and Bun's fetch does
+// not speak SOCKS5 either, so the exit is fronted by a local HTTP CONNECT
+// bridge and passed as X-Aurora-Exit-Proxy.
+func setExitProxyHeader(req *http.Request, cand egress.Candidate) {
+	if cand.LocalAddr != nil {
+		req.Header.Set("X-Aurora-Bind-Ip", cand.LocalAddr.String())
+		return
+	}
+	if cand.ProxyURL == nil {
+		return
+	}
+	bridge, ok := bindproxy.EnsureBridge(cand.ProxyURL.String())
+	if !ok {
+		// Not a SOCKS5 exit: the sidecar could not use it anyway.
+		return
+	}
+	req.Header.Set("X-Aurora-Exit-Proxy", bridge)
 }
 
 // makeSetHeaders returns a header setter that prefers a bearer token from

@@ -60,12 +60,13 @@ func New(providerCfg providers.ProviderConfig, opts providers.ProviderOptions) c
 		batchResultEndpoints: make(map[string]map[string]string),
 	}
 	clientCfg := llmclient.Config{
-		ProviderName:   "anthropic",
-		BaseURL:        providers.ResolveBaseURL(providerCfg.BaseURL, defaultBaseURL),
-		Retry:          opts.Resilience.Retry,
-		Hooks:          opts.Hooks,
-		CircuitBreaker: opts.Resilience.CircuitBreaker,
-		BindIP:         opts.BindIP,
+		ProviderName:       "anthropic",
+		EgressProviderName: opts.ProviderName,
+		BaseURL:            providers.ResolveBaseURL(providerCfg.BaseURL, defaultBaseURL),
+		Retry:              opts.Resilience.Retry,
+		Hooks:              opts.Hooks,
+		CircuitBreaker:     opts.Resilience.CircuitBreaker,
+		BindIP:             opts.BindIP,
 	}
 	p.client = llmclient.New(clientCfg, func(req *http.Request) {
 		p.setHeaders(req)

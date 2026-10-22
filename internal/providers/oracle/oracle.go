@@ -29,9 +29,10 @@ func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Prov
 	baseURL := providers.ResolveBaseURL(cfg.BaseURL, defaultBaseURL)
 	return &Provider{
 		compat: openai.NewCompatibleProvider(cfg.APIKey, opts, openai.CompatibleProviderConfig{
-			ProviderName: "oracle",
-			BaseURL:      baseURL,
-			SetHeaders:   setHeaders,
+			ProviderName:       "oracle",
+			EgressProviderName: opts.ProviderName,
+			BaseURL:            baseURL,
+			SetHeaders:         setHeaders,
 		}),
 	}
 }

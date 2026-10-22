@@ -91,6 +91,11 @@ func (p *egressPool) client(c egress.Candidate) *http.Client {
 // selectEgress picks the exit for this attempt. It returns ok=false when no
 // registry is wired or nothing is configured, in which case the caller falls
 // back to the provider's default client.
+//
+// A provider whose upstream connection is opened by a local sidecar keeps its
+// own plain client for the local hop: the exit is reported to the sidecar
+// (see Config.ExitHeaderSetter) instead of being applied to a connection that
+// never leaves the machine.
 func (c *Client) selectEgress(ctx context.Context) (*http.Client, egress.Candidate, bool) {
 	if c.egress == nil || c.egressPool == nil {
 		return c.httpClient, egress.Candidate{}, false
@@ -99,12 +104,15 @@ func (c *Client) selectEgress(ctx context.Context) (*http.Client, egress.Candida
 	if st, _ := ctx.Value(egressStateKey{}).(*egressState); st != nil {
 		tried = st.tried
 	}
-	cand, ok := c.egress.Pick(c.config.ProviderName, tried)
+	cand, ok := c.egress.Pick(c.egressProviderName(), tried)
 	if !ok {
 		return c.httpClient, egress.Candidate{}, false
 	}
 	if tried != nil {
 		tried[cand.Name] = struct{}{}
+	}
+	if c.config.EgressViaSidecar {
+		return c.httpClient, cand, true
 	}
 	return c.egressPool.client(cand), cand, true
 }
@@ -117,7 +125,7 @@ func (c *Client) reportEgress(cand egress.Candidate, outcome egress.Outcome, det
 	if c.egress == nil {
 		return
 	}
-	c.egress.Report(c.config.ProviderName, cand, outcome, detail)
+	c.egress.Report(c.egressProviderName(), cand, outcome, detail)
 }
 
 // egressOutcome classifies an attempt. 429/403 are treated as rate limiting

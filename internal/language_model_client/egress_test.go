@@ -165,3 +165,89 @@ func TestEgressDisabledFallsBackToDefaultClient(t *testing.T) {
 		t.Fatalf("request: %v", err)
 	}
 }
+
+// A named provider of a shared type looks its exits up under its own name.
+// The registry is filled per provider ("opencode-zen"), so a client that
+// asked for "vllm" — the provider type — would find nothing and silently
+// keep using a single fixed client: no rotation, and none of the exits an
+// extension contributed.
+func TestEgressLooksUpExitsByProviderNameNotType(t *testing.T) {
+	srv, _ := echoSource(t)
+
+	reg := egress.NewRegistry()
+	reg.SetCore("opencode-zen", egress.StrategyRoundRobin, []egress.Candidate{
+		{Name: "ip1", LocalAddr: net.ParseIP("127.0.0.1")},
+		{Name: "ip2", LocalAddr: net.ParseIP("127.0.0.2")},
+	})
+
+	cfg := DefaultConfig("vllm", srv.URL)
+	cfg.EgressProviderName = "opencode-zen"
+	cfg.Retry.MaxRetries = 0
+	cfg.Egress = reg
+	client := New(cfg, nil)
+
+	for i := 0; i < 4; i++ {
+		if _, err := client.DoRaw(context.Background(), Request{Method: http.MethodGet, Endpoint: "/x"}); err != nil {
+			t.Fatalf("request %d: %v", i, err)
+		}
+	}
+
+	// Both exits must have served traffic: picking the wrong key leaves the
+	// registry empty and every request on the pinned default client.
+	status, ok := reg.Status("opencode-zen")
+	if !ok {
+		t.Fatal("registry has no status for opencode-zen")
+	}
+	seen := map[string]bool{}
+	for _, e := range status.Exits {
+		if e.Requests > 0 {
+			seen[e.Name] = true
+		}
+	}
+	if len(seen) != 2 {
+		t.Fatalf("expected both exits to be used, got %v", seen)
+	}
+}
+
+// Without an explicit name the client falls back to the provider name, which
+// is what the built-in providers rely on.
+func TestEgressProviderNameDefaultsToProviderName(t *testing.T) {
+	c := &Client{config: Config{ProviderName: "openai"}}
+	if got := c.egressProviderName(); got != "openai" {
+		t.Fatalf("expected %q, got %q", "openai", got)
+	}
+	c = &Client{config: Config{ProviderName: "vllm", EgressProviderName: "opencode-zen"}}
+	if got := c.egressProviderName(); got != "opencode-zen" {
+		t.Fatalf("expected %q, got %q", "opencode-zen", got)
+	}
+}
+
+// A provider whose upstream connection is opened by a sidecar cannot apply
+// the exit to its own hop: the gateway only reaches the sidecar, so the exit
+// is handed over and the local connection stays plain.
+func TestEgressViaSidecarHandsTheExitOver(t *testing.T) {
+	var got []egress.Candidate
+	srv, _ := echoSource(t)
+
+	reg := egress.NewRegistry()
+	reg.SetCore("opencode-zen", egress.StrategyRoundRobin, []egress.Candidate{
+		{Name: "ip1", LocalAddr: net.ParseIP("127.0.0.1")},
+	})
+
+	cfg := DefaultConfig("vllm", srv.URL)
+	cfg.EgressProviderName = "opencode-zen"
+	cfg.EgressViaSidecar = true
+	cfg.Retry.MaxRetries = 0
+	cfg.Egress = reg
+	cfg.ExitHeaderSetter = func(_ *http.Request, cand egress.Candidate) {
+		got = append(got, cand)
+	}
+	client := New(cfg, nil)
+
+	if _, err := client.DoRaw(context.Background(), Request{Method: http.MethodGet, Endpoint: "/x"}); err != nil {
+		t.Fatalf("request: %v", err)
+	}
+	if len(got) != 1 || got[0].Name != "ip1" {
+		t.Fatalf("expected the exit to be handed over, got %+v", got)
+	}
+}

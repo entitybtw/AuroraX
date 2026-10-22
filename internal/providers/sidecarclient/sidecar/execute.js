@@ -37,11 +37,26 @@ function randomId(prefix) {
 // The list is walked per request, not just per attempt: a rate limit is scoped
 // to the address that tripped it, so spreading consecutive requests over every
 // configured IP is what keeps one throttled address from stalling the pool.
+//
+// cfg.proxy is the exit the gateway picked for this request (x-aurora-bind-ip,
+// or the bridge in front of a tunnel exit). It is honoured on the first
+// attempt: the gateway keeps its own rotation and health bookkeeping, so
+// using a different address than the one it recorded would make its counters
+// describe traffic that never happened. Later attempts walk the list, which
+// is what a retry after a rate limit needs.
 let proxyCursor = 0;
 
 function nextProxy(cfg, attempt) {
   const list = Array.isArray(cfg.proxies) ? cfg.proxies : [];
-  if (list.length === 0) return cfg.proxy || "";
+  const preferred = cfg.proxy || "";
+  if (list.length === 0) return preferred;
+  if (preferred && attempt === 1) {
+    const idx = list.indexOf(preferred);
+    // Continue the rotation behind the preferred entry so the next request
+    // starts at the following address.
+    proxyCursor = idx >= 0 ? idx : proxyCursor;
+    return preferred;
+  }
   const start = proxyCursor++ % list.length;
   return list[(start + attempt - 1) % list.length];
 }

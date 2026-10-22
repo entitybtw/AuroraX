@@ -48,9 +48,10 @@ type Provider struct {
 // New creates a new reranker provider.
 func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Provider {
 	compatCfg := openai.CompatibleProviderConfig{
-		ProviderName: providerType,
-		BaseURL:      cfg.BaseURL,
-		SetHeaders:   setHeaders,
+		ProviderName:       providerType,
+		EgressProviderName: opts.ProviderName,
+		BaseURL:            cfg.BaseURL,
+		SetHeaders:         setHeaders,
 	}
 	if strings.Contains(cfg.BaseURL, "jina.ai") {
 		compatCfg.ModelNameTransform = openai.StripJinaNamespace

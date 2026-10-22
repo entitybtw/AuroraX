@@ -34,9 +34,10 @@ type Provider struct {
 func New(cfg providers.ProviderConfig, opts providers.ProviderOptions) core.Provider {
 	baseURL := providers.ResolveBaseURL(cfg.BaseURL, defaultBaseURL)
 	compatCfg := CompatibleProviderConfig{
-		ProviderName: "openai",
-		BaseURL:      baseURL,
-		SetHeaders:   setHeaders,
+		ProviderName:       "openai",
+		EgressProviderName: opts.ProviderName,
+		BaseURL:            baseURL,
+		SetHeaders:         setHeaders,
 	}
 	if strings.Contains(baseURL, "jina.ai") {
 		compatCfg.ModelNameTransform = StripJinaNamespace
