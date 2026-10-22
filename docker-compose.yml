@@ -8,6 +8,7 @@
 #   docker compose --profile app up -d          # Full stack (+ Aurora gateway)
 #
 # Set provider keys and other secrets in .env (copy from .env.template).
+# Override the gateway image with AURORA_IMAGE (e.g. entbtw/aurora:v1.7.10).
 
 services:
   # ===========================================================================
@@ -15,8 +16,10 @@ services:
   # ===========================================================================
   aurora:
     profile: [app]
-    image: aurorallm/aurora:latest
+    image: ${AURORA_IMAGE:-aurorallm/aurora:latest}
     restart: unless-stopped
+    # REQUIRED: the binary resolves configs/*.json relative to /app.
+    working_dir: /app
     ports:
       - "${AURORA_HOST_PORT:-8080}:8080"
     environment:
