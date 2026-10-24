@@ -486,6 +486,13 @@ func (c *Client) DoRaw(ctx context.Context, req Request) (*Response, error) {
 	var lastErr error
 	var lastStatusCode int
 	lastErrFromTransport := false
+	// A rate limit is the answer about the request's own quota, and it is
+	// more informative than a server error from a broken exit. When a walk
+	// over the exits ends on a server error, the rate limit that was seen on
+	// the way is what the caller gets: "the quota of this address is spent"
+	// is the actionable answer, "gateway timeout" is not.
+	var rateLimitErr error
+	var rateLimitStatus int
 	maxAttempts := c.maxAttempts()
 	if req.RawBodyReader != nil {
 		maxAttempts = 1
@@ -538,6 +545,24 @@ func (c *Client) DoRaw(ctx context.Context, req Request) (*Response, error) {
 
 		// Check for retryable status codes
 		if c.isRetryable(resp.StatusCode) {
+			// A broken exit answers with a server error, and that answer is
+			// about the exit, not about the request. The request is worth
+			// another try on a different exit, and the server error must not
+			// be the answer the caller gets while a healthy exit is left: a
+			// rate limit that another address would have answered is a
+			// different problem for the caller than a dead tunnel.
+			if failovers < failoverBudget && c.hasUntriedExit(ctx) {
+				lastErr = core.ParseProviderError(c.config.ProviderName, resp.StatusCode, resp.Body, nil)
+				lastStatusCode = resp.StatusCode
+				lastErrFromTransport = false
+				if scope.halfOpenProbe {
+					c.completeScope(scope, lastStatusCode, lastErr, nil)
+					return nil, lastErr
+				}
+				failovers++
+				failover = true
+				continue
+			}
 			lastErr = core.ParseProviderError(c.config.ProviderName, resp.StatusCode, resp.Body, nil)
 			lastStatusCode = resp.StatusCode
 			lastErrFromTransport = false
@@ -562,6 +587,8 @@ func (c *Client) DoRaw(ctx context.Context, req Request) (*Response, error) {
 			lastErr = core.ParseProviderError(c.config.ProviderName, resp.StatusCode, resp.Body, nil)
 			lastStatusCode = resp.StatusCode
 			lastErrFromTransport = false
+			rateLimitErr = lastErr
+			rateLimitStatus = resp.StatusCode
 			if scope.halfOpenProbe {
 				c.completeScope(scope, lastStatusCode, lastErr, nil)
 				return nil, lastErr
@@ -585,6 +612,14 @@ func (c *Client) DoRaw(ctx context.Context, req Request) (*Response, error) {
 
 	// All retries exhausted
 	if lastErr != nil {
+		// A rate limit seen on the way out is a better answer than the
+		// server error of the exit that was tried last: the caller can act
+		// on a spent quota, but not on a dead tunnel.
+		if rateLimitErr != nil && lastStatusCode != http.StatusTooManyRequests {
+			lastErr = rateLimitErr
+			lastStatusCode = rateLimitStatus
+			lastErrFromTransport = false
+		}
 		var circuitErr error
 		if lastErrFromTransport {
 			circuitErr = lastErr
@@ -686,6 +721,13 @@ func (c *Client) DoPassthrough(ctx context.Context, req Request) (*http.Response
 	retries := 0
 	failovers := 0
 	failoverBudget := c.failoverBudget()
+	// A rate limit is the answer about the request's own quota, and it is
+	// more informative than a server error from a broken exit. When a walk
+	// over the exits ends on a server error, the rate limit that was seen on
+	// the way is what the caller gets: "the quota of this address is spent"
+	// is the actionable answer, "gateway timeout" is not.
+	var rateLimitStatus int
+	var rateLimitBody []byte
 	// A failover to another exit is not a transient fault of the upstream: the
 	// next address is tried right away, without the backoff that would only
 	// add latency to a request that is already late.
@@ -729,17 +771,37 @@ func (c *Client) DoPassthrough(ctx context.Context, req Request) (*http.Response
 			retryable = true
 			failover = true
 		}
+		// A server error is about the exit, not about the request: another
+		// exit may answer it, and the answer the caller gets must not be the
+		// error of the exit that was tried last.
+		if retryable && resp.StatusCode >= 500 &&
+			failovers < failoverBudget && c.hasUntriedExit(ctx) {
+			retryable = true
+			failover = true
+		}
 		if retryable {
 			if scope.halfOpenProbe {
 				c.completeScope(scope, resp.StatusCode, nil, nil)
 				return resp, nil
 			}
 			if failover {
+				if resp.StatusCode == http.StatusTooManyRequests {
+					rateLimitStatus = resp.StatusCode
+					rateLimitBody = readBodyLimited(resp)
+				}
 				_ = resp.Body.Close()
 				failovers++
 				continue
 			}
 			if retries >= maxAttempts-1 {
+				// A rate limit was seen on the way and the exit that is
+				// tried now is broken: the caller gets the rate limit, not
+				// the error of the exit.
+				if rateLimitStatus != 0 && resp.StatusCode != http.StatusTooManyRequests {
+					_ = resp.Body.Close()
+					c.completeScope(scope, rateLimitStatus, nil, nil)
+					return rateLimitResponse(rateLimitStatus, rateLimitBody), nil
+				}
 				c.completeScope(scope, resp.StatusCode, nil, nil)
 				return resp, nil
 			}
@@ -752,7 +814,47 @@ func (c *Client) DoPassthrough(ctx context.Context, req Request) (*http.Response
 		return resp, nil
 	}
 
+	// Every exit is used up. A rate limit seen on the way is a better answer
+	// than the server error of the exit that was tried last: the caller can
+	// act on a spent quota, but not on a dead tunnel.
+	if rateLimitStatus != 0 {
+		err := core.NewProviderError(c.config.ProviderName, rateLimitStatus, string(rateLimitBody), nil)
+		c.completeScope(scope, rateLimitStatus, err, nil)
+		return nil, err
+	}
+
 	return nil, c.failAfterRetries(scope)
+}
+
+// rateLimitResponse builds the response a passthrough request returns when a
+// rate limit was seen on the way and the exit that is tried last is broken.
+// The status and body are the ones the upstream sent, so the caller sees the
+// same answer it would have seen without the detour.
+func rateLimitResponse(status int, body []byte) *http.Response {
+	if len(body) == 0 {
+		body = []byte(`{"error":"rate limited"}`)
+	}
+	return &http.Response{
+		StatusCode: status,
+		Status:     fmt.Sprintf("%d %s", status, http.StatusText(status)),
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(bytes.NewReader(body)),
+	}
+}
+
+// readBodyLimited reads a response body for an error that is about to be
+// discarded, so the reason can be handed to the caller later. The read is
+// bounded: an error body is small, and a large one must not be buffered.
+func readBodyLimited(resp *http.Response) []byte {
+	if resp == nil || resp.Body == nil {
+		return nil
+	}
+	const maxErrBody = 64 * 1024
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxErrBody))
+	if err != nil {
+		return nil
+	}
+	return data
 }
 
 // extractModel attempts to extract the model name from a request body

@@ -90,10 +90,102 @@ func TestEgressFailsOverToNextExitOnRetry(t *testing.T) {
 	}
 }
 
+// A rate limit is the answer about the request's own quota. When the walk
+// over the exits ends on a server error — a dead tunnel, a broken proxy —
+// the rate limit that was seen on the way is what the caller gets: a spent
+// quota is actionable, a gateway timeout is not.
+func TestEgressRateLimitSurvivesBrokenExitAfterwards(t *testing.T) {
+	var mu sync.Mutex
+	seen := map[string]int{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		host, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			host = "unknown"
+		}
+		mu.Lock()
+		seen[host]++
+		mu.Unlock()
+		switch host {
+		case "127.0.0.1":
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte(`{"error":"rate limited"}`))
+		default:
+			w.WriteHeader(http.StatusBadGateway)
+			_, _ = w.Write([]byte(`{"error":"broken exit"}`))
+		}
+	}))
+	defer srv.Close()
+
+	reg := egress.NewRegistry()
+	reg.SetCore("mixed", egress.StrategyFirst, []egress.Candidate{
+		{Name: "limited", LocalAddr: net.ParseIP("127.0.0.1")},
+		{Name: "broken", LocalAddr: net.ParseIP("127.0.0.2")},
+	})
+
+	cfg := DefaultConfig("mixed", srv.URL)
+	cfg.Retry.MaxRetries = 0
+	cfg.Egress = reg
+	client := New(cfg, nil)
+
+	_, err := client.DoRaw(context.Background(), Request{Method: http.MethodGet, Endpoint: "/x"})
+	if err == nil {
+		t.Fatal("the request should have failed: every exit is unusable")
+	}
+	if got := extractStatusCode(err); got != http.StatusTooManyRequests {
+		t.Fatalf("status = %d, want %d: the rate limit must not be masked by the broken exit", got, http.StatusTooManyRequests)
+	}
+}
+
+// The same holds for a passthrough request: the answer the client receives is
+// the rate limit, not the server error of the exit that was tried last.
+func TestEgressRateLimitSurvivesBrokenExitAfterwardsInPassthrough(t *testing.T) {
+	var mu sync.Mutex
+	seen := map[string]int{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		host, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			host = "unknown"
+		}
+		mu.Lock()
+		seen[host]++
+		mu.Unlock()
+		switch host {
+		case "127.0.0.1":
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte(`{"error":"rate limited"}`))
+		default:
+			w.WriteHeader(http.StatusBadGateway)
+			_, _ = w.Write([]byte(`{"error":"broken exit"}`))
+		}
+	}))
+	defer srv.Close()
+
+	reg := egress.NewRegistry()
+	reg.SetCore("mixed", egress.StrategyFirst, []egress.Candidate{
+		{Name: "limited", LocalAddr: net.ParseIP("127.0.0.1")},
+		{Name: "broken", LocalAddr: net.ParseIP("127.0.0.2")},
+	})
+
+	cfg := DefaultConfig("mixed", srv.URL)
+	cfg.Retry.MaxRetries = 0
+	cfg.Egress = reg
+	client := New(cfg, nil)
+
+	resp, err := client.DoPassthrough(context.Background(), Request{Method: http.MethodGet, Endpoint: "/x"})
+	if err != nil {
+		t.Fatalf("the passthrough should answer with the rate limit: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("the passthrough returned no response")
+	}
+	if resp.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("status = %d, want %d: the rate limit must not be masked by the broken exit", resp.StatusCode, http.StatusTooManyRequests)
+	}
+}
+
 // A 429 from one exit is scoped to that address: the request is retried on
 // another exit of the same provider instead of being handed to the caller.
-func TestEgressRateLimitFailsOverToNextExitInRequest(t *testing.T) {
-	var mu sync.Mutex
+func TestEgressRateLimitFailsOverToNextExitInRequest(t *testing.T) {	var mu sync.Mutex
 	seen := map[string]int{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		host, _, err := net.SplitHostPort(r.RemoteAddr)
