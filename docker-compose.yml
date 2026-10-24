@@ -8,7 +8,7 @@
 #   docker compose --profile app up -d          # Full stack (+ Aurora gateway)
 #
 # Set provider keys and other secrets in .env (copy from .env.template).
-# Override the gateway image with AURORA_IMAGE (e.g. entbtw/aurora:v1.7.10).
+# Override the gateway image with AURORA_IMAGE (e.g. entbtw/aurora:v1.7.12).
 
 services:
   # ===========================================================================

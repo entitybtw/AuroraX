@@ -16,6 +16,11 @@ func Transform(headers http.Header, provider string, rule ProviderRule, store *S
 
 	result := make(map[string]string)
 
+	// The two tracing headers of the emulated client are derived from one
+	// trace context: the same trace id and the same span id in either format.
+	// The context is created when the first of them is generated.
+	var trace *TraceContext
+
 	for _, hr := range rule.Headers {
 		name := http.CanonicalHeaderKey(hr.Name)
 		inbound := headers.Get(name)
@@ -50,7 +55,7 @@ func Transform(headers http.Header, provider string, rule ProviderRule, store *S
 			if inbound != "" {
 				outbound = store.GetOrCreate(provider, inbound, prefix, length, hr.Charset)
 			} else {
-				outbound = generateRuleValue(hr, prefix, length)
+				outbound = generateRuleValue(hr, prefix, length, &trace)
 			}
 			headers.Set(name, outbound)
 			result[name] = outbound
@@ -64,7 +69,7 @@ func Transform(headers http.Header, provider string, rule ProviderRule, store *S
 			if length <= 0 {
 				length = 28
 			}
-			outbound := generateRuleValue(hr, prefix, length)
+			outbound := generateRuleValue(hr, prefix, length, &trace)
 			headers.Set(name, outbound)
 			result[name] = outbound
 
@@ -105,9 +110,12 @@ func randomIndex(n int) int {
 // generateRuleValue produces the value of a generated header rule. A rule that
 // names a template uses that template's generator (trace contexts, project id);
 // every other rule falls back to a random value of the requested shape.
-func generateRuleValue(hr HeaderRule, prefix string, length int) string {
+//
+// The trace context is passed in and created on demand, so the two tracing
+// headers of one request share the same trace id and span id.
+func generateRuleValue(hr HeaderRule, prefix string, length int, trace **TraceContext) string {
 	if hr.Template != "" {
-		if v, ok := GenerateTemplateValue(hr.Template); ok {
+		if v, ok := generateTemplateValue(hr.Template, trace); ok {
 			return v
 		}
 	}

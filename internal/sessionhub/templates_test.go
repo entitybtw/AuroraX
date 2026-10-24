@@ -3,6 +3,7 @@ package sessionhub
 import (
 	"net/http"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -67,6 +68,54 @@ func TestTransformTemplateRule(t *testing.T) {
 	}
 	if !projectIDRe.MatchString(h.Get("X-Opencode-Project")) {
 		t.Fatalf("project = %q", h.Get("X-Opencode-Project"))
+	}
+}
+
+// The two tracing formats of the emulated client are derived from one trace
+// context: the trace id and the span id are the same in either of them, so a
+// request can be correlated across the two.
+func TestTransformSharesTraceContextBetweenFormats(t *testing.T) {
+	rule := ProviderRule{
+		Enabled: true,
+		Headers: []HeaderRule{
+			{Name: "b3", Mode: HeaderModeGenerate, Template: "b3"},
+			{Name: "traceparent", Mode: HeaderModeGenerate, Template: "traceparent"},
+		},
+	}
+	h := http.Header{}
+	Transform(h, "p", rule, NewStore())
+
+	b3 := h.Get("B3")
+	tp := h.Get("Traceparent")
+	b3Parts := strings.Split(b3, "-")
+	tpParts := strings.Split(tp, "-")
+	if len(b3Parts) != 4 || len(tpParts) != 4 {
+		t.Fatalf("unexpected shapes: b3=%q traceparent=%q", b3, tp)
+	}
+	if b3Parts[0] != tpParts[1] {
+		t.Fatalf("trace id differs: b3=%q traceparent=%q", b3, tp)
+	}
+	if b3Parts[1] != tpParts[2] {
+		t.Fatalf("span id differs: b3=%q traceparent=%q", b3, tp)
+	}
+}
+
+// Two requests must not share a trace context: the values are per request.
+func TestTransformGivesEachRequestItsOwnTraceContext(t *testing.T) {
+	rule := ProviderRule{
+		Enabled: true,
+		Headers: []HeaderRule{
+			{Name: "b3", Mode: HeaderModeGenerate, Template: "b3"},
+			{Name: "traceparent", Mode: HeaderModeGenerate, Template: "traceparent"},
+		},
+	}
+	first := http.Header{}
+	Transform(first, "p", rule, NewStore())
+	second := http.Header{}
+	Transform(second, "p", rule, NewStore())
+
+	if first.Get("B3") == second.Get("B3") {
+		t.Fatal("two requests got the same trace context")
 	}
 }
 
