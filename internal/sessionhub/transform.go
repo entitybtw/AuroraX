@@ -20,6 +20,11 @@ func Transform(headers http.Header, provider string, rule ProviderRule, store *S
 	// trace context: the same trace id and the same span id in either format.
 	// The context is created when the first of them is generated.
 	var trace *TraceContext
+	// The session headers of the emulated client all carry the same value:
+	// the client has one session id and repeats it in every header it sends
+	// it in. A gateway that gives each header its own id looks different
+	// from the client it emulates, and the upstream can tell.
+	var session *sessionValue
 
 	for _, hr := range rule.Headers {
 		name := http.CanonicalHeaderKey(hr.Name)
@@ -55,7 +60,7 @@ func Transform(headers http.Header, provider string, rule ProviderRule, store *S
 			if inbound != "" {
 				outbound = store.GetOrCreate(provider, inbound, prefix, length, hr.Charset)
 			} else {
-				outbound = generateRuleValue(hr, prefix, length, &trace)
+				outbound = generateRuleValue(hr, prefix, length, &trace, &session)
 			}
 			headers.Set(name, outbound)
 			result[name] = outbound
@@ -69,7 +74,7 @@ func Transform(headers http.Header, provider string, rule ProviderRule, store *S
 			if length <= 0 {
 				length = 28
 			}
-			outbound := generateRuleValue(hr, prefix, length, &trace)
+			outbound := generateRuleValue(hr, prefix, length, &trace, &session)
 			headers.Set(name, outbound)
 			result[name] = outbound
 
@@ -107,14 +112,32 @@ func randomIndex(n int) int {
 	return int(b[0]) % n
 }
 
+// sessionValue is the session id of one request, shared by every session
+// header of that request.
+type sessionValue struct {
+	value string
+}
+
 // generateRuleValue produces the value of a generated header rule. A rule that
-// names a template uses that template's generator (trace contexts, project id);
-// every other rule falls back to a random value of the requested shape.
+// names a template uses that template's generator (trace contexts, project id,
+// the shared session id); every other rule falls back to a random value of the
+// requested shape.
 //
-// The trace context is passed in and created on demand, so the two tracing
-// headers of one request share the same trace id and span id.
-func generateRuleValue(hr HeaderRule, prefix string, length int, trace **TraceContext) string {
+// The trace context and the session id are passed in and created on demand,
+// so the tracing headers of one request share their trace id and their span
+// id, and the session headers of one request share their value.
+func generateRuleValue(hr HeaderRule, prefix string, length int, trace **TraceContext, session **sessionValue) string {
 	if hr.Template != "" {
+		if strings.EqualFold(strings.TrimSpace(hr.Template), "session") {
+			if session != nil {
+				if *session == nil {
+					v := sessionValue{value: GenerateValue(prefix, length, hr.Charset)}
+					*session = &v
+				}
+				return (*session).value
+			}
+			return GenerateValue(prefix, length, hr.Charset)
+		}
 		if v, ok := generateTemplateValue(hr.Template, trace); ok {
 			return v
 		}

@@ -119,6 +119,34 @@ func TestTransformGivesEachRequestItsOwnTraceContext(t *testing.T) {
 	}
 }
 
+// The session headers of the emulated client all carry the same value: the
+// client has one session id and repeats it in every header it sends it in.
+func TestTransformSharesOneSessionIdAcrossHeaders(t *testing.T) {
+	rule := ProviderRule{
+		Enabled: true,
+		Headers: []HeaderRule{
+			{Name: "x-opencode-session", Mode: HeaderModeGenerate, Prefix: "ses_", Length: 26, Charset: CharsetTimestamped, Template: "session"},
+			{Name: "x-opencode-session-id", Mode: HeaderModeGenerate, Prefix: "ses_", Length: 26, Charset: CharsetTimestamped, Template: "session"},
+			{Name: "x-session-affinity", Mode: HeaderModeGenerate, Prefix: "ses_", Length: 26, Charset: CharsetTimestamped, Template: "session"},
+			{Name: "x-session-id", Mode: HeaderModeGenerate, Prefix: "ses_", Length: 26, Charset: CharsetTimestamped, Template: "session"},
+		},
+	}
+	h := http.Header{}
+	Transform(h, "p", rule, NewStore())
+
+	values := map[string]bool{}
+	for _, name := range []string{"X-Opencode-Session", "X-Opencode-Session-Id", "X-Session-Affinity", "X-Session-Id"} {
+		v := h.Get(name)
+		if v == "" {
+			t.Fatalf("%s is empty", name)
+		}
+		values[v] = true
+	}
+	if len(values) != 1 {
+		t.Fatalf("the session headers carry %d different values, want 1: %v", len(values), values)
+	}
+}
+
 // A template that is not known is rejected by the rule validation, so a typo
 // in an extension fails loudly instead of silently sending a random string.
 func TestValidateRuleRejectsUnknownTemplate(t *testing.T) {

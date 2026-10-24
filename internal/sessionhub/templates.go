@@ -99,12 +99,12 @@ func GenerateProjectID() string {
 }
 
 // HeaderTemplateKinds lists the value templates a header rule may name.
-var HeaderTemplateKinds = []string{"b3", "traceparent", "project_id"}
+var HeaderTemplateKinds = []string{"b3", "traceparent", "project_id", "session"}
 
 // IsHeaderTemplate reports whether the given template name is supported.
 func IsHeaderTemplate(name string) bool {
 	switch strings.ToLower(strings.TrimSpace(name)) {
-	case "b3", "traceparent", "project_id":
+	case "b3", "traceparent", "project_id", "session":
 		return true
 	default:
 		return false
@@ -130,6 +130,10 @@ func generateTemplateValue(name string, trace **TraceContext) (string, bool) {
 		return traceContext(trace).Traceparent(), true
 	case "project_id":
 		return GenerateProjectID(), true
+	case "session":
+		// The shape of a session id is described by the rule itself (prefix,
+		// length, charset), so the value is built by the caller.
+		return "", false
 	default:
 		return "", false
 	}
