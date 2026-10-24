@@ -96,8 +96,8 @@ func normalizeCreateInput(input CreateInput) (CreateInput, error) {
 	}
 
 	input.AllowedProviders = normalizeStringSlice(input.AllowedProviders)
-	input.AllowedModels = normalizeStringSlice(input.AllowedModels)
-	input.DeniedModels = normalizeStringSlice(input.DeniedModels)
+	input.AllowedModels = normalizeModelPatterns(input.AllowedModels)
+	input.DeniedModels = normalizeModelPatterns(input.DeniedModels)
 	if input.ProviderPoolID != nil {
 		poolID := strings.TrimSpace(*input.ProviderPoolID)
 		if poolID == "" {
@@ -117,6 +117,37 @@ func normalizeStringSlice(slice []string) []string {
 		if s != "" {
 			out = append(out, s)
 		}
+	}
+	if slice != nil && out == nil {
+		return []string{}
+	}
+	return out
+}
+
+// maxModelPatternLength bounds a single allowed/denied model entry so a
+// mistyped paste cannot bloat the stored key record.
+const maxModelPatternLength = 256
+
+// normalizeModelPatterns trims, drops blanks and de-duplicates the allowed and
+// denied model entries while preserving order. Any trailing "*" wildcard is
+// kept intact: "groq/*" is a valid pattern that covers every model the groq
+// provider serves, including ones discovered after the key was issued.
+//
+// The nil-vs-empty distinction survives, because an explicitly empty allowlist
+// denies every model where a nil one allows them all.
+func normalizeModelPatterns(slice []string) []string {
+	var out []string
+	seen := make(map[string]struct{}, len(slice))
+	for _, pattern := range slice {
+		pattern = strings.TrimSpace(pattern)
+		if pattern == "" || len(pattern) > maxModelPatternLength {
+			continue
+		}
+		if _, dup := seen[pattern]; dup {
+			continue
+		}
+		seen[pattern] = struct{}{}
+		out = append(out, pattern)
 	}
 	if slice != nil && out == nil {
 		return []string{}

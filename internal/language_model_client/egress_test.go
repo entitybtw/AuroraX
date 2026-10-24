@@ -90,16 +90,21 @@ func TestEgressFailsOverToNextExitOnRetry(t *testing.T) {
 	}
 }
 
-// A 429 from the preferred tier demotes it, so the extension-supplied tier
-// takes over on the next request.
-func TestEgressRateLimitHandsOverToExtensionTier(t *testing.T) {
+// A 429 from one exit is scoped to that address: the request is retried on
+// another exit of the same provider instead of being handed to the caller.
+func TestEgressRateLimitFailsOverToNextExitInRequest(t *testing.T) {
 	var mu sync.Mutex
-	limited := true
+	seen := map[string]int{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		host, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			host = "unknown"
+		}
 		mu.Lock()
-		limitedNow := limited
+		seen[host]++
 		mu.Unlock()
-		if limitedNow {
+		// The first address is rate limited, the second one answers.
+		if host == "127.0.0.1" {
 			w.WriteHeader(http.StatusTooManyRequests)
 			_, _ = w.Write([]byte(`{"error":"rate limited"}`))
 			return
@@ -111,15 +116,8 @@ func TestEgressRateLimitHandsOverToExtensionTier(t *testing.T) {
 
 	reg := egress.NewRegistry()
 	reg.SetCore("limited", egress.StrategyFirst, []egress.Candidate{
-		{Name: "direct", LocalAddr: net.ParseIP("127.0.0.1")},
-	})
-	// The extension contributes a tier-1 exit. It is also direct here, which
-	// keeps the test free of a real proxy while still exercising the handover.
-	reg.SetExtensionSource(func(provider string) []egress.Candidate {
-		if provider != "limited" {
-			return nil
-		}
-		return []egress.Candidate{{Name: "fallback", LocalAddr: net.ParseIP("127.0.0.1"), Tier: egress.TierFallback}}
+		{Name: "first", LocalAddr: net.ParseIP("127.0.0.1")},
+		{Name: "second", LocalAddr: net.ParseIP("127.0.0.2")},
 	})
 
 	cfg := DefaultConfig("limited", srv.URL)
@@ -127,26 +125,18 @@ func TestEgressRateLimitHandsOverToExtensionTier(t *testing.T) {
 	cfg.Egress = reg
 	client := New(cfg, nil)
 
-	// 429 is not retried — the gateway hands it to provider fallback — but it
-	// must still demote this provider's preferred tier.
-	if _, err := client.DoRaw(context.Background(), Request{Method: http.MethodGet, Endpoint: "/x"}); err == nil {
-		t.Fatal("expected the rate-limited request to surface an error")
-	}
-
-	c, ok := reg.Pick("limited", nil)
-	if !ok {
-		t.Fatal("no candidate after the rate limit")
-	}
-	if c.Name != "fallback" || c.Tier == egress.TierPreferred {
-		t.Fatalf("after a 429 Pick = %+v, want the extension tier", c)
-	}
-
-	// Once the upstream stops limiting, the preferred tier comes back.
-	mu.Lock()
-	limited = false
-	mu.Unlock()
+	// The 429 is absorbed: the request succeeds on the second exit.
 	if _, err := client.DoRaw(context.Background(), Request{Method: http.MethodGet, Endpoint: "/x"}); err != nil {
-		t.Fatalf("recovered request failed: %v", err)
+		t.Fatalf("request should have failed over to the next exit: %v", err)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if seen["127.0.0.1"] == 0 {
+		t.Fatal("the rate-limited exit was never tried")
+	}
+	if seen["127.0.0.2"] == 0 {
+		t.Fatal("the request never reached the second exit")
 	}
 }
 

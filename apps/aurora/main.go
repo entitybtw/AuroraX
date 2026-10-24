@@ -372,12 +372,14 @@ func main() {
 			rule := sessionhub.ProviderRule{Enabled: rawRule.Enabled}
 			for _, hr := range rawRule.Headers {
 				rule.Headers = append(rule.Headers, sessionhub.HeaderRule{
-					Name:   hr.Name,
-					Mode:   sessionhub.HeaderMode(hr.Mode),
-					Prefix: hr.Prefix,
-					Length: hr.Length,
-					Value:  hr.Value,
-					Values: hr.Values,
+					Name:    hr.Name,
+					Mode:    sessionhub.HeaderMode(hr.Mode),
+					Prefix:  hr.Prefix,
+					Length:  hr.Length,
+					Value:   hr.Value,
+					Values:   hr.Values,
+					Charset:  hr.Charset,
+					Template: hr.Template,
 				})
 			}
 			hubCfg.Providers[name] = rule

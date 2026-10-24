@@ -117,6 +117,149 @@ func TestExtensionSourceMergesIntoPool(t *testing.T) {
 	}
 }
 
+// A rate limit belongs to the address that hit it, so one spent address must
+// not take its neighbours out of rotation: the upstream meters its free tier
+// per source address, and every address has its own quota.
+func TestRateLimitCoolsDownOnlyTheAddressThatHitIt(t *testing.T) {
+	r := NewRegistry()
+	now := time.Now()
+	r.now = func() time.Time { return now }
+	r.SetCore("zen", StrategyRoundRobin, []Candidate{
+		{Name: "ip1", LocalAddr: ip("10.0.0.1")},
+		{Name: "ip2", LocalAddr: ip("10.0.0.2")},
+	})
+	proxy, _ := url.Parse("socks5://127.0.0.1:1080")
+	r.SetExtensionSource(func(string) []Candidate {
+		return []Candidate{{Name: "vpn1", ProxyURL: proxy, Tier: TierFallback}}
+	})
+
+	spent, _ := r.Pick("zen", nil)
+	r.Report("zen", spent, OutcomeLimited, "")
+
+	// The other address of the same tier keeps serving, and the fallback
+	// tier is not needed yet.
+	for i := 0; i < 4; i++ {
+		c, _ := r.Pick("zen", nil)
+		if c.Name == "vpn1" {
+			t.Fatalf("Pick = %v, must stay in the preferred tier", c.Name)
+		}
+		if c.Name == spent.Name {
+			t.Fatalf("Pick = %v, the rate-limited address must cool down", c.Name)
+		}
+	}
+
+	// Once the window closes the address is used again.
+	now = now.Add(limitedExitCoolDown + time.Second)
+	c, _ := r.Pick("zen", nil)
+	if c.Name != spent.Name && c.Name == "vpn1" {
+		t.Fatalf("Pick = %v, want the preferred tier after the window", c.Name)
+	}
+}
+
+// The tier as a whole gives way only when every one of its addresses is
+// rate-limited: that is the point where another address of the same tier
+// cannot help and the fallback tier has to take over.
+func TestTierGivesWayOnlyWhenEveryAddressIsRateLimited(t *testing.T) {
+	r := NewRegistry()
+	now := time.Now()
+	r.now = func() time.Time { return now }
+	r.SetCore("zen", StrategyRoundRobin, []Candidate{
+		{Name: "ip1", LocalAddr: ip("10.0.0.1")},
+		{Name: "ip2", LocalAddr: ip("10.0.0.2")},
+	})
+	proxy, _ := url.Parse("socks5://127.0.0.1:1080")
+	r.SetExtensionSource(func(string) []Candidate {
+		return []Candidate{{Name: "vpn1", ProxyURL: proxy, Tier: TierFallback}}
+	})
+
+	first, _ := r.Pick("zen", nil)
+	r.Report("zen", first, OutcomeLimited, "")
+
+	second, _ := r.Pick("zen", nil)
+	if second.Name == "vpn1" {
+		t.Fatalf("Pick = %v, want the second address of the tier", second.Name)
+	}
+	r.Report("zen", second, OutcomeLimited, "")
+
+	// Both addresses of the tier are spent now, so the fallback takes over.
+	c, _ := r.Pick("zen", nil)
+	if c.Name != "vpn1" {
+		t.Fatalf("Pick = %v, want the fallback tier once the tier is spent", c.Name)
+	}
+}
+
+// A rate limit must not be reported as a success: the address is spent, and
+// the next request has to go somewhere else.
+func TestRateLimitedAddressIsNotPickedAgain(t *testing.T) {
+	r := NewRegistry()
+	now := time.Now()
+	r.now = func() time.Time { return now }
+	r.SetCore("zen", StrategyRoundRobin, []Candidate{
+		{Name: "ip1", LocalAddr: ip("10.0.0.1")},
+		{Name: "ip2", LocalAddr: ip("10.0.0.2")},
+	})
+
+	c, _ := r.Pick("zen", nil)
+	r.Report("zen", c, OutcomeLimited, "")
+
+	if r.Healthy("zen", c.Name) {
+		t.Fatal("a rate-limited address must not be reported healthy")
+	}
+	if !r.Healthy("zen", "ip2") {
+		t.Fatal("the untouched address must stay healthy")
+	}
+}
+
+// HasAlternative tells a retryable rate limit apart from a dead end: it
+// reports another exit while one is left, and stops once all of them were
+// used during the request.
+func TestHasAlternativeFollowsTheTriedSet(t *testing.T) {
+	r := NewRegistry()
+	r.SetCore("zen", StrategyRoundRobin, []Candidate{
+		{Name: "ip1", LocalAddr: ip("10.0.0.1")},
+		{Name: "ip2", LocalAddr: ip("10.0.0.2")},
+	})
+
+	tried := map[string]struct{}{}
+	if !r.HasAlternative("zen", tried) {
+		t.Fatal("HasAlternative = false, want an untried exit to exist")
+	}
+	tried["ip1"] = struct{}{}
+	if !r.HasAlternative("zen", tried) {
+		t.Fatal("HasAlternative = false, want ip2 to still be available")
+	}
+	tried["ip2"] = struct{}{}
+	if r.HasAlternative("zen", tried) {
+		t.Fatal("HasAlternative = true, want no exit left")
+	}
+}
+
+// A rate-limited address is not an alternative either: the retry has to land
+// on an address that still has quota. Once every address of the pool is
+// spent there is nowhere left to fail over to, and the 429 has to reach the
+// caller.
+func TestHasAlternativeSkipsRateLimitedExits(t *testing.T) {
+	r := NewRegistry()
+	now := time.Now()
+	r.now = func() time.Time { return now }
+	r.SetCore("zen", StrategyRoundRobin, []Candidate{
+		{Name: "ip1", LocalAddr: ip("10.0.0.1")},
+		{Name: "ip2", LocalAddr: ip("10.0.0.2")},
+	})
+
+	// One address spent: the other one is still a valid failover.
+	r.Report("zen", Candidate{Name: "ip1"}, OutcomeLimited, "")
+	if !r.HasAlternative("zen", map[string]struct{}{}) {
+		t.Fatal("HasAlternative = false, want the untouched address")
+	}
+
+	// Both spent: there is nowhere left to fail over to.
+	r.Report("zen", Candidate{Name: "ip2"}, OutcomeLimited, "")
+	if r.HasAlternative("zen", map[string]struct{}{}) {
+		t.Fatal("HasAlternative = true, want no address left with quota")
+	}
+}
+
 func TestSetCoreKeepsHealthAcrossReload(t *testing.T) {
 	r := NewRegistry()
 	r.SetCore("zen", StrategyRoundRobin, []Candidate{{Name: "a"}, {Name: "b"}})

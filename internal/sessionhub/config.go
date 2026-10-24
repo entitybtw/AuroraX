@@ -53,6 +53,12 @@ type HeaderRule struct {
 	// (e.g. hex for identity prefixes).
 	// require a specific alphabet and length for their identity headers.
 	Charset string `yaml:"charset" json:"charset"`
+	// Template names a value generator for headers whose value is not a
+	// plain random string: "b3" (Zipkin trace context), "traceparent" (W3C
+	// trace context) and "project_id" (the 40 hex character project id the
+	// emulated upstream client sends). Used with mode "generate" or
+	// "map_or_generate"; a template ignores Prefix, Length and Charset.
+	Template string `yaml:"template" json:"template"`
 }
 
 // Charset values accepted by HeaderRule.Charset.
@@ -129,7 +135,8 @@ func defaultHeaderRules() []HeaderRule {
 func HeaderRuleEqual(a, b HeaderRule) bool {
 	if a.Name != b.Name || a.Mode != b.Mode || a.Prefix != b.Prefix ||
 		a.Length != b.Length || a.Value != b.Value || len(a.Values) != len(b.Values) ||
-		NormalizeCharset(a.Charset) != NormalizeCharset(b.Charset) {
+		NormalizeCharset(a.Charset) != NormalizeCharset(b.Charset) ||
+		a.Template != b.Template {
 		return false
 	}
 	for i := range a.Values {

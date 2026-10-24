@@ -50,7 +50,7 @@ func Transform(headers http.Header, provider string, rule ProviderRule, store *S
 			if inbound != "" {
 				outbound = store.GetOrCreate(provider, inbound, prefix, length, hr.Charset)
 			} else {
-				outbound = GenerateValue(prefix, length, hr.Charset)
+				outbound = generateRuleValue(hr, prefix, length)
 			}
 			headers.Set(name, outbound)
 			result[name] = outbound
@@ -64,7 +64,7 @@ func Transform(headers http.Header, provider string, rule ProviderRule, store *S
 			if length <= 0 {
 				length = 28
 			}
-			outbound := GenerateValue(prefix, length, hr.Charset)
+			outbound := generateRuleValue(hr, prefix, length)
 			headers.Set(name, outbound)
 			result[name] = outbound
 
@@ -100,6 +100,18 @@ func randomIndex(n int) int {
 	b := make([]byte, 1)
 	rand.Read(b)
 	return int(b[0]) % n
+}
+
+// generateRuleValue produces the value of a generated header rule. A rule that
+// names a template uses that template's generator (trace contexts, project id);
+// every other rule falls back to a random value of the requested shape.
+func generateRuleValue(hr HeaderRule, prefix string, length int) string {
+	if hr.Template != "" {
+		if v, ok := GenerateTemplateValue(hr.Template); ok {
+			return v
+		}
+	}
+	return GenerateValue(prefix, length, hr.Charset)
 }
 
 // ExtractSession extracts session-related values from headers.

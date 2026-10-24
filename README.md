@@ -92,6 +92,9 @@ No SDK changes. No format changes. Just swap the `base_url`.
 
 **Security & guardrails**
 - Master key, managed API keys with per-key rate limits and model authorization
+- Provider-scoped API keys — pick a provider and the key covers every model it
+  serves, including models discovered after the key was issued (`groq/*` in
+  `allowed_models`, or just the provider switch in the dashboard)
 - PII redaction, prompt-injection blocking, system prompt protection, regex blocking
 - Length limits and LLM-based altering, with input/output direction and ordering
 

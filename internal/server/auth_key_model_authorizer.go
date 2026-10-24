@@ -11,6 +11,10 @@ import (
 // AuthKeyModelAuthorizer enforces provider/model restrictions attached to the
 // authenticated managed auth key. Missing restrictions are intentionally a no-op
 // for existing keys; explicit empty allowlists deny all matching resources.
+//
+// Provider and model lists accept a trailing "*" as a prefix wildcard, so a key
+// scoped to "groq" carries "groq/*" in its allowed models and keeps covering
+// every model that provider adds later.
 type AuthKeyModelAuthorizer struct{}
 
 func (AuthKeyModelAuthorizer) ValidateModelAccess(ctx context.Context, selector core.ModelSelector) error {
@@ -39,6 +43,12 @@ func (a AuthKeyModelAuthorizer) FilterPublicModels(ctx context.Context, models [
 		selector, err := core.ParseModelSelector(model.ID, "")
 		if err != nil {
 			continue
+		}
+		// /v1/models lists bare model ids, so the id itself carries no
+		// provider. OwnedBy does — fall back to it so a provider-scoped key
+		// still sees that provider's models instead of an empty catalogue.
+		if selector.Provider == "" {
+			selector.Provider = strings.TrimSpace(model.OwnedBy)
 		}
 		if a.AllowsModel(ctx, selector) {
 			filtered = append(filtered, model)
@@ -69,14 +79,26 @@ func allowsAuthKeyModel(ctx context.Context, selector core.ModelSelector) bool {
 	return true
 }
 
+// matchesAny reports whether value matches one of patterns.
+//
+// Patterns are exact matches, with a trailing "*" turning them into prefix
+// matches. "*" therefore matches everything and "groq/*" matches every model
+// the groq provider serves — including models the gateway discovers after the
+// key was issued. An empty pattern never matches.
 func matchesAny(patterns []string, value string) bool {
 	value = strings.TrimSpace(value)
 	for _, pattern := range patterns {
 		pattern = strings.TrimSpace(pattern)
-		if pattern == "*" {
-			return true
+		if pattern == "" {
+			continue
 		}
-		if pattern != "" && pattern == value {
+		if prefix, ok := strings.CutSuffix(pattern, "*"); ok {
+			if strings.HasPrefix(value, prefix) {
+				return true
+			}
+			continue
+		}
+		if pattern == value {
 			return true
 		}
 	}

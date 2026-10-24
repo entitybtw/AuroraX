@@ -129,7 +129,8 @@ func (c *Client) reportEgress(cand egress.Candidate, outcome egress.Outcome, det
 }
 
 // egressOutcome classifies an attempt. 429/403 are treated as rate limiting
-// of the whole exit tier rather than a fault of the individual address.
+// of the exit that hit it, not of the tier: the upstream meters its free
+// tier per source address, so the other addresses keep serving.
 func egressOutcome(err error, resp *http.Response) egress.Outcome {
 	if err != nil {
 		return egress.OutcomeFailed
@@ -145,6 +146,23 @@ func egressOutcome(err error, resp *http.Response) egress.Outcome {
 		return egress.OutcomeFailed
 	}
 	return egress.OutcomeOK
+}
+
+// hasUntriedExit reports whether the provider has another exit left that this
+// request has not used yet.
+//
+// A rate limit belongs to the address that hit it, so a 429 on one address is
+// worth retrying on the next one. Without a registry, or once every exit has
+// been used, the 429 has to reach the caller.
+func (c *Client) hasUntriedExit(ctx context.Context) bool {
+	if c.egress == nil {
+		return false
+	}
+	var tried map[string]struct{}
+	if st, _ := ctx.Value(egressStateKey{}).(*egressState); st != nil {
+		tried = st.tried
+	}
+	return c.egress.HasAlternative(c.egressProviderName(), tried)
 }
 
 // egressDetail renders the operator-facing reason for an attempt: the

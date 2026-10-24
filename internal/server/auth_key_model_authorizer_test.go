@@ -56,3 +56,86 @@ func TestAuthKeyModelAuthorizerEmptyAllowlistDeniesAll(t *testing.T) {
 		t.Fatal("AllowsModel() = true, want false for explicit empty allowed_models")
 	}
 }
+
+func TestAuthKeyModelAuthorizerProviderScopedModelPatterns(t *testing.T) {
+	authorizer := AuthKeyModelAuthorizer{}
+	ctx := core.WithAuthKeyAccessPolicy(context.Background(), core.AuthKeyAccessPolicy{
+		AllowedModels: []string{"groq/*"},
+	})
+
+	if !authorizer.AllowsModel(ctx, core.ModelSelector{Provider: "groq", Model: "llama-4-scout-17b-16e-instruct"}) {
+		t.Fatal("AllowsModel() = false, want true for a model covered by groq/*")
+	}
+
+	// A model the registry had not listed yet when the key was issued is
+	// covered too — the pattern is resolved per request, not expanded once.
+	if !authorizer.AllowsModel(ctx, core.ModelSelector{Provider: "groq", Model: "some-model-discovered-later"}) {
+		t.Fatal("AllowsModel() = false, want true for a model added after the key was issued")
+	}
+
+	// Model ids that carry their own provider prefix still match on the
+	// leading provider segment.
+	if !authorizer.AllowsModel(ctx, core.ModelSelector{Provider: "groq", Model: "openai/gpt-oss-120b"}) {
+		t.Fatal("AllowsModel() = false, want true for groq serving a prefixed model id")
+	}
+
+	if authorizer.AllowsModel(ctx, core.ModelSelector{Provider: "openai", Model: "gpt-4o"}) {
+		t.Fatal("AllowsModel() = true, want false for a model outside groq/*")
+	}
+}
+
+func TestAuthKeyModelAuthorizerProviderPrefixWildcards(t *testing.T) {
+	authorizer := AuthKeyModelAuthorizer{}
+	ctx := core.WithAuthKeyAccessPolicy(context.Background(), core.AuthKeyAccessPolicy{
+		AllowedProviders: []string{"openai*"},
+	})
+
+	for _, provider := range []string{"openai", "openai-east"} {
+		if !authorizer.AllowsModel(ctx, core.ModelSelector{Provider: provider, Model: "gpt-4o"}) {
+			t.Fatalf("AllowsModel() = false, want true for provider %q covered by openai*", provider)
+		}
+	}
+
+	if authorizer.AllowsModel(ctx, core.ModelSelector{Provider: "groq", Model: "gpt-4o"}) {
+		t.Fatal("AllowsModel() = true, want false for a provider outside the openai* prefix")
+	}
+}
+
+func TestAuthKeyModelAuthorizerDeniedModelWildcardsWin(t *testing.T) {
+	authorizer := AuthKeyModelAuthorizer{}
+	ctx := core.WithAuthKeyAccessPolicy(context.Background(), core.AuthKeyAccessPolicy{
+		AllowedProviders: []string{"groq"},
+		AllowedModels:    []string{"*"},
+		DeniedModels:     []string{"groq/llama-4-preview*"},
+	})
+
+	if !authorizer.AllowsModel(ctx, core.ModelSelector{Provider: "groq", Model: "llama-4-scout-17b-16e-instruct"}) {
+		t.Fatal("AllowsModel() = false, want true for a stable groq model")
+	}
+	if authorizer.AllowsModel(ctx, core.ModelSelector{Provider: "groq", Model: "llama-4-preview-instruct"}) {
+		t.Fatal("AllowsModel() = true, want false when the denied pattern wildcard matches")
+	}
+}
+
+func TestAuthKeyModelAuthorizerFilterPublicModelsKeepsProviderScopedCatalogue(t *testing.T) {
+	authorizer := AuthKeyModelAuthorizer{}
+	ctx := core.WithAuthKeyAccessPolicy(context.Background(), core.AuthKeyAccessPolicy{
+		AllowedProviders: []string{"groq"},
+		AllowedModels:    []string{"groq/*"},
+	})
+
+	// /v1/models lists bare ids, so the provider only survives in OwnedBy.
+	models := []core.Model{
+		{ID: "llama-4-scout-17b-16e-instruct", Object: "model", OwnedBy: "groq"},
+		{ID: "gpt-4o", Object: "model", OwnedBy: "openai"},
+		{ID: "groq/llama-4-scout-17b-16e-instruct", Object: "model", OwnedBy: "openrouter"},
+	}
+
+	filtered := authorizer.FilterPublicModels(ctx, models)
+	if len(filtered) != 2 {
+		t.Fatalf("FilterPublicModels() len = %d, want 2", len(filtered))
+	}
+	if filtered[0].ID != "llama-4-scout-17b-16e-instruct" || filtered[1].ID != "groq/llama-4-scout-17b-16e-instruct" {
+		t.Fatalf("FilterPublicModels() = %#v, want the two groq-backed models", filtered)
+	}
+}

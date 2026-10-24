@@ -405,9 +405,24 @@ func (c *Client) shouldTripCircuitBreaker(statusCode int) bool {
 func (c *Client) maxAttempts() int {
 	maxAttempts := c.config.Retry.MaxRetries + 1
 	if maxAttempts < 1 {
-		return 1
+		maxAttempts = 1
 	}
 	return maxAttempts
+}
+
+// failoverBudget is how many extra attempts a rate limit may buy.
+//
+// A rate limit belongs to one address, so the request has to be able to
+// walk the pool before it gives up — with a fixed retry budget of four and
+// six addresses, a request could run out of attempts while live addresses
+// were still left. The budget is separate from the retry budget on purpose:
+// transient upstream faults are retried a configured number of times, while
+// moving to another exit is what the exit pool is for.
+func (c *Client) failoverBudget() int {
+	if c.egress == nil {
+		return 0
+	}
+	return c.egress.ExitCount(c.egressProviderName())
 }
 
 func (c *Client) waitForRetry(ctx context.Context, attempt int) error {
@@ -475,11 +490,24 @@ func (c *Client) DoRaw(ctx context.Context, req Request) (*Response, error) {
 	if req.RawBodyReader != nil {
 		maxAttempts = 1
 	}
+	// Two separate budgets. Transient upstream faults are retried a configured
+	// number of times; a rate limit is a failover to another exit, which is
+	// bounded by the size of the exit pool instead.
+	retries := 0
+	failovers := 0
+	failoverBudget := c.failoverBudget()
+	// A failover to another exit is not a transient fault of the upstream: the
+	// next address is tried right away, without the backoff that would only
+	// add latency to a request that is already late.
+	failover := false
 
-	for attempt := 0; attempt < maxAttempts; attempt++ {
-		if err := c.waitForRetryAttempt(ctx, scope, attempt); err != nil {
-			return nil, err
+	for attempt := 0; attempt < maxAttempts+failoverBudget; attempt++ {
+		if !failover {
+			if err := c.waitForRetryAttempt(ctx, scope, retries); err != nil {
+				return nil, err
+			}
 		}
+		failover = false
 
 		resp, err := c.doRequest(ctx, req)
 		if err != nil {
@@ -501,6 +529,10 @@ func (c *Client) DoRaw(ctx context.Context, req Request) (*Response, error) {
 				c.completeScope(scope, lastStatusCode, lastErr, lastErr)
 				return nil, lastErr
 			}
+			if retries >= maxAttempts-1 {
+				break
+			}
+			retries++
 			continue
 		}
 
@@ -513,6 +545,29 @@ func (c *Client) DoRaw(ctx context.Context, req Request) (*Response, error) {
 				c.completeScope(scope, lastStatusCode, lastErr, nil)
 				return nil, lastErr
 			}
+			if retries >= maxAttempts-1 {
+				break
+			}
+			retries++
+			continue
+		}
+
+		// A rate limit is scoped to the address that hit it. With another
+		// exit left to try the request is worth another attempt there
+		// instead of handing the 429 to the caller: the retry picks the
+		// next exit, because the one that just failed is excluded.
+		if resp.StatusCode == http.StatusTooManyRequests &&
+			failovers < failoverBudget &&
+			c.hasUntriedExit(ctx) {
+			lastErr = core.ParseProviderError(c.config.ProviderName, resp.StatusCode, resp.Body, nil)
+			lastStatusCode = resp.StatusCode
+			lastErrFromTransport = false
+			if scope.halfOpenProbe {
+				c.completeScope(scope, lastStatusCode, lastErr, nil)
+				return nil, lastErr
+			}
+			failovers++
+			failover = true
 			continue
 		}
 
@@ -625,11 +680,24 @@ func (c *Client) DoPassthrough(ctx context.Context, req Request) (*http.Response
 	if canRetryPassthrough(req) {
 		maxAttempts = c.maxAttempts()
 	}
+	// Two separate budgets. Transient upstream faults are retried a configured
+	// number of times; a rate limit is a failover to another exit, which is
+	// bounded by the size of the exit pool instead.
+	retries := 0
+	failovers := 0
+	failoverBudget := c.failoverBudget()
+	// A failover to another exit is not a transient fault of the upstream: the
+	// next address is tried right away, without the backoff that would only
+	// add latency to a request that is already late.
+	failover := false
 
-	for attempt := 0; attempt < maxAttempts; attempt++ {
-		if err := c.waitForRetryAttempt(ctx, scope, attempt); err != nil {
-			return nil, err
+	for attempt := 0; attempt < maxAttempts+failoverBudget; attempt++ {
+		if !failover {
+			if err := c.waitForRetryAttempt(ctx, scope, retries); err != nil {
+				return nil, err
+			}
 		}
+		failover = false
 
 		resp, err := c.doHTTPRequest(ctx, req)
 		if err != nil {
@@ -641,20 +709,42 @@ func (c *Client) DoPassthrough(ctx context.Context, req Request) (*http.Response
 				c.finishRequest(scope, statusCode, err)
 				return nil, err
 			}
-			if scope.halfOpenProbe || isClientTimeoutGatewayError(err) || attempt == maxAttempts-1 {
+			if scope.halfOpenProbe || isClientTimeoutGatewayError(err) {
 				c.completeScope(scope, statusCode, err, err)
 				return nil, err
 			}
+			if retries >= maxAttempts-1 {
+				c.completeScope(scope, statusCode, err, err)
+				return nil, err
+			}
+			retries++
 			continue
 		}
 
 		retryable := c.isRetryable(resp.StatusCode)
+		// A rate limit belongs to the address that hit it, so it is worth
+		// another attempt on a different exit while one is left.
+		if !retryable && resp.StatusCode == http.StatusTooManyRequests &&
+			failovers < failoverBudget && c.hasUntriedExit(ctx) {
+			retryable = true
+			failover = true
+		}
 		if retryable {
-			if scope.halfOpenProbe || attempt == maxAttempts-1 {
+			if scope.halfOpenProbe {
+				c.completeScope(scope, resp.StatusCode, nil, nil)
+				return resp, nil
+			}
+			if failover {
+				_ = resp.Body.Close()
+				failovers++
+				continue
+			}
+			if retries >= maxAttempts-1 {
 				c.completeScope(scope, resp.StatusCode, nil, nil)
 				return resp, nil
 			}
 			_ = resp.Body.Close()
+			retries++
 			continue
 		}
 

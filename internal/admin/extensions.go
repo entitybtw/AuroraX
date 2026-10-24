@@ -17,6 +17,7 @@ import (
 
 	"aurora/internal/addon"
 	"aurora/internal/hooks"
+	"aurora/internal/sessionhub"
 )
 
 // ExtensionHeader is one header transformation an extension installs into the
@@ -29,6 +30,11 @@ type ExtensionHeader struct {
 	Charset string   `json:"charset,omitempty"`
 	Value   string   `json:"value,omitempty"`
 	Values  []string `json:"values,omitempty"`
+	// Template names a value generator for headers whose value is not a plain
+	// random string: "b3" (Zipkin trace context), "traceparent" (W3C trace
+	// context) and "project_id" (a 40 hex character project id). Used with
+	// mode "generate" or "map_or_generate".
+	Template string `json:"template,omitempty"`
 }
 
 // ExtensionField is a UI hint describing one configurable value of an
@@ -783,8 +789,16 @@ func (p *Extension) Validate() error {
 				add("%s: random_from_list mode requires values", field)
 			}
 		case "generate", "map_or_generate":
-			if h.Length <= 0 {
+			if h.Length <= 0 && h.Template == "" {
 				add("%s.length: %s mode needs a positive length", field, h.Mode)
+			}
+		}
+		if h.Template != "" {
+			if !sessionhub.IsHeaderTemplate(h.Template) {
+				add("%s.template: %q is unknown (use b3, traceparent or project_id)", field, h.Template)
+			}
+			if h.Mode != "generate" && h.Mode != "map_or_generate" {
+				add("%s.template: requires mode generate or map_or_generate", field)
 			}
 		}
 	}

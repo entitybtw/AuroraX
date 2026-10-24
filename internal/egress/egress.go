@@ -85,8 +85,9 @@ const (
 	// OutcomeFailed — connection or upstream failure; the candidate itself
 	// is at fault and cools down.
 	OutcomeFailed
-	// OutcomeLimited — the upstream rate-limited us (429/403). The candidate
-	// may be perfectly healthy; its whole tier is demoted instead.
+	// OutcomeLimited — the upstream rate-limited us (429/403). The limit is
+	// scoped to the address that hit it, so the exit itself cools down while
+	// its neighbours in the same tier keep serving.
 	OutcomeLimited
 )
 
@@ -154,9 +155,23 @@ const coolDown = 30 * time.Second
 // A rate-limited tier probes back after this window.
 const limitedCoolDown = 45 * time.Second
 
+// A rate-limited exit stays out of rotation for this long.
+//
+// The window is per exit, not per tier: an upstream that meters its free
+// tier per source address hands out a quota to every address it sees, so
+// cooling down the whole tier would throw away the addresses that still have
+// quota left. 45s keeps an address out long enough for a short window to
+// roll over, without parking it for the whole window when the operator has
+// many addresses.
+const limitedExitCoolDown = 45 * time.Second
+
 type healthEntry struct {
 	failures  int
 	downUntil time.Time
+	// limitedUntil is set when the upstream rate-limited this exit. The exit
+	// stays out of rotation until the window passes, while the other exits
+	// of its tier keep serving.
+	limitedUntil time.Time
 	// requests counts attempts through this exit, ok the ones that worked.
 	requests uint64
 	ok       uint64
@@ -287,17 +302,22 @@ func (r *Registry) SetDisabled(provider string, names []string) {
 // Report records what an attempt through an exit did. detail is the upstream
 // error or status line shown in the status panel; pass "" when there is none.
 //
-//   - OutcomeOK clears both the exit's failures and any rate-limit demotion
-//     on its tier.
+//   - OutcomeOK clears the exit's failures and its rate-limit cool-down.
 //   - OutcomeFailed cools down the exit itself, so its neighbours in the
 //     same tier keep serving.
-//   - OutcomeLimited demotes the whole tier: when every exit in a tier is
-//     being rate-limited there is no point trying the next one, so the next
-//     tier takes over until the window ends.
+//   - OutcomeLimited cools down the exit itself as well: a rate limit is
+//     scoped to the address that hit it, so the other addresses of the tier
+//     keep serving until their own quota runs out. The tier is demoted only
+//     once every one of its exits is rate-limited, which is the point where
+//     the next tier genuinely has to take over.
 func (r *Registry) Report(provider string, c Candidate, outcome Outcome, detail string) {
 	if r == nil || c.Name == "" {
 		return
 	}
+	// The extension hook is called outside the lock: it may reach back into
+	// the registry, and holding the write lock here would deadlock.
+	exits := r.allCandidates(provider)
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	st := r.byProvider[provider]
@@ -319,6 +339,7 @@ func (r *Registry) Report(provider string, c Candidate, outcome Outcome, detail 
 		h.ok++
 		h.failures = 0
 		h.downUntil = time.Time{}
+		h.limitedUntil = time.Time{}
 		delete(st.limitedUntil, c.Tier)
 	case OutcomeFailed:
 		h.failures++
@@ -328,11 +349,59 @@ func (r *Registry) Report(provider string, c Candidate, outcome Outcome, detail 
 	case OutcomeLimited:
 		h.failures = 0
 		h.downUntil = time.Time{}
-		// Rate limiting is rarely address-specific: demote the whole tier so
-		// the next tier takes over instead of walking the same tier's
-		// remaining exits one by one.
-		st.limitedUntil[c.Tier] = now.Add(limitedCoolDown)
+		// The limit belongs to this address, not to the tier: cool the exit
+		// down and let its neighbours keep serving.
+		h.limitedUntil = now.Add(limitedExitCoolDown)
+		// Only when every exit of the tier is rate-limited is there nothing
+		// left to gain by trying another address of the same tier, and the
+		// fallback tier takes over until the windows roll over.
+		if tierFullyLimited(st, exits, c.Tier, now) {
+			st.limitedUntil[c.Tier] = now.Add(limitedCoolDown)
+		}
 	}
+}
+
+// allCandidates lists the exits of a provider: the core ones plus the ones
+// an extension contributed, with duplicates removed.
+func (r *Registry) allCandidates(provider string) []Candidate {
+	r.mu.RLock()
+	st := r.byProvider[provider]
+	var core []Candidate
+	if st != nil {
+		core = dedupe(st.core)
+	}
+	ext := r.ext
+	r.mu.RUnlock()
+
+	all := dedupe(append([]Candidate{}, core...))
+	if ext != nil {
+		all = dedupe(append(all, ext(provider)...))
+	}
+	return all
+}
+
+// tierFullyLimited reports whether every enabled exit of a tier is currently
+// rate-limited, which is the moment the tier as a whole has to give way.
+func tierFullyLimited(st *providerState, exits []Candidate, tier Tier, now time.Time) bool {
+	total := 0
+	for _, e := range exits {
+		if e.Tier != tier {
+			continue
+		}
+		if st.disabled[e.Name] {
+			continue
+		}
+		total++
+		h := st.health[e.Name]
+		if h == nil {
+			// Never attempted: the tier still has an untouched exit.
+			return false
+		}
+		if h.limitedUntil.IsZero() || !now.Before(h.limitedUntil) {
+			return false
+		}
+	}
+	return total > 0
 }
 
 // available reports whether a candidate may be tried right now.
@@ -342,6 +411,12 @@ func (st *providerState) available(name string, now time.Time) bool {
 		return true
 	}
 	if !h.downUntil.IsZero() && now.Before(h.downUntil) {
+		return false
+	}
+	// A rate-limited address is out of rotation until its window passes. The
+	// other addresses of the tier are unaffected — that is the whole point of
+	// cooling the exit down instead of the tier.
+	if !h.limitedUntil.IsZero() && now.Before(h.limitedUntil) {
 		return false
 	}
 	return true
@@ -468,6 +543,66 @@ func selectOne(cands []Candidate, strategy Strategy, rr uint64) Candidate {
 	default: // round-robin
 		return cands[int(rr-1)%len(cands)]
 	}
+}
+
+// HasAlternative reports whether the provider still has an exit that was not
+// tried yet during this request and is usable right now.
+//
+// It is what tells a rate limit apart from a dead end: a 429 on one address
+// is worth retrying on the next one, but only while another address is left
+// to try. With every exit used up the request has to surface the 429.
+func (r *Registry) HasAlternative(provider string, exclude map[string]struct{}) bool {
+	if r == nil {
+		return false
+	}
+	now := r.now()
+
+	r.mu.RLock()
+	st := r.byProvider[provider]
+	ext := r.ext
+	var (
+		core     []Candidate
+		disabled map[string]bool
+	)
+	if st != nil {
+		core = dedupe(st.core)
+		disabled = st.disabled
+	}
+	r.mu.RUnlock()
+
+	all := dedupe(append([]Candidate{}, core...))
+	if ext != nil {
+		all = dedupe(append(all, ext(provider)...))
+	}
+	all = filterDisabled(all, disabled)
+
+	for _, c := range all {
+		if _, skip := exclude[c.Name]; skip {
+			continue
+		}
+		if st != nil && !st.available(c.Name, now) {
+			continue
+		}
+		// A tier that was demoted wholesale is passed over as well.
+		if st != nil && st.tierLimited(c.Tier, now) {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+// ExitCount reports how many exits the provider currently has.
+//
+// The retry budget is stretched to match it: a rate limit belongs to one
+// address, so a request has to be able to walk the whole pool before it
+// gives up. With a fixed budget of four attempts and six addresses, a
+// request could run out of attempts while live addresses were still left.
+func (r *Registry) ExitCount(provider string) int {
+	if r == nil {
+		return 0
+	}
+	return len(r.Candidates(provider))
 }
 
 // Candidates returns a snapshot of the current candidate set for a provider,

@@ -61,6 +61,15 @@ function nextProxy(cfg, attempt) {
   return list[(start + attempt - 1) % list.length];
 }
 
+// isRateLimitStatus reports whether an upstream status is a rate limit.
+//
+// A 429 means the source address has no quota left. Retrying it from another
+// address would spend that address's quota too, so the sidecar hands the
+// answer back and lets the gateway move the request to a different exit.
+function isRateLimitStatus(status) {
+  return status === 429;
+}
+
 // Forward the identity headers the adapter selected (names come from the
 // applied extension's forward_headers / env). No client-specific names or
 // value shapes are hardcoded in the core.
@@ -229,7 +238,18 @@ export async function executeRequest(envelope, cfg) {
 
     // Status-first: only retryable upstream answers consume a retry, and their
     // (small) bodies are discarded without buffering full generations.
-    if (cfg.retryStatuses.includes(resp.status) && attempt < cfg.maxAttempts) {
+    //
+    // A rate limit is not retried here. The upstream meters its free tier per
+    // source address, so a 429 means the address that just served the request
+    // has no quota left — retrying from a different address would spend that
+    // address's quota as well, turning one client request into four upstream
+    // requests. The gateway owns the rotation: it holds the exit registry,
+    // knows which address is spent, and picks the next one itself.
+    if (
+      cfg.retryStatuses.includes(resp.status) &&
+      !isRateLimitStatus(resp.status) &&
+      attempt < cfg.maxAttempts
+    ) {
       try {
         await resp.body?.cancel();
       } catch {

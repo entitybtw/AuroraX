@@ -30,6 +30,17 @@ interface AuthKeyFormState extends Omit<CreateAuthKeyInput, "provider_pool_id"> 
   provider_pool_id: string;
 }
 
+/** Allowlist entry covering every model a provider serves — including the
+ *  ones the gateway discovers after the key is issued. */
+function providerModelScope(provider: string) {
+  return `${provider}/*`;
+}
+
+/** Allowlist entry scoped to a single model of one provider. */
+function providerModelEntry(provider: string, model: string) {
+  return `${provider}/${model}`;
+}
+
 function defaultAuthKeyForm(): AuthKeyFormState {
   return {
     name: "",
@@ -100,12 +111,37 @@ export function AuthKeysPage(): JSX.Element {
   const paginatedKeys = keys.slice((safePage - 1) * pageSize, safePage * pageSize);
   const allIds = useMemo(() => paginatedKeys.map((k) => k.id), [paginatedKeys]);
   React.useEffect(() => { setPage(1); }, [keys.length]);
+
+  // Model inventory grouped by the provider (or pool) that serves it. Grouping
+  // is what lets the form scope a key to a whole provider instead of making
+  // the operator tick every one of its models by hand.
+  const modelGroups = useMemo(() => {
+    const groups = new Map<string, string[]>();
+    for (const item of modelInventory) {
+      const provider = String(item.provider_name ?? "").trim();
+      const model = String(item.model?.id ?? "").trim();
+      if (!provider || !model) continue;
+      const existing = groups.get(provider);
+      if (!existing) {
+        groups.set(provider, [model]);
+      } else if (!existing.includes(model)) {
+        existing.push(model);
+      }
+    }
+    for (const models of groups.values()) {
+      models.sort();
+    }
+    return Array.from(groups, ([provider, models]) => ({ provider, models })).sort(
+      (left, right) => left.provider.localeCompare(right.provider),
+    );
+  }, [modelInventory]);
+
   const providerOptions = uniqueSorted([
     ...(providerStatus?.providers || []).map((provider) => provider.name),
     ...(pools?.pools || []).map((pool) => pool.name),
+    ...modelGroups.map((group) => group.provider),
   ]);
   const poolOptions = uniqueSorted((pools?.pools || []).map((pool) => pool.name));
-  const modelOptions = uniqueSorted(modelInventory.map((item) => item.model?.id));
 
   // Handlers
   const handleOpenForm = () => {
@@ -115,6 +151,33 @@ export function AuthKeysPage(): JSX.Element {
     setCopyError(null);
     setRevealIssuedKey(false);
     setFormOpen(true);
+  };
+
+  /** Switching a provider on also pulls every model it serves into the key,
+   *  so the operator picks a provider rather than a pile of model rows. */
+  const toggleAllowedProvider = (provider: string) => {
+    setFormData((prev) => {
+      const allowedProviders = toggleSelection(prev.allowed_providers || [], provider);
+      const scope = providerModelScope(provider);
+      const allowedModels = (prev.allowed_models || []).includes("*")
+        // "*" already covers every provider's models — no scope entry needed.
+        ? prev.allowed_models
+        : allowedProviders.includes(provider)
+          ? uniqueSorted([...(prev.allowed_models || []), scope])
+          : (prev.allowed_models || []).filter((entry) => entry !== scope);
+      return { ...prev, allowed_providers: allowedProviders, allowed_models: allowedModels };
+    });
+  };
+
+  /** "*" makes every provider scope redundant, so picking it clears them. */
+  const toggleAllowedModelEntry = (entry: string) => {
+    setFormData((prev) => {
+      const current = prev.allowed_models || [];
+      if (entry === "*") {
+        return { ...prev, allowed_models: current.includes("*") ? [] : ["*"] };
+      }
+      return { ...prev, allowed_models: toggleSelection(current, entry) };
+    });
   };
 
   const handleCopy = async () => {
@@ -166,7 +229,7 @@ export function AuthKeysPage(): JSX.Element {
 
       <DocsCollapsible
         title={t("How API keys work")}
-        manual={t("API keys let your backend programmatically issue gateway credentials for each customer. When a user signs up on your platform, call POST /admin/api/v1/auth-keys to create a key scoped to their user path. Revoke it with the deactivate endpoint when they leave. Keys can also be managed manually through this dashboard for testing and debugging.")}
+        manual={t("API keys let your backend programmatically issue gateway credentials for each customer. When a user signs up on your platform, call POST /admin/api/v1/auth-keys to create a key scoped to their user path. Revoke it with the deactivate endpoint when they leave. Keys can also be managed manually through this dashboard for testing and debugging. Scope a key to a provider to cover every model it serves.")}
         authNote={t("All endpoints require an Authorization: Bearer <master-key> header. The master key is set via the MASTER_KEY environment variable.")}
         endpoints={[
           { method: "POST", path: "/admin/api/v1/auth-keys", description: t("Issue a scoped key — call this when a new user signs up to grant them gateway access") },
@@ -460,63 +523,45 @@ export function AuthKeysPage(): JSX.Element {
                     </div>
                     <div className="flex flex-col gap-2">
                       <span className="text-xs font-medium text-muted-foreground">{t("Allowed providers and pools")}</span>
+                      <p className="text-[11px] leading-relaxed text-muted-foreground">{t("Switching a provider on grants every model it serves, including models discovered later.")}</p>
                       <div className="max-h-60 overflow-y-auto rounded-lg border border-border/60 bg-background/45 p-2">
                         {providerOptions.length > 0 ? providerOptions.map((provider) => (
                           <label key={provider} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/40">
                             <Switch
                               checked={formData.allowed_providers?.includes(provider) || false}
                               size="sm"
-                              onCheckedChange={() => setFormData({ ...formData, allowed_providers: toggleSelection(formData.allowed_providers || [], provider) })}
+                              onCheckedChange={() => toggleAllowedProvider(provider)}
                               aria-label={`Allow ${provider}`}
                             />
                             <span className="font-mono">{provider}</span>
+                            {modelGroups.some((group) => group.provider === provider) && (
+                              <span className="text-[10px] text-muted-foreground">
+                                {modelGroups.find((group) => group.provider === provider)?.models.length}{t(" models")}
+                              </span>
+                            )}
                           </label>
                         )) : <p className="px-2 py-1.5 text-xs text-muted-foreground">{t("No providers loaded.")}</p>}
                       </div>
                     </div>
                     <div className="flex flex-col gap-2">
                       <span className="text-xs font-medium text-muted-foreground">{t("Allowed models")}</span>
-                      <div className="max-h-60 overflow-y-auto rounded-lg border border-border/60 bg-background/45 p-2">
-                        <label className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/40">
-                          <Switch
-                            checked={formData.allowed_models?.includes("*") || false}
-                            size="sm"
-                            onCheckedChange={() => setFormData({ ...formData, allowed_models: toggleSelection(formData.allowed_models || [], "*") })}
-                            aria-label={t("Allow all models")}
-                          />
-                          <span className="font-mono">*</span>
-                          <span className="text-muted-foreground">{t("all models")}</span>
-                        </label>
-                        <div className="max-h-52 overflow-y-auto">
-                          {modelOptions.map((model) => (
-                            <label key={model} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/40">
-                              <Switch
-                                checked={formData.allowed_models?.includes(model) || false}
-                                size="sm"
-                                onCheckedChange={() => setFormData({ ...formData, allowed_models: toggleSelection(formData.allowed_models || [], model) })}
-                                aria-label={`Allow ${model}`}
-                              />
-                              <span className="font-mono break-all">{model}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
+                      <p className="text-[11px] leading-relaxed text-muted-foreground">{t("A provider scope covers every model it serves. Pick individual models under it only when you want a narrower key.")}</p>
+                      <ModelScopePicker
+                        groups={modelGroups}
+                        selected={formData.allowed_models || []}
+                        onToggleEntry={toggleAllowedModelEntry}
+                        lockCoveredModels
+                        emptyHint={t("No models loaded.")}
+                      />
                     </div>
                     <div className="flex flex-col gap-2">
                       <span className="text-xs font-medium text-muted-foreground">{t("Denied models")}</span>
-                      <div className="max-h-60 overflow-y-auto rounded-lg border border-border/60 bg-background/45 p-2">
-                        {modelOptions.length > 0 ? modelOptions.map((model) => (
-                          <label key={model} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/40">
-                            <Switch
-                              checked={formData.denied_models?.includes(model) || false}
-                              size="sm"
-                              onCheckedChange={() => setFormData({ ...formData, denied_models: toggleSelection(formData.denied_models || [], model) })}
-                              aria-label={`Deny ${model}`}
-                            />
-                            <span className="font-mono break-all">{model}</span>
-                          </label>
-                        )) : <p className="px-2 py-1.5 text-xs text-muted-foreground">{t("No models loaded.")}</p>}
-                      </div>
+                      <ModelScopePicker
+                        groups={modelGroups}
+                        selected={formData.denied_models || []}
+                        onToggleEntry={(entry) => setFormData((prev) => ({ ...prev, denied_models: toggleSelection(prev.denied_models || [], entry) }))}
+                        emptyHint={t("No models loaded.")}
+                      />
                     </div>
                   </div>
                   <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">{t("Denied models win over allowed models. Use ")}<code className="rounded bg-background/60 px-1 py-0.5">*</code>{t(" to explicitly allow all in an allowlist.")}</p>
@@ -567,6 +612,107 @@ export function AuthKeysPage(): JSX.Element {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+interface ModelScopePickerProps {
+  groups: Array<{ provider: string; models: string[] }>;
+  selected: string[];
+  onToggleEntry: (entry: string) => void;
+  /** Keep rows already covered by a provider scope inert, so narrowing is an
+   *  explicit action instead of a toggle that silently does nothing. */
+  lockCoveredModels?: boolean;
+  emptyHint?: string;
+}
+
+/** Model allowlist picker grouped by provider.
+ *
+ *  A group header is the "<provider>/*" scope, which covers every model that
+ *  provider serves — including the ones the gateway discovers after the key is
+ *  issued. The indented rows narrow the scope down to single models.
+ */
+function ModelScopePicker({
+  groups,
+  selected,
+  onToggleEntry,
+  lockCoveredModels,
+  emptyHint,
+}: ModelScopePickerProps): JSX.Element {
+  const wildcard = selected.includes("*");
+
+  return (
+    <div className="max-h-60 overflow-y-auto rounded-lg border border-border/60 bg-background/45 p-2">
+      <ScopeRow
+        label="*"
+        hint={t("all models")}
+        checked={wildcard}
+        onCheckedChange={() => onToggleEntry("*")}
+      />
+      {groups.length === 0 ? (
+        <p className="px-2 py-1.5 text-xs text-muted-foreground">{emptyHint ?? t("No models loaded.")}</p>
+      ) : (
+        <div className="max-h-52 overflow-y-auto">
+          {groups.map((group) => {
+            const scope = providerModelScope(group.provider);
+            const scopeChecked = wildcard || selected.includes(scope);
+            return (
+              <div key={group.provider} className="mt-1 first:mt-0">
+                <ScopeRow
+                  label={scope}
+                  hint={t("all models of this provider")}
+                  count={group.models.length}
+                  checked={scopeChecked}
+                  title={t("Covers every model this provider serves, including models added later.")}
+                  onCheckedChange={() => onToggleEntry(scope)}
+                />
+                <div className="ml-4 border-l border-border/40 pl-2">
+                  {group.models.map((model) => (
+                    <ScopeRow
+                      key={model}
+                      label={model}
+                      checked={scopeChecked || selected.includes(providerModelEntry(group.provider, model))}
+                      disabled={Boolean(lockCoveredModels && scopeChecked)}
+                      title={t("Already covered by this provider's scope.")}
+                      onCheckedChange={() => onToggleEntry(providerModelEntry(group.provider, model))}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface ScopeRowProps {
+  label: string;
+  hint?: string;
+  count?: number;
+  checked: boolean;
+  disabled?: boolean;
+  title?: string;
+  onCheckedChange: () => void;
+}
+
+function ScopeRow({ label, hint, count, checked, disabled, title, onCheckedChange }: ScopeRowProps): JSX.Element {
+  return (
+    <label
+      title={title}
+      className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/40 ${disabled ? "opacity-60" : ""}`}
+    >
+      <Switch
+        checked={checked}
+        size="sm"
+        disabled={disabled ?? false}
+        onCheckedChange={onCheckedChange}
+        aria-label={label}
+      />
+      <span className="font-mono break-all">{label}</span>
+      {count !== undefined && <span className="text-[10px] text-muted-foreground">{count}</span>}
+      {hint && <span className="text-muted-foreground">{hint}</span>}
+    </label>
   );
 }
 

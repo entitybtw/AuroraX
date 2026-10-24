@@ -648,12 +648,14 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 					rule := sessionhub.ProviderRule{Enabled: rawRule.Enabled}
 					for _, hr := range rawRule.Headers {
 						rule.Headers = append(rule.Headers, sessionhub.HeaderRule{
-							Name:   hr.Name,
-							Mode:   sessionhub.HeaderMode(hr.Mode),
-							Prefix: hr.Prefix,
-							Length: hr.Length,
-							Value:  hr.Value,
-							Values: hr.Values,
+							Name:    hr.Name,
+							Mode:    sessionhub.HeaderMode(hr.Mode),
+							Prefix:  hr.Prefix,
+							Length:  hr.Length,
+							Value:   hr.Value,
+							Values:   hr.Values,
+							Charset:  hr.Charset,
+							Template: hr.Template,
 						})
 					}
 					hubCfg.Providers[name] = rule
@@ -2171,13 +2173,14 @@ func (e sessionHubHeaderEnsurer) EnsureHeaders(target string, headers []admin.Ex
 	want := make([]sessionhub.HeaderRule, 0, len(headers))
 	for _, h := range headers {
 		want = append(want, sessionhub.HeaderRule{
-			Name:    h.Name,
-			Mode:    sessionhub.HeaderMode(h.Mode),
-			Prefix:  h.Prefix,
-			Length:  h.Length,
-			Value:   h.Value,
-			Values:  h.Values,
-			Charset: h.Charset,
+			Name:     h.Name,
+			Mode:     sessionhub.HeaderMode(h.Mode),
+			Prefix:   h.Prefix,
+			Length:   h.Length,
+			Value:    h.Value,
+			Values:   h.Values,
+			Charset:  h.Charset,
+			Template: h.Template,
 		})
 	}
 	existing, _ := e.hub.GetProviderRule(target)

@@ -367,6 +367,19 @@ type SessionHubHeaderRule struct {
 
 	// Values is the list for mode=random_from_list.
 	Values []string `yaml:"values"`
+
+	// Charset selects the alphabet for generated values (empty defaults to
+	// alphanumeric). "timestamped" selects the upstream's own id factory, whose
+	// ids embed the current time — upstreams that gate free-tier access decode
+	// that head back to a clock and reject ids that do not resolve to "now".
+	// The field must survive the config→session hub mapping, otherwise a
+	// persisted rule silently degrades to a plain random id after a restart.
+	Charset string `yaml:"charset"`
+
+	// Template names a value generator for headers whose value is not a plain
+	// random string: "b3" (Zipkin trace context), "traceparent" (W3C trace
+	// context) and "project_id" (a 40 hex character project id).
+	Template string `yaml:"template"`
 }
 
 func HasCapability(edition EditionConfig, key CapabilityKey) bool {
