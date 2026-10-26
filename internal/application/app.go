@@ -502,7 +502,17 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 			"recommendation", "rebuild with -tags=swagger")
 	}
 
-	modelAuthorizer := server.ComposeModelAuthorizers(server.AuthKeyModelAuthorizer{}, app.modelOverrides.Service)
+	modelAuthorizer := server.ComposeModelAuthorizers(
+		// Resolve the concrete provider instance so a key scoped to a named
+		// account still lists that account's models from /v1/models.
+		server.AuthKeyModelAuthorizer{ProviderName: func(model string) string {
+			if named, ok := provider.(core.ProviderNameResolver); ok {
+				return named.GetProviderName(model)
+			}
+			return ""
+		}},
+		app.modelOverrides.Service,
+	)
 
 	// Build the shared auth-key rate limiter so the admin /auth-keys/:id/stats
 	// endpoint can read live consumption from the same counters used to enforce

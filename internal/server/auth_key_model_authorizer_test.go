@@ -139,3 +139,50 @@ func TestAuthKeyModelAuthorizerFilterPublicModelsKeepsProviderScopedCatalogue(t 
 		t.Fatalf("FilterPublicModels() = %#v, want the two groq-backed models", filtered)
 	}
 }
+
+func TestAuthKeyModelAuthorizerFilterPublicModelsResolvesNamedAccounts(t *testing.T) {
+	// A key scoped to the "openai-east" account. /v1/models reports the
+	// provider *type* ("openai") in owned_by, so the concrete instance name has
+	// to come from the router. Without it the listing would come back empty.
+	authorizer := AuthKeyModelAuthorizer{
+		ProviderName: func(model string) string {
+			if model == "gpt-4o" {
+				return "openai-east"
+			}
+			return ""
+		},
+	}
+	ctx := core.WithAuthKeyAccessPolicy(context.Background(), core.AuthKeyAccessPolicy{
+		AllowedProviders: []string{"openai-east"},
+		AllowedModels:    []string{"openai-east/*"},
+	})
+
+	models := []core.Model{
+		{ID: "gpt-4o", Object: "model", OwnedBy: "openai"},
+		{ID: "claude-sonnet", Object: "model", OwnedBy: "anthropic"},
+	}
+
+	filtered := authorizer.FilterPublicModels(ctx, models)
+	if len(filtered) != 1 || filtered[0].ID != "gpt-4o" {
+		t.Fatalf("FilterPublicModels() = %#v, want only gpt-4o", filtered)
+	}
+}
+
+func TestAuthKeyModelAuthorizerFilterPublicModelsHonoursProviderScopedDeny(t *testing.T) {
+	// A provider-scoped deny has to hide that provider's models. The fallback
+	// form used when the provider is unknown must not win over it.
+	authorizer := AuthKeyModelAuthorizer{}
+	ctx := core.WithAuthKeyAccessPolicy(context.Background(), core.AuthKeyAccessPolicy{
+		DeniedModels: []string{"openai/*"},
+	})
+
+	models := []core.Model{
+		{ID: "gpt-4o", Object: "model", OwnedBy: "openai"},
+		{ID: "claude-sonnet", Object: "model", OwnedBy: "anthropic"},
+	}
+
+	filtered := authorizer.FilterPublicModels(ctx, models)
+	if len(filtered) != 1 || filtered[0].ID != "claude-sonnet" {
+		t.Fatalf("FilterPublicModels() = %#v, want only claude-sonnet", filtered)
+	}
+}

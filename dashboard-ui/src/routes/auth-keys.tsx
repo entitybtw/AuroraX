@@ -120,7 +120,7 @@ export function AuthKeysPage(): JSX.Element {
     for (const item of modelInventory) {
       const provider = String(item.provider_name ?? "").trim();
       const model = String(item.model?.id ?? "").trim();
-      if (!provider || !model) continue;
+      if (!model) continue;
       const existing = groups.get(provider);
       if (!existing) {
         groups.set(provider, [model]);
@@ -132,7 +132,12 @@ export function AuthKeysPage(): JSX.Element {
       models.sort();
     }
     return Array.from(groups, ([provider, models]) => ({ provider, models })).sort(
-      (left, right) => left.provider.localeCompare(right.provider),
+      (left, right) => {
+        // Named providers first so the unattributed tail never leads the list.
+        if (!left.provider) return 1;
+        if (!right.provider) return -1;
+        return left.provider.localeCompare(right.provider);
+      },
     );
   }, [modelInventory]);
 
@@ -142,6 +147,13 @@ export function AuthKeysPage(): JSX.Element {
     ...modelGroups.map((group) => group.provider),
   ]);
   const poolOptions = uniqueSorted((pools?.pools || []).map((pool) => pool.name));
+  const modelCountByProvider = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const group of modelGroups) {
+      counts.set(group.provider, group.models.length);
+    }
+    return counts;
+  }, [modelGroups]);
 
   // Handlers
   const handleOpenForm = () => {
@@ -534,9 +546,9 @@ export function AuthKeysPage(): JSX.Element {
                               aria-label={`Allow ${provider}`}
                             />
                             <span className="font-mono">{provider}</span>
-                            {modelGroups.some((group) => group.provider === provider) && (
+                            {modelCountByProvider.has(provider) && (
                               <span className="text-[10px] text-muted-foreground">
-                                {modelGroups.find((group) => group.provider === provider)?.models.length}{t(" models")}
+                                {modelCountByProvider.get(provider)}{t(" models")}
                               </span>
                             )}
                           </label>
@@ -653,6 +665,24 @@ function ModelScopePicker({
       ) : (
         <div className="max-h-52 overflow-y-auto">
           {groups.map((group) => {
+            // Models the inventory did not attribute to a provider are still
+            // selectable — by bare id — instead of being dropped, so a partial
+            // inventory can never make a model unreachable.
+            if (!group.provider) {
+              return (
+                <div key="__unattributed" className="mt-1 border-t border-border/40 pt-1">
+                  <p className="px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">{t("Unassigned models")}</p>
+                  {group.models.map((model) => (
+                    <ScopeRow
+                      key={model}
+                      label={model}
+                      checked={wildcard || selected.includes(model)}
+                      onCheckedChange={() => onToggleEntry(model)}
+                    />
+                  ))}
+                </div>
+              );
+            }
             const scope = providerModelScope(group.provider);
             const scopeChecked = wildcard || selected.includes(scope);
             return (
