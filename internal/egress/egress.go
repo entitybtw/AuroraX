@@ -523,6 +523,41 @@ func (st *providerState) answeredExit(cands []Candidate) (Candidate, bool) {
 	return Candidate{}, false
 }
 
+// preferAnswered puts exits that already carried an upstream answer ahead of
+// never-attempted ones.
+//
+// A tunnel that accepts the connection and never routes costs the caller the
+// whole header deadline the first time it is tried, and the pool may hold
+// dozens of them. An exit that has shown it works is a cheaper bet than the
+// next unknown tunnel, so proven exits lead and the untried ones follow in
+// their rotation order. Sorting is stable, so the rotation itself is kept
+// among equals and an unused address is still reached when the proven ones
+// run out or hit their quota.
+func (st *providerState) preferAnswered(cands []Candidate) []Candidate {
+	if len(cands) < 2 {
+		return cands
+	}
+	rank := func(name string) int {
+		h := st.health[name]
+		switch {
+		case h == nil:
+			return 1 // never attempted
+		case h.answered:
+			return 0 // carried an answer before
+		default:
+			return 2 // tried and failed to answer
+		}
+	}
+	out := make([]Candidate, len(cands))
+	copy(out, cands)
+	ranks := make(map[string]int, len(out))
+	for _, c := range out {
+		ranks[c.Name] = rank(c.Name)
+	}
+	sort.SliceStable(out, func(i, j int) bool { return ranks[out[i].Name] < ranks[out[j].Name] })
+	return out
+}
+
 // probeWorthy reports whether an exit that already answered can be tried
 // again when nothing better is left: a rate-limited exit is, because the
 // upstream answers its refusal at once; an exit whose last failure is recent
@@ -602,6 +637,8 @@ func (r *Registry) Pick(provider string, exclude map[string]struct{}) (Candidate
 	// rotation — the extended multi-IP set — instead of waiting for the local
 	// addresses to fail. Entries that do not say which tier they want stay in
 	// the fallback tier.
+	//
+	// The hook runs without the lock, so it must not be re-taken below by it.
 	var all []Candidate
 	all = dedupe(append(all, core...))
 	if ext != nil {
@@ -612,6 +649,14 @@ func (r *Registry) Pick(provider string, exclude map[string]struct{}) (Candidate
 	if len(all) == 0 {
 		return Candidate{}, false
 	}
+
+	// Selection reads the per-exit health bookkeeping that Report writes under
+	// the write lock. Taking the read lock for the whole selection keeps a
+	// request from reading the map while another request records its outcome —
+	// a concurrent map read and write crashes the process, not just the
+	// request.
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
 	usable := make([]Candidate, 0, len(all))
 	for _, c := range all {
@@ -647,6 +692,9 @@ func (r *Registry) Pick(provider string, exclude map[string]struct{}) (Candidate
 	chosen := chooseTier(usable, func(t Tier) bool {
 		return st == nil || !st.tierLimited(t, now)
 	})
+	if st != nil {
+		chosen = st.preferAnswered(chosen)
+	}
 	return selectOne(chosen, strategy, rr), true
 }
 

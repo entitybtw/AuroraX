@@ -700,3 +700,62 @@ func TestDeadExitStaysOutUntilCooldownPasses(t *testing.T) {
 		}
 	}
 }
+
+// A proven exit is a cheaper bet than the next unknown tunnel: an untried
+// address may accept the connection and never answer, and the caller pays that
+// header deadline in full. Proven exits therefore lead, and the rotation among
+// them is kept.
+func TestPickPrefersAnExitThatAnswered(t *testing.T) {
+	r := NewRegistry()
+	r.SetCore("zen", StrategyRoundRobin, []Candidate{
+		{Name: "dead", LocalAddr: ip("10.0.0.1"), Tier: TierFallback},
+		{Name: "proven", LocalAddr: ip("10.0.0.2"), Tier: TierFallback},
+		{Name: "untried", LocalAddr: ip("10.0.0.3"), Tier: TierFallback},
+	})
+	// "dead" accepted a connection and failed to answer; "proven" answered.
+	r.Report("zen", Candidate{Name: "proven", LocalAddr: ip("10.0.0.2"), Tier: TierFallback}, OutcomeOK, "")
+	for i := 0; i < 3; i++ {
+		r.Report("zen", Candidate{Name: "dead", LocalAddr: ip("10.0.0.1"), Tier: TierFallback}, OutcomeFailed, "timeout")
+	}
+
+	c, ok := r.Pick("zen", nil)
+	if !ok {
+		t.Fatal("Pick failed")
+	}
+	if c.Name != "proven" {
+		t.Fatalf("Picked %q, want the exit that already answered", c.Name)
+	}
+}
+
+// Several requests run concurrently against one registry. Selection reads the
+// health bookkeeping that reporting writes, so a missing lock is a concurrent
+// map access — which takes the whole gateway down, not just the request.
+func TestPickAndReportRunConcurrently(t *testing.T) {
+	r := NewRegistry()
+	r.SetCore("zen", StrategyRoundRobin, []Candidate{
+		{Name: "a", LocalAddr: ip("10.0.0.1")},
+		{Name: "b", LocalAddr: ip("10.0.0.2")},
+		{Name: "c", LocalAddr: ip("10.0.0.3"), Tier: TierFallback},
+	})
+
+	done := make(chan struct{})
+	for i := 0; i < 8; i++ {
+		go func() {
+			defer func() { done <- struct{}{} }()
+			for j := 0; j < 200; j++ {
+				c, ok := r.Pick("zen", nil)
+				if !ok {
+					continue
+				}
+				if j%3 == 0 {
+					r.Report("zen", c, OutcomeOK, "")
+					continue
+				}
+				r.Report("zen", c, OutcomeFailed, "boom")
+			}
+		}()
+	}
+	for i := 0; i < 8; i++ {
+		<-done
+	}
+}
