@@ -16,8 +16,10 @@ SIDECAR_ENABLED="${AURORA_SIDECAR_ENABLED:-true}"
 SIDECAR_PORT="${AURORA_SIDECAR_PORT:-8090}"
 SIDECAR_DIR="${AURORA_SIDECAR_DIR:-/opt/sidecar}"
 BIND_IPS="${AURORA_SIDECAR_BIND_IPS:-}"
-
-BIND_PROXIES=""
+# Declared up front: the export below must also exist when no static IP list
+# is given, otherwise the gateway cannot tell which proxies were started for
+# it and re-binds every address itself.
+BIND_PROXIES="${AURORA_SIDECAR_BIND_PROXIES:-}"
 BASE_PROXY_PORT=8981
 
 if [ -n "$BIND_IPS" ]; then

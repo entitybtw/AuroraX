@@ -184,7 +184,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 	app.egressSource = newHookEgressSource(app.hooks)
 	app.egress.SetExtensionSource(app.extensionCandidates)
 	llmclient.SetDefaultEgress(app.egress)
-	app.sidecarBind = newSidecarBindProxies(sidecarBindProxiesFile)
+	app.sidecarBind = newSidecarBindProxies(sidecarBindProxiesPath())
 
 	// Session hub identity header set is extension-driven: sidecar
 	// forward_headers (written on extension apply) decide which inbound

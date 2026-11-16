@@ -557,3 +557,100 @@ func TestExclusiveTierPrecedesPreferred(t *testing.T) {
 		t.Fatalf("after a rate limit Pick = %+v, want the source address", c)
 	}
 }
+
+// A per-day free quota answers with Retry-After set to the time left until it
+// rolls over: hours, not seconds. The exit must stay out of rotation for that
+// window instead of being probed again 45s later.
+func TestRetryAfterWindowOutlivesDefaultCooldown(t *testing.T) {
+	r := NewRegistry()
+	now := time.Now()
+	r.now = func() time.Time { return now }
+	r.SetCore("zen", StrategyRoundRobin, []Candidate{
+		{Name: "ip1", LocalAddr: ip("10.0.0.1")},
+		{Name: "ip2", LocalAddr: ip("10.0.0.2")},
+	})
+
+	first, _ := r.Pick("zen", nil)
+	until := now.Add(4 * time.Hour)
+	r.ReportRateLimit("zen", first, OutcomeLimited, "FreeUsageLimitError", until)
+
+	// Well past the default 45s window but long before the announced one: the
+	// spent address stays out and the neighbour keeps serving.
+	now = now.Add(10 * time.Minute)
+	for i := 0; i < 4; i++ {
+		c, ok := r.Pick("zen", nil)
+		if !ok {
+			t.Fatal("Pick failed")
+		}
+		if c.Name == first.Name {
+			t.Fatalf("spent address %q was picked again before Retry-After", c.Name)
+		}
+	}
+
+	// After the announced window the address is a candidate again.
+	now = until.Add(time.Second)
+	seen := make(map[string]bool)
+	for i := 0; i < 4; i++ {
+		c, _ := r.Pick("zen", nil)
+		seen[c.Name] = true
+	}
+	if !seen[first.Name] {
+		t.Fatalf("address %q never came back after its Retry-After window", first.Name)
+	}
+}
+
+// When every exit of a tier is spent for the same long window, the tier is
+// demoted for that window too — otherwise the fallback tier would be retried
+// once a minute for a quota that rolls tomorrow.
+func TestRetryAfterWindowAppliesToSpentTier(t *testing.T) {
+	r := NewRegistry()
+	now := time.Now()
+	r.now = func() time.Time { return now }
+	r.SetCore("zen", StrategyRoundRobin, []Candidate{{Name: "ip1", LocalAddr: ip("10.0.0.1")}})
+	proxy, _ := url.Parse("socks5://127.0.0.1:1080")
+	r.SetExtensionSource(func(string) []Candidate {
+		return []Candidate{{Name: "vpn1", ProxyURL: proxy, Tier: TierFallback}}
+	})
+
+	first, _ := r.Pick("zen", nil)
+	until := now.Add(12 * time.Hour)
+	r.ReportRateLimit("zen", first, OutcomeLimited, "", until)
+
+	if r.HasAlternative("zen", map[string]struct{}{"ip1": {}}) == false {
+		t.Fatal("the fallback tier must still be offered after a rate limit")
+	}
+
+	// The whole preferred tier is spent, so the fallback serves. Once the
+	// fallback is spent too there is nothing left, and the request surfaces
+	// the rate limit rather than retrying a spent exit.
+	vpn, _ := r.Pick("zen", nil)
+	r.ReportRateLimit("zen", vpn, OutcomeLimited, "", until)
+	now = now.Add(time.Minute)
+	st, _ := r.Status("zen")
+	for _, exit := range st.Exits {
+		if exit.Tier == TierPreferred && !exit.TierLimited {
+			t.Fatalf("preferred tier should be marked limited for the full window: %+v", exit)
+		}
+	}
+}
+
+// An upstream that sends no retry window still gets the default cool-down.
+func TestReportWithoutRetryAfterKeepsDefaultWindow(t *testing.T) {
+	r := NewRegistry()
+	now := time.Now()
+	r.now = func() time.Time { return now }
+	r.SetCore("zen", StrategyRoundRobin, []Candidate{{Name: "ip1", LocalAddr: ip("10.0.0.1")}})
+
+	c, _ := r.Pick("zen", nil)
+	r.Report("zen", c, OutcomeLimited, "")
+	now = now.Add(limitedExitCoolDown - time.Second)
+	st, _ := r.Status("zen")
+	if len(st.Exits) != 1 || st.Exits[0].Available {
+		t.Fatalf("exit should still be cooling down 1s before the default window: %+v", st.Exits)
+	}
+	now = now.Add(2 * time.Second)
+	st, _ = r.Status("zen")
+	if len(st.Exits) != 1 || !st.Exits[0].Available {
+		t.Fatalf("exit should be available after the default window: %+v", st.Exits)
+	}
+}

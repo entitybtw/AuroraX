@@ -37,6 +37,11 @@ type GatewayError struct {
 	Code       *string   `json:"code" extensions:"x-nullable"`
 	// Original error for debugging (not exposed to clients)
 	Err error `json:"-"`
+	// RetryAfter is the upstream's own "come back in N" answer for a rate
+	// limit (the Retry-After header). Clients use it to show when they may
+	// continue instead of retrying blindly; empty means the upstream did not
+	// say.
+	RetryAfter string `json:"-"`
 }
 
 // OpenAIErrorEnvelope documents the public OpenAI-compatible error response.

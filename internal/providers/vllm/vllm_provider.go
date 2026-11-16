@@ -167,11 +167,25 @@ func setHeaders(req *http.Request, apiKey string) {
 // not speak SOCKS5 either, so the exit is fronted by a local HTTP CONNECT
 // bridge and passed as X-Aurora-Exit-Proxy.
 func setExitProxyHeader(req *http.Request, cand egress.Candidate) {
+	// Clear both handover headers first. The request object is rebuilt per
+	// attempt, but the provider's header setter may also have stamped the
+	// provider's default bind_ip during buildRequest; leaving a stale exit
+	// beside the one picked for this attempt makes the sidecar leave from an
+	// address the gateway did not record and never rotate properly.
+	req.Header.Del("X-Aurora-Exit-Proxy")
 	if cand.LocalAddr != nil {
+		// Pin the attempt to this address. The sidecar treats the header as a
+		// preference and rotates on its own retries, so a pinned attempt that
+		// the sidecar retried elsewhere would leave from an address the
+		// gateway never recorded — and the rotation would double-count
+		// addresses besides.
 		req.Header.Set("X-Aurora-Bind-Ip", cand.LocalAddr.String())
+		req.Header.Set("X-Aurora-Pin-Exit", "1")
 		return
 	}
+	req.Header.Del("X-Aurora-Pin-Exit")
 	if cand.ProxyURL == nil {
+		req.Header.Del("X-Aurora-Bind-Ip")
 		return
 	}
 	bridge, ok := bindproxy.EnsureBridge(cand.ProxyURL.String())
@@ -179,6 +193,7 @@ func setExitProxyHeader(req *http.Request, cand egress.Candidate) {
 		// Not a SOCKS5 exit: the sidecar could not use it anyway.
 		return
 	}
+	req.Header.Del("X-Aurora-Bind-Ip")
 	req.Header.Set("X-Aurora-Exit-Proxy", bridge)
 }
 

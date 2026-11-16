@@ -264,8 +264,14 @@ export async function executeRequest(envelope, cfg) {
   const upstreamStatus = resp.status;
   if (!resp.ok) {
     raw = await resp.text().catch(() => "");
+    // Keep the upstream's retry hint. A free quota answered with 429 carries
+    // Retry-After set to the time left until it rolls over; dropping it here
+    // forced the gateway to guess, and the caller never learned when the
+    // quota comes back.
+    const retryAfter = resp.headers.get("retry-after") || "";
     return {
       __status: upstreamStatus,
+      __retry_after: retryAfter,
       error: { message: raw || `upstream ${upstreamStatus}` },
     };
   }

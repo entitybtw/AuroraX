@@ -3,7 +3,10 @@ package llmclient
 import (
 	"context"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync"
+	"time"
 
 	"aurora/internal/egress"
 	httpclient "aurora/internal/http_client"
@@ -120,12 +123,41 @@ func (c *Client) selectEgress(ctx context.Context) (*http.Client, egress.Candida
 // reportEgress feeds the outcome back to the registry so a failing exit is
 // cooled down — and a rate-limited tier handed over to the next tier —
 // instead of being retried on every request. detail is the upstream error or
-// status line the operator sees in the egress status panel.
-func (c *Client) reportEgress(cand egress.Candidate, outcome egress.Outcome, detail string) {
+// status line the operator sees in the egress status panel. retryAfter is the
+// deadline the upstream announced for a rate limit, or the zero time.
+func (c *Client) reportEgress(cand egress.Candidate, outcome egress.Outcome, detail string, retryAfter time.Time) {
 	if c.egress == nil {
 		return
 	}
-	c.egress.Report(c.egressProviderName(), cand, outcome, detail)
+	c.egress.ReportRateLimit(c.egressProviderName(), cand, outcome, detail, retryAfter)
+}
+
+// retryAfterDeadline parses the upstream's Retry-After answer into an absolute
+// instant. Both forms are accepted: delay-seconds and an HTTP-date. A missing
+// or unparsable header yields the zero time, which the registry treats as
+// "probe back on the default window".
+func retryAfterDeadline(resp *http.Response, now time.Time) time.Time {
+	if resp == nil {
+		return time.Time{}
+	}
+	raw := strings.TrimSpace(resp.Header.Get("Retry-After"))
+	if raw == "" {
+		return time.Time{}
+	}
+	if secs, err := strconv.ParseInt(raw, 10, 64); err == nil {
+		if secs <= 0 {
+			return time.Time{}
+		}
+		// Saturate instead of overflowing on a hostile value.
+		if secs > int64(egress.MaxLimitedCoolDown/time.Second) {
+			secs = int64(egress.MaxLimitedCoolDown / time.Second)
+		}
+		return now.Add(time.Duration(secs) * time.Second)
+	}
+	if at, err := http.ParseTime(raw); err == nil {
+		return at
+	}
+	return time.Time{}
 }
 
 // egressOutcome classifies an attempt. 429/403 are treated as rate limiting

@@ -262,6 +262,10 @@ type Request struct {
 type Response struct {
 	StatusCode int
 	Body       []byte
+	// RetryAfter is the upstream's Retry-After header, preserved so a rate
+	// limit can be handed to the caller with the same "come back in N" hint
+	// the upstream gave. Empty when the upstream did not send one.
+	RetryAfter string
 }
 
 type requestScope struct {
@@ -493,6 +497,9 @@ func (c *Client) DoRaw(ctx context.Context, req Request) (*Response, error) {
 	// is the actionable answer, "gateway timeout" is not.
 	var rateLimitErr error
 	var rateLimitStatus int
+	// rateLimitErrPtr is the same error kept typed so its Retry-After hint can
+	// be carried into the error handed to the caller.
+	var rateLimitErrPtr *core.GatewayError
 	maxAttempts := c.maxAttempts()
 	if req.RawBodyReader != nil {
 		maxAttempts = 1
@@ -507,7 +514,6 @@ func (c *Client) DoRaw(ctx context.Context, req Request) (*Response, error) {
 	// next address is tried right away, without the backoff that would only
 	// add latency to a request that is already late.
 	failover := false
-
 	for attempt := 0; attempt < maxAttempts+failoverBudget; attempt++ {
 		if !failover {
 			if err := c.waitForRetryAttempt(ctx, scope, retries); err != nil {
@@ -553,6 +559,7 @@ func (c *Client) DoRaw(ctx context.Context, req Request) (*Response, error) {
 			// different problem for the caller than a dead tunnel.
 			if failovers < failoverBudget && c.hasUntriedExit(ctx) {
 				lastErr = core.ParseProviderError(c.config.ProviderName, resp.StatusCode, resp.Body, nil)
+				attachRetryAfter(lastErr, resp)
 				lastStatusCode = resp.StatusCode
 				lastErrFromTransport = false
 				if scope.halfOpenProbe {
@@ -564,6 +571,7 @@ func (c *Client) DoRaw(ctx context.Context, req Request) (*Response, error) {
 				continue
 			}
 			lastErr = core.ParseProviderError(c.config.ProviderName, resp.StatusCode, resp.Body, nil)
+			attachRetryAfter(lastErr, resp)
 			lastStatusCode = resp.StatusCode
 			lastErrFromTransport = false
 			if scope.halfOpenProbe {
@@ -584,10 +592,13 @@ func (c *Client) DoRaw(ctx context.Context, req Request) (*Response, error) {
 		if resp.StatusCode == http.StatusTooManyRequests &&
 			failovers < failoverBudget &&
 			c.hasUntriedExit(ctx) {
-			lastErr = core.ParseProviderError(c.config.ProviderName, resp.StatusCode, resp.Body, nil)
+			parsed := core.ParseProviderError(c.config.ProviderName, resp.StatusCode, resp.Body, nil)
+			attachRetryAfter(parsed, resp)
+			lastErr = parsed
+			rateLimitErrPtr = parsed
 			lastStatusCode = resp.StatusCode
 			lastErrFromTransport = false
-			rateLimitErr = lastErr
+			rateLimitErr = parsed
 			rateLimitStatus = resp.StatusCode
 			if scope.halfOpenProbe {
 				c.completeScope(scope, lastStatusCode, lastErr, nil)
@@ -601,6 +612,7 @@ func (c *Client) DoRaw(ctx context.Context, req Request) (*Response, error) {
 		// Non-retryable error
 		if resp.StatusCode != http.StatusOK {
 			parsedErr := core.ParseProviderError(c.config.ProviderName, resp.StatusCode, resp.Body, nil)
+			attachRetryAfter(parsedErr, resp)
 			c.completeScope(scope, resp.StatusCode, parsedErr, nil)
 			return nil, parsedErr
 		}
@@ -619,6 +631,13 @@ func (c *Client) DoRaw(ctx context.Context, req Request) (*Response, error) {
 			lastErr = rateLimitErr
 			lastStatusCode = rateLimitStatus
 			lastErrFromTransport = false
+		}
+		// The upstream's own hint survives the fallback: a caller that is
+		// handed a rate limit should learn when the quota returns.
+		if rateLimitErrPtr != nil && rateLimitErrPtr.RetryAfter != "" {
+			if ge, ok := lastErr.(*core.GatewayError); ok && ge.RetryAfter == "" {
+				ge.RetryAfter = rateLimitErrPtr.RetryAfter
+			}
 		}
 		var circuitErr error
 		if lastErrFromTransport {
@@ -728,6 +747,11 @@ func (c *Client) DoPassthrough(ctx context.Context, req Request) (*http.Response
 	// is the actionable answer, "gateway timeout" is not.
 	var rateLimitStatus int
 	var rateLimitBody []byte
+	// rateLimitRetryAfter keeps the upstream's own retry hint for the round
+	// trip back to the caller, so a spent quota is reported with the time
+	// it comes back instead of a bare 429.
+	var rateLimitRetryAfter string
+	var rateLimitErrPtr *core.GatewayError
 	// A failover to another exit is not a transient fault of the upstream: the
 	// next address is tried right away, without the backoff that would only
 	// add latency to a request that is already late.
@@ -787,6 +811,7 @@ func (c *Client) DoPassthrough(ctx context.Context, req Request) (*http.Response
 			if failover {
 				if resp.StatusCode == http.StatusTooManyRequests {
 					rateLimitStatus = resp.StatusCode
+					rateLimitRetryAfter = strings.TrimSpace(resp.Header.Get("Retry-After"))
 					rateLimitBody = readBodyLimited(resp)
 				}
 				_ = resp.Body.Close()
@@ -800,7 +825,7 @@ func (c *Client) DoPassthrough(ctx context.Context, req Request) (*http.Response
 				if rateLimitStatus != 0 && resp.StatusCode != http.StatusTooManyRequests {
 					_ = resp.Body.Close()
 					c.completeScope(scope, rateLimitStatus, nil, nil)
-					return rateLimitResponse(rateLimitStatus, rateLimitBody), nil
+					return rateLimitResponse(rateLimitStatus, rateLimitBody, rateLimitRetryAfter), nil
 				}
 				c.completeScope(scope, resp.StatusCode, nil, nil)
 				return resp, nil
@@ -819,6 +844,12 @@ func (c *Client) DoPassthrough(ctx context.Context, req Request) (*http.Response
 	// act on a spent quota, but not on a dead tunnel.
 	if rateLimitStatus != 0 {
 		err := core.NewProviderError(c.config.ProviderName, rateLimitStatus, string(rateLimitBody), nil)
+		if rateLimitErrPtr != nil {
+			err.RetryAfter = rateLimitErrPtr.RetryAfter
+		}
+		if err.RetryAfter == "" {
+			err.RetryAfter = rateLimitRetryAfter
+		}
 		c.completeScope(scope, rateLimitStatus, err, nil)
 		return nil, err
 	}
@@ -830,14 +861,18 @@ func (c *Client) DoPassthrough(ctx context.Context, req Request) (*http.Response
 // rate limit was seen on the way and the exit that is tried last is broken.
 // The status and body are the ones the upstream sent, so the caller sees the
 // same answer it would have seen without the detour.
-func rateLimitResponse(status int, body []byte) *http.Response {
+func rateLimitResponse(status int, body []byte, retryAfter string) *http.Response {
 	if len(body) == 0 {
 		body = []byte(`{"error":"rate limited"}`)
+	}
+	header := http.Header{"Content-Type": []string{"application/json"}}
+	if retryAfter != "" {
+		header.Set("Retry-After", retryAfter)
 	}
 	return &http.Response{
 		StatusCode: status,
 		Status:     fmt.Sprintf("%d %s", status, http.StatusText(status)),
-		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Header:     header,
 		Body:       io.NopCloser(bytes.NewReader(body)),
 	}
 }
@@ -912,7 +947,12 @@ func (c *Client) doHTTPRequest(ctx context.Context, req Request) (*http.Response
 	}
 	resp, err := client.Do(httpReq)
 	if used {
-		c.reportEgress(cand, egressOutcome(err, resp), egressDetail(err, resp))
+		outcome := egressOutcome(err, resp)
+		var retryAfter time.Time
+		if outcome == egress.OutcomeLimited {
+			retryAfter = retryAfterDeadline(resp, time.Now())
+		}
+		c.reportEgress(cand, outcome, egressDetail(err, resp), retryAfter)
 	}
 	if err != nil {
 		return nil, core.NewProviderError(c.config.ProviderName, providerErrorStatusCode(err), "failed to send request: "+err.Error(), err)
@@ -943,6 +983,7 @@ func (c *Client) doRequest(ctx context.Context, req Request) (*Response, error) 
 	return &Response{
 		StatusCode: resp.StatusCode,
 		Body:       cloneBytes(buf.Bytes()),
+		RetryAfter: strings.TrimSpace(resp.Header.Get("Retry-After")),
 	}, nil
 }
 
@@ -1045,6 +1086,17 @@ func (c *Client) isRetryable(statusCode int) bool {
 	return statusCode == http.StatusServiceUnavailable ||
 		statusCode == http.StatusBadGateway ||
 		statusCode == http.StatusGatewayTimeout
+}
+
+// attachRetryAfter copies the upstream's Retry-After hint onto a parsed error
+// so the gateway can pass it to the caller.
+func attachRetryAfter(err error, resp *Response) {
+	if err == nil || resp == nil || resp.RetryAfter == "" {
+		return
+	}
+	if ge, ok := err.(*core.GatewayError); ok {
+		ge.RetryAfter = resp.RetryAfter
+	}
 }
 
 func providerErrorStatusCode(err error) int {

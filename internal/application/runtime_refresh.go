@@ -365,6 +365,11 @@ func (a *App) rebuildWithOverrides(ctx context.Context) error {
 		return err
 	}
 	registerSessionHubPoolMemberships(a.sessionHub, a.providers.Pools)
+	// The rebuilt providers are new instances with (possibly) new bind_ips.
+	// Without this the exit registry keeps the old addresses and the sidecar
+	// keeps the old proxy list, so an address created or edited from the
+	// dashboard is configured but never used.
+	a.syncEgress()
 	return nil
 }
 

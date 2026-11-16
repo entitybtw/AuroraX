@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"aurora/internal/bindproxy"
 )
 
 // readPublished proxies the manager published for the sidecar to rotate over.
@@ -81,19 +83,43 @@ func TestSidecarBindProxies_FollowsTheProviderAddresses(t *testing.T) {
 	}
 }
 
+// TestMain pins the exit probe to a local listener so the tests that call
+// Sync never depend on the outside network.
+func TestMain(m *testing.M) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err == nil {
+		go bindproxy.Serve(ln, net.ParseIP("127.0.0.1"))
+		probeTarget = ln.Addr().String()
+	}
+	code := m.Run()
+	if ln != nil {
+		_ = ln.Close()
+	}
+	os.Exit(code)
+}
+
 func TestSidecarBindProxies_AdoptsEntrypointProxies(t *testing.T) {
 	t.Setenv("AURORA_SIDECAR_ENABLED", "true")
 	// The entrypoint already listens for this address: adopting it must not
-	// bind a second listener.
-	t.Setenv("AURORA_SIDECAR_BIND_PROXIES", "127.0.0.1:8981")
+	// bind a second listener. The listener has to be real — a port that
+	// answers nothing is treated as a dead entrypoint proxy and rebound
+	// in-process (see the test below), so stand one up here.
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	t.Cleanup(func() { _ = ln.Close() })
+	go bindproxy.Serve(ln, net.ParseIP("127.0.0.1"))
+	port := ln.Addr().(*net.TCPAddr).Port
+	t.Setenv("AURORA_SIDECAR_BIND_PROXIES", fmt.Sprintf("127.0.0.1:%d", port))
 	file := filepath.Join(t.TempDir(), "sidecar-bind-proxies.json")
 	manager := newSidecarBindProxies(file)
 	t.Cleanup(manager.Stop)
 
 	manager.Sync([]string{"127.0.0.1"})
 	published := readPublished(t, file)
-	if len(published) != 1 || published[0].Port != 8981 {
-		t.Fatalf("published %+v, want the entrypoint's 127.0.0.1:8981", published)
+	if len(published) != 1 || published[0].Port != port {
+		t.Fatalf("published %+v, want the entrypoint's 127.0.0.1:%d", published, port)
 	}
 	if len(manager.owned) != 0 {
 		t.Fatalf("gateway bound its own listener for an address the entrypoint owns: %+v", manager.owned)
@@ -182,5 +208,58 @@ func TestNormaliseIPs_CanonicalisesAndSorts(t *testing.T) {
 	want := []string{"10.0.0.1", "10.0.0.2", "2001:db8::1"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("normaliseIPs = %v, want %v", got, want)
+	}
+}
+
+// A port the entrypoint published but that answers nothing (its bind failed,
+// the process died) must not be adopted: the sidecar would dial a dead socket
+// and every request from that address would fail while the dashboard shows
+// the address as configured.
+func TestSidecarBindProxies_RebindsDeadEntrypointProxy(t *testing.T) {
+	t.Setenv("AURORA_SIDECAR_ENABLED", "true")
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	deadPort := ln.Addr().(*net.TCPAddr).Port
+	_ = ln.Close()
+	t.Setenv("AURORA_SIDECAR_BIND_PROXIES", fmt.Sprintf("127.0.0.1:%d", deadPort))
+	file := filepath.Join(t.TempDir(), "sidecar-bind-proxies.json")
+	manager := newSidecarBindProxies(file)
+	t.Cleanup(manager.Stop)
+
+	manager.Sync([]string{"127.0.0.1"})
+	published := readPublished(t, file)
+	if len(published) != 1 || published[0].Port == deadPort {
+		t.Fatalf("published %+v, want a live listener instead of the dead %d", published, deadPort)
+	}
+	if len(manager.owned) != 1 {
+		t.Fatalf("gateway owns %d listeners, want 1", len(manager.owned))
+	}
+}
+
+// An address whose proxy cannot carry traffic must not be published: the
+// sidecar would dial it, the gateway would blame the upstream, and the
+// rotation would keep counting a dead exit as healthy.
+func TestSidecarBindProxies_SkipsUnreachableExit(t *testing.T) {
+	t.Setenv("AURORA_SIDECAR_ENABLED", "true")
+	t.Setenv("AURORA_SIDECAR_BIND_PROXIES", "")
+	file := filepath.Join(t.TempDir(), "sidecar-bind-proxies.json")
+	manager := newSidecarBindProxies(file)
+	t.Cleanup(manager.Stop)
+
+	// A dead exit is dropped from the published set while its listener stays
+	// around so a later probe can bring it back.
+	manager.verified["127.0.0.2"] = "dead"
+	manager.Sync([]string{"127.0.0.2"})
+	if published := readPublished(t, file); len(published) != 0 {
+		t.Fatalf("published %+v, want the dead exit dropped", published)
+	}
+
+	// Once the address answers again it is published.
+	manager.verified["127.0.0.2"] = "ok"
+	manager.Sync([]string{"127.0.0.2"})
+	if published := readPublished(t, file); len(published) != 1 {
+		t.Fatalf("published %+v, want the recovered exit back", published)
 	}
 }

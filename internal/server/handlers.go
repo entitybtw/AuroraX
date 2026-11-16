@@ -735,6 +735,12 @@ func (h *Handler) handleError(c *echo.Context, err error) error {
 		logHandledError(c, gatewayErr)
 		auditlog.EnrichEntryWithError(c, string(gatewayErr.Type), gatewayErr.Message, gatewayErrorCode(gatewayErr))
 		h.applyErrorResponseHeaders(c, err)
+		// Pass the upstream's own retry hint through: a client that knows the
+		// quota returns at a given time can wait for it instead of retrying
+		// blindly or asking the user to continue after every refusal.
+		if gatewayErr.RetryAfter != "" {
+			c.Response().Header().Set("Retry-After", gatewayErr.RetryAfter)
+		}
 		return c.JSON(gatewayErr.HTTPStatusCode(), gatewayErr.ToJSON())
 	}
 

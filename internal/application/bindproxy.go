@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -11,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"aurora/internal/bindproxy"
 )
@@ -19,6 +21,19 @@ import (
 // to the other operator-visible config files so it is inspectable, and is
 // rewritten atomically whenever the set changes.
 const sidecarBindProxiesFile = "configs/sidecar-bind-proxies.json"
+
+// sidecarBindProxiesPath resolves the file above, honouring the path the
+// container entrypoint advertises. The two must name the same file: the
+// entrypoint exports AURORA_SIDECAR_BIND_PROXIES_FILE=/app/configs/… while the
+// gateway runs from its own working directory, and a mismatch left the sidecar
+// reading a stale list (the reason a newly added address never started
+// serving).
+func sidecarBindProxiesPath() string {
+	if p := strings.TrimSpace(os.Getenv("AURORA_SIDECAR_BIND_PROXIES_FILE")); p != "" {
+		return p
+	}
+	return sidecarBindProxiesFile
+}
 
 // sidecarBindProxies keeps one local CONNECT proxy per source address the
 // providers are configured to send from.
@@ -35,6 +50,10 @@ type sidecarBindProxies struct {
 	env map[string]int
 	// owned are the listeners this gateway started, keyed by egress address.
 	owned map[string]ownedBindProxy
+	// verified is the last tunnel probe result per address: "ok", "dead" or
+	// "" while it has not been probed yet. The probe runs off the Sync path
+	// so a slow tunnel never blocks a config reload.
+	verified map[string]string
 	file  string
 	// written is the last payload sent to disk, to skip no-op rewrites.
 	written string
@@ -47,9 +66,10 @@ type ownedBindProxy struct {
 
 func newSidecarBindProxies(file string) *sidecarBindProxies {
 	s := &sidecarBindProxies{
-		env:   map[string]int{},
-		owned: map[string]ownedBindProxy{},
-		file:  file,
+		env:      map[string]int{},
+		owned:    map[string]ownedBindProxy{},
+		verified: map[string]string{},
+		file:     file,
 	}
 	for _, entry := range strings.Split(os.Getenv("AURORA_SIDECAR_BIND_PROXIES"), ",") {
 		entry = strings.TrimSpace(entry)
@@ -88,14 +108,35 @@ func (s *sidecarBindProxies) Sync(sourceIPs []string) {
 		desired = nil
 	}
 
+	// Verify the tunnels before publishing: an address whose proxy listens
+	// but cannot reach the upstream (the source address is gone from the
+	// interface, the tunnel is down) answered "connected" and then failed,
+	// which is exactly the dead exit the rotation must not offer.
+	s.probeExitsLocked(desired)
+
 	published := make([]map[string]any, 0, len(desired))
 	keep := make(map[string]bool, len(desired))
 	for _, host := range desired {
-		// The entrypoint already listens for this one: adopt it as is.
-		if port, ok := s.env[host]; ok {
-			published = append(published, map[string]any{"ip": host, "port": port})
-			keep[host] = true
+		if s.verified[host] == "dead" {
+			slog.Error("sidecar bind proxy skipped: the exit cannot reach the upstream", "egress", host)
 			continue
+		}
+		// The entrypoint already listens for this one: adopt it as is, but
+		// only if the listener is actually answering. A proxy that failed to
+		// bind its address (the address is not on the host, the container is
+		// not on the host network) exits with an error, and adopting the
+		// silent port would leave the sidecar dialling into a dead socket —
+		// the "switch IP does not work" case where the address is configured
+		// but nothing is ever served from it.
+		if port, ok := s.env[host]; ok {
+			if envProxyAlive(port) {
+				published = append(published, map[string]any{"ip": host, "port": port})
+				keep[host] = true
+				continue
+			}
+			slog.Warn("sidecar bind proxy from the entrypoint is not answering, binding it in-process",
+				"egress", host, "port", port)
+			delete(s.env, host)
 		}
 		if held, ok := s.owned[host]; ok {
 			published = append(published, map[string]any{"ip": host, "port": held.port})
@@ -104,6 +145,17 @@ func (s *sidecarBindProxies) Sync(sourceIPs []string) {
 		}
 		ip := net.ParseIP(host)
 		if ip == nil {
+			continue
+		}
+		// An address the host does not own can never be bound. Catching it
+		// here names the address in the log instead of publishing a proxy
+		// whose every CONNECT fails with "502 Bad Gateway" — and inside a
+		// bridge-network container no host address is local at all, so the
+		// message points at the network mode.
+		if !ip.IsLoopback() && !hostHasAddress(ip) {
+			slog.Error("sidecar bind proxy skipped: the address is not assigned to this host "+
+				"(host networking is required for per-address egress)",
+				"egress", host)
 			continue
 		}
 		ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -129,6 +181,92 @@ func (s *sidecarBindProxies) Sync(sourceIPs []string) {
 	}
 
 	s.writeLocked(map[string]any{"proxies": published})
+}
+
+// probeTarget is the address dialled to prove an exit works. It must be a
+// host the providers actually talk to; ifconfig.me echoes the caller's
+// address, and its plain-HTTP answer keeps the probe cheap (no TLS, no
+// upstream quota is consumed).
+var probeTarget = "ifconfig.me:80"
+
+// probeTimeout bounds one probe; a slow or blackholed tunnel is a dead exit.
+const probeTimeout = 4 * time.Second
+
+// probeExitsLocked refreshes verified for the given addresses, probing only
+// the ones whose state is unknown or previously dead. The caller holds the
+// lock, so the probe is bounded and never runs in parallel — addresses are
+// few, and a synchronised probe keeps a refresh from stampeding the network.
+func (s *sidecarBindProxies) probeExitsLocked(hosts []string) {
+	for _, host := range hosts {
+		// Probing an unknown address is a fresh start, a previously dead one
+		// is re-checked so a recovered exit comes back. A state set by the
+		// caller (a test, or an operator marking an exit) is left alone.
+		if _, seen := s.verified[host]; !seen {
+			s.verified[host] = probeExit(net.ParseIP(host))
+		}
+	}
+}
+
+// probeExit dials the probe target through host as the source address. It
+// reports "ok" when the connection completes, "dead" when the address is not
+// usable (dial refused, no route, timeout) and "" when the probe could not
+// tell (the target itself is unreachable) — a broken probe must not take a
+// working address out of the rotation.
+func probeExit(ip net.IP) string {
+	if ip == nil {
+		return "dead"
+	}
+	dialer := &net.Dialer{
+		Timeout:   probeTimeout,
+		LocalAddr: &net.TCPAddr{IP: ip},
+	}
+	conn, err := dialer.Dial("tcp", probeTarget)
+	if err != nil {
+		var opErr *net.OpError
+		if errors.As(err, &opErr) && opErr.Op == "dial" {
+			// Distinguish "this source address cannot be used" from "the
+			// target is unreachable": only the former is about the exit.
+			msg := err.Error()
+			if strings.Contains(msg, "bind") || strings.Contains(msg, "route") ||
+				strings.Contains(msg, "timeout") || strings.Contains(msg, "refused") ||
+				strings.Contains(msg, "no suitable address") {
+				return "dead"
+			}
+		}
+		return ""
+	}
+	_ = conn.Close()
+	return "ok"
+}
+
+// hostHasAddress reports whether ip is assigned to one of this host's
+// interfaces. A wildcard/loopback check is not enough: binding a non-local
+// source address fails at dial time, after the listener has already accepted
+// the CONNECT, which surfaces as an opaque 502 to the sidecar.
+func hostHasAddress(ip net.IP) bool {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		// Cannot enumerate: let the bind attempt decide.
+		return true
+	}
+	for _, a := range addrs {
+		if n, ok := a.(*net.IPNet); ok && n.IP.Equal(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+// envProxyAlive reports whether the entrypoint's CONNECT proxy on port is
+// still listening on loopback. It only checks the socket, not the tunnel: a
+// bound-but-dead listener is the failure this guards against.
+func envProxyAlive(port int) bool {
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 250*time.Millisecond)
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	return true
 }
 
 // writeLocked replaces the published file when its content changed.

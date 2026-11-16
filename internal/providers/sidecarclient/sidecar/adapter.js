@@ -320,12 +320,50 @@ Bun.serve({
     }
 
     if (url.pathname === "/proxies") {
-      return json(
-        Array.from(bindProxies().entries()).map(([ip, proxy]) => ({
-          ip,
-          proxy,
-        })),
+      // ?check=1 reports whether each CONNECT proxy actually carries traffic:
+      // a configured address whose local proxy is gone (the entrypoint's
+      // listener died, or the bridge was never started) looks identical to a
+      // working one in the plain list, which is exactly the "switch IP does
+      // not work" case. The probe is a CONNECT to the upstream host and
+      // reports 200 without reading the tunnel.
+      const check = url.searchParams.get("check") === "1";
+      const entries = Array.from(bindProxies().entries());
+      const upstreamURL = resolveUpstream();
+      const target = (() => {
+        try {
+          return upstreamURL ? new URL(upstreamURL).host : "";
+        } catch {
+          return "";
+        }
+      })();
+      const out = await Promise.all(
+        entries.map(async ([ip, proxy]) => {
+          const entry = { ip, proxy };
+          if (!check || !target) return entry;
+          const started = Date.now();
+          try {
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), 5000);
+            // Dial through the proxy and keep the tunnel open only long
+            // enough to know the CONNECT was accepted.
+            const resp = await fetch(`https://${target}/health`, {
+              method: "GET",
+              proxy,
+              signal: ctrl.signal,
+            }).catch((err) => ({ ok: false, status: 0, error: String(err) }));
+            clearTimeout(timer);
+            entry.probe_ms = Date.now() - started;
+            entry.reachable = Boolean(resp && resp.status !== 0);
+            entry.probe_status = resp?.status ?? 0;
+            if (!entry.reachable) entry.error = String(resp?.error ?? "");
+          } catch (err) {
+            entry.reachable = false;
+            entry.error = String(err);
+          }
+          return entry;
+        }),
       );
+      return json(out);
     }
 
     const overrides = await loadOverridesAsync();
@@ -343,15 +381,62 @@ Bun.serve({
     if (url.pathname === "/v1/models") {
       const auth = req.headers.get("authorization") || defaultAuth;
       const ua = overrides.userAgent || process.env.AURORA_SIDECAR_USER_AGENT || "";
-      const upstreamResp = await fetch(
-        upstream(UPSTREAM, overrides.modelsPath),
-        {
-          headers: {
-            Authorization: auth,
-            ...(ua ? { "User-Agent": ua } : {}),
-          },
-        },
-      );
+      // Forward the same identity headers the chat path sends. The model
+      // list is served by the same edge as chat, and sending a bare request
+      // there made the gateway look like a different client than the one the
+      // chat calls emulate: the fetch came back empty or partial while chat
+      // worked, which is the "models fetch badly" symptom. Names come from
+      // the applied extension (forward_headers) plus the operator env list.
+      const identity = {};
+      for (const name of new Set([
+        ...envIdentityHeaders,
+        ...overrides.forwardHeaders,
+      ])) {
+        const value = req.headers.get(name);
+        if (value) identity[name] = value;
+      }
+      const modelHeaders = {
+        Authorization: auth,
+        ...(ua ? { "User-Agent": ua } : {}),
+        ...identity,
+      };
+      for (const [k, v] of Object.entries(overrides.extraHeaders ?? {})) {
+        if (typeof v === "string" && v && !(k in modelHeaders)) modelHeaders[k] = v;
+      }
+      // Model listing is read-only and cheap to repeat: retry a transient
+      // upstream hiccup instead of handing the gateway an empty list, which
+      // it treats as "this provider has no models" for the whole refresh
+      // interval. Rate limits are not retried (the quota belongs to the
+      // address, and the gateway rotates exits itself).
+      let upstreamResp;
+      const attempts = Math.max(1, Math.min(3, Number(overrides.maxAttempts ?? 3)));
+      for (let attempt = 1; attempt <= attempts; attempt++) {
+        try {
+          upstreamResp = await fetch(upstream(UPSTREAM, overrides.modelsPath), {
+            headers: modelHeaders,
+          });
+        } catch (err) {
+          if (attempt === attempts) {
+            return json(
+              { error: { message: `model list fetch failed: ${err}` } },
+              502,
+            );
+          }
+          await new Promise((r) => setTimeout(r, 500 * attempt));
+          continue;
+        }
+        const transient =
+          upstreamResp.status >= 500 ||
+          upstreamResp.status === 408 ||
+          upstreamResp.status === 0;
+        if (!transient || attempt === attempts) break;
+        try {
+          await upstreamResp.body?.cancel();
+        } catch {
+          // already closed
+        }
+        await new Promise((r) => setTimeout(r, 500 * attempt));
+      }
       return new Response(await upstreamResp.text(), {
         status: upstreamResp.status,
         headers: { "content-type": "application/json" },
@@ -385,9 +470,36 @@ Bun.serve({
     // replaces the source-address rotation for this request: the upstream
     // sees the tunnel's address, not one of the local ones.
     const exitProxy = (req.headers.get("x-aurora-exit-proxy") || "").trim();
+    // x-aurora-pin-exit marks the address the gateway picked for *this*
+    // attempt: the sidecar then keeps its retries on that one address
+    // instead of rotating behind the gateway's back. Without it the header
+    // stays a preference and the sidecar may walk the list, which is what a
+    // caller talking to the sidecar directly wants.
+    const pinExit = (req.headers.get("x-aurora-pin-exit") || "").trim() === "1";
     const requested = bindIP ? proxies.get(bindIP) || "" : "";
     const proxy = exitProxy || requested;
-    const proxyList = exitProxy ? [exitProxy] : Array.from(proxies.values());
+    const proxyList = exitProxy
+      ? [exitProxy]
+      : pinExit && requested
+        ? [requested]
+        : Array.from(proxies.values());
+    // An address the gateway asked for that has no local proxy would send
+    // the request out of the default route — from some *other* address —
+    // while the gateway records the attempt against `bindIP`. Refuse instead
+    // of silently leaving from the wrong place: the gateway then excludes
+    // this exit from the rotation and reports it, which is what makes a
+    // missing proxy visible.
+    if (bindIP && !requested && !exitProxy) {
+      return json(
+        {
+          error: {
+            message: `no bind proxy for exit ${bindIP}; the address is configured but not served`,
+            exit: bindIP,
+          },
+        },
+        502,
+      );
+    }
 
     const injectTools =
       overrides.injectTools !== null
@@ -504,13 +616,17 @@ Bun.serve({
       );
     }
 
-    // Parse the execute envelope: { __status, __sse?, body?, error? }.
+    // Parse the execute envelope: { __status, __sse?, __retry_after?, body?, error? }.
     let status = 200,
       bodyText = out;
+    let retryAfter = "";
     try {
       const envelopeOut = JSON.parse(out);
       if (typeof envelopeOut.__status === "number") {
         status = envelopeOut.__status;
+        if (typeof envelopeOut.__retry_after === "string") {
+          retryAfter = envelopeOut.__retry_after.trim();
+        }
         if (envelopeOut.__sse !== undefined) {
           bodyText = envelopeOut.__sse;
         } else if (envelopeOut.body !== undefined) {
@@ -525,9 +641,11 @@ Bun.serve({
 
     const isSSE = bodyText.trimStart().startsWith("data:");
     const contentType = isSSE ? "text/event-stream" : "application/json";
+    const responseHeaders = { "content-type": contentType };
+    if (retryAfter) responseHeaders["retry-after"] = retryAfter;
     return new Response(bodyText, {
       status: status >= 400 ? status : 200,
-      headers: { "content-type": contentType },
+      headers: responseHeaders,
     });
   },
 });

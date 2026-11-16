@@ -153,6 +153,11 @@ const badAfter = 3
 const coolDown = 30 * time.Second
 
 // A rate-limited tier probes back after this window.
+//
+// It is only the fallback when the upstream did not say when the quota comes
+// back. An upstream that meters a free tier usually does say (Retry-After),
+// and then that answer wins: probing back earlier only burns requests on an
+// address that is known to be spent.
 const limitedCoolDown = 45 * time.Second
 
 // A rate-limited exit stays out of rotation for this long.
@@ -163,7 +168,43 @@ const limitedCoolDown = 45 * time.Second
 // quota left. 45s keeps an address out long enough for a short window to
 // roll over, without parking it for the whole window when the operator has
 // many addresses.
+//
+// Like limitedCoolDown this is only the default. Report carries the deadline
+// the upstream announced, and a long one (a per-day quota resets at a fixed
+// hour) replaces it.
 const limitedExitCoolDown = 45 * time.Second
+
+// maxLimitedCoolDown caps an upstream-supplied retry window. A quota that
+// rolls at a fixed time is announced as the seconds left until then, so a
+// daily window is legitimate; an absurd value (a broken clock on the other
+// side) would park an address forever, so the window is bounded.
+const maxLimitedCoolDown = 24 * time.Hour
+
+// MaxLimitedCoolDown is the largest cool-down an upstream may impose through
+// Retry-After. Callers that parse the header (they must not trust a remote
+// value as a duration) clamp to it.
+const MaxLimitedCoolDown = maxLimitedCoolDown
+
+// RateLimitRetryAfter is the upstream's own answer to "when can I come back":
+// the deadline parsed from its Retry-After header (or the body's equivalent).
+type RateLimitRetryAfter struct {
+	// Until is the absolute instant the upstream said the request may be
+	// retried. Zero means the upstream did not say.
+	Until time.Time
+}
+
+// retryAfterWindow turns the upstream's answer into a cool-down for the exit
+// that received it, falling back to the default window.
+func retryAfterWindow(until time.Time, now time.Time) time.Duration {
+	if until.IsZero() || !until.After(now) {
+		return limitedExitCoolDown
+	}
+	window := until.Sub(now)
+	if window > maxLimitedCoolDown {
+		window = maxLimitedCoolDown
+	}
+	return window
+}
 
 type healthEntry struct {
 	failures  int
@@ -311,6 +352,18 @@ func (r *Registry) SetDisabled(provider string, names []string) {
 //     once every one of its exits is rate-limited, which is the point where
 //     the next tier genuinely has to take over.
 func (r *Registry) Report(provider string, c Candidate, outcome Outcome, detail string) {
+	r.ReportRateLimit(provider, c, outcome, detail, time.Time{})
+}
+
+// ReportRateLimit is Report with the upstream's own retry deadline.
+//
+// A per-day free quota answers a spent address with Retry-After set to the
+// seconds left until it rolls over — hours, not seconds. Cooling the exit down
+// for the default 45s would send the very next request back to an address the
+// upstream just said was spent, and do it again all day. When retryAfter is
+// non-zero it becomes the exit's (and, once the whole tier is spent, the
+// tier's) cool-down.
+func (r *Registry) ReportRateLimit(provider string, c Candidate, outcome Outcome, detail string, retryAfter time.Time) {
 	if r == nil || c.Name == "" {
 		return
 	}
@@ -350,13 +403,15 @@ func (r *Registry) Report(provider string, c Candidate, outcome Outcome, detail 
 		h.failures = 0
 		h.downUntil = time.Time{}
 		// The limit belongs to this address, not to the tier: cool the exit
-		// down and let its neighbours keep serving.
-		h.limitedUntil = now.Add(limitedExitCoolDown)
+		// down and let its neighbours keep serving. The window is what the
+		// upstream announced when it announced one.
+		limitWindow := retryAfterWindow(retryAfter, now)
+		h.limitedUntil = now.Add(limitWindow)
 		// Only when every exit of the tier is rate-limited is there nothing
 		// left to gain by trying another address of the same tier, and the
 		// fallback tier takes over until the windows roll over.
 		if tierFullyLimited(st, exits, c.Tier, now) {
-			st.limitedUntil[c.Tier] = now.Add(limitedCoolDown)
+			st.limitedUntil[c.Tier] = now.Add(limitWindow)
 		}
 	}
 }
@@ -672,6 +727,9 @@ type ExitStatus struct {
 	OK       uint64 `json:"ok"`
 
 	CooldownUntil *time.Time `json:"cooldown_until,omitempty"`
+	// LimitedUntil is when the upstream's retry window for this exit ends
+	// (Retry-After on a rate limit). Empty when the exit was not limited.
+	LimitedUntil  *time.Time `json:"limited_until,omitempty"`
 	LastOutcome   string     `json:"last_outcome,omitempty"`
 	LastError     string     `json:"last_error,omitempty"`
 	LastAt        *time.Time `json:"last_at,omitempty"`
@@ -764,6 +822,10 @@ func (r *Registry) Status(provider string) (ProviderEgressStatus, bool) {
 				until := h.downUntil
 				exit.CooldownUntil = &until
 			}
+			if !h.limitedUntil.IsZero() {
+				until := h.limitedUntil
+				exit.LimitedUntil = &until
+			}
 			if !h.lastAt.IsZero() {
 				at := h.lastAt
 				exit.LastAt = &at
@@ -774,10 +836,16 @@ func (r *Registry) Status(provider string) (ProviderEgressStatus, bool) {
 		if until, ok := limited[c.Tier]; ok && now.Before(until) {
 			exit.TierLimited = true
 		}
-		// An exit is usable unless the operator turned it off or it is
-		// cooling down; a rate-limited tier is reported separately because it
-		// affects every exit in it.
-		exit.Available = !exit.Disabled && (exit.CooldownUntil == nil || !now.Before(*exit.CooldownUntil))
+		// An exit is usable unless the operator turned it off, it is cooling
+		// down after failures, or the upstream said its quota is spent until
+		// a retry deadline that has not passed. Reporting a rate-limited exit
+		// as available made the panel claim an address was serving while every
+		// request through it was refused.
+		limitedOut := exit.LimitedUntil != nil && now.Before(*exit.LimitedUntil)
+		exit.Available = !exit.Disabled &&
+			(exit.CooldownUntil == nil || !now.Before(*exit.CooldownUntil)) &&
+			!limitedOut &&
+			!exit.TierLimited
 		out.Exits = append(out.Exits, exit)
 	}
 	sort.SliceStable(out.Exits, func(i, j int) bool {

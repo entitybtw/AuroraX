@@ -406,7 +406,13 @@ func (s *passthroughService) proxyPassthroughResponse(c *echo.Context, providerT
 		if err != nil {
 			return handleError(c, core.NewProviderError(providerType, http.StatusBadGateway, "failed to read provider passthrough error response", err))
 		}
-		return handleError(c, core.ParseProviderError(providerType, resp.StatusCode, body, nil))
+		parsedErr := core.ParseProviderError(providerType, resp.StatusCode, body, nil)
+		// Keep the upstream's retry hint when it sent one: the caller can
+		// wait out a rate limit instead of asking for a retry right away.
+		if ra := strings.TrimSpace(http.Header(resp.Headers).Get("Retry-After")); ra != "" {
+			parsedErr.RetryAfter = ra
+		}
+		return handleError(c, parsedErr)
 	}
 
 	copyPassthroughResponseHeaders(c.Response().Header(), http.Header(resp.Headers))

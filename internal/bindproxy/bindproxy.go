@@ -56,8 +56,18 @@ func Handle(conn net.Conn, bindIP net.IP) {
 		return
 	}
 
-	done := make(chan struct{}, 2)
-	go func() { _, _ = io.Copy(upstream, br); done <- struct{}{} }()
-	go func() { _, _ = io.Copy(conn, upstream); done <- struct{}{} }()
-	<-done
+	upstreamDone := make(chan struct{})
+	go func() { _, _ = io.Copy(upstream, br) }()
+	go func() {
+		_, _ = io.Copy(conn, upstream)
+		close(upstreamDone)
+	}()
+	// Wait for the upstream side to finish before closing both directions.
+	//
+	// Returning after the *first* direction ended truncated responses: an
+	// upstream that answered and closed its side won the race, the deferred
+	// conn.Close() then cut the client off before it read the rest. Waiting
+	// for the upstream->client copy keeps a streamed answer intact; the
+	// close below unblocks the client->upstream copy.
+	<-upstreamDone
 }

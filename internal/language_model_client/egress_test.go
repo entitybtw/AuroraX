@@ -7,7 +7,9 @@ import (
 	"net/http/httptest"
 	"sync"
 	"testing"
+	"time"
 
+	"aurora/internal/core"
 	"aurora/internal/egress"
 )
 
@@ -331,5 +333,59 @@ func TestEgressViaSidecarHandsTheExitOver(t *testing.T) {
 	}
 	if len(got) != 1 || got[0].Name != "ip1" {
 		t.Fatalf("expected the exit to be handed over, got %+v", got)
+	}
+}
+
+// The upstream's Retry-After hint is preserved on the error handed back, so a
+// caller can show when the quota returns instead of retrying blindly.
+func TestRateLimitErrorCarriesRetryAfter(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Retry-After", "18000")
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = w.Write([]byte(`{"error":{"type":"FreeUsageLimitError"}}`))
+	}))
+	defer srv.Close()
+
+	cfg := DefaultConfig("limited", srv.URL)
+	cfg.Retry.MaxRetries = 0
+	client := New(cfg, nil)
+
+	_, err := client.DoRaw(context.Background(), Request{Method: http.MethodPost, Endpoint: "/chat/completions"})
+	if err == nil {
+		t.Fatal("expected the rate limit to reach the caller")
+	}
+	ge, ok := err.(*core.GatewayError)
+	if !ok {
+		t.Fatalf("err = %T (%v), want *core.GatewayError", err, err)
+	}
+	if ge.RetryAfter != "18000" {
+		t.Fatalf("RetryAfter = %q, want the upstream value", ge.RetryAfter)
+	}
+}
+
+// retryAfterDeadline understands both header forms and rejects garbage.
+func TestRetryAfterDeadline(t *testing.T) {
+	now := time.Now()
+	resp := &http.Response{Header: http.Header{}}
+	resp.Header.Set("Retry-After", "3600")
+	if got := retryAfterDeadline(resp, now); !got.Equal(now.Add(time.Hour)) {
+		t.Fatalf("delay-seconds: got %v, want %v", got, now.Add(time.Hour))
+	}
+
+	at := now.Add(2 * time.Hour).UTC().Truncate(time.Second)
+	resp.Header.Set("Retry-After", at.Format(http.TimeFormat))
+	if got := retryAfterDeadline(resp, now); !got.Equal(at) {
+		t.Fatalf("http-date: got %v, want %v", got, at)
+	}
+
+	resp.Header.Set("Retry-After", "not-a-date")
+	if got := retryAfterDeadline(resp, now); !got.IsZero() {
+		t.Fatalf("garbage: got %v, want zero", got)
+	}
+
+	// A hostile value is clamped instead of overflowing.
+	resp.Header.Set("Retry-After", "999999999999")
+	if got := retryAfterDeadline(resp, now); got.Sub(now) > egress.MaxLimitedCoolDown {
+		t.Fatalf("clamp: got window %v, want <= %v", got.Sub(now), egress.MaxLimitedCoolDown)
 	}
 }
