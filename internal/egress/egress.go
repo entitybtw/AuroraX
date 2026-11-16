@@ -221,6 +221,13 @@ type healthEntry struct {
 	lastOutcome Outcome
 	lastError   string
 	lastAt      time.Time
+	// answered is true when the upstream answered through this exit at all,
+	// whatever the status: an exit that returns 429 or 500 is reachable, an
+	// exit that times out is not. A walk over the pool needs that
+	// distinction to come back to an exit that can be retried later instead
+	// of hanging on a dead tunnel.
+	answered  bool
+	deadUntil time.Time
 }
 
 type providerState struct {
@@ -234,6 +241,10 @@ type providerState struct {
 	// limitedUntil is keyed by tier: while set, that tier is passed over in
 	// favour of a fallback tier.
 	limitedUntil map[Tier]time.Time
+	// lastAnswered is the exit that last carried a real upstream answer. When
+	// every exit either fails or is cooling down, the request goes back here
+	// instead of hanging on an exit that was never proven to work.
+	lastAnswered string
 }
 
 // Registry tracks per-provider egress candidates. It is safe for concurrent
@@ -393,15 +404,24 @@ func (r *Registry) ReportRateLimit(provider string, c Candidate, outcome Outcome
 		h.failures = 0
 		h.downUntil = time.Time{}
 		h.limitedUntil = time.Time{}
+		h.answered = true
+		h.deadUntil = time.Time{}
+		st.lastAnswered = c.Name
 		delete(st.limitedUntil, c.Tier)
 	case OutcomeFailed:
 		h.failures++
 		if h.failures >= badAfter {
 			h.downUntil = now.Add(coolDown)
+			h.deadUntil = h.downUntil
 		}
 	case OutcomeLimited:
 		h.failures = 0
 		h.downUntil = time.Time{}
+		// The upstream answered, so the exit is alive even though its quota
+		// is spent: it is the first exit to come back once the window ends.
+		h.answered = true
+		h.deadUntil = time.Time{}
+		st.lastAnswered = c.Name
 		// The limit belongs to this address, not to the tier: cool the exit
 		// down and let its neighbours keep serving. The window is what the
 		// upstream announced when it announced one.
@@ -459,11 +479,51 @@ func tierFullyLimited(st *providerState, exits []Candidate, tier Tier, now time.
 	return total > 0
 }
 
+// answeredExit returns the candidate that most recently carried an upstream
+// answer, preferring the remembered one and then the one that answered least
+// recently-recently over an untouched exit.
+func (st *providerState) answeredExit(cands []Candidate) (Candidate, bool) {
+	if st.lastAnswered != "" {
+		for _, c := range cands {
+			if c.Name == st.lastAnswered {
+				return c, true
+			}
+		}
+	}
+	for _, c := range cands {
+		if h := st.health[c.Name]; h != nil && h.answered {
+			return c, true
+		}
+	}
+	return Candidate{}, false
+}
+
+// probeWorthy reports whether an exit that already answered can be tried
+// again when nothing better is left: a rate-limited exit is, because the
+// upstream answers its refusal at once; an exit whose last failure is recent
+// is not, because waiting on it is what a request timeout is made of.
+func (st *providerState) probeWorthy(name string, now time.Time) bool {
+	h := st.health[name]
+	if h == nil {
+		return true
+	}
+	if h.answered {
+		return true
+	}
+	return h.deadUntil.IsZero() || !now.Before(h.deadUntil)
+}
+
 // available reports whether a candidate may be tried right now.
 func (st *providerState) available(name string, now time.Time) bool {
 	h := st.health[name]
 	if h == nil {
 		return true
+	}
+	// An exit that never carried an answer and keeps failing is dead: holding
+	// it out for the whole window keeps it out of the rotation and away from
+	// the request that would otherwise wait for its timeout.
+	if h.answered == false && !h.deadUntil.IsZero() && now.Before(h.deadUntil) {
+		return false
 	}
 	if !h.downUntil.IsZero() && now.Before(h.downUntil) {
 		return false
@@ -539,8 +599,23 @@ func (r *Registry) Pick(provider string, exclude map[string]struct{}) (Candidate
 		usable = append(usable, c)
 	}
 	if len(usable) == 0 {
-		// Everything was tried or cooling down — fall back to the full set
-		// rather than failing the request outright.
+		// Every exit was tried or is cooling down. The old fallback handed
+		// the request to the full set, which includes exits that never
+		// answered at all: with a single dead tunnel among them the caller
+		// waited out the whole request timeout and got nothing, while an
+		// exit that had answered could have refused or failed in
+		// milliseconds. An exit that answered is therefore preferred, and a
+		// spent quota qualifies — the upstream answers it immediately, so
+		// the caller learns the real reason instead of hanging on a tunnel
+		// that is simply not routing. One that never answered is only tried
+		// again once its own cooldown has passed.
+		if st != nil {
+			if preferred, ok := st.answeredExit(all); ok && st.probeWorthy(preferred.Name, now) {
+				usable = []Candidate{preferred}
+			}
+		}
+	}
+	if len(usable) == 0 {
 		usable = all
 	}
 

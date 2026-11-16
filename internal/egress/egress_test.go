@@ -654,3 +654,49 @@ func TestReportWithoutRetryAfterKeepsDefaultWindow(t *testing.T) {
 		t.Fatalf("exit should be available after the default window: %+v", st.Exits)
 	}
 }
+
+// When nothing is available, the exit that last answered is reused instead of
+// handing the request to a tunnel that never answered and would time out.
+func TestFallbackReusesExitThatAnswered(t *testing.T) {
+	now := time.Now()
+	reg := NewRegistry()
+	reg.now = func() time.Time { return now }
+	reg.SetCore("p", StrategyRoundRobin, []Candidate{
+		{Name: "ip:1", LocalAddr: net.ParseIP("127.0.0.1")},
+		{Name: "ip:2", LocalAddr: net.ParseIP("127.0.0.2")},
+	})
+
+	// ip:1 answered and is now rate limited, ip:2 never answered.
+	reg.ReportRateLimit("p", Candidate{Name: "ip:1"}, OutcomeLimited, "429", now.Add(6*time.Hour))
+	for i := 0; i < 3; i++ {
+		reg.Report("p", Candidate{Name: "ip:2"}, OutcomeFailed, "timeout")
+	}
+
+	got, ok := reg.Pick("p", nil)
+	if !ok {
+		t.Fatal("Pick returned no exit")
+	}
+	if got.Name != "ip:1" {
+		t.Fatalf("picked %q, want the exit that answered instead of the dead one", got.Name)
+	}
+}
+
+// A dead exit stays out of rotation rather than being picked on every walk.
+func TestDeadExitStaysOutUntilCooldownPasses(t *testing.T) {
+	now := time.Now()
+	reg := NewRegistry()
+	reg.now = func() time.Time { return now }
+	reg.SetCore("p", StrategyRoundRobin, []Candidate{
+		{Name: "ip:1", LocalAddr: net.ParseIP("127.0.0.1")},
+		{Name: "ip:dead", LocalAddr: net.ParseIP("127.0.0.2")},
+	})
+	for i := 0; i < 3; i++ {
+		reg.Report("p", Candidate{Name: "ip:dead"}, OutcomeFailed, "timeout")
+	}
+	for i := 0; i < 5; i++ {
+		got, _ := reg.Pick("p", nil)
+		if got.Name == "ip:dead" {
+			t.Fatalf("dead exit picked while its cooldown runs")
+		}
+	}
+}
