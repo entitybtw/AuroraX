@@ -620,6 +620,14 @@ func (c *Client) DoRaw(ctx context.Context, req Request) (*Response, error) {
 				rateLimitErrPtr = parsedErr
 				rateLimitErr = parsedErr
 				rateLimitStatus = resp.StatusCode
+				// This attempt is the last one: the exit in hand is the one
+				// the upstream refused, so it is the one to park. Recording
+				// only the earlier exits left it in rotation, and the next
+				// request picked it first.
+				if cand, ok := egressCandidate(ctx); ok && parsedErr.RetryAfter != "" {
+					c.reportEgress(cand, egress.OutcomeLimited, fmt.Sprintf("%d %s", resp.StatusCode, http.StatusText(resp.StatusCode)),
+						retryAfterDeadlineSeconds(parsedErr.RetryAfter, time.Now()))
+				}
 			}
 			c.completeScope(scope, resp.StatusCode, parsedErr, nil)
 			return nil, parsedErr

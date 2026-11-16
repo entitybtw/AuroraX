@@ -46,6 +46,9 @@ type egressStateKey struct{}
 // retry fails over to the next one instead of repeating the same failure.
 type egressState struct {
 	tried map[string]struct{}
+	// last is the exit picked for the most recent attempt, so the outcome of
+	// that attempt can be recorded even after the request object is gone.
+	last egress.Candidate
 }
 
 // withEgress attaches selection state when a registry is wired. Without a
@@ -111,8 +114,9 @@ func (c *Client) selectEgress(ctx context.Context) (*http.Client, egress.Candida
 	if !ok {
 		return c.httpClient, egress.Candidate{}, false
 	}
-	if tried != nil {
-		tried[cand.Name] = struct{}{}
+	if st, _ := ctx.Value(egressStateKey{}).(*egressState); st != nil {
+		st.tried[cand.Name] = struct{}{}
+		st.last = cand
 	}
 	if c.config.EgressViaSidecar {
 		return c.httpClient, cand, true
@@ -130,6 +134,23 @@ func (c *Client) reportEgress(cand egress.Candidate, outcome egress.Outcome, det
 		return
 	}
 	c.egress.ReportRateLimit(c.egressProviderName(), cand, outcome, detail, retryAfter)
+}
+
+// reportQuotaExhausted parks an exit for a full rate-limit window without
+// having talked to the upstream. It is what a sidecar answers when the picked
+// address has no proxy to leave from: retrying it is pointless, and leaving it
+// in rotation made the next request pick it again.
+func (c *Client) reportQuotaExhausted(cand egress.Candidate, detail string) {
+	if c.egress == nil {
+		return
+	}
+	c.egress.ReportQuotaExhausted(c.egressProviderName(), cand, detail)
+}
+
+// retryAfterDeadlineSeconds parses a Retry-After header value into an absolute
+// instant.
+func retryAfterDeadlineSeconds(raw string, now time.Time) time.Time {
+	return retryAfterDeadline(&http.Response{Header: http.Header{"Retry-After": []string{raw}}}, now)
 }
 
 // retryAfterDeadline parses the upstream's Retry-After answer into an absolute
@@ -195,6 +216,15 @@ func (c *Client) hasUntriedExit(ctx context.Context) bool {
 		tried = st.tried
 	}
 	return c.egress.HasAlternative(c.egressProviderName(), tried)
+}
+
+// egressCandidate returns the exit used by the most recent attempt of this
+// request, if any.
+func egressCandidate(ctx context.Context) (egress.Candidate, bool) {
+	if st, _ := ctx.Value(egressStateKey{}).(*egressState); st != nil && st.last.Name != "" {
+		return st.last, true
+	}
+	return egress.Candidate{}, false
 }
 
 // egressDetail renders the operator-facing reason for an attempt: the

@@ -374,7 +374,25 @@ func (r *Registry) Report(provider string, c Candidate, outcome Outcome, detail 
 // upstream just said was spent, and do it again all day. When retryAfter is
 // non-zero it becomes the exit's (and, once the whole tier is spent, the
 // tier's) cool-down.
+//
+// exhaustedQuota marks an unsolicited report of a window that has not passed
+// yet: the upstream answered a request once the window was already known, so
+// the exit must stay out of rotation instead of being re-probed on every
+// request until the window ends.
 func (r *Registry) ReportRateLimit(provider string, c Candidate, outcome Outcome, detail string, retryAfter time.Time) {
+	r.report(provider, c, outcome, detail, retryAfter, false)
+}
+
+// ReportQuotaExhausted records that an exit refused a request because its
+// rate-limit window has not passed. Some callers (a sidecar with no bind proxy
+// for the address, for example) learn this without ever talking to the
+// upstream, and the full window is assumed: the quota is periodic, so a short
+// cool-down would only re-probe it all day.
+func (r *Registry) ReportQuotaExhausted(provider string, c Candidate, detail string) {
+	r.report(provider, c, OutcomeLimited, detail, time.Time{}, true)
+}
+
+func (r *Registry) report(provider string, c Candidate, outcome Outcome, detail string, retryAfter time.Time, exhaustedQuota bool) {
 	if r == nil || c.Name == "" {
 		return
 	}
@@ -417,11 +435,18 @@ func (r *Registry) ReportRateLimit(provider string, c Candidate, outcome Outcome
 	case OutcomeLimited:
 		h.failures = 0
 		h.downUntil = time.Time{}
-		// The upstream answered, so the exit is alive even though its quota
-		// is spent: it is the first exit to come back once the window ends.
-		h.answered = true
-		h.deadUntil = time.Time{}
-		st.lastAnswered = c.Name
+		if exhaustedQuota && now.Before(h.limitedUntil) {
+			// The window is already known and has not passed: leave it as is.
+			return
+		}
+		if !exhaustedQuota {
+			// The upstream answered, so the exit is alive even though its
+			// quota is spent: it is the first exit to come back once the
+			// window ends.
+			h.answered = true
+			h.deadUntil = time.Time{}
+			st.lastAnswered = c.Name
+		}
 		// The limit belongs to this address, not to the tier: cool the exit
 		// down and let its neighbours keep serving. The window is what the
 		// upstream announced when it announced one.
