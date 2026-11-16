@@ -36,6 +36,7 @@ func applyErrorResponseHeaders(c *echo.Context, err error) {
 	if c == nil || err == nil {
 		return
 	}
+	setRetryAfterHeader(c, err)
 	var headerErr responseHeaderError
 	if !errors.As(err, &headerErr) {
 		return
@@ -48,6 +49,21 @@ func applyErrorResponseHeaders(c *echo.Context, err error) {
 			}
 			c.Response().Header().Add(key, value)
 		}
+	}
+}
+
+// setRetryAfterHeader passes the upstream's own retry hint to the client.
+//
+// It is applied by every error path, independent of the configured response
+// headers: a rate-limit window is the one piece of information a client cannot
+// derive, and without it the caller retries blindly or asks the user to
+// continue after each refusal.
+func setRetryAfterHeader(c *echo.Context, err error) {
+	if c == nil || err == nil {
+		return
+	}
+	if gatewayErr, ok := errors.AsType[*core.GatewayError](err); ok && gatewayErr.RetryAfter != "" {
+		c.Response().Header().Set("Retry-After", gatewayErr.RetryAfter)
 	}
 }
 

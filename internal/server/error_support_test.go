@@ -116,3 +116,41 @@ func TestHandleError_EnrichesAuditEntryWithGatewayErrorCode(t *testing.T) {
 		t.Fatalf("entry.Data.ErrorCode = %q, want budget_exceeded", entry.Data.ErrorCode)
 	}
 }
+
+// A rate limit answered by the upstream carries the window it comes back in.
+// Every error path must pass it on: without the header the caller cannot tell
+// when to retry and asks the user to continue after each refusal.
+func TestHandleError_PassesRetryAfterHeader(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	rateErr := core.NewRateLimitError("opencode-zen", "FreeUsageLimitError")
+	rateErr.RetryAfter = "18000"
+
+	if err := handleError(c, rateErr); err != nil {
+		t.Fatalf("handleError() error = %v", err)
+	}
+	if rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusTooManyRequests)
+	}
+	if got := rec.Header().Get("Retry-After"); got != "18000" {
+		t.Fatalf("Retry-After = %q, want the upstream window", got)
+	}
+}
+
+// An error without a hint must not invent one.
+func TestHandleError_OmitsRetryAfterWhenUnknown(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	if err := handleError(c, core.NewRateLimitError("p", "limited")); err != nil {
+		t.Fatalf("handleError() error = %v", err)
+	}
+	if got := rec.Header().Get("Retry-After"); got != "" {
+		t.Fatalf("Retry-After = %q, want none", got)
+	}
+}
