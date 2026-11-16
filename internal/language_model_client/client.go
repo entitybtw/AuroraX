@@ -613,6 +613,14 @@ func (c *Client) DoRaw(ctx context.Context, req Request) (*Response, error) {
 		if resp.StatusCode != http.StatusOK {
 			parsedErr := core.ParseProviderError(c.config.ProviderName, resp.StatusCode, resp.Body, nil)
 			attachRetryAfter(parsedErr, resp)
+			// A rate limit without another exit left is still the most
+			// informative answer: remember it so the fallback below keeps the
+			// hint even if an earlier exit was tried and failed differently.
+			if resp.StatusCode == http.StatusTooManyRequests {
+				rateLimitErrPtr = parsedErr
+				rateLimitErr = parsedErr
+				rateLimitStatus = resp.StatusCode
+			}
 			c.completeScope(scope, resp.StatusCode, parsedErr, nil)
 			return nil, parsedErr
 		}
