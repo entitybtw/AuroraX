@@ -116,7 +116,7 @@ function loadTools(toolsPath) {
 // cfg (all values come from the adapter / environment):
 //   upstream, userAgent, defaultAuth, injectTools, maxAttempts, retryDelayMs,
 //   pathTemplate, retryStatuses, extraHeaders, forceStream, proxy, toolsPath,
-//   upstreamTimeoutMs (headers deadline, default 120000),
+//   upstreamTimeoutMs (headers deadline, default 60000),
 //   passthrough (return SSE as a live ReadableStream when the client streams)
 //
 // envelope: { authorization?, headers?, payload, __signal? }
@@ -133,7 +133,7 @@ export async function executeRequest(envelope, cfg) {
   const upstreamTimeoutMs =
     Number(cfg.upstreamTimeoutMs) > 0
       ? Number(cfg.upstreamTimeoutMs)
-      : 120000;
+      : 60000;
 
   const tools = cfg.injectTools ? loadTools(cfg.toolsPath) : null;
   if (cfg.injectTools && tools) {
@@ -226,14 +226,24 @@ export async function executeRequest(envelope, cfg) {
       clearTimeout(headerTimer);
     } catch (err) {
       clearTimeout(headerTimer);
+      // Our own header deadline firing means this exit does not answer. The
+      // gateway rotates exits on its own and pays this timeout on every one
+      // it tries, so retrying here multiplies the wait (attempts × timeout)
+      // and the caller gives up long before the answer. Report it once and
+      // let the gateway pick another exit.
+      if (ctrl.signal.aborted) {
+        return {
+          __status: 504,
+          error: {
+            message: `upstream did not respond within ${upstreamTimeoutMs}ms`,
+          },
+        };
+      }
       if (attempt < cfg.maxAttempts) {
         await new Promise((r) => setTimeout(r, cfg.retryDelayMs * attempt));
         continue;
       }
-      const reason = ctrl.signal.aborted
-        ? `upstream did not respond within ${upstreamTimeoutMs}ms`
-        : `upstream unreachable: ${err}`;
-      return { __status: 504, error: { message: reason } };
+      return { __status: 504, error: { message: `upstream unreachable: ${err}` } };
     }
 
     // Status-first: only retryable upstream answers consume a retry, and their

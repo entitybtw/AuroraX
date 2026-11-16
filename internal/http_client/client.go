@@ -286,6 +286,14 @@ type EgressOptions struct {
 	Proxy *url.URL
 	// UseUTLS switches to the fingerprint-preserving transport.
 	UseUTLS bool
+	// ResponseHeaderTimeout overrides how long the client waits for response
+	// headers. Zero keeps the process-wide value.
+	//
+	// An exit whose tunnel is up but not routing accepts the connection and
+	// never answers: the process-wide timeout (ten minutes by default) turns
+	// that into a request the caller has long given up on, while every later
+	// exit is never tried. A shorter per-exit deadline fails over quickly.
+	ResponseHeaderTimeout time.Duration
 }
 
 // NewEgressClient builds an HTTP client dedicated to a single exit.
@@ -302,11 +310,16 @@ func NewEgressClient(opt EgressOptions) *http.Client {
 			Timeout:   600 * time.Second,
 		}
 	}
+	// Clone per exit: a shared transport would also share its connection
+	// pool, and a pooled connection must never be reused across exits.
 
 	base := ensureGlobalTransport().Clone()
 	if opt.Proxy != nil {
 		proxyURL := opt.Proxy
 		base.Proxy = func(*http.Request) (*url.URL, error) { return proxyURL, nil }
+	}
+	if opt.ResponseHeaderTimeout > 0 {
+		base.ResponseHeaderTimeout = opt.ResponseHeaderTimeout
 	}
 	if bindIP != "" {
 		base.DialContext = (&net.Dialer{

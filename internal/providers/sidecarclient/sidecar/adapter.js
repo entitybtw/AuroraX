@@ -40,7 +40,7 @@
 //	AURORA_SIDECAR_BIND_PROXIES_FILE  live proxy list JSON (gateway-published)
 //	AURORA_SIDECAR_OVERRIDES_PATH sidecar-overrides.json (mtime-cached)
 //	AURORA_SIDECAR_TOOLS_PATH     extension tool schema JSON (optional)
-//	AURORA_SIDECAR_UPSTREAM_HEADERS_TIMEOUT_MS  headers deadline (default 120000)
+//	AURORA_SIDECAR_UPSTREAM_HEADERS_TIMEOUT_MS  headers deadline (default 60000)
 //
 // Note: AURORA_SIDECAR_BASE_URL is the sidecar's own listen URL for the
 // gateway — it is never used as UPSTREAM (self-proxy hang).
@@ -299,7 +299,12 @@ function buildCfg(overrides, opts) {
     proxies: opts.proxies,
     toolsPath: opts.toolsPath,
     upstreamTimeoutMs: Number(
-      process.env.AURORA_SIDECAR_UPSTREAM_HEADERS_TIMEOUT_MS ?? "120000",
+      // Sixty seconds is a header deadline, not a generation deadline: the
+      // timer is cleared as soon as the response headers arrive, so a long
+      // answer is never cut off. An exit that has not answered in a minute is
+      // a tunnel that accepts and never routes, and every second spent on it
+      // is a second the caller waits for an answer another exit can give.
+      process.env.AURORA_SIDECAR_UPSTREAM_HEADERS_TIMEOUT_MS ?? "60000",
     ),
   };
 }

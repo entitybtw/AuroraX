@@ -61,6 +61,12 @@ func withEgress(ctx context.Context, reg *egress.Registry) context.Context {
 	return context.WithValue(ctx, egressStateKey{}, &egressState{tried: make(map[string]struct{})})
 }
 
+// exitResponseHeaderTimeout bounds one attempt through an exit. Control-plane
+// proxies answer in milliseconds; a model answers its headers within a
+// couple of minutes even when it thinks for long, and the sidecar-routed
+// path has its own (longer) upstream deadline.
+const exitResponseHeaderTimeout = 180 * time.Second
+
 // egressPool caches one HTTP client per exit. Every exit needs its own
 // connection pool: the standard transport keys connections by proxy but not
 // by local source address, so a request that selected one address could
@@ -89,6 +95,12 @@ func (p *egressPool) client(c egress.Candidate) *http.Client {
 		BindIP:  bindIP,
 		Proxy:   c.ProxyURL,
 		UseUTLS: p.useUTLS,
+		// An exit that accepts the connection and does not answer must give
+		// way quickly: the rotation exists to find the one that does, and a
+		// ten-minute wait on a dead tunnel means the caller never sees it.
+		// Retries of the same exit reuse the same client, so the budget is
+		// per attempt, not per request.
+		ResponseHeaderTimeout: exitResponseHeaderTimeout,
 	})
 	p.byName[c.Name] = cl
 	return cl

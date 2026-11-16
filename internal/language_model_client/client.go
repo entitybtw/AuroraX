@@ -414,19 +414,31 @@ func (c *Client) maxAttempts() int {
 	return maxAttempts
 }
 
+// maxExitFailovers caps how many different exits one request may try.
+//
+// A rate limit belongs to one address, so the request has to be able to walk
+// the pool before it gives up. Walking the *whole* pool is a different matter:
+// with a few dozen exits, one of which accepts the connection and never
+// answers, a request spent minutes trying exits the caller had already given
+// up on. A handful is enough to find a working address — the exits that were
+// skipped keep their place in the rotation for the next request — and it keeps
+// the worst case bounded.
+const maxExitFailovers = 4
+
 // failoverBudget is how many extra attempts a rate limit may buy.
 //
-// A rate limit belongs to one address, so the request has to be able to
-// walk the pool before it gives up — with a fixed retry budget of four and
-// six addresses, a request could run out of attempts while live addresses
-// were still left. The budget is separate from the retry budget on purpose:
-// transient upstream faults are retried a configured number of times, while
-// moving to another exit is what the exit pool is for.
+// It is separate from the retry budget on purpose: transient upstream faults
+// are retried a configured number of times, while moving to another exit is
+// what the exit pool is for.
 func (c *Client) failoverBudget() int {
 	if c.egress == nil {
 		return 0
 	}
-	return c.egress.ExitCount(c.egressProviderName())
+	exits := c.egress.ExitCount(c.egressProviderName())
+	if exits > maxExitFailovers {
+		return maxExitFailovers
+	}
+	return exits
 }
 
 func (c *Client) waitForRetry(ctx context.Context, attempt int) error {
