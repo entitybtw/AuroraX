@@ -166,6 +166,39 @@ func (h *Hub) MappingStorage() string {
 	return val
 }
 
+// ClearPersistedMappings drops provider's entries from the mapping file the
+// hub reloads on boot; an empty provider clears every provider.
+//
+// Deleting mappings through the admin API used to clear only the live table,
+// so the file on disk brought everything back on the next restart — an
+// operator who deleted their mappings found them again after a deploy.
+func (h *Hub) ClearPersistedMappings(provider string) error {
+	h.mu.RLock()
+	path := h.mappingPath
+	h.mu.RUnlock()
+	if path == "" {
+		return nil
+	}
+	entries, err := readSessionsJSON(path)
+	if err != nil {
+		return fmt.Errorf("sessionhub: read mappings: %w", err)
+	}
+	kept := make([]*SessionEntry, 0, len(entries))
+	for _, e := range entries {
+		if e == nil {
+			continue
+		}
+		// An empty provider clears everything: there is nothing to keep.
+		if provider != "" && e.Provider != provider {
+			kept = append(kept, e)
+		}
+	}
+	if err := writeSessionsJSON(path, kept); err != nil {
+		return fmt.Errorf("sessionhub: write mappings: %w", err)
+	}
+	return nil
+}
+
 // SetMappingStorage toggles whether live session mappings are persisted to
 // disk ("disk") or kept only in memory ("memory"/"").
 func (h *Hub) SetMappingStorage(mode string) error {

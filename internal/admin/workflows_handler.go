@@ -15,12 +15,12 @@ import (
 )
 
 type createWorkflowRequest struct {
-	ScopeProviderName   string            `json:"scope_provider_name,omitempty"`
-	LegacyScopeProvider string            `json:"scope_provider,omitempty"`
-	ScopeModel          string            `json:"scope_model,omitempty"`
-	ScopeUserPath       string            `json:"scope_user_path,omitempty"`
-	Name                string            `json:"name"`
-	Description         string            `json:"description,omitempty"`
+	ScopeProviderName   string           `json:"scope_provider_name,omitempty"`
+	LegacyScopeProvider string           `json:"scope_provider,omitempty"`
+	ScopeModel          string           `json:"scope_model,omitempty"`
+	ScopeUserPath       string           `json:"scope_user_path,omitempty"`
+	Name                string           `json:"name"`
+	Description         string           `json:"description,omitempty"`
 	Payload             workflow.Payload `json:"workflow_payload"`
 }
 

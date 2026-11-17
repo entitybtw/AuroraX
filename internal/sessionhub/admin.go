@@ -161,6 +161,9 @@ func RegisterSessionHubRoutes(g interface {
 
 	g.DELETE("/sessionhub/mappings", func(c *echo.Context) error {
 		hub.Store().Clear()
+		if err := hub.ClearPersistedMappings(""); err != nil {
+			return c.JSON(500, map[string]interface{}{"status": "error", "error": err.Error()})
+		}
 		return c.JSON(200, map[string]interface{}{"status": "ok", "data": map[string]string{"status": "cleared"}})
 	})
 
@@ -173,6 +176,13 @@ func RegisterSessionHubRoutes(g interface {
 				hub.Store().Delete(provider, e.InboundValue)
 				count++
 			}
+		}
+		// Clear the persisted copy too: the hub reloads this file on boot, so
+		// clearing only the live table (which is what this endpoint used to
+		// do) brought every mapping back on the next restart — the "map is
+		// still there" an operator sees after deleting it.
+		if err := hub.ClearPersistedMappings(provider); err != nil {
+			return c.JSON(500, map[string]interface{}{"status": "error", "error": err.Error()})
 		}
 		return c.JSON(200, map[string]interface{}{
 			"status": "ok",

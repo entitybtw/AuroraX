@@ -70,25 +70,25 @@ type DashboardSettingsUpdateClient struct {
 // Prompt-cache fields are flat so the settings payload matches the shape the
 // dashboard config snapshot (GET) returns and the UI round-trips on save.
 type DashboardSettingsUpdateCaching struct {
-	ModelRefreshIntervalSeconds     int                                       `json:"model_refresh_interval_seconds"`
-	ModelListURL                    string                                    `json:"model_list_url"`
-	ExactCacheEnabled               *bool                                     `json:"exact_cache_enabled,omitempty"`
-	ExactCacheTTLSeconds            *int                                      `json:"exact_cache_ttl_seconds,omitempty"`
-	ExactCacheRedisKey              string                                    `json:"exact_cache_redis_key,omitempty"`
-	SemanticCacheEnabled            *bool                                     `json:"semantic_cache_enabled,omitempty"`
-	SemanticSimilarityThreshold     *float64                                  `json:"semantic_similarity_threshold,omitempty"`
-	SemanticPromptSimilarityMin     *float64                                  `json:"semantic_prompt_similarity_min,omitempty"`
-	SemanticTTLSeconds              *int                                      `json:"semantic_ttl_seconds,omitempty"`
-	SemanticMaxConversationMessages *int                                      `json:"semantic_max_conversation_messages,omitempty"`
-	SemanticExcludeSystemPrompt     *bool                                     `json:"semantic_exclude_system_prompt,omitempty"`
-	SemanticEmbedderProvider        string                                    `json:"semantic_embedder_provider,omitempty"`
-	SemanticEmbedderModel           string                                    `json:"semantic_embedder_model,omitempty"`
-	SemanticVectorStoreType         string                                    `json:"semantic_vector_store_type,omitempty"`
-	PromptCacheMode                 string                                    `json:"prompt_cache_mode"`
-	PromptCacheSystemPrompt         bool                                      `json:"prompt_cache_system_prompt"`
-	PromptCacheFirstMessage         bool                                      `json:"prompt_cache_first_message"`
-	PromptCacheTools                bool                                      `json:"prompt_cache_tools"`
-	PromptCacheMinTokens            int                                       `json:"prompt_cache_min_tokens"`
+	ModelRefreshIntervalSeconds     int      `json:"model_refresh_interval_seconds"`
+	ModelListURL                    string   `json:"model_list_url"`
+	ExactCacheEnabled               *bool    `json:"exact_cache_enabled,omitempty"`
+	ExactCacheTTLSeconds            *int     `json:"exact_cache_ttl_seconds,omitempty"`
+	ExactCacheRedisKey              string   `json:"exact_cache_redis_key,omitempty"`
+	SemanticCacheEnabled            *bool    `json:"semantic_cache_enabled,omitempty"`
+	SemanticSimilarityThreshold     *float64 `json:"semantic_similarity_threshold,omitempty"`
+	SemanticPromptSimilarityMin     *float64 `json:"semantic_prompt_similarity_min,omitempty"`
+	SemanticTTLSeconds              *int     `json:"semantic_ttl_seconds,omitempty"`
+	SemanticMaxConversationMessages *int     `json:"semantic_max_conversation_messages,omitempty"`
+	SemanticExcludeSystemPrompt     *bool    `json:"semantic_exclude_system_prompt,omitempty"`
+	SemanticEmbedderProvider        string   `json:"semantic_embedder_provider,omitempty"`
+	SemanticEmbedderModel           string   `json:"semantic_embedder_model,omitempty"`
+	SemanticVectorStoreType         string   `json:"semantic_vector_store_type,omitempty"`
+	PromptCacheMode                 string   `json:"prompt_cache_mode"`
+	PromptCacheSystemPrompt         bool     `json:"prompt_cache_system_prompt"`
+	PromptCacheFirstMessage         bool     `json:"prompt_cache_first_message"`
+	PromptCacheTools                bool     `json:"prompt_cache_tools"`
+	PromptCacheMinTokens            int      `json:"prompt_cache_min_tokens"`
 }
 
 type DashboardSettingsUpdateLogging struct {

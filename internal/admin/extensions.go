@@ -795,7 +795,7 @@ func (p *Extension) Validate() error {
 		}
 		if h.Template != "" {
 			if !sessionhub.IsHeaderTemplate(h.Template) {
-				add("%s.template: %q is unknown (use b3, traceparent or project_id)", field, h.Template)
+				add("%s.template: %q is unknown (use %s)", field, h.Template, strings.Join(sessionhub.HeaderTemplateKinds, ", "))
 			}
 			if h.Mode != "generate" && h.Mode != "map_or_generate" {
 				add("%s.template: requires mode generate or map_or_generate", field)
