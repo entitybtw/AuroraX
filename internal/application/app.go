@@ -47,6 +47,7 @@ import (
 	"aurora/internal/sessionhub"
 	"aurora/internal/storage"
 	"aurora/internal/telemetry"
+	"aurora/internal/tlsfront"
 	"aurora/internal/usage"
 	"aurora/internal/version"
 	"aurora/internal/workflow"
@@ -72,7 +73,11 @@ type App struct {
 	// multi-IP rotation and keeps them in step with the providers' bind_ips,
 	// so editing an address list from the dashboard changes the rotation
 	// without touching the environment or restarting the container.
-	sidecarBind    *sidecarBindProxies
+	sidecarBind *sidecarBindProxies
+	// tlsFront is the loopback front the sidecar posts through when the
+	// operator wants the upstream TLS fingerprint controlled (and rotated)
+	// instead of accepting Bun's single built-in ClientHello.
+	tlsFront       *tlsfront.Front
 	providers      *providers.InitResult
 	audit          *auditlog.Result
 	usage          *usage.Result
@@ -185,6 +190,24 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 	app.egress.SetExtensionSource(app.extensionCandidates)
 	llmclient.SetDefaultEgress(app.egress)
 	app.sidecarBind = newSidecarBindProxies(sidecarBindProxiesPath())
+
+	// Optional TLS front: the sidecar (Bun) cannot change its ClientHello, so
+	// when AURORA_TLS_FRONT_LISTEN is set the gateway serves a loopback front
+	// that re-opens every request upstream with uTLS, rotating through the
+	// configured fingerprint presets. The sidecar opts in through its
+	// tls_front_url override; nothing changes when the variable is unset.
+	if listen := tlsfront.AddrFromEnv(); listen != "" {
+		front, err := tlsfront.New(tlsfront.Config{Presets: tlsfront.PresetsEnv()})
+		if err != nil {
+			return nil, err
+		}
+		bound, err := front.Start(listen)
+		if err != nil {
+			return nil, err
+		}
+		app.tlsFront = front
+		slog.Info("tls front listening", "addr", bound, "presets", strings.Join(front.Presets(), ","))
+	}
 
 	// Session hub identity header set is extension-driven: sidecar
 	// forward_headers (written on extension apply) decide which inbound
@@ -658,11 +681,11 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 					rule := sessionhub.ProviderRule{Enabled: rawRule.Enabled}
 					for _, hr := range rawRule.Headers {
 						rule.Headers = append(rule.Headers, sessionhub.HeaderRule{
-							Name:    hr.Name,
-							Mode:    sessionhub.HeaderMode(hr.Mode),
-							Prefix:  hr.Prefix,
-							Length:  hr.Length,
-							Value:   hr.Value,
+							Name:     hr.Name,
+							Mode:     sessionhub.HeaderMode(hr.Mode),
+							Prefix:   hr.Prefix,
+							Length:   hr.Length,
+							Value:    hr.Value,
 							Values:   hr.Values,
 							Charset:  hr.Charset,
 							Template: hr.Template,
@@ -946,6 +969,13 @@ func (a *App) Shutdown(ctx context.Context) error {
 		if err := a.providers.Close(); err != nil {
 			slog.Error("providers close error", "error", err)
 			errs = append(errs, fmt.Errorf("providers close: %w", err))
+		}
+	}
+	// The TLS front only serves the sidecar, which is already idle once the
+	// public listener is down.
+	if a.tlsFront != nil {
+		if err := a.tlsFront.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("tls front close: %w", err))
 		}
 	}
 

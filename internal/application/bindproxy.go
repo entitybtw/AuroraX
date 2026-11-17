@@ -54,7 +54,7 @@ type sidecarBindProxies struct {
 	// "" while it has not been probed yet. The probe runs off the Sync path
 	// so a slow tunnel never blocks a config reload.
 	verified map[string]string
-	file  string
+	file     string
 	// written is the last payload sent to disk, to skip no-op rewrites.
 	written string
 }

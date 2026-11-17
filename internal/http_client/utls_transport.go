@@ -11,6 +11,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,6 +26,57 @@ type utlsRoundTripper struct {
 	// proxy, when set, tunnels the connection before the TLS handshake so a
 	// fingerprint-preserving client can still leave through another exit.
 	proxy *url.URL
+	// preset names the ClientHello to reproduce. The zero value means the
+	// historical default (Chrome 120), so every existing caller keeps the
+	// fingerprint it had.
+	preset string
+	// insecureSkipVerify is only used by tests against a self-signed server.
+	insecureSkipVerify bool
+}
+
+// UTLSClientHello resolves a preset name to the ClientHello it reproduces.
+func UTLSClientHello(preset string) (utls.ClientHelloID, bool) {
+	id, ok := utlsPresets[strings.ToLower(strings.TrimSpace(preset))]
+	return id, ok
+}
+
+// UTLSPresets lists the fingerprint presets an operator can rotate through.
+func UTLSPresets() []string {
+	names := make([]string, 0, len(utlsPresets))
+	for name := range utlsPresets {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// utlsPresets maps a stable configuration name to a uTLS ClientHello. The
+// names are what a provider config or an environment variable carries; the
+// values are the fingerprints they stand for.
+var utlsPresets = map[string]utls.ClientHelloID{
+	"chrome":          utls.HelloChrome_Auto,
+	"chrome120":       utls.HelloChrome_120,
+	"chrome120pq":     utls.HelloChrome_120_PQ,
+	"chrome115pq":     utls.HelloChrome_115_PQ,
+	"firefox":         utls.HelloFirefox_Auto,
+	"firefox120":      utls.HelloFirefox_120,
+	"safari":          utls.HelloSafari_Auto,
+	"ios":             utls.HelloIOS_Auto,
+	"edge":            utls.HelloEdge_Auto,
+	"android":         utls.HelloAndroid_11_OkHttp,
+	"360":             utls.Hello360_Auto,
+	"qq":              utls.HelloQQ_Auto,
+	"randomized":      utls.HelloRandomizedALPN,
+	"randomized-alpn": utls.HelloRandomizedALPN,
+}
+
+// clientHello returns the ClientHello for this transport, defaulting to the
+// long-standing Chrome 120 fingerprint.
+func (rt *utlsRoundTripper) clientHello() utls.ClientHelloID {
+	if id, ok := UTLSClientHello(rt.preset); ok {
+		return id
+	}
+	return utls.HelloChrome_120
 }
 
 func (rt *utlsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -40,11 +93,12 @@ func (rt *utlsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 	}
 
 	tlsConfig := &utls.Config{
-		ServerName: host,
-		MinVersion: tls.VersionTLS12,
+		ServerName:         host,
+		MinVersion:         tls.VersionTLS12,
+		InsecureSkipVerify: rt.insecureSkipVerify,
 	}
 
-	uconn := utls.UClient(conn, tlsConfig, utls.HelloChrome_120)
+	uconn := utls.UClient(conn, tlsConfig, rt.clientHello())
 	if err := uconn.Handshake(); err != nil {
 		conn.Close()
 		return nil, fmt.Errorf("utls: handshake %s: %w", addr, err)
@@ -219,6 +273,31 @@ func NewUTLSTransport() http.RoundTripper {
 	return &utlsRoundTripper{}
 }
 
+// UTLSOptions configures a fingerprint-preserving transport: where it dials
+// from, what it tunnels through, and which ClientHello it reproduces.
+type UTLSOptions struct {
+	// BindAddr is a local source address to dial from.
+	BindAddr string
+	// Proxy tunnels the connection before the TLS handshake.
+	Proxy *url.URL
+	// Preset selects the ClientHello (see UTLSPresets). Empty means the
+	// default Chrome 120 fingerprint.
+	Preset string
+	// InsecureSkipVerify disables certificate verification. Tests only.
+	InsecureSkipVerify bool
+}
+
+// NewUTLSTransportWithOptions builds a transport for one exit and one
+// fingerprint preset.
+func NewUTLSTransportWithOptions(opts UTLSOptions) http.RoundTripper {
+	return &utlsRoundTripper{
+		bindAddr:           opts.BindAddr,
+		proxy:              opts.Proxy,
+		preset:             opts.Preset,
+		insecureSkipVerify: opts.InsecureSkipVerify,
+	}
+}
+
 func NewUTLSHTTPClient() *http.Client {
 	return &http.Client{
 		Transport: NewUTLSTransport(),
@@ -251,6 +330,13 @@ func writeHTTPRequest(conn net.Conn, req *http.Request) error {
 		sb.WriteString("Connection: keep-alive\r\n")
 	}
 	for key, vals := range req.Header {
+		switch strings.ToLower(key) {
+		case "content-length", "transfer-encoding", "connection", "proxy-connection", "upgrade":
+			// Framing is written below from ContentLength; forwarding the
+			// client's own framing headers would either duplicate it or
+			// promise a body the request does not have.
+			continue
+		}
 		for _, val := range vals {
 			sb.WriteString(key)
 			sb.WriteString(": ")
@@ -258,10 +344,64 @@ func writeHTTPRequest(conn net.Conn, req *http.Request) error {
 			sb.WriteString("\r\n")
 		}
 	}
+
+	// Framing. A POST without Content-Length or chunked encoding is not a
+	// valid HTTP/1.1 message: the upstream reads the body as the next
+	// request line, stalls and eventually resets the connection. The
+	// transport previously wrote no framing at all, so every request with a
+	// body (all chat completions) was refused by the upstream.
+	chunked := false
+	hasBody := req.Body != nil && req.Body != http.NoBody && req.ContentLength != 0
+	if hasBody {
+		if req.ContentLength > 0 {
+			sb.WriteString("Content-Length: ")
+			sb.WriteString(strconv.FormatInt(req.ContentLength, 10))
+			sb.WriteString("\r\n")
+		} else {
+			sb.WriteString("Transfer-Encoding: chunked\r\n")
+			chunked = true
+		}
+	}
 	sb.WriteString("\r\n")
 
-	_, err := conn.Write([]byte(sb.String()))
-	return err
+	if _, err := conn.Write([]byte(sb.String())); err != nil {
+		return err
+	}
+	if !hasBody {
+		return nil
+	}
+	return writeHTTPBody(conn, req.Body, chunked)
+}
+
+// writeHTTPBody copies the request body to the wire, framing it as chunks when
+// the length was not known up front.
+func writeHTTPBody(conn net.Conn, body io.Reader, chunked bool) error {
+	if !chunked {
+		_, err := io.Copy(conn, body)
+		return err
+	}
+	buf := make([]byte, 32*1024)
+	for {
+		n, err := body.Read(buf)
+		if n > 0 {
+			if _, werr := io.WriteString(conn, strconv.FormatInt(int64(n), 16)+"\r\n"); werr != nil {
+				return werr
+			}
+			if _, werr := conn.Write(buf[:n]); werr != nil {
+				return werr
+			}
+			if _, werr := io.WriteString(conn, "\r\n"); werr != nil {
+				return werr
+			}
+		}
+		if err == io.EOF {
+			_, werr := io.WriteString(conn, "0\r\n\r\n")
+			return werr
+		}
+		if err != nil {
+			return err
+		}
+	}
 }
 
 func readHTTPResponse(conn net.Conn, req *http.Request) (*http.Response, error) {

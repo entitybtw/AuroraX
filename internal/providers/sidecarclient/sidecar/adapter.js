@@ -107,6 +107,7 @@ let overridesCache = {
   forwardHeaders: [],
   retryStatuses: [403, 429],
   forceStream: null,
+  tlsFront: "",
 };
 
 function parseOverrides(parsed) {
@@ -155,6 +156,13 @@ function parseOverrides(parsed) {
       : [403, 429],
     forceStream:
       typeof parsed.force_stream === "boolean" ? parsed.force_stream : null,
+    // tls_front_url points the sidecar at the gateway's loopback TLS front.
+    // The front re-opens the request upstream with a rotating uTLS
+    // fingerprint, which Bun itself cannot do.
+    tlsFront:
+      typeof parsed.tls_front_url === "string"
+        ? parsed.tls_front_url.trim()
+        : "",
   };
 }
 
@@ -295,6 +303,7 @@ function buildCfg(overrides, opts) {
     retryStatuses: overrides.retryStatuses,
     extraHeaders: overrides.extraHeaders,
     forceStream: overrides.forceStream,
+    tlsFront: opts.tlsFront ?? overrides.tlsFront ?? "",
     proxy: opts.proxy,
     proxies: opts.proxies,
     toolsPath: opts.toolsPath,
@@ -413,11 +422,21 @@ Bun.serve({
       // it treats as "this provider has no models" for the whole refresh
       // interval. Rate limits are not retried (the quota belongs to the
       // address, and the gateway rotates exits itself).
+      // When the TLS front is enabled the model list goes through it as
+      // well: it is served by the same edge as chat, and a fingerprint that
+      // differs between the two calls is exactly the kind of mismatch this
+      // front exists to remove.
+      const tlsFront = (overrides.tlsFront || process.env.AURORA_SIDECAR_TLS_FRONT_URL || "").replace(/\/+$/, "");
+      const modelURL = tlsFront
+        ? tlsFront + (overrides.modelsPath || "/models")
+        : upstream(UPSTREAM, overrides.modelsPath);
+      if (tlsFront) modelHeaders["x-aurora-upstream"] = UPSTREAM;
+
       let upstreamResp;
       const attempts = Math.max(1, Math.min(3, Number(overrides.maxAttempts ?? 3)));
       for (let attempt = 1; attempt <= attempts; attempt++) {
         try {
-          upstreamResp = await fetch(upstream(UPSTREAM, overrides.modelsPath), {
+          upstreamResp = await fetch(modelURL, {
             headers: modelHeaders,
           });
         } catch (err) {
@@ -523,6 +542,21 @@ Bun.serve({
       const value = req.headers.get(name);
       if (value) headers[name] = value;
     }
+    // TLS front mode: the front applies the exit and the fingerprint, so the
+    // headers the gateway picked for this attempt travel with the request
+    // instead of being consumed here as a fetch proxy.
+    const chatTlsFront = (overrides.tlsFront || process.env.AURORA_SIDECAR_TLS_FRONT_URL || "").replace(/\/+$/, "");
+    if (chatTlsFront) {
+      for (const name of [
+        "x-aurora-bind-ip",
+        "x-aurora-exit-proxy",
+        "x-aurora-pin-exit",
+      ]) {
+        const value = req.headers.get(name);
+        if (value) headers[name] = value;
+      }
+    }
+
     const body = await req.text();
 
     const toolsPath =
@@ -545,6 +579,7 @@ Bun.serve({
       proxy,
       proxies: proxyList,
       toolsPath,
+      tlsFront: chatTlsFront,
     });
 
     let out;

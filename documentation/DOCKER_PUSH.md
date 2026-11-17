@@ -2,11 +2,11 @@
 
 The official published image for this fork is **`entbtw/aurora`** on Docker Hub.
 
-**Current release:** `v1.8.9` (also published as `latest`). Pull it with:
+**Current release:** `v1.9.0` (also published as `latest`). Pull it with:
 
 ```bash
 docker pull entbtw/aurora:latest
-docker pull entbtw/aurora:v1.8.9
+docker pull entbtw/aurora:v1.9.0
 ```
 
 Every published tag is pinned: `vX.Y.Z` maps one-to-one to a git tag, and the
@@ -14,7 +14,7 @@ version string reported by the binary matches the tag:
 
 ```bash
 docker exec aurora-gateway /aurora --version
-# aurora [v1.8.9 | commit:<short> | go1.26.4]
+# aurora [v1.9.0 | commit:<short> | go1.26.4]
 ```
 
 ### Versioning
@@ -62,7 +62,7 @@ The version string carries the `v` prefix so it matches the git tag and the
 image tag:
 
 ```bash
-VERSION=v1.8.9   # next release: bump to v1.9.0
+VERSION=v1.9.0   # next release: bump to v1.9.1
 
 docker buildx build --platform linux/amd64 \
   -t entbtw/aurora:latest \

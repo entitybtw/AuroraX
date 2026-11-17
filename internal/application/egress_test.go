@@ -87,9 +87,9 @@ func TestParseEgressCandidatesHonoursExclusiveTier(t *testing.T) {
 func TestPoolsContainingResolvesMembers(t *testing.T) {
 	pools := map[string]config.RawPoolConfig{
 		"example-provider": {Members: []string{"vllm-zen", "vllm-other"}},
-		"openrouter":   {Members: []string{"openrouter-main"}},
-		"vllm-zen":     {Members: []string{"vllm-cheapvibecode"}},
-		"empty":        {},
+		"openrouter":       {Members: []string{"openrouter-main"}},
+		"vllm-zen":         {Members: []string{"vllm-cheapvibecode"}},
+		"empty":            {},
 	}
 	got := poolsContaining(pools, "vllm-zen")
 	if len(got) != 1 || got[0] != "example-provider" {

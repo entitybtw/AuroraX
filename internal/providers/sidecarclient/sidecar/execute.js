@@ -173,6 +173,17 @@ export async function executeRequest(envelope, cfg) {
       ...identityHeaders(envelope.headers ?? {}),
     };
     if (cfg.userAgent) h["User-Agent"] = cfg.userAgent;
+    if (tlsFront) {
+      h["x-aurora-upstream"] = cfg.upstream;
+      for (const name of [
+        "x-aurora-bind-ip",
+        "x-aurora-exit-proxy",
+        "x-aurora-pin-exit",
+      ]) {
+        const value = envelope.headers?.[name];
+        if (value) h[name] = value;
+      }
+    }
     for (const [k, v] of Object.entries(cfg.extraHeaders ?? {})) {
       if (typeof v === "string" && v && !(k in h)) h[k] = v;
     }
@@ -187,6 +198,12 @@ export async function executeRequest(envelope, cfg) {
     ? cfg.pathTemplate
     : "/" + cfg.pathTemplate;
   const url = cfg.upstream.replace(/\/+$/, "") + pathTemplate;
+  // The TLS front is a loopback server owned by the gateway. It re-opens the
+  // request upstream with uTLS, which is the only way to give this Bun
+  // process more than its single built-in ClientHello. In front mode the
+  // front also owns the exit, so no fetch proxy is applied here.
+  const tlsFront = (cfg.tlsFront || "").replace(/\/+$/, "");
+  const fetchURL = tlsFront ? tlsFront + pathTemplate : url;
   const wantStream = clientWantsStream;
 
   let resp;
@@ -200,8 +217,10 @@ export async function executeRequest(envelope, cfg) {
     // Rotate the outbound source across attempts: a rate limit is almost
     // always scoped to the address that tripped it, so a retry that leaves
     // from the same IP burns the attempt for nothing.
-    const proxy = nextProxy(cfg, attempt);
-    if (proxy) fetchOpts.proxy = proxy;
+    if (!tlsFront) {
+      const proxy = nextProxy(cfg, attempt);
+      if (proxy) fetchOpts.proxy = proxy;
+    }
 
     // Per-attempt deadline for response headers only: aborting the request
     // also cancels an upstream that stopped responding mid-handshake, and the
@@ -222,7 +241,7 @@ export async function executeRequest(envelope, cfg) {
     fetchOpts.signal = ctrl.signal;
 
     try {
-      resp = await fetch(url, fetchOpts);
+      resp = await fetch(fetchURL, fetchOpts);
       clearTimeout(headerTimer);
     } catch (err) {
       clearTimeout(headerTimer);
