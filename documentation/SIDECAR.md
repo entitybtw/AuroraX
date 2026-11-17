@@ -148,8 +148,22 @@ refusal. Observed on 2026-11-17 (opencode):
 | `stream` true/false, `max_tokens` 1, empty `messages` | `429` |
 | TLS presets chrome120, firefox120, safari, ios, randomized, plain Go | `429` |
 
-`Retry-After` counts down to the next **midnight UTC**, i.e. the budget is a
-daily per-account allowance. When that shape appears, the remaining options
+How that bucket is keyed (measured, same session):
+
+- **Not by the credential** — requests carrying *no* `Authorization` header
+  also get the 429, while an invalid token gets 401, so the refusal happens
+  before any token is compared.
+- **Not by the address** — 6 local addresses and 4 tunnelled exits (one of
+  them a residential-range IP that had never touched the host) all hit it,
+  including on their first-ever request.
+- **Not by client shape** — the fingerprint, headers and body variants in the
+  table above change nothing, and headers that mark a request as
+  unauthenticated (`x-opencode-auth: false`, a plain `Origin`) change nothing
+  either.
+
+It follows the *destination*, not the caller: every unauthenticated caller
+shares one daily bucket. `Retry-After` counts down to the next **midnight
+UTC**, i.e. the budget is a daily allowance. When that shape appears, the remaining options
 are additive, not bypasses:
 
 1. **Wait for the window** — the sidecar needs no change; requests work again
