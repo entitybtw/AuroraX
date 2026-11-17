@@ -18,6 +18,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -43,6 +44,26 @@ type Config struct {
 	// InsecureSkipVerify disables upstream certificate verification. Tests
 	// only; never set it in production.
 	InsecureSkipVerify bool
+}
+
+// owned remembers the listener this process created, for the shutdown path
+// in main: a front that was reused (another instance served the port) must not
+// be closed by this process, and there is no other handle at that layer.
+var (
+	ownedMu  sync.Mutex
+	ownedFrt *Front
+)
+
+// CloseOwned closes the front this process opened, if any. Safe to call more
+// than once and from a process that never opened one.
+func CloseOwned() {
+	ownedMu.Lock()
+	front := ownedFrt
+	ownedFrt = nil
+	ownedMu.Unlock()
+	if front != nil {
+		_ = front.Close()
+	}
 }
 
 // Front is a loopback HTTP server that forwards to the upstream with uTLS.
@@ -94,6 +115,9 @@ func (f *Front) Start(addr string) (string, error) {
 		return "", fmt.Errorf("tls front: listen %s: %w", addr, err)
 	}
 	f.ln = ln
+	ownedMu.Lock()
+	ownedFrt = f
+	ownedMu.Unlock()
 	f.server = &http.Server{
 		Handler:           http.HandlerFunc(f.serveHTTP),
 		ReadHeaderTimeout: 15 * time.Second,

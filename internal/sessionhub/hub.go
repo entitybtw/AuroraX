@@ -389,7 +389,6 @@ func ValidateRule(name string, rule ProviderRule) error {
 		}
 		if hr.Template != "" && hr.Mode != HeaderModeGenerate && hr.Mode != HeaderModeMapOrGenerate {
 			return fmt.Errorf("provider %q, header %q: template requires mode generate or map_or_generate", name, hr.Name)
-		}
-	}
+		}	}
 	return nil
 }

@@ -22,8 +22,6 @@ import (
 	"aurora/configuration"
 	"aurora/internal/application"
 	"aurora/internal/externalauth"
-	"aurora/internal/sessionhub"
-	"aurora/internal/telemetry"
 	"aurora/internal/providers"
 	"aurora/internal/providers/anthropic"
 	"aurora/internal/providers/azure"
@@ -32,14 +30,17 @@ import (
 	"aurora/internal/providers/groq"
 	"aurora/internal/providers/minimax"
 	"aurora/internal/providers/ollama"
-	sidecarprovider "aurora/internal/providers/sidecarclient"
 	"aurora/internal/providers/openai"
 	"aurora/internal/providers/openrouter"
 	"aurora/internal/providers/oracle"
 	"aurora/internal/providers/reranker"
+	sidecarprovider "aurora/internal/providers/sidecarclient"
 	"aurora/internal/providers/vllm"
 	"aurora/internal/providers/xai"
 	"aurora/internal/providers/zai"
+	"aurora/internal/sessionhub"
+	"aurora/internal/telemetry"
+	"aurora/internal/tlsfront"
 	"aurora/internal/version"
 
 	"github.com/joho/godotenv"
@@ -70,7 +71,9 @@ func logFeatureSummary(cfg *config.Config, rt app.RuntimeSummary, started time.T
 	}
 
 	onOff := func(b bool) string {
-		if b { return "on" }
+		if b {
+			return "on"
+		}
 		return "off"
 	}
 
@@ -126,21 +129,21 @@ func logFeatureSummary(cfg *config.Config, rt app.RuntimeSummary, started time.T
 	)
 
 	features := map[string]string{
-		"Auth":       authSummary,
-		"API Keys":   statusOff(rt.AuthKeyCount, "keys"),
-		"Providers":  providerSummary,
-		"Pools":      statusOff(rt.PoolCount, "pools"),
-		"Combos":     statusOff(rt.ComboCount, "combos"),
-		"Models":     onOff(rt.ModelCount > 0),
-		"Workflows":  statusOff(rt.WorkflowCount, "wf"),
-		"Guardrails": statusOff(rt.GuardrailCount, "rules"),
-		"Cache":      cacheMode,
-		"Audit":      onOff(rt.AuditEnabled),
-		"Usage":      onOff(rt.UsageEnabled),
+		"Auth":        authSummary,
+		"API Keys":    statusOff(rt.AuthKeyCount, "keys"),
+		"Providers":   providerSummary,
+		"Pools":       statusOff(rt.PoolCount, "pools"),
+		"Combos":      statusOff(rt.ComboCount, "combos"),
+		"Models":      onOff(rt.ModelCount > 0),
+		"Workflows":   statusOff(rt.WorkflowCount, "wf"),
+		"Guardrails":  statusOff(rt.GuardrailCount, "rules"),
+		"Cache":       cacheMode,
+		"Audit":       onOff(rt.AuditEnabled),
+		"Usage":       onOff(rt.UsageEnabled),
 		"PassThrough": onOff(rt.PassthroughEnabled),
-		"Swagger":    onOff(rt.SwaggerEnabled),
-		"Storage":    cfg.Storage.Type,
-		"Redis":      redisStatus,
+		"Swagger":     onOff(rt.SwaggerEnabled),
+		"Storage":     cfg.Storage.Type,
+		"Redis":       redisStatus,
 	}
 
 	printStartupSummary(started, addr, features)
@@ -372,11 +375,11 @@ func main() {
 			rule := sessionhub.ProviderRule{Enabled: rawRule.Enabled}
 			for _, hr := range rawRule.Headers {
 				rule.Headers = append(rule.Headers, sessionhub.HeaderRule{
-					Name:    hr.Name,
-					Mode:    sessionhub.HeaderMode(hr.Mode),
-					Prefix:  hr.Prefix,
-					Length:  hr.Length,
-					Value:   hr.Value,
+					Name:     hr.Name,
+					Mode:     sessionhub.HeaderMode(hr.Mode),
+					Prefix:   hr.Prefix,
+					Length:   hr.Length,
+					Value:    hr.Value,
 					Values:   hr.Values,
 					Charset:  hr.Charset,
 					Template: hr.Template,
@@ -467,6 +470,14 @@ func main() {
 		} else {
 			slog.Info("graceful shutdown complete", "duration", time.Since(shutdownStart))
 		}
+
+		// Close the loopback TLS front last, and only after the public port is
+		// gone. A sidecar restarted just before the gateway exits (for example
+		// a container health check firing during a rolling deploy) would
+		// otherwise find the port taken by a front whose owner is a dying
+		// process, and the replacement gateway would come up unable to bind
+		// it. Closing here keeps the window short and deliberate.
+		tlsfront.CloseOwned()
 	}()
 
 	if err := startApplication(application, addr); err != nil {
@@ -499,18 +510,18 @@ func mergeProviderOverridesIntoConfig(result *config.LoadResult) {
 		return // no overrides file — fine
 	}
 	type rawOverride struct {
-		Name          string                    `json:"name"`
-		Type          string                    `json:"type"`
-		BaseURL       string                    `json:"base_url"`
-		APIVersion    string                    `json:"api_version"`
-		APIKey        string                    `json:"api_key"`
-		Models        string                    `json:"models"`
-		BindIP        string                    `json:"bind_ip"`
-		PoolOnly      bool                      `json:"pool_only"`
-		UserAgent     string                    `json:"user_agent"`
-		AutoFetch     *bool                     `json:"auto_fetch_models"`
-		AuthMethod    string                    `json:"auth_method"`
-		DisableAPIKey *bool                     `json:"disable_api_key"`
+		Name          string `json:"name"`
+		Type          string `json:"type"`
+		BaseURL       string `json:"base_url"`
+		APIVersion    string `json:"api_version"`
+		APIKey        string `json:"api_key"`
+		Models        string `json:"models"`
+		BindIP        string `json:"bind_ip"`
+		PoolOnly      bool   `json:"pool_only"`
+		UserAgent     string `json:"user_agent"`
+		AutoFetch     *bool  `json:"auto_fetch_models"`
+		AuthMethod    string `json:"auth_method"`
+		DisableAPIKey *bool  `json:"disable_api_key"`
 	}
 	var overrides []rawOverride
 	if err := json.Unmarshal(data, &overrides); err != nil {
