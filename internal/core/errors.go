@@ -273,10 +273,18 @@ type providerErrorDetails struct {
 
 func parseProviderErrorBody(body []byte) providerErrorDetails {
 	var payload struct {
-		Error json.RawMessage `json:"error"`
+		Error   json.RawMessage `json:"error"`
+		Message string          `json:"message"`
 	}
-	if err := json.Unmarshal(body, &payload); err != nil || len(payload.Error) == 0 {
+	if err := json.Unmarshal(body, &payload); err != nil {
 		return providerErrorDetails{}
+	}
+	if len(payload.Error) == 0 {
+		// Plenty of providers (and gateways in front of them) answer
+		// {"message":"..."} without the {"error":{...}} envelope. Taking that
+		// text is the difference between the caller reading the reason and
+		// reading the raw body as an escaped string.
+		return providerErrorDetails{Message: strings.TrimSpace(payload.Message)}
 	}
 
 	if message := jsonString(payload.Error); message != "" {
