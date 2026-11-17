@@ -271,6 +271,34 @@ export async function executeRequest(envelope, cfg) {
     break;
   }
 
+// upstreamErrorMessage turns the upstream's error body into the sentence the
+// caller should read.
+//
+// The body is JSON — {"type":"error","error":{"type":"...","message":"..."}} —
+// and handing it on as a message puts a JSON document inside a string inside
+// another JSON document, so the client shows escaped braces instead of the
+// reason. The provider's own error type is kept in front of the text because
+// it names the failure ("FreeUsageLimitError") when the message alone does not.
+function upstreamErrorMessage(raw, status) {
+  if (!raw) return `upstream ${status}`;
+  try {
+    const parsed = JSON.parse(raw);
+    const inner = parsed?.error ?? parsed;
+    const message =
+      (typeof inner?.message === "string" && inner.message) ||
+      (typeof parsed?.message === "string" && parsed.message) ||
+      "";
+    const kind =
+      (typeof inner?.type === "string" && inner.type) ||
+      (typeof parsed?.type === "string" && parsed.type && parsed.type !== "error" && parsed.type) ||
+      "";
+    if (message) return kind ? `${kind}: ${message}` : message;
+  } catch {
+    // Not JSON: the text is already the message.
+  }
+  return raw.length > 400 ? `${raw.slice(0, 400)}…` : raw;
+}
+
   const upstreamStatus = resp.status;
   if (!resp.ok) {
     raw = await resp.text().catch(() => "");
@@ -282,7 +310,7 @@ export async function executeRequest(envelope, cfg) {
     return {
       __status: upstreamStatus,
       __retry_after: retryAfter,
-      error: { message: raw || `upstream ${upstreamStatus}` },
+      error: { message: upstreamErrorMessage(raw, upstreamStatus) },
     };
   }
 
