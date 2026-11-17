@@ -128,5 +128,41 @@ The fingerprint is emulated, not inherent, so upstream changes can break it. To 
 - Upstream availability depends on the current policy and can change without notice.
 - Full tool schemas add request-body size on every upstream call.
 
+### What the fingerprint cannot fix: account-side quotas
+
+Some upstreams meter a **shared free credential** (in the opencode extension,
+the public `Bearer public` token) per account, above the client. Everything the
+sidecar emulates — TLS profile, headers, session ids, tool schema, body shape,
+source address — sits *below* that meter, so once the account's window is
+exhausted every request from any address with any fingerprint returns the same
+refusal. Observed on 2026-11-17 (opencode):
+
+| Input changed | Result |
+|---|---|
+| 6 local addresses, 3 tunnelled exits (4 more public IPs) | identical `429 FreeUsageLimitError` |
+| `GET /v1/models` from the same addresses | `200` — so the address is not blocked |
+| no `Authorization`, `Bearer public`, lowercase scheme | `429` (the token is not the discriminator) |
+| `Bearer ""`, `Bearer PUBLIC`, `Bearer nope` | `401 Invalid credential` — the token is validated exactly |
+| identity headers full / none / each subset | `429` |
+| tool schema + `tool_choice` + `cli:true` vs bare body | `429` |
+| `stream` true/false, `max_tokens` 1, empty `messages` | `429` |
+| TLS presets chrome120, firefox120, safari, ios, randomized, plain Go | `429` |
+
+`Retry-After` counts down to the next **midnight UTC**, i.e. the budget is a
+daily per-account allowance. When that shape appears, the remaining options
+are additive, not bypasses:
+
+1. **Wait for the window** — the sidecar needs no change; requests work again
+   after midnight UTC and the parked exits unpark by themselves.
+2. **Bring real credentials** — install the `opencode-oauth` extension (device
+   flow) and point the provider at the resulting key; usage is then metered per
+   account instead of the shared public token.
+3. **Rotate accounts** — the `leak-pools` extension supplies several
+   credentials with their own budgets.
+
+Do not treat repeated `FreeUsageLimitError` as a broken fingerprint: the
+`/models` probe in the table above is the cheap way to tell them apart (a
+blocked client cannot reach the catalogue either).
+
 ---
 
