@@ -163,7 +163,24 @@ How that bucket is keyed (measured, same session):
 
 It follows the *destination*, not the caller: every unauthenticated caller
 shares one daily bucket. `Retry-After` counts down to the next **midnight
-UTC**, i.e. the budget is a daily allowance. When that shape appears, the remaining options
+UTC**, i.e. the budget is a daily allowance.
+
+The refusal is issued **by the upstream application, not by its CDN**:
+responses carry `Cf-Ray`/`Cf-Placement` (the request reached the edge) together
+with `Server-Timing: gateway;dur=…`, and the very same address returns `200`
+for `GET /v1/models` and `401 Missing API key` for a paid model at the same
+moment. So the caller is recognised, accepted, and then refused at the quota
+check — not blocked at the door.
+
+Transport is not the discriminator either. Sending the identical request
+through three different clients — Bun `fetch` (h2, keep-alive, Bun header
+order), Go/uTLS with browser profiles, and plain `curl` over HTTP/1.1 — gives
+the same `429 FreeUsageLimitError` within milliseconds of each other, with or
+without `User-Agent`, identity headers or `Authorization`. If the real client
+in the desktop app gets a longer window than an emulated one, the difference is
+**who the request is from** (an app session, linked at login), not how the
+request is shaped on the wire — a distinction the sidecar cannot bridge by
+imitating bytes. When that shape appears, the remaining options
 are additive, not bypasses:
 
 1. **Wait for the window** — the sidecar needs no change; requests work again
