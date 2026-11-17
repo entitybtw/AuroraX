@@ -759,3 +759,67 @@ func TestPickAndReportRunConcurrently(t *testing.T) {
 		<-done
 	}
 }
+
+// A daily quota is not fixed by another address: the upstream says so for
+// every exit with the same multi-hour window. The request that is going to be
+// refused must be refused at once by the exit that already knows, instead of
+// discovering a dead tunnel per attempt — while a rare probe still goes out in
+// case an address with quota exists.
+func TestPickAnswersAtOnceWhenTheQuotaIsSpent(t *testing.T) {
+	r := NewRegistry()
+	proven := Candidate{Name: "proven", LocalAddr: ip("10.0.0.1"), Tier: TierFallback}
+	r.SetCore("zen", StrategyRoundRobin, []Candidate{
+		{Name: "ip0", LocalAddr: ip("10.0.0.9")},
+	})
+	r.SetExtensionSource(func(string) []Candidate {
+		return []Candidate{
+			proven,
+			{Name: "u1", LocalAddr: ip("10.0.0.2"), Tier: TierFallback},
+			{Name: "u2", LocalAddr: ip("10.0.0.3"), Tier: TierFallback},
+			{Name: "u3", LocalAddr: ip("10.0.0.4"), Tier: TierFallback},
+		}
+	})
+	// The provider's own address is spent as well, so the fallback tier is all
+	// that is left.
+	r.ReportRateLimit("zen", Candidate{Name: "ip0", LocalAddr: ip("10.0.0.9")}, OutcomeLimited, "429 Too Many Requests", time.Now().Add(6*time.Hour))
+	r.ReportRateLimit("zen", proven, OutcomeLimited, "429 Too Many Requests", time.Now().Add(6*time.Hour))
+
+	answeredAtOnce := 0
+	probed := 0
+	for i := 0; i < quotaBlockedUnknownSkip; i++ {
+		c, ok := r.Pick("zen", nil)
+		if !ok {
+			t.Fatal("Pick failed")
+		}
+		if c.Name == "proven" {
+			answeredAtOnce++
+			continue
+		}
+		probed++
+	}
+	if answeredAtOnce != quotaBlockedUnknownSkip-1 || probed != 1 {
+		t.Fatalf("answered at once %d, probed %d; want %d and 1", answeredAtOnce, probed, quotaBlockedUnknownSkip-1)
+	}
+}
+
+// An untried address of the provider's own tier is not a tunnel to be avoided:
+// it answers in milliseconds when it has quota, so it is always tried.
+func TestPickDoesNotShortCircuitWhileAnExitHasQuota(t *testing.T) {
+	r := NewRegistry()
+	spent := Candidate{Name: "spent", LocalAddr: ip("10.0.0.1")}
+	r.SetCore("zen", StrategyRoundRobin, []Candidate{spent, {Name: "fresh", LocalAddr: ip("10.0.0.2")}})
+	r.SetExtensionSource(func(string) []Candidate {
+		return []Candidate{{Name: "u1", LocalAddr: ip("10.0.0.3"), Tier: TierFallback}}
+	})
+	r.ReportRateLimit("zen", spent, OutcomeLimited, "429 Too Many Requests", time.Now().Add(6*time.Hour))
+
+	for i := 0; i < 4; i++ {
+		c, ok := r.Pick("zen", nil)
+		if !ok {
+			t.Fatal("Pick failed")
+		}
+		if c.Name != "fresh" {
+			t.Fatalf("Picked %q, want the address that still has quota", c.Name)
+		}
+	}
+}

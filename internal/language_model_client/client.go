@@ -425,6 +425,12 @@ func (c *Client) maxAttempts() int {
 // the worst case bounded.
 const maxExitFailovers = 4
 
+// failoverWallClockBudget bounds how long one request may spend looking for a
+// live exit. Each attempt is bounded by the transport, but the attempts add
+// up, and the caller's patience does not: four attempts against tunnels that
+// never answer are minutes, which is the same as no answer at all.
+const failoverWallClockBudget = 40 * time.Second
+
 // failoverBudget is how many extra attempts a rate limit may buy.
 //
 // It is separate from the retry budget on purpose: transient upstream faults
@@ -526,7 +532,14 @@ func (c *Client) DoRaw(ctx context.Context, req Request) (*Response, error) {
 	// next address is tried right away, without the backoff that would only
 	// add latency to a request that is already late.
 	failover := false
+	startedAt := time.Now()
 	for attempt := 0; attempt < maxAttempts+failoverBudget; attempt++ {
+		// Stop starting new exits once the request has spent its budget looking
+		// for one: the caller gets the most informative error so far instead of
+		// a wait that no longer serves them.
+		if failovers > 0 && time.Since(startedAt) >= failoverWallClockBudget {
+			break
+		}
 		if !failover {
 			if err := c.waitForRetryAttempt(ctx, scope, retries); err != nil {
 				return nil, err
@@ -784,8 +797,15 @@ func (c *Client) DoPassthrough(ctx context.Context, req Request) (*http.Response
 	// next address is tried right away, without the backoff that would only
 	// add latency to a request that is already late.
 	failover := false
+	startedAt := time.Now()
 
 	for attempt := 0; attempt < maxAttempts+failoverBudget; attempt++ {
+		// Stop starting new exits once the request has spent its budget looking
+		// for one: the caller gets the most informative error so far instead of
+		// a wait that no longer serves them.
+		if failovers > 0 && time.Since(startedAt) >= failoverWallClockBudget {
+			break
+		}
 		if !failover {
 			if err := c.waitForRetryAttempt(ctx, scope, retries); err != nil {
 				return nil, err

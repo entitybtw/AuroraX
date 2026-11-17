@@ -245,6 +245,11 @@ type providerState struct {
 	// every exit either fails or is cooling down, the request goes back here
 	// instead of hanging on an exit that was never proven to work.
 	lastAnswered string
+	// explore counts the requests that reached for an untried exit while a
+	// long quota window was already known. One in every
+	// quotaBlockedUnknownSkip still does, so a working address is found if
+	// one exists.
+	explore uint64
 }
 
 // Registry tracks per-provider egress candidates. It is safe for concurrent
@@ -558,6 +563,54 @@ func (st *providerState) preferAnswered(cands []Candidate) []Candidate {
 	return out
 }
 
+// quotaBlockedWindow is how long a cooldown has to be before it is treated as
+// a spent quota rather than a burst throttle. Daily free tiers announce hours;
+// per-minute limits announce seconds, and a request may well succeed on
+// another address within those seconds.
+const quotaBlockedWindow = 10 * time.Minute
+
+// quotaBlockedUnknownSkip is how many requests may be answered at once before
+// one of them is allowed to go looking for a working exit again.
+const quotaBlockedUnknownSkip = 8
+
+// quotaBlocked reports whether every exit that has ever answered is cooling
+// down on a long window, which is what an exhausted daily quota looks like.
+func (st *providerState) quotaBlocked(now time.Time) bool {
+	answered := 0
+	for _, h := range st.health {
+		if h == nil || !h.answered {
+			continue
+		}
+		answered++
+		if h.limitedUntil.IsZero() || !now.Before(h.limitedUntil) {
+			return false
+		}
+		if h.limitedUntil.Sub(now) < quotaBlockedWindow {
+			return false
+		}
+	}
+	return answered > 0
+}
+
+// onlyUntriedFallback reports whether every candidate is a fallback exit that
+// has never carried an upstream answer.
+//
+// The preferred tier is excluded on purpose: those are the provider's own
+// source addresses, they answer in milliseconds when they have quota, and
+// skipping them is the one mistake that would cost the request its chance to
+// succeed. The fallback tier is where the long tail of tunnels lives.
+func (st *providerState) onlyUntriedFallback(cands []Candidate) bool {
+	for _, c := range cands {
+		if c.Tier <= TierPreferred {
+			return false
+		}
+		if h := st.health[c.Name]; h != nil && h.answered {
+			return false
+		}
+	}
+	return len(cands) > 0
+}
+
 // probeWorthy reports whether an exit that already answered can be tried
 // again when nothing better is left: a rate-limited exit is, because the
 // upstream answers its refusal at once; an exit whose last failure is recent
@@ -687,6 +740,22 @@ func (r *Registry) Pick(provider string, exclude map[string]struct{}) (Candidate
 	}
 	if len(usable) == 0 {
 		usable = all
+	}
+
+	// A spent daily quota belongs to the account behind the client, not to one
+	// address: every exit already said so with the same multi-hour window, and
+	// the untried ones are mostly tunnels that accept the connection and never
+	// route. Walking them turned a request that was going to be refused
+	// anyway into minutes of waiting, so the exit that already knows the
+	// answer refuses it immediately — and one request in
+	// quotaBlockedUnknownSkip still goes looking, in case an address with
+	// quota does exist.
+	if st != nil && st.quotaBlocked(now) && st.onlyUntriedFallback(usable) {
+		if atomic.AddUint64(&st.explore, 1)%quotaBlockedUnknownSkip != 0 {
+			if preferred, ok := st.answeredExit(all); ok {
+				usable = []Candidate{preferred}
+			}
+		}
 	}
 
 	chosen := chooseTier(usable, func(t Tier) bool {
@@ -857,8 +926,8 @@ type ExitStatus struct {
 	Name   string `json:"name"`
 	Source string `json:"source"`
 	// Kind is "ip" for a local source address and "proxy" for a tunnelled exit.
-	Kind   string `json:"kind"`
-	Tier   Tier   `json:"tier"`
+	Kind string `json:"kind"`
+	Tier Tier   `json:"tier"`
 	// Address is the local source address, Proxy the tunnel endpoint.
 	Address string `json:"address,omitempty"`
 	Proxy   string `json:"proxy,omitempty"`
@@ -877,10 +946,10 @@ type ExitStatus struct {
 	CooldownUntil *time.Time `json:"cooldown_until,omitempty"`
 	// LimitedUntil is when the upstream's retry window for this exit ends
 	// (Retry-After on a rate limit). Empty when the exit was not limited.
-	LimitedUntil  *time.Time `json:"limited_until,omitempty"`
-	LastOutcome   string     `json:"last_outcome,omitempty"`
-	LastError     string     `json:"last_error,omitempty"`
-	LastAt        *time.Time `json:"last_at,omitempty"`
+	LimitedUntil *time.Time `json:"limited_until,omitempty"`
+	LastOutcome  string     `json:"last_outcome,omitempty"`
+	LastError    string     `json:"last_error,omitempty"`
+	LastAt       *time.Time `json:"last_at,omitempty"`
 }
 
 // ProviderEgressStatus is every exit of one provider plus how they are
