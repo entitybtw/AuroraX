@@ -25,7 +25,7 @@ func recoverMS(t *testing.T, head string, near int64) int64 {
 	const mod = int64(1) << 48
 	// n = ms<<12 + seq, a = -n-1, u = a mod 2^48
 	// => n ≡ -u-1 (mod 2^48)
-	nMod := ((-int64(u) - 1) % mod + mod) % mod
+	nMod := ((-int64(u)-1)%mod + mod) % mod
 
 	// The counter is always small (first id of a millisecond in practice), so
 	// try the plausible values and pick the ms nearest `near`.

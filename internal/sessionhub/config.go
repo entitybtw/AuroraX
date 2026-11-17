@@ -173,6 +173,68 @@ func EnsureRules(existing ProviderRule, want []HeaderRule) (ProviderRule, []stri
 	return existing, added, kept
 }
 
+// AlignRules merges desired header rules into an existing rule and, unlike
+// EnsureRules, also brings headers that already exist *up to* the desired
+// shape when the desired shape requests per-request behaviour.
+//
+// The distinction matters for extensions: "per-request" is a guarantee the
+// extension documents (a fresh session id on every request), not a cosmetic
+// default. A provider installed before that was the documented behaviour still
+// carries "map_or_generate" rules, and EnsureRules would happily keep them
+// forever, so the guarantee would silently not hold on upgraded installs.
+//
+// The upgrade is deliberately narrow: a header is changed only when both the
+// existing rule and the desired rule are one of the session-id generating
+// modes and the desired mode is "generate". Everything else — a static value,
+// a custom prefix, an operator's chosen mode, headers the extension does not
+// mention — stays exactly as the operator left it.
+func AlignRules(existing ProviderRule, want []HeaderRule) (ProviderRule, []string, []string, []string) {
+	added := []string{}
+	kept := []string{}
+	aligned := []string{}
+	index := make(map[string]int, len(existing.Headers))
+	for i, h := range existing.Headers {
+		index[h.Name] = i
+	}
+	for _, w := range want {
+		if w.Name == "" {
+			continue
+		}
+		pos, ok := index[w.Name]
+		if !ok {
+			existing.Headers = append(existing.Headers, w)
+			added = append(added, w.Name)
+			continue
+		}
+		current := existing.Headers[pos]
+		if w.Mode == HeaderModeGenerate && isGeneratingMode(current.Mode) && current.Mode != HeaderModeGenerate {
+			current.Mode = HeaderModeGenerate
+			// The desired template travels with the mode: a template is what
+			// makes the session headers share one value.
+			if w.Template != "" {
+				current.Template = w.Template
+			}
+			existing.Headers[pos] = current
+			aligned = append(aligned, w.Name)
+			continue
+		}
+		kept = append(kept, w.Name)
+	}
+	existing.Enabled = true
+	return existing, added, kept, aligned
+}
+
+// isGeneratingMode reports whether a mode produces a value from a generator
+// (and therefore may be upgraded to per-request generation).
+func isGeneratingMode(mode HeaderMode) bool {
+	switch mode {
+	case HeaderModeGenerate, HeaderModeMap, HeaderModeMapOrGenerate:
+		return true
+	default:
+		return false
+	}
+}
+
 // LoadConfig reads session hub config from a YAML file.
 func LoadConfig(path string) (*HubConfig, error) {
 	data, err := os.ReadFile(path)

@@ -11,6 +11,7 @@ package tlsfront
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -18,6 +19,7 @@ import (
 	"os"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	httpclient "aurora/internal/http_client"
@@ -110,6 +112,51 @@ func (f *Front) Addr() string {
 		return ""
 	}
 	return f.ln.Addr().String()
+}
+
+// StartOrReuse starts the front the way Start does, but treats an occupied
+// listen address as "another instance already serves it" instead of a fatal
+// error, provided that instance answers like a front.
+//
+// The address is a fixed loopback port in the container's shared network
+// namespace (network_mode: host). A previous container that is still shutting
+// down holds it for a few seconds, and a front left behind by a crashed
+// gateway holds it forever. Failing startup in both cases turned a routine
+// restart into "the whole gateway is down"; reusing a verified front is safe
+// because the front is stateless — it applies the headers every request
+// carries.
+func (f *Front) StartOrReuse(addr string) (string, error) {
+	bound, err := f.Start(addr)
+	if err == nil {
+		return bound, nil
+	}
+	if !isAddrInUse(err) {
+		return "", err
+	}
+	if !LooksLikeFront(addr) {
+		return "", fmt.Errorf("tls front: %w (and the listener is not a front, so it will not be reused)", err)
+	}
+	log.Printf("tls front: %s is already served by another instance, reusing it", addr)
+	return addr, nil
+}
+
+// LooksLikeFront reports whether addr answers like a TLS front: a request
+// without the upstream header is rejected with 400 and the "tls front" text.
+// A stranger on the port therefore never gets mistaken for one.
+func LooksLikeFront(addr string) bool {
+	client := &http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get("http://" + addr + "/")
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+	return resp.StatusCode == http.StatusBadRequest && strings.Contains(string(body), "tls front")
+}
+
+// isAddrInUse reports whether a listen error is the address being taken.
+func isAddrInUse(err error) bool {
+	return errors.Is(err, syscall.EADDRINUSE) || strings.Contains(strings.ToLower(err.Error()), "address already in use")
 }
 
 // Close stops the listener.

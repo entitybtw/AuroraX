@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -103,8 +102,6 @@ func (rt *utlsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 		conn.Close()
 		return nil, fmt.Errorf("utls: handshake %s: %w", addr, err)
 	}
-
-	log.Printf("utls: RoundTrip called: %s %s (bind=%s)", req.Method, req.URL, rt.bindAddr)
 
 	proto := uconn.ConnectionState().NegotiatedProtocol
 	if proto == "h2" || proto == "" {

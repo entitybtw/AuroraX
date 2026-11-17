@@ -97,7 +97,7 @@ func RegisterSessionHubRoutes(g interface {
 			return c.JSON(400, map[string]interface{}{"status": "error", "error": "headers are required"})
 		}
 		existing, _ := hub.GetProviderRule(name)
-		merged, added, kept := EnsureRules(existing, req.Headers)
+		merged, added, kept, aligned := AlignRules(existing, req.Headers)
 		if err := ValidateRule(name, merged); err != nil {
 			return c.JSON(400, map[string]interface{}{"status": "error", "error": err.Error()})
 		}
@@ -108,6 +108,7 @@ func RegisterSessionHubRoutes(g interface {
 				"provider": name,
 				"added":    added,
 				"already":  kept,
+				"aligned":  aligned,
 				"headers":  merged.Headers,
 			},
 		})

@@ -91,3 +91,21 @@ done
 - `internal/application/app.go` — starts the front when
   `AURORA_TLS_FRONT_LISTEN` is set and closes it on shutdown.
 - `internal/providers/sidecarclient/sidecar/{adapter,execute}.js` — front mode.
+
+## Two operational details worth knowing
+
+**The listen port is shared.** With `network_mode: host` the fixed loopback
+port outlives the container: a previous container still shutting down holds it
+for a few seconds, and a front left behind by a crash holds it forever.
+Startup therefore does not fail on `EADDRINUSE`; it probes the port and
+**reuses** the listener if it answers like a front, and only errors when the
+port is held by something else. If the gateway refuses to start with
+`tls front: listen ... address already in use (and the listener is not a
+front)`, something unrelated owns the port — find it with
+`ss -ltnp | grep <port>`.
+
+**`base_url` may point at the front.** When it does, the sidecar takes the real
+upstream from `AURORA_SIDECAR_UPSTREAM_REAL` instead of looping into the front,
+and answers `503` with an explicit message when that variable is unset. The
+simpler setup keeps `base_url` at the real upstream and only sets
+`tls_front_url`; both work.

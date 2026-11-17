@@ -174,7 +174,10 @@ export async function executeRequest(envelope, cfg) {
     };
     if (cfg.userAgent) h["User-Agent"] = cfg.userAgent;
     if (tlsFront) {
-      h["x-aurora-upstream"] = cfg.upstream;
+      // base_url may be the front itself; then the real upstream comes from
+      // AURORA_SIDECAR_UPSTREAM_REAL so the front has somewhere to go.
+      h["x-aurora-upstream"] =
+        cfg.realUpstream || cfg.upstream;
       for (const name of [
         "x-aurora-bind-ip",
         "x-aurora-exit-proxy",

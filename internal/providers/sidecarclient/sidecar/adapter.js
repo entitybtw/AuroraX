@@ -255,6 +255,20 @@ function resolveUpstream() {
   return overridesCache.baseUrl || "";
 }
 
+// realUpstream returns the upstream the TLS front should dial.
+//
+// base_url may point at the front itself (one URL for both, which is the
+// simplest operator setup). A front pointed at itself would loop, so in that
+// case the real upstream comes from AURORA_SIDECAR_UPSTREAM_REAL and an empty
+// value is reported instead of being silently dropped: a request to an empty
+// URL would fail with an opaque error far from the misconfiguration.
+function realUpstream(tlsFront) {
+  const configured = (process.env.AURORA_SIDECAR_UPSTREAM_REAL || "").trim();
+  const base = (overridesCache.baseUrl || "").replace(/\/+$/, "");
+  if (base && base !== tlsFront) return base;
+  return configured;
+}
+
 function scopeAllows(providerType) {
   if (INJECT_TYPES.size > 0) {
     return !providerType || INJECT_TYPES.has(providerType);
@@ -430,7 +444,24 @@ Bun.serve({
       const modelURL = tlsFront
         ? tlsFront + (overrides.modelsPath || "/models")
         : upstream(UPSTREAM, overrides.modelsPath);
-      if (tlsFront) modelHeaders["x-aurora-upstream"] = UPSTREAM;
+      // In front mode base_url may legitimately *be* the front (one URL for
+      // both), so the real upstream travels in the header. Only a base that
+      // points somewhere else is forwarded as-is.
+      if (tlsFront) {
+        const real = realUpstream(tlsFront);
+        if (!real) {
+          return json(
+            {
+              error: {
+                message:
+                  "tls front mode: base_url points at the front itself and AURORA_SIDECAR_UPSTREAM_REAL is unset",
+              },
+            },
+            503,
+          );
+        }
+        modelHeaders["x-aurora-upstream"] = real;
+      }
 
       let upstreamResp;
       const attempts = Math.max(1, Math.min(3, Number(overrides.maxAttempts ?? 3)));
@@ -580,7 +611,19 @@ Bun.serve({
       proxies: proxyList,
       toolsPath,
       tlsFront: chatTlsFront,
+      realUpstream: chatTlsFront ? realUpstream(chatTlsFront) : "",
     });
+    if (cfg.tlsFront && !cfg.realUpstream) {
+      return json(
+        {
+          error: {
+            message:
+              "tls front mode: base_url points at the front itself and AURORA_SIDECAR_UPSTREAM_REAL is unset",
+          },
+        },
+        503,
+      );
+    }
 
     let out;
     let exitCode = 0;

@@ -85,6 +85,7 @@ func (h *Hub) rebuildRulesIndexLocked() {
 func (h *Hub) rebuildRulesIndex() {
 	h.rebuildRulesIndexLocked()
 }
+
 // NewWithPersistence creates a hub, seeds it from the YAML file at path if it
 // exists (overriding compiled-in defaults with persisted rules), and configures
 // it to auto-save after every rule mutation. mappingsPath is where live

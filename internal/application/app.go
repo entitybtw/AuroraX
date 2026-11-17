@@ -201,7 +201,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 		if err != nil {
 			return nil, err
 		}
-		bound, err := front.Start(listen)
+		bound, err := front.StartOrReuse(listen)
 		if err != nil {
 			return nil, err
 		}
@@ -2224,7 +2224,11 @@ func (e sessionHubHeaderEnsurer) EnsureHeaders(target string, headers []admin.Ex
 		})
 	}
 	existing, _ := e.hub.GetProviderRule(target)
-	merged, added, kept := sessionhub.EnsureRules(existing, want)
+	// Re-applying an extension must bring previously installed headers up to
+	// the extension's documented behaviour (for example "a fresh session id
+	// per request"), not only add the ones that are missing. EnsureRules alone
+	// keeps an older mode forever on upgraded installs.
+	merged, added, kept, aligned := sessionhub.AlignRules(existing, want)
 	if err := sessionhub.ValidateRule(target, merged); err != nil {
 		return nil, err
 	}
@@ -2233,6 +2237,7 @@ func (e sessionHubHeaderEnsurer) EnsureHeaders(target string, headers []admin.Ex
 		"provider": target,
 		"added":    added,
 		"already":  kept,
+		"aligned":  aligned,
 		"headers":  merged.Headers,
 	}, nil
 }
